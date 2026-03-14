@@ -33,6 +33,8 @@ function App() {
     updateCell,
     requestValidation,
     requestHint,
+    autoNotesActive,
+    toggleAutoNotes,
     clearStatus,
   } = useSudokuGame();
 
@@ -54,6 +56,8 @@ function App() {
             onNewGame={() => startNewGame(difficulty)}
             onValidate={requestValidation}
             onHint={requestHint}
+            autoNotesActive={autoNotesActive}
+            onAutoNotes={toggleAutoNotes}
           />
 
           {isLoading && !currentGrid ? (

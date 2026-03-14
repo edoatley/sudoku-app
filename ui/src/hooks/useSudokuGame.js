@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { generatePuzzle, validatePuzzle, getHint } from '../api/sudokuApi.js';
+import { generatePuzzle, validatePuzzle, getHint, getCandidates } from '../api/sudokuApi.js';
 
 const emptyCandidate = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
 
@@ -7,6 +7,8 @@ export function useSudokuGame() {
   const [originalGrid, setOriginalGrid] = useState(null);
   const [currentGrid, setCurrentGrid] = useState(null);
   const [candidateGrid, setCandidateGrid] = useState(null);
+  const [autoNotesGrid, setAutoNotesGrid] = useState(null);
+  const [autoNotesActive, setAutoNotesActive] = useState(false);
   const [difficulty, setDifficulty] = useState('easy');
   const [errorCells, setErrorCells] = useState(new Set());
   const [hintCell, setHintCell] = useState(null);
@@ -26,9 +28,11 @@ export function useSudokuGame() {
     setGameStatus('idle');
     try {
       const data = await generatePuzzle(activeDiff);
-      setOriginalGrid(data.grid);
-      setCurrentGrid(data.grid.map((row) => [...row]));
+      setOriginalGrid(data.originalGrid);
+      setCurrentGrid(data.originalGrid.map((row) => [...row]));
       setCandidateGrid(emptyCandidate());
+      setAutoNotesGrid(null);
+      setAutoNotesActive(false);
     } catch (err) {
       setStatusMessage(`Failed to load puzzle: ${err.message}`);
       setGameStatus('error');
@@ -121,6 +125,29 @@ export function useSudokuGame() {
     }
   }, [currentGrid]);
 
+  const toggleAutoNotes = useCallback(async () => {
+    if (!currentGrid) return;
+    if (autoNotesActive) {
+      setAutoNotesActive(false);
+      return;
+    }
+    // Activate: fetch if not already loaded
+    if (!autoNotesGrid) {
+      setIsLoading(true);
+      try {
+        const result = await getCandidates(currentGrid);
+        setAutoNotesGrid(result.candidatesGrid);
+      } catch (err) {
+        setStatusMessage(`Auto-notes failed: ${err.message}`);
+        setGameStatus('error');
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    setAutoNotesActive(true);
+  }, [currentGrid, autoNotesActive, autoNotesGrid]);
+
   const clearStatus = useCallback(() => {
     setStatusMessage(null);
     setGameStatus('idle');
@@ -133,7 +160,7 @@ export function useSudokuGame() {
   return {
     originalGrid,
     currentGrid,
-    candidateGrid,
+    candidateGrid: autoNotesActive ? autoNotesGrid : candidateGrid,
     difficulty,
     errorCells,
     hintCell,
@@ -142,6 +169,7 @@ export function useSudokuGame() {
     gameStatus,
     inputMode,
     selectedNumber,
+    autoNotesActive,
     setInputMode,
     setSelectedNumber,
     setDifficulty: handleSetDifficulty,
@@ -149,6 +177,7 @@ export function useSudokuGame() {
     updateCell,
     requestValidation,
     requestHint,
+    toggleAutoNotes,
     clearStatus,
   };
 }

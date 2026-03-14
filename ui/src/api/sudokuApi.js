@@ -1,4 +1,4 @@
-import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT } from '../mocks/cannedData.js';
+import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES } from '../mocks/cannedData.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
@@ -27,7 +27,7 @@ export async function validatePuzzle(currentGrid) {
   const res = await fetch(`${API_URL}/puzzles/validate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grid: currentGrid }),
+    body: JSON.stringify({ currentGrid }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -42,7 +42,22 @@ export async function getHint(currentGrid) {
   const res = await fetch(`${API_URL}/puzzles/hint`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grid: currentGrid }),
+    body: JSON.stringify({ currentGrid }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function getCandidates(currentGrid) {
+  if (MOCK_API) {
+    await delay(400);
+    return CANNED_CANDIDATES;
+  }
+
+  const res = await fetch(`${API_URL}/puzzles/candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentGrid }),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

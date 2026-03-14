@@ -79,6 +79,25 @@ paths:
                 $ref: '#/components/schemas/HintResponse'
         '400':
           description: Board is invalid or already fully solved.
+  /puzzles/candidates:
+    post:
+      tags:
+        - Puzzles
+      summary: Auto-calculate candidates for the board
+      description: Evaluates the current board and returns a grid of all valid candidate numbers for every empty cell.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+      responses:
+        '200':
+          description: Candidates calculated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidatesResponse'
 
 components:
   schemas:
@@ -165,3 +184,28 @@ components:
           type: integer
           minimum: 0
           maximum: 8
+
+    CandidatesResponse:
+      type: object
+      required:
+        - candidatesGrid
+      properties:
+        candidatesGrid:
+          $ref: '#/components/schemas/CandidatesGrid'
+
+    CandidatesGrid:
+      type: array
+      description: A 9x9 matrix where each cell contains an array of possible valid integers (1-9). If a cell is already filled in the main board, its candidate array is empty.
+      minItems: 9
+      maxItems: 9
+      items:
+        type: array
+        minItems: 9
+        maxItems: 9
+        items:
+          type: array
+          description: List of valid candidate numbers for this specific cell.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 9

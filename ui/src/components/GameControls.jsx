@@ -8,37 +8,48 @@ import InputLabel from '@mui/material/InputLabel';
 
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 
-export default function GameControls({ difficulty, isLoading, onDifficultyChange, onNewGame, onValidate, onHint }) {
+export default function GameControls({ difficulty, isLoading, autoNotesActive, onDifficultyChange, onNewGame, onValidate, onHint, onAutoNotes }) {
   return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" flexWrap="wrap">
-      <FormControl size="small" sx={{ minWidth: 120 }}>
-        <InputLabel id="difficulty-label">Difficulty</InputLabel>
-        <Select
-          labelId="difficulty-label"
-          value={difficulty}
-          label="Difficulty"
-          onChange={(e) => onDifficultyChange(e.target.value)}
+    <Stack spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} alignItems="center">
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel id="difficulty-label">Difficulty</InputLabel>
+          <Select
+            labelId="difficulty-label"
+            value={difficulty}
+            label="Difficulty"
+            onChange={(e) => onDifficultyChange(e.target.value)}
+            disabled={isLoading}
+          >
+            {DIFFICULTIES.map((d) => (
+              <MenuItem key={d} value={d} sx={{ textTransform: 'capitalize' }}>
+                {d.charAt(0).toUpperCase() + d.slice(1)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button variant="contained" onClick={onNewGame} disabled={isLoading}>
+          New Game
+        </Button>
+        {isLoading && <CircularProgress size={24} />}
+      </Stack>
+
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Button variant="outlined" onClick={onValidate} disabled={isLoading}>
+          Validate
+        </Button>
+        <Button variant="outlined" onClick={onHint} disabled={isLoading}>
+          Hint
+        </Button>
+        <Button
+          variant={autoNotesActive ? 'contained' : 'outlined'}
+          color={autoNotesActive ? 'secondary' : 'primary'}
+          onClick={onAutoNotes}
           disabled={isLoading}
         >
-          {DIFFICULTIES.map((d) => (
-            <MenuItem key={d} value={d} sx={{ textTransform: 'capitalize' }}>
-              {d.charAt(0).toUpperCase() + d.slice(1)}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      <Button variant="contained" onClick={onNewGame} disabled={isLoading}>
-        New Game
-      </Button>
-      <Button variant="outlined" onClick={onValidate} disabled={isLoading}>
-        Validate
-      </Button>
-      <Button variant="outlined" onClick={onHint} disabled={isLoading}>
-        Hint
-      </Button>
-
-      {isLoading && <CircularProgress size={24} />}
+          Auto-Notes
+        </Button>
+      </Stack>
     </Stack>
   );
 }
