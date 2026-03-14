@@ -1,0 +1,167 @@
+openapi: 3.0.3
+info:
+  title: Serverless Sudoku API
+  version: 1.0.0
+  description: >
+    The API contract for the Serverless Sudoku application. 
+    This API is completely stateless. The client is responsible for maintaining the current board state.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Quarkus Development Server
+  - url: https://api.your-amplify-domain.com/v1
+    description: Production AWS API Gateway
+tags:
+  - name: Puzzles
+    description: Endpoints for generating and validating Sudoku grids
+
+paths:
+  /puzzles/generate:
+    get:
+      tags:
+        - Puzzles
+      summary: Generate a new Sudoku puzzle
+      description: Returns a newly generated 9x9 Sudoku grid based on the requested difficulty.
+      parameters:
+        - in: query
+          name: difficulty
+          schema:
+            $ref: '#/components/schemas/Difficulty'
+          required: false
+          description: The difficulty level of the puzzle. Defaults to 'medium'.
+      responses:
+        '200':
+          description: A new Sudoku puzzle generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PuzzleResponse'
+
+  /puzzles/validate:
+    post:
+      tags:
+        - Puzzles
+      summary: Validate a Sudoku board
+      description: Checks the provided 9x9 grid against Sudoku rules. Returns true if valid, or a list of conflicting coordinates if invalid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+      responses:
+        '200':
+          description: Validation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '400':
+          description: Malformed board payload (e.g., not 9x9).
+
+  /puzzles/hint:
+    post:
+      tags:
+        - Puzzles
+      summary: Request a hint for the current board
+      description: Evaluates the current board and returns the correct value for a single empty cell.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+      responses:
+        '200':
+          description: Hint generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HintResponse'
+        '400':
+          description: Board is invalid or already fully solved.
+
+components:
+  schemas:
+    Difficulty:
+      type: string
+      enum: [easy, medium, hard, expert]
+      default: medium
+
+    Grid:
+      type: array
+      description: A 9x9 matrix representing the Sudoku board. 0 represents an empty cell.
+      minItems: 9
+      maxItems: 9
+      items:
+        type: array
+        minItems: 9
+        maxItems: 9
+        items:
+          type: integer
+          minimum: 0
+          maximum: 9
+
+    PuzzleResponse:
+      type: object
+      required:
+        - originalGrid
+        - difficulty
+      properties:
+        originalGrid:
+          $ref: '#/components/schemas/Grid'
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+
+    BoardRequest:
+      type: object
+      required:
+        - currentGrid
+      properties:
+        currentGrid:
+          $ref: '#/components/schemas/Grid'
+
+    ValidationResponse:
+      type: object
+      required:
+        - isValid
+      properties:
+        isValid:
+          type: boolean
+          description: True if the board violates no Sudoku rules.
+        isSolved:
+          type: boolean
+          description: True if the board is completely filled and valid.
+        errors:
+          type: array
+          description: List of coordinates that are conflicting (if isValid is false).
+          items:
+            $ref: '#/components/schemas/Coordinate'
+
+    HintResponse:
+      type: object
+      required:
+        - coordinate
+        - value
+      properties:
+        coordinate:
+          $ref: '#/components/schemas/Coordinate'
+        value:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: The correct value for this cell.
+
+    Coordinate:
+      type: object
+      required:
+        - row
+        - col
+      properties:
+        row:
+          type: integer
+          minimum: 0
+          maximum: 8
+        col:
+          type: integer
+          minimum: 0
+          maximum: 8
