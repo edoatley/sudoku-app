@@ -15,7 +15,7 @@ export default function StatusBar({ gameStatus, statusMessage, onClose }) {
 
   return (
     <Collapse in={open}>
-      <Alert severity={severity} onClose={onClose} sx={{ width: '100%' }}>
+      <Alert data-testid="status-alert" severity={severity} onClose={onClose} sx={{ width: '100%' }}>
         {message}
       </Alert>
     </Collapse>

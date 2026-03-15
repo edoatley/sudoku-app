@@ -21,6 +21,8 @@ export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, e
           {rowArr.map((value, col) => (
             <Box key={col} sx={getBorderSx(row, col)}>
               <SudokuCell
+                row={row}
+                col={col}
                 value={value}
                 isGiven={originalGrid[row][col] !== 0}
                 isError={errorCells.has(`${row},${col}`)}

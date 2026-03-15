@@ -41,13 +41,14 @@ function CandidateDisplay({ candidates }) {
   );
 }
 
-export default function SudokuCell({ value, isGiven, isError, isHint, candidates = [], onClick }) {
+export default function SudokuCell({ row, col, value, isGiven, isError, isHint, candidates = [], onClick }) {
   const bg = getBackground(isError, isHint, isGiven);
   const hasCandidates = candidates.length > 0;
   const displayValue = value === 0 ? '' : String(value);
 
   return (
     <Box
+      data-testid={`cell-${row}-${col}`}
       onClick={isGiven ? undefined : onClick}
       sx={{
         ...cellSize,
