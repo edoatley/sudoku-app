@@ -1,0 +1,330 @@
+openapi: 3.0.3
+info:
+  title: Serverless Sudoku API
+  version: 1.0.0
+  description: >
+    The API contract for the Serverless Sudoku application. 
+    This API is completely stateless. The client is responsible for maintaining the current board state.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Quarkus Development Server
+  - url: https://api.your-amplify-domain.com/v1
+    description: Production AWS API Gateway
+tags:
+  - name: Puzzles
+    description: Endpoints for generating and validating Sudoku grids
+
+paths:
+  /puzzles/generate:
+    get:
+      tags:
+        - Puzzles
+      summary: Generate a new Sudoku puzzle
+      description: Returns a newly generated 9x9 Sudoku grid based on the requested difficulty.
+      parameters:
+        - in: query
+          name: difficulty
+          schema:
+            $ref: '#/components/schemas/Difficulty'
+          required: false
+          description: The difficulty level of the puzzle. Defaults to 'medium'.
+      responses:
+        '200':
+          description: A new Sudoku puzzle generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PuzzleResponse'
+
+  /puzzles/validate:
+    post:
+      tags:
+        - Puzzles
+      summary: Validate a Sudoku board
+      description: Checks the provided 9x9 grid against Sudoku rules. Returns true if valid, or a list of conflicting coordinates if invalid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+      responses:
+        '200':
+          description: Validation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '400':
+          description: Malformed board payload (e.g., not 9x9).
+
+  /puzzles/hint:
+    post:
+      tags:
+        - Puzzles
+      summary: Request a logical learning hint for the current board
+      description: Evaluates the board using human logic techniques. Returns a progressive hint (Nudge, Focus, Reveal) and the exact board modifications required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+      responses:
+        '200':
+          description: A logical hint was found successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HintResponse'
+        '404':
+          description: No logical next step found (board might be invalid or requires guessing, which we want to avoid).
+
+  /puzzles/candidates:
+    post:
+      tags:
+        - Puzzles
+      summary: Auto-calculate candidates for the board
+      description: Evaluates the current board and returns a grid of all valid candidate numbers for every empty cell.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardRequest'
+      responses:
+        '200':
+          description: Candidates calculated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidatesResponse'
+
+components:
+  schemas:
+    Difficulty:
+      type: string
+      enum: [easy, medium, hard, expert]
+      default: medium
+      example: "medium"
+
+    Grid:
+      type: array
+      description: A 9x9 matrix representing the Sudoku board. 0 represents an empty cell.
+      minItems: 9
+      maxItems: 9
+      items:
+        type: array
+        minItems: 9
+        maxItems: 9
+        items:
+          type: integer
+          minimum: 0
+          maximum: 9
+
+    PuzzleResponse:
+      type: object
+      required:
+        - originalGrid
+        - difficulty
+      properties:
+        originalGrid:
+          $ref: '#/components/schemas/Grid'
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+
+    BoardRequest:
+      type: object
+      required:
+        - currentGrid
+      properties:
+        currentGrid:
+          $ref: '#/components/schemas/Grid'
+      example:
+        currentGrid: [
+          [5,3,0,0,7,0,0,0,0],
+          [6,0,0,1,9,5,0,0,0],
+          [0,9,8,0,0,0,0,6,0],
+          [8,0,0,0,6,0,0,0,3],
+          [4,0,0,8,0,3,0,0,1],
+          [7,0,0,0,2,0,0,0,6],
+          [0,6,0,0,0,0,2,8,0],
+          [0,0,0,4,1,9,0,0,5],
+          [0,0,0,0,8,0,0,7,9]
+        ]
+
+    ValidationResponse:
+      type: object
+      required:
+        - isValid
+      properties:
+        isValid:
+          type: boolean
+          description: True if the board violates no Sudoku rules.
+        isSolved:
+          type: boolean
+          description: True if the board is completely filled and valid.
+        errors:
+          type: array
+          description: List of coordinates that are conflicting (if isValid is false).
+          items:
+            $ref: '#/components/schemas/Coordinate'
+
+    HintResponse:
+      type: object
+      required:
+        - techniqueName
+        - markdownSlug
+        - difficulty
+        - nudge
+        - focus
+        - reveal
+        - highlightCells
+        - eliminatedCandidates
+        - solvedCells
+      properties:
+        techniqueName:
+          type: string
+          description: The friendly name of the logical technique used.
+        markdownSlug:
+          type: string
+          description: The identifier linking to the frontend markdown file (e.g., "naked-pair").
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        nudge:
+          type: string
+          description: Level 1 Hint - A gentle push toward the technique.
+        focus:
+          type: string
+          description: Level 2 Hint - Points the user to the specific area of the board.
+        reveal:
+          type: string
+          description: Level 3 Hint - Explains exactly what to do and why.
+        highlightCells:
+          type: array
+          description: Coordinates of cells that form the pattern (e.g., the two cells of a Naked Pair).
+          items:
+            $ref: '#/components/schemas/Coordinate'
+        eliminatedCandidates:
+          type: array
+          description: Pencil marks that should be removed based on this logic.
+          items:
+            $ref: '#/components/schemas/CandidateElimination'
+        solvedCells:
+          type: array
+          description: Cells that can be definitively filled based on this logic.
+          items:
+            $ref: '#/components/schemas/ActionableCell'
+      example:
+        techniqueName: "Naked Pair"
+        markdownSlug: "naked-pair"
+        difficulty: "medium"
+        nudge: "There is a Naked Pair hiding somewhere on the board."
+        focus: "Look closely at the candidates in Row 4."
+        reveal: "Cells (4,2) and (4,6) only contain candidates 3 and 7. They form a Naked Pair, meaning 3 and 7 can be safely removed from all other cells in Row 4."
+        highlightCells:
+          - row: 4
+            col: 2
+          - row: 4
+            col: 6
+        eliminatedCandidates:
+          - row: 4
+            col: 8
+            value: 3
+          - row: 4
+            col: 9
+            value: 7
+        solvedCells: []
+
+    Coordinate:
+      type: object
+      required:
+        - row
+        - col
+      properties:
+        row:
+          type: integer
+          minimum: 0
+          maximum: 8
+        col:
+          type: integer
+          minimum: 0
+          maximum: 8
+      example:
+        row: 4
+        col: 2
+    
+    CandidatesResponse:
+      type: object
+      required:
+        - candidatesGrid
+      properties:
+        candidatesGrid:
+          $ref: '#/components/schemas/CandidatesGrid'
+
+    CandidatesGrid:
+      type: array
+      description: A 9x9 matrix where each cell contains an array of possible valid integers (1-9). If a cell is already filled in the main board, its candidate array is empty.
+      minItems: 9
+      maxItems: 9
+      items:
+        type: array
+        minItems: 9
+        maxItems: 9
+        items:
+          type: array
+          description: List of valid candidate numbers for this specific cell.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 9
+
+    CandidateElimination:
+      type: object
+      required:
+        - row
+        - col
+        - value
+      properties:
+        row:
+          type: integer
+          minimum: 0
+          maximum: 8
+        col:
+          type: integer
+          minimum: 0
+          maximum: 8
+        value:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: The candidate number to remove.
+      example:
+        row: 4
+        col: 8
+        value: 3 
+
+    ActionableCell:
+      type: object
+      required:
+        - row
+        - col
+        - value
+      properties:
+        row:
+          type: integer
+          minimum: 0
+          maximum: 8
+        col:
+          type: integer
+          minimum: 0
+          maximum: 8
+        value:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: The correct number to place in this cell.
+      example:
+        row: 2
+        col: 4
+        value: 7

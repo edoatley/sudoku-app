@@ -2,15 +2,15 @@ import { test, expect } from '@playwright/test';
 import { setupGenerateRoute, waitForGrid } from './helpers.js';
 
 const VALID_RESPONSE = {
-  valid: true,
+  isValid: true,
+  isSolved: false,
   errors: [],
-  message: 'Board is valid so far.',
 };
 
 const INVALID_RESPONSE = {
-  valid: false,
+  isValid: false,
+  isSolved: false,
   errors: [{ row: 0, col: 0 }, { row: 0, col: 2 }],
-  message: 'The board contains errors.',
 };
 
 async function setupRoutes(page, validateResponse) {

@@ -18,9 +18,9 @@ const NEAR_COMPLETE_PUZZLE = {
 };
 
 const VALID_RESPONSE = {
-  valid: true,
+  isValid: true,
+  isSolved: false,
   errors: [],
-  message: 'Board is valid so far.',
 };
 
 async function setupRoutes(page) {

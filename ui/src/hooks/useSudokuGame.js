@@ -116,14 +116,14 @@ export function useSudokuGame() {
     setIsLoading(true);
     try {
       const result = await validatePuzzle(currentGrid);
-      if (result.valid) {
+      if (result.isValid) {
         const allFilled = currentGrid.every((row) => row.every((v) => v !== 0));
         setGameStatus(allFilled ? 'solved' : 'valid');
-        setStatusMessage(allFilled ? null : result.message);
+        setStatusMessage(allFilled ? null : 'Board is valid so far.');
         setErrorCells(new Set());
       } else {
         setGameStatus('invalid');
-        setStatusMessage(result.message);
+        setStatusMessage('The board contains errors.');
         setErrorCells(new Set((result.errors ?? []).map((e) => `${e.row},${e.col}`)));
       }
     } catch (err) {

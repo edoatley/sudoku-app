@@ -44,15 +44,15 @@ export const CANNED_PUZZLES = {
 };
 
 export const CANNED_VALIDATE_VALID = {
-  valid: true,
+  isValid: true,
+  isSolved: false,
   errors: [],
-  message: 'Board is valid so far.',
 };
 
 export const CANNED_VALIDATE_INVALID = {
-  valid: false,
+  isValid: false,
+  isSolved: false,
   errors: [{ row: 0, col: 4 }, { row: 1, col: 3 }],
-  message: 'The board contains errors.',
 };
 
 export const CANNED_HINT = {

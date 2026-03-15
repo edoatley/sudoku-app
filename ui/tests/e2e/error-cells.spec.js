@@ -13,9 +13,9 @@ async function setupRoutes(page, validateResponse) {
 
 test('single error cell gets error background', async ({ page }) => {
   await setupRoutes(page, {
-    valid: false,
+    isValid: false,
+    isSolved: false,
     errors: [{ row: 0, col: 2 }],
-    message: 'The board contains errors.',
   });
   await page.goto('/');
   await waitForGrid(page);
@@ -31,9 +31,9 @@ test('single error cell gets error background', async ({ page }) => {
 
 test('multiple error cells all highlighted', async ({ page }) => {
   await setupRoutes(page, {
-    valid: false,
+    isValid: false,
+    isSolved: false,
     errors: [{ row: 0, col: 2 }, { row: 0, col: 3 }],
-    message: 'The board contains errors.',
   });
   await page.goto('/');
   await waitForGrid(page);
@@ -49,9 +49,9 @@ test('multiple error cells all highlighted', async ({ page }) => {
 
 test('error background clears when new value entered in error cell', async ({ page }) => {
   await setupRoutes(page, {
-    valid: false,
+    isValid: false,
+    isSolved: false,
     errors: [{ row: 0, col: 2 }],
-    message: 'The board contains errors.',
   });
   await page.goto('/');
   await waitForGrid(page);
