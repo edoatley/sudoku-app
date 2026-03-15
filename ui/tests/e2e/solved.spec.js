@@ -40,7 +40,7 @@ test('solved state shows congratulations alert', async ({ page }) => {
   await page.getByRole('button', { name: '9', exact: true }).click();
   await page.getByTestId('cell-8-8').click();
 
-  await page.getByRole('button', { name: 'Validate' }).click();
+  await page.getByRole('button', { name: 'Check' }).click();
 
   const alert = page.getByTestId('status-alert');
   await expect(alert).toBeVisible();
@@ -56,7 +56,7 @@ test('solved alert can be dismissed', async ({ page }) => {
   await page.getByRole('button', { name: '9', exact: true }).click();
   await page.getByTestId('cell-8-8').click();
 
-  await page.getByRole('button', { name: 'Validate' }).click();
+  await page.getByRole('button', { name: 'Check' }).click();
 
   const alert = page.getByTestId('status-alert');
   await expect(alert).toBeVisible();

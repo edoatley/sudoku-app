@@ -56,8 +56,15 @@ export const CANNED_VALIDATE_INVALID = {
 };
 
 export const CANNED_HINT = {
-  coordinate: { row: 0, col: 2 },
-  value: 4,
+  techniqueName: "Naked Single",
+  markdownSlug: "naked-single",
+  difficulty: "easy",
+  nudge: "There is a Naked Single hiding somewhere on the board.",
+  focus: "Look closely at cell (0, 2) — its row, column, and box together eliminate 8 numbers.",
+  reveal: "Cell (0, 2) can only be 4. All other numbers appear in its row, column, or 3×3 block.",
+  highlightCells: [{ row: 0, col: 2 }],
+  eliminatedCandidates: [],
+  solvedCells: [{ row: 0, col: 2, value: 4 }],
 };
 
 // Candidates for the easy puzzle: [5,3,0,0,7,0,0,0,0 / 6,0,0,1,9,5,0,0,0 / ...]

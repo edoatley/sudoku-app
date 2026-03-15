@@ -28,7 +28,7 @@ test('auto-notes — clicking Auto-Notes shows candidates in empty cells', async
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: 'Auto-Notes' }).click();
+  await page.getByRole('button', { name: 'Notes' }).click();
 
   // Row 0 col 2 has candidate 4 — should be rendered by CandidateDisplay
   await expect(page.getByTestId('cell-0-2')).toContainText('4');
@@ -40,10 +40,10 @@ test('auto-notes — clicking Auto-Notes again hides candidates', async ({ page 
   await waitForGrid(page);
 
   // Activate
-  await page.getByRole('button', { name: 'Auto-Notes' }).click();
+  await page.getByRole('button', { name: 'Notes' }).click();
   await expect(page.getByTestId('cell-0-2')).toContainText('4');
 
   // Deactivate — no second API call, autoNotesActive toggles off
-  await page.getByRole('button', { name: 'Auto-Notes' }).click();
+  await page.getByRole('button', { name: 'Notes' }).click();
   await expect(page.getByTestId('cell-0-2')).not.toContainText('4');
 });

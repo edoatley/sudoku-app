@@ -42,7 +42,7 @@ test('valid — fill row 0 with correct values and validate', async ({ page }) =
 
   await fillRow0Correctly(page);
 
-  await page.getByRole('button', { name: 'Validate' }).click();
+  await page.getByRole('button', { name: 'Check' }).click();
 
   const alert = page.getByTestId('status-alert');
   await expect(alert).toBeVisible();
@@ -59,7 +59,7 @@ test('invalid — enter a duplicate value in row 0 and validate', async ({ page 
   await page.getByRole('button', { name: '5', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
 
-  await page.getByRole('button', { name: 'Validate' }).click();
+  await page.getByRole('button', { name: 'Check' }).click();
 
   const alert = page.getByTestId('status-alert');
   await expect(alert).toBeVisible();

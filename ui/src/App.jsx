@@ -11,6 +11,7 @@ import SudokuGrid from './components/SudokuGrid.jsx';
 import GameControls from './components/GameControls.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import NumberPad from './components/NumberPad.jsx';
+import HintDialog from './components/HintDialog.jsx';
 
 const theme = createTheme();
 
@@ -21,7 +22,9 @@ function App() {
     candidateGrid,
     difficulty,
     errorCells,
-    hintCell,
+    activeHint,
+    hintStage,
+    highlightCells,
     isLoading,
     statusMessage,
     gameStatus,
@@ -37,6 +40,8 @@ function App() {
     canUndo,
     requestValidation,
     requestHint,
+    advanceHint,
+    dismissHint,
     autoNotesActive,
     selectedCell,
     toggleAutoNotes,
@@ -75,7 +80,7 @@ function App() {
                 currentGrid={currentGrid}
                 candidateGrid={candidateGrid}
                 errorCells={errorCells}
-                hintCell={hintCell}
+                highlightCells={highlightCells}
                 selectedCell={selectedCell}
                 selectedNumber={selectedNumber}
                 onCellClick={updateCell}
@@ -96,6 +101,13 @@ function App() {
               />
             </Box>
           )}
+          <HintDialog
+            open={!!activeHint}
+            hint={activeHint}
+            stage={hintStage}
+            onAdvance={advanceHint}
+            onDismiss={dismissHint}
+          />
         </Stack>
       </Container>
     </ThemeProvider>

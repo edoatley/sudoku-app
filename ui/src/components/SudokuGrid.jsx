@@ -19,10 +19,11 @@ function isSameRegion(selectedCell, row, col) {
      Math.floor(col / 3) === Math.floor(sc / 3));
 }
 
-export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, errorCells, hintCell, selectedCell, selectedNumber, onCellClick }) {
+export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, errorCells, highlightCells = [], selectedCell, selectedNumber, onCellClick }) {
   if (!originalGrid || !currentGrid) return null;
 
   const selectedValue = selectedCell ? currentGrid[selectedCell.row][selectedCell.col] : 0;
+  const highlightSet = new Set(highlightCells.map(({ row, col }) => `${row},${col}`));
 
   return (
     <Box sx={{ display: 'inline-block', overflowX: 'auto' }}>
@@ -36,7 +37,7 @@ export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, e
                 value={value}
                 isGiven={originalGrid[row][col] !== 0}
                 isError={errorCells.has(`${row},${col}`)}
-                isHint={hintCell?.row === row && hintCell?.col === col}
+                isHighlight={highlightSet.has(`${row},${col}`)}
                 isSelected={
                   selectedCell?.row === row &&
                   selectedCell?.col === col &&

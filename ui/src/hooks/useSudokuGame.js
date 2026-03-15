@@ -11,7 +11,9 @@ export function useSudokuGame() {
   const [autoNotesActive, setAutoNotesActive] = useState(false);
   const [difficulty, setDifficulty] = useState('easy');
   const [errorCells, setErrorCells] = useState(new Set());
-  const [hintCell, setHintCell] = useState(null);
+  const [activeHint, setActiveHint] = useState(null);
+  const [hintStage, setHintStage] = useState('nudge');
+  const [highlightCells, setHighlightCells] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [gameStatus, setGameStatus] = useState('idle');
@@ -19,13 +21,14 @@ export function useSudokuGame() {
   const [selectedNumber, setSelectedNumber] = useState(null);
   const [selectedCell, setSelectedCell] = useState(null);
   const [history, setHistory] = useState([]);
-  const hintTimerRef = useRef(null);
 
   const startNewGame = useCallback(async (diff) => {
     const activeDiff = diff ?? difficulty;
     setIsLoading(true);
     setErrorCells(new Set());
-    setHintCell(null);
+    setActiveHint(null);
+    setHintStage('nudge');
+    setHighlightCells([]);
     setStatusMessage(null);
     setGameStatus('idle');
     setSelectedCell(null);
@@ -48,9 +51,6 @@ export function useSudokuGame() {
 
   useEffect(() => {
     startNewGame();
-    return () => {
-      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -139,16 +139,9 @@ export function useSudokuGame() {
     setIsLoading(true);
     try {
       const hint = await getHint(currentGrid);
-      const { row, col } = hint.coordinate;
-      const value = hint.value;
-      setCurrentGrid((prev) => {
-        const next = prev.map((r) => [...r]);
-        next[row][col] = value;
-        return next;
-      });
-      setHintCell({ row, col, value });
-      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-      hintTimerRef.current = setTimeout(() => setHintCell(null), 2000);
+      setActiveHint(hint);
+      setHintStage('nudge');
+      setHighlightCells([]);
     } catch (err) {
       setStatusMessage(`Hint failed: ${err.message}`);
       setGameStatus('error');
@@ -156,6 +149,48 @@ export function useSudokuGame() {
       setIsLoading(false);
     }
   }, [currentGrid]);
+
+  const advanceHint = useCallback(() => {
+    if (!activeHint) return;
+    if (hintStage === 'nudge') {
+      setHintStage('focus');
+      setHighlightCells(activeHint.highlightCells);
+    } else if (hintStage === 'focus') {
+      setHintStage('reveal');
+      if (activeHint.eliminatedCandidates?.length > 0) {
+        setCandidateGrid((prev) => {
+          const next = prev.map((r) => r.map((c) => [...c]));
+          for (const { row, col, value } of activeHint.eliminatedCandidates) {
+            const idx = next[row][col].indexOf(value);
+            if (idx !== -1) next[row][col].splice(idx, 1);
+          }
+          return next;
+        });
+      }
+      if (activeHint.solvedCells?.length > 0) {
+        setCurrentGrid((prev) => {
+          const next = prev.map((r) => [...r]);
+          for (const { row, col, value } of activeHint.solvedCells) {
+            next[row][col] = value;
+          }
+          return next;
+        });
+        setCandidateGrid((prev) => {
+          const next = prev.map((r) => r.map((c) => [...c]));
+          for (const { row, col } of activeHint.solvedCells) {
+            next[row][col] = [];
+          }
+          return next;
+        });
+      }
+    }
+  }, [activeHint, hintStage]);
+
+  const dismissHint = useCallback(() => {
+    setActiveHint(null);
+    setHintStage('nudge');
+    setHighlightCells([]);
+  }, []);
 
   const toggleAutoNotes = useCallback(async () => {
     if (!currentGrid) return;
@@ -238,7 +273,9 @@ export function useSudokuGame() {
     candidateGrid: autoNotesActive ? autoNotesGrid : candidateGrid,
     difficulty,
     errorCells,
-    hintCell,
+    activeHint,
+    hintStage,
+    highlightCells,
     isLoading,
     statusMessage,
     gameStatus,
@@ -257,6 +294,8 @@ export function useSudokuGame() {
     canUndo: history.length > 0,
     requestValidation,
     requestHint,
+    advanceHint,
+    dismissHint,
     toggleAutoNotes,
     clearStatus,
   };

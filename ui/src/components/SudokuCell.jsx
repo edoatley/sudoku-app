@@ -3,9 +3,9 @@ import Box from '@mui/material/Box';
 const cellSize = { width: { xs: 32, sm: 44 }, height: { xs: 32, sm: 44 } };
 const fontSize = { xs: '0.875rem', sm: '1.125rem' };
 
-function getBackground(isError, isHint, isNumberHighlight, isSelected, isRegionHighlight, isGiven) {
+function getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRegionHighlight, isGiven) {
   if (isError)           return 'error.light';
-  if (isHint)            return 'info.light';
+  if (isHighlight)       return 'warning.light';
   if (isNumberHighlight) return '#4169E1';
   if (isSelected)        return '#3A6BC4';
   if (isRegionHighlight) return '#E8F4FD';
@@ -44,8 +44,8 @@ function CandidateDisplay({ candidates }) {
   );
 }
 
-export default function SudokuCell({ row, col, value, isGiven, isError, isHint, isSelected = false, isRegionHighlight = false, isNumberHighlight = false, candidates = [], onClick }) {
-  const bg = getBackground(isError, isHint, isNumberHighlight, isSelected, isRegionHighlight, isGiven);
+export default function SudokuCell({ row, col, value, isGiven, isError, isHighlight, isSelected = false, isRegionHighlight = false, isNumberHighlight = false, candidates = [], onClick }) {
+  const bg = getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRegionHighlight, isGiven);
   const hasCandidates = candidates.length > 0;
   const displayValue = value === 0 ? '' : String(value);
 
@@ -61,7 +61,7 @@ export default function SudokuCell({ row, col, value, isGiven, isError, isHint, 
         bgcolor: bg,
         fontWeight: isGiven ? 'bold' : 'normal',
         fontSize,
-        color: (isNumberHighlight || isSelected) && !isError && !isHint ? 'white' : 'inherit',
+        color: (isNumberHighlight || isSelected) && !isError && !isHighlight ? 'white' : 'inherit',
         cursor: 'pointer',
         userSelect: 'none',
         '&:hover': { filter: 'brightness(0.92)' },

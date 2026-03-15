@@ -62,8 +62,8 @@ paths:
     post:
       tags:
         - Puzzles
-      summary: Request a hint for the current board
-      description: Evaluates the current board and returns the correct value for a single empty cell.
+      summary: Request a logical learning hint for the current board
+      description: Evaluates the board using human logic techniques. Returns a progressive hint (Nudge, Focus, Reveal) and the exact board modifications required.
       requestBody:
         required: true
         content:
@@ -72,13 +72,14 @@ paths:
               $ref: '#/components/schemas/BoardRequest'
       responses:
         '200':
-          description: Hint generated successfully.
+          description: A logical hint was found successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HintResponse'
-        '400':
-          description: Board is invalid or already fully solved.
+        '404':
+          description: No logical next step found (board might be invalid or requires guessing, which we want to avoid).
+
   /puzzles/candidates:
     post:
       tags:
@@ -105,6 +106,7 @@ components:
       type: string
       enum: [easy, medium, hard, expert]
       default: medium
+      example: "medium"
 
     Grid:
       type: array
@@ -138,6 +140,18 @@ components:
       properties:
         currentGrid:
           $ref: '#/components/schemas/Grid'
+      example:
+        currentGrid: [
+          [5,3,0,0,7,0,0,0,0],
+          [6,0,0,1,9,5,0,0,0],
+          [0,9,8,0,0,0,0,6,0],
+          [8,0,0,0,6,0,0,0,3],
+          [4,0,0,8,0,3,0,0,1],
+          [7,0,0,0,2,0,0,0,6],
+          [0,6,0,0,0,0,2,8,0],
+          [0,0,0,4,1,9,0,0,5],
+          [0,0,0,0,8,0,0,7,9]
+        ]
 
     ValidationResponse:
       type: object
@@ -159,16 +173,68 @@ components:
     HintResponse:
       type: object
       required:
-        - coordinate
-        - value
+        - techniqueName
+        - markdownSlug
+        - difficulty
+        - nudge
+        - focus
+        - reveal
+        - highlightCells
+        - eliminatedCandidates
+        - solvedCells
       properties:
-        coordinate:
-          $ref: '#/components/schemas/Coordinate'
-        value:
-          type: integer
-          minimum: 1
-          maximum: 9
-          description: The correct value for this cell.
+        techniqueName:
+          type: string
+          description: The friendly name of the logical technique used.
+        markdownSlug:
+          type: string
+          description: The identifier linking to the frontend markdown file (e.g., "naked-pair").
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        nudge:
+          type: string
+          description: Level 1 Hint - A gentle push toward the technique.
+        focus:
+          type: string
+          description: Level 2 Hint - Points the user to the specific area of the board.
+        reveal:
+          type: string
+          description: Level 3 Hint - Explains exactly what to do and why.
+        highlightCells:
+          type: array
+          description: Coordinates of cells that form the pattern (e.g., the two cells of a Naked Pair).
+          items:
+            $ref: '#/components/schemas/Coordinate'
+        eliminatedCandidates:
+          type: array
+          description: Pencil marks that should be removed based on this logic.
+          items:
+            $ref: '#/components/schemas/CandidateElimination'
+        solvedCells:
+          type: array
+          description: Cells that can be definitively filled based on this logic.
+          items:
+            $ref: '#/components/schemas/ActionableCell'
+      example:
+        techniqueName: "Naked Pair"
+        markdownSlug: "naked-pair"
+        difficulty: "medium"
+        nudge: "There is a Naked Pair hiding somewhere on the board."
+        focus: "Look closely at the candidates in Row 4."
+        reveal: "Cells (4,2) and (4,6) only contain candidates 3 and 7. They form a Naked Pair, meaning 3 and 7 can be safely removed from all other cells in Row 4."
+        highlightCells:
+          - row: 4
+            col: 2
+          - row: 4
+            col: 6
+        eliminatedCandidates:
+          - row: 4
+            col: 8
+            value: 3
+          - row: 4
+            col: 9
+            value: 7
+        solvedCells: []
 
     Coordinate:
       type: object
@@ -184,7 +250,10 @@ components:
           type: integer
           minimum: 0
           maximum: 8
-
+      example:
+        row: 4
+        col: 2
+    
     CandidatesResponse:
       type: object
       required:
@@ -209,3 +278,53 @@ components:
             type: integer
             minimum: 1
             maximum: 9
+
+    CandidateElimination:
+      type: object
+      required:
+        - row
+        - col
+        - value
+      properties:
+        row:
+          type: integer
+          minimum: 0
+          maximum: 8
+        col:
+          type: integer
+          minimum: 0
+          maximum: 8
+        value:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: The candidate number to remove.
+      example:
+        row: 4
+        col: 8
+        value: 3 
+
+    ActionableCell:
+      type: object
+      required:
+        - row
+        - col
+        - value
+      properties:
+        row:
+          type: integer
+          minimum: 0
+          maximum: 8
+        col:
+          type: integer
+          minimum: 0
+          maximum: 8
+        value:
+          type: integer
+          minimum: 1
+          maximum: 9
+          description: The correct number to place in this cell.
+      example:
+        row: 2
+        col: 4
+        value: 7
