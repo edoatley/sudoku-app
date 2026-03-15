@@ -3,10 +3,13 @@ import Box from '@mui/material/Box';
 const cellSize = { width: { xs: 32, sm: 44 }, height: { xs: 32, sm: 44 } };
 const fontSize = { xs: '0.875rem', sm: '1.125rem' };
 
-function getBackground(isError, isHint, isGiven) {
-  if (isError) return 'error.light';
-  if (isHint) return 'info.light';
-  if (isGiven) return 'grey.100';
+function getBackground(isError, isHint, isNumberHighlight, isSelected, isRegionHighlight, isGiven) {
+  if (isError)           return 'error.light';
+  if (isHint)            return 'info.light';
+  if (isNumberHighlight) return '#4169E1';
+  if (isSelected)        return '#3A6BC4';
+  if (isRegionHighlight) return '#E8F4FD';
+  if (isGiven)           return 'grey.100';
   return 'background.paper';
 }
 
@@ -41,15 +44,15 @@ function CandidateDisplay({ candidates }) {
   );
 }
 
-export default function SudokuCell({ row, col, value, isGiven, isError, isHint, candidates = [], onClick }) {
-  const bg = getBackground(isError, isHint, isGiven);
+export default function SudokuCell({ row, col, value, isGiven, isError, isHint, isSelected = false, isRegionHighlight = false, isNumberHighlight = false, candidates = [], onClick }) {
+  const bg = getBackground(isError, isHint, isNumberHighlight, isSelected, isRegionHighlight, isGiven);
   const hasCandidates = candidates.length > 0;
   const displayValue = value === 0 ? '' : String(value);
 
   return (
     <Box
       data-testid={`cell-${row}-${col}`}
-      onClick={isGiven ? undefined : onClick}
+      onClick={onClick}
       sx={{
         ...cellSize,
         display: 'flex',
@@ -58,9 +61,10 @@ export default function SudokuCell({ row, col, value, isGiven, isError, isHint, 
         bgcolor: bg,
         fontWeight: isGiven ? 'bold' : 'normal',
         fontSize,
-        cursor: isGiven ? 'default' : 'pointer',
+        color: (isNumberHighlight || isSelected) && !isError && !isHint ? 'white' : 'inherit',
+        cursor: 'pointer',
         userSelect: 'none',
-        '&:hover': isGiven ? {} : { bgcolor: 'action.hover' },
+        '&:hover': { filter: 'brightness(0.92)' },
       }}
     >
       {hasCandidates ? (

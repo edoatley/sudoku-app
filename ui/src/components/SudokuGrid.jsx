@@ -11,8 +11,18 @@ function getBorderSx(row, col) {
   };
 }
 
-export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, errorCells, hintCell, onCellClick }) {
+function isSameRegion(selectedCell, row, col) {
+  if (!selectedCell) return false;
+  const { row: sr, col: sc } = selectedCell;
+  return row === sr || col === sc ||
+    (Math.floor(row / 3) === Math.floor(sr / 3) &&
+     Math.floor(col / 3) === Math.floor(sc / 3));
+}
+
+export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, errorCells, hintCell, selectedCell, selectedNumber, onCellClick }) {
   if (!originalGrid || !currentGrid) return null;
+
+  const selectedValue = selectedCell ? currentGrid[selectedCell.row][selectedCell.col] : 0;
 
   return (
     <Box sx={{ display: 'inline-block', overflowX: 'auto' }}>
@@ -27,6 +37,15 @@ export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, e
                 isGiven={originalGrid[row][col] !== 0}
                 isError={errorCells.has(`${row},${col}`)}
                 isHint={hintCell?.row === row && hintCell?.col === col}
+                isSelected={
+                  selectedCell?.row === row &&
+                  selectedCell?.col === col &&
+                  value === 0 &&
+                  originalGrid[row][col] === 0 &&
+                  selectedNumber === null
+                }
+                isRegionHighlight={isSameRegion(selectedCell, row, col)}
+                isNumberHighlight={selectedValue !== 0 && value === selectedValue}
                 candidates={candidateGrid ? candidateGrid[row][col] : []}
                 onClick={() => onCellClick(row, col)}
               />

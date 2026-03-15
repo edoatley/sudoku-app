@@ -16,7 +16,9 @@ export function useSudokuGame() {
   const [statusMessage, setStatusMessage] = useState(null);
   const [gameStatus, setGameStatus] = useState('idle');
   const [inputMode, setInputMode] = useState('normal');
-  const [selectedNumber, setSelectedNumber] = useState(1);
+  const [selectedNumber, setSelectedNumber] = useState(null);
+  const [selectedCell, setSelectedCell] = useState(null);
+  const [history, setHistory] = useState([]);
   const hintTimerRef = useRef(null);
 
   const startNewGame = useCallback(async (diff) => {
@@ -26,6 +28,8 @@ export function useSudokuGame() {
     setHintCell(null);
     setStatusMessage(null);
     setGameStatus('idle');
+    setSelectedCell(null);
+    setSelectedNumber(null);
     try {
       const data = await generatePuzzle(activeDiff);
       setOriginalGrid(data.originalGrid);
@@ -33,6 +37,7 @@ export function useSudokuGame() {
       setCandidateGrid(emptyCandidate());
       setAutoNotesGrid(null);
       setAutoNotesActive(false);
+      setHistory([]);
     } catch (err) {
       setStatusMessage(`Failed to load puzzle: ${err.message}`);
       setGameStatus('error');
@@ -49,12 +54,19 @@ export function useSudokuGame() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateCell = useCallback((row, col) => {
-    if (selectedNumber === null) return;
+  const currentGridRef = useRef(null);
+  currentGridRef.current = currentGrid;
+  const candidateGridRef = useRef(null);
+  candidateGridRef.current = candidateGrid;
+
+  const writeCellValue = useCallback((row, col, number) => {
+    if (originalGrid && originalGrid[row][col] !== 0) return;
     if (inputMode === 'normal') {
+      const prevValue = currentGridRef.current?.[row][col] ?? 0;
+      setHistory((h) => [...h, { type: 'normal', row, col, prevValue }]);
       setCurrentGrid((prev) => {
         const next = prev.map((r) => [...r]);
-        next[row][col] = selectedNumber;
+        next[row][col] = number;
         return next;
       });
       setCandidateGrid((prev) => {
@@ -68,16 +80,36 @@ export function useSudokuGame() {
         return next;
       });
     } else {
+      const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
+      setHistory((h) => [...h, { type: 'candidate', row, col, prevCandidates }]);
       setCandidateGrid((prev) => {
         const next = prev.map((r) => r.map((c) => [...c]));
         const cell = next[row][col];
-        const idx = cell.indexOf(selectedNumber);
-        if (idx === -1) cell.push(selectedNumber);
+        const idx = cell.indexOf(number);
+        if (idx === -1) cell.push(number);
         else cell.splice(idx, 1);
         return next;
       });
     }
-  }, [inputMode, selectedNumber]);
+  }, [inputMode, originalGrid]);
+
+  const updateCell = useCallback((row, col) => {
+    setSelectedCell({ row, col });
+    if (selectedNumber !== null) {
+      writeCellValue(row, col, selectedNumber);
+      setSelectedNumber(null);
+    }
+  }, [selectedNumber, writeCellValue]);
+
+  const handleNumberSelect = useCallback((n) => {
+    if (n === null) { setSelectedNumber(null); return; }
+    if (selectedCell) {
+      writeCellValue(selectedCell.row, selectedCell.col, n);
+      setSelectedNumber(null);
+    } else {
+      setSelectedNumber(n);
+    }
+  }, [selectedCell, writeCellValue]);
 
   const requestValidation = useCallback(async () => {
     if (!currentGrid) return;
@@ -148,6 +180,49 @@ export function useSudokuGame() {
     setAutoNotesActive(true);
   }, [currentGrid, autoNotesActive, autoNotesGrid]);
 
+  const undoLastMove = useCallback(() => {
+    setHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const next = [...prev];
+      const entry = next.pop();
+      if (entry.type === 'normal') {
+        setCurrentGrid((g) => {
+          const ng = g.map((r) => [...r]);
+          ng[entry.row][entry.col] = entry.prevValue;
+          return ng;
+        });
+        setCandidateGrid((g) => {
+          const ng = g.map((r) => r.map((c) => [...c]));
+          ng[entry.row][entry.col] = [];
+          return ng;
+        });
+      } else {
+        setCandidateGrid((g) => {
+          const ng = g.map((r) => r.map((c) => [...c]));
+          ng[entry.row][entry.col] = entry.prevCandidates;
+          return ng;
+        });
+      }
+      return next;
+    });
+  }, []);
+
+  const clearCell = useCallback(() => {
+    if (!selectedCell) return;
+    const { row, col } = selectedCell;
+    if (originalGrid[row][col] !== 0) return;
+    setCurrentGrid(prev => {
+      const next = prev.map(r => [...r]);
+      next[row][col] = 0;
+      return next;
+    });
+    setCandidateGrid(prev => {
+      const next = prev.map(r => [...r]);
+      next[row][col] = [];
+      return next;
+    });
+  }, [selectedCell, originalGrid]);
+
   const clearStatus = useCallback(() => {
     setStatusMessage(null);
     setGameStatus('idle');
@@ -170,11 +245,16 @@ export function useSudokuGame() {
     inputMode,
     selectedNumber,
     autoNotesActive,
+    selectedCell,
     setInputMode,
     setSelectedNumber,
+    handleNumberSelect,
     setDifficulty: handleSetDifficulty,
     startNewGame,
     updateCell,
+    clearCell,
+    undoLastMove,
+    canUndo: history.length > 0,
     requestValidation,
     requestHint,
     toggleAutoNotes,

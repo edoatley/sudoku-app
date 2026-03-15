@@ -1,11 +1,32 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import ClearIcon from '@mui/icons-material/Clear';
+import UndoIcon from '@mui/icons-material/Undo';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 
 const btnSx = { minWidth: { xs: 36, sm: 48 }, height: { xs: 36, sm: 48 }, p: 0 };
+
+const toolBtnSx = {
+  minWidth: 0,
+  width: { xs: 44, sm: 52 },
+  flexDirection: 'column',
+  height: 'auto',
+  py: 0.75,
+  px: 0.5,
+  gap: 0.25,
+  color: 'text.secondary',
+  borderColor: 'divider',
+  '&:hover': { borderColor: 'text.primary', color: 'text.primary', bgcolor: 'action.hover' },
+  '&.Mui-disabled': { borderColor: 'divider', color: 'action.disabled' },
+};
 
 function NumButton({ n, selectedNumber, onNumberSelect }) {
   const active = selectedNumber === n;
@@ -20,7 +41,29 @@ function NumButton({ n, selectedNumber, onNumberSelect }) {
   );
 }
 
-export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange }) {
+function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
+  return (
+    <Tooltip title={tooltip} arrow>
+      <span>
+        <Button
+          aria-label={label}
+          variant={active ? 'contained' : 'outlined'}
+          color={active ? 'primary' : 'inherit'}
+          onClick={onClick}
+          disabled={disabled}
+          sx={active ? { ...toolBtnSx, color: 'primary.contrastText', borderColor: 'primary.main', bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } } : toolBtnSx}
+        >
+          {icon}
+          <Typography variant="caption" lineHeight={1} sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+            {label}
+          </Typography>
+        </Button>
+      </span>
+    </Tooltip>
+  );
+}
+
+export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, autoNotesActive, onAutoNotes, isLoading }) {
   return (
     <Stack spacing={1} alignItems="center">
       <ToggleButtonGroup
@@ -33,26 +76,25 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         <ToggleButton value="candidate">Candidate</ToggleButton>
       </ToggleButtonGroup>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
-        {/* Row 1: 1–5 */}
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} />
-          ))}
-        </Box>
-        {/* Row 2: 6–9 + clear */}
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {[6, 7, 8, 9].map((n) => (
-            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} />
-          ))}
-          <Button
-            variant="outlined"
-            onClick={() => onNumberSelect(null)}
-            sx={{ ...btnSx, color: 'error.main', borderColor: 'error.main', '&:hover': { borderColor: 'error.dark', bgcolor: 'error.50' } }}
-          >
-            <ClearIcon fontSize="small" />
-          </Button>
-        </Box>
+      {/* 3×3 number grid */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {[[1, 2, 3], [4, 5, 6], [7, 8, 9]].map((row) => (
+          <Box key={row[0]} sx={{ display: 'flex', gap: 0.5 }}>
+            {row.map((n) => (
+              <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} />
+            ))}
+          </Box>
+        ))}
+      </Box>
+
+      {/* Toolbar: destructive group | tools group */}
+      <Box sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+        <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon fontSize="small" />} onClick={onUndo} disabled={!canUndo} />
+        <ToolButton label="Clear" tooltip="Clear selected cell" icon={<ClearIcon fontSize="small" />} onClick={onClearCell} />
+        <Divider orientation="vertical" flexItem />
+        <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon fontSize="small" />} onClick={onValidate} disabled={isLoading} />
+        <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon fontSize="small" />} onClick={onHint} disabled={isLoading} />
+        <ToolButton label="Notes" tooltip="Toggle auto-notes" icon={<EditNoteIcon fontSize="small" />} onClick={onAutoNotes} disabled={isLoading} active={autoNotesActive} />
       </Box>
     </Stack>
   );
