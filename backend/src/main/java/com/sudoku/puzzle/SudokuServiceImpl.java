@@ -5,16 +5,25 @@ import com.sudoku.domain.Cell;
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
 import com.sudoku.dto.Coordinate;
+import com.sudoku.dto.HintResponse;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.hint.HintStrategy;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-public class MockSudokuService {
+@ApplicationScoped
+public class SudokuServiceImpl implements SudokuService {
 
     private static final List<List<Integer>> EASY_GRID = List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
@@ -59,6 +68,21 @@ public class MockSudokuService {
             "expert", new PuzzleResponse(HARD_GRID,   "expert")
     );
 
+    private final List<HintStrategy> strategies;
+
+    @Inject
+    public SudokuServiceImpl(Instance<HintStrategy> strategyInstance) {
+        this.strategies = strategyInstance.stream()
+                .sorted(Comparator.comparingInt(HintStrategy::getDifficultyRank))
+                .collect(Collectors.toList());
+    }
+
+    // Test-only constructor (package-private)
+    SudokuServiceImpl(List<HintStrategy> strategies) {
+        this.strategies = List.copyOf(strategies);
+    }
+
+    @Override
     public PuzzleResponse generatePuzzle(String difficulty) {
         return switch (difficulty.toLowerCase()) {
             case "easy"   -> PUZZLE_MAP.get("easy");
@@ -68,6 +92,7 @@ public class MockSudokuService {
         };
     }
 
+    @Override
     public ValidationResponse validatePuzzle(BoardRequest request) {
         Board board = Board.fromGrid(request.currentGrid());
         Set<Coordinate> errorSet = new LinkedHashSet<>();
@@ -112,6 +137,18 @@ public class MockSudokuService {
         }
     }
 
+    @Override
+    public Optional<HintResponse> getHint(BoardRequest request) {
+        Board board = Board.fromGrid(request.currentGrid());
+        board.calculateAllCandidates();
+        for (HintStrategy strategy : strategies) {
+            Optional<HintResponse> hint = strategy.evaluate(board);
+            if (hint.isPresent()) return hint;
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public CandidatesResponse getCandidates(BoardRequest request) {
         Board board = Board.fromGrid(request.currentGrid());
         board.calculateAllCandidates();
