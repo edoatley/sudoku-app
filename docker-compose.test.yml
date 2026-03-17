@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: backend
+      dockerfile: Dockerfile.test
+    ports:
+      - "8080:8080"
+    environment:
+      QUARKUS_HTTP_CORS_ORIGINS: "http://ui:5174,http://localhost:5174"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/puzzles/generate"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  ui:
+    build:
+      context: ui
+      dockerfile: Dockerfile.test
+    ports:
+      - "5174:5174"
+    environment:
+      VITE_API_URL: "http://localhost:8080/api/v1"
+      VITE_MOCK_API: "false"
+    depends_on:
+      backend:
+        condition: service_healthy

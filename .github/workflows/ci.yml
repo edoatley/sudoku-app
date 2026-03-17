@@ -59,8 +59,69 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
-      - name: Run unit and API tests
+      - name: Run unit and API tests with coverage
         run: ./mvnw verify -DskipITs=false
+
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco/
+          retention-days: 14
+
+  integration:
+    name: Integration — Docker Compose + Playwright
+    runs-on: ubuntu-latest
+    needs: [ui, backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Install Playwright Chromium browser
+        working-directory: ui
+        run: npx playwright install --with-deps chromium
+
+      - name: Build and start services
+        run: docker compose -f docker-compose.test.yml up -d --build
+
+      - name: Wait for backend to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/api/v1/puzzles/generate > /dev/null; then
+              echo "Backend is ready"
+              break
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 3
+          done
+
+      - name: Run integration tests
+        working-directory: ui
+        run: npx playwright test --config playwright.integration.config.js
+        env:
+          CI: "true"
+
+      - name: Upload integration test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-playwright-report
+          path: ui/playwright-report/
+          retention-days: 14
+
+      - name: Tear down services
+        if: always()
+        run: docker compose -f docker-compose.test.yml down
 
   infra:
     name: Infra — Terraform fmt & validate
