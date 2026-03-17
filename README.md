@@ -14,7 +14,7 @@ architecture-beta
 
     service amplify(internet)[Amplify] in aws
     service apigw(internet)[API Gateway] in aws
-    service lambda(server)[Lambda - Quarkus Java 21] in aws
+    service lambda(server)[Lambda Quarkus Java 21] in aws
     service dynamo(database)[DynamoDB] in aws
 
     amplify:R --> L:apigw
