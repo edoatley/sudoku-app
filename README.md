@@ -1,75 +1,182 @@
-# Sudoku app
+# Serverless Sudoku
 
-## The Tech Stack**
+![CI](https://github.com/edoatley/sudoku-app/actions/workflows/ci.yml/badge.svg)
 
-For a Sudoku app, you don't need a heavy persistent server. You want a stack that "sleeps" when no one is playing.
-
-| Component | Technology | Why? |
-| :---- | :---- | :---- |
-| **Backend** | **Java \+ Quarkus** | Optimized for "Native Image" (GraalVM). It starts in milliseconds on Lambda, solving the "Cold Start" problem. |
-| **API** | **AWS Lambda** | True scale-to-zero. You only pay when someone clicks "Check Solution." |
-| **Database** | **DynamoDB** | NoSQL, serverless, and has a massive free tier. Perfect for storing user scores or game states. |
-| **Frontend** | **React \+ Vite** | Use **MUI (Material UI)** or **Tailwind CSS**. These provide pre-made components so you don't have to be a designer. |
-| **Hosting** | **AWS Amplify** | Easier than manual S3 setup. It handles the CDN, SSL, and CI/CD for both web and mobile-friendly web apps. |
-
-## High-Level Architecture
-
-### The Backend (Java)
-
-Instead of a standard Spring Boot app (which is heavy), use **Quarkus** or **Micronaut**.
-
-* **Logic:** Your Java code will handle puzzle generation (using backtracking algorithms) and validation.  
-* **Deployment:** Use **AWS Lambda SnapStart**. This feature takes a "snapshot" of your initialized Java app, allowing it to start up nearly instantly without the typical JVM overhead.
-
-### The Frontend (Mobile & Web)
-
-* **The "One Codebase" Approach:** Build a **Progressive Web App (PWA)**.  
-* **UI Libraries:** Use a component library like **MUI**. Need a Sudoku grid? You can find open-source React Sudoku components where you just pass in the data. You won't have to write custom CSS for "boxes" and "inputs."  
-* **Mobile:** A PWA can be "Installed" on a home screen like a real app, but if you eventually want it in the App Store, you can wrap your React code using **Capacitor**.
-
-## Cost Breakdown (Estimated)
-
-If you have under 1,000 users, your monthly bill will likely be **$0.00**.
-
-* **S3/Amplify Hosting:** $0 (Free Tier covers 5GB/month).  
-* **Lambda:** $0 (First 1 million requests/month are free).  
-* **DynamoDB:** $0 (25GB of storage is free).  
-* **API Gateway:** \~$1.00 (if you exceed the free tier).
-
-## 🚀 The Execution Plan
-
-### **Phase 1: The Core (Java)**
-
-Write a simple Java library that can:
-
-1. Generate a 9x9 grid.  
-2. Remove numbers based on difficulty.  
-3. Validate if a move is legal.  
-   *Tip: Use the Backtracking algorithm for the solver. It's efficient and a great coding exercise.*
-
-### **Phase 2: The API**
-
-Wrap your Java logic in a REST API using **Quarkus**. Deploy it to Lambda. You should be able to send a GET /generate and receive a JSON representation of the board:
-
-JSON
-
-{  
-  "board": \[\[5,3,0,0,7,0,0,0,0\], \[...\]\],  
-  "difficulty": "Medium"  
-}
-
-### **Phase 3: The UI (The "No-Design" Way)**
-
-1. Initialize a React project.  
-2. Install a UI kit (e.g., @mui/material).  
-3. Create a 9x9 grid of \<TextField /\> components.  
-4. Use fetch() to call your Lambda API and populate the grid.
-
-### **Phase 4: Deployment**
-
-Push your code to GitHub and link it to **AWS Amplify**. It will automatically deploy your frontend and give you a URL.
+A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a React frontend on AWS Amplify.
 
 ---
 
-**Quick Tip on Cost:** Ensure you set up "Budget Alerts" in the AWS Billing console immediately. Even though this stack is mostly free, a recursive loop in your code or a sudden viral hit could theoretically trigger costs.  
-Would you like me to provide a **Java code snippet** for a basic Sudoku generation algorithm to get you started?
+## High-Level Architecture
+
+```mermaid
+architecture-beta
+    group aws(cloud)[AWS eu-west-2]
+
+    service amplify(internet)[Amplify] in aws
+    service apigw(internet)[API Gateway] in aws
+    service lambda(server)[Lambda - Quarkus Java 21] in aws
+    service dynamo(database)[DynamoDB] in aws
+
+    amplify:R --> L:apigw
+    apigw:R --> L:lambda
+    lambda:R --> L:dynamo
+```
+
+---
+
+## Tech Stack
+
+| Layer      | Technology                                          |
+|------------|-----------------------------------------------------|
+| Frontend   | React 19, Vite 8, MUI v7                            |
+| Backend    | Java 21, Quarkus 3.32.3, quarkus-amazon-lambda-rest |
+| Database   | AWS DynamoDB                                        |
+| Hosting    | AWS Amplify (frontend), AWS Lambda (backend)        |
+| IaC        | Terraform (AWS provider, eu-west-2)                 |
+
+---
+
+## Repository Structure
+
+```
+sudoku-app/
+├── backend/          # Java 21 + Quarkus REST API (Lambda-optimized)
+│   └── src/
+├── ui/               # React 19 + Vite frontend with MUI
+│   ├── src/
+│   └── e2e/          # Playwright E2E tests
+├── infra/            # Terraform IaC (AWS eu-west-2)
+├── docs/             # Architecture and coding standards
+├── openapi.yaml      # API contract
+├── Makefile          # Combined dev workflow
+└── CLAUDE.md         # AI assistant instructions
+```
+
+---
+
+## Prerequisites
+
+| Tool          | Version  | Notes                                  |
+|---------------|----------|----------------------------------------|
+| Java          | 21       | Temurin distribution recommended       |
+| Node.js       | 22       |                                        |
+| Maven Wrapper | bundled  | Use `./mvnw` — no separate install     |
+| Terraform     | latest   | Required for infra work only           |
+| GraalVM       | optional | Required for native image builds only  |
+
+---
+
+## Local Development
+
+### Backend
+
+```bash
+cd backend
+./mvnw quarkus:dev   # hot reload on http://localhost:8080
+```
+
+### Frontend
+
+```bash
+cd ui
+npm install
+npm run dev          # dev server on http://localhost:5173
+```
+
+### Combined (both services)
+
+```bash
+make dev             # starts backend (8080) and frontend (5173) in parallel
+```
+
+### Environment Variables
+
+Copy `ui/.env.example` to `ui/.env.development.local` and adjust as needed:
+
+```bash
+cp ui/.env.example ui/.env.development.local
+```
+
+| Variable        | Default                        | Description                        |
+|-----------------|--------------------------------|------------------------------------|
+| `VITE_API_URL`  | `http://localhost:8080/api/v1` | Backend API base URL               |
+| `VITE_MOCK_API` | `false`                        | Set to `true` to use mock API data |
+
+---
+
+## API Reference
+
+Base path: `/api/v1`. Full contract: [`openapi.yaml`](openapi.yaml).
+
+| Method | Path                  | Description                                                    |
+|--------|-----------------------|----------------------------------------------------------------|
+| GET    | `/puzzles/generate`   | Generate a new puzzle (`?difficulty=easy\|medium\|hard\|expert`) |
+| POST   | `/puzzles/validate`   | Validate the current board state                               |
+| POST   | `/puzzles/hint`       | Get a progressive logical hint (Nudge / Focus / Reveal)        |
+| POST   | `/puzzles/candidates` | Calculate all valid candidates for empty cells                 |
+
+---
+
+## Testing
+
+### Backend — Unit Tests
+
+```bash
+cd backend
+./mvnw test
+```
+
+### Backend — Integration Tests
+
+```bash
+cd backend
+./mvnw verify -DskipITs=false
+```
+
+### Frontend — E2E Tests (Playwright)
+
+```bash
+cd ui
+npm run test:e2e       # headless Chromium
+npm run test:e2e:ui    # interactive Playwright UI
+```
+
+CI runs all three test suites on every push. Playwright reports are uploaded as artifacts on failure.
+
+---
+
+## Key Files
+
+| File                                               | Purpose                     |
+|----------------------------------------------------|-----------------------------|
+| [`openapi.yaml`](openapi.yaml)                     | API contract (source of truth) |
+| [`docs/backend.md`](docs/backend.md)               | Backend coding standards    |
+| [`docs/frontend.md`](docs/frontend.md)             | Frontend coding standards   |
+| [`docs/security.md`](docs/security.md)             | Security standards          |
+| [`docs/infrastructure.md`](docs/infrastructure.md) | IaC standards               |
+| [`docs/test-strategy.md`](docs/test-strategy.md)   | Test strategy               |
+| [`CLAUDE.md`](CLAUDE.md)                           | AI assistant instructions   |
+
+---
+
+## Infrastructure
+
+Terraform configuration lives in `infra/`. Target region: `eu-west-2` (London).
+
+> **Status:** Provider and backend configured. Resource definitions (Lambda, API Gateway, DynamoDB, Amplify) are pending implementation.
+
+---
+
+## Deployment
+
+> **Placeholder** — deployment pipeline not yet implemented.
+
+Planned deployment targets:
+- **Frontend:** AWS Amplify (Git-based CI/CD)
+- **Backend:** AWS Lambda with SnapStart (JVM mode) or GraalVM native image
+
+---
+
+## Contributing
+
+> **Placeholder** — contributing guidelines not yet written.

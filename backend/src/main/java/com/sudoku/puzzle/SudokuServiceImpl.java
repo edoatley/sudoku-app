@@ -17,61 +17,20 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class SudokuServiceImpl implements SudokuService {
 
-    private static final List<List<Integer>> EASY_GRID = List.of(
-            List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
-            List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
-            List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
-            List.of(8, 0, 0, 0, 6, 0, 0, 0, 3),
-            List.of(4, 0, 0, 8, 0, 3, 0, 0, 1),
-            List.of(7, 0, 0, 0, 2, 0, 0, 0, 6),
-            List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
-            List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
-            List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-    );
-
-    private static final List<List<Integer>> MEDIUM_GRID = List.of(
-            List.of(0, 0, 0, 2, 6, 0, 7, 0, 1),
-            List.of(6, 8, 0, 0, 7, 0, 0, 9, 0),
-            List.of(1, 9, 0, 0, 0, 4, 5, 0, 0),
-            List.of(8, 2, 0, 1, 0, 0, 0, 4, 0),
-            List.of(0, 0, 4, 6, 0, 2, 9, 0, 0),
-            List.of(0, 5, 0, 0, 0, 3, 0, 2, 8),
-            List.of(0, 0, 9, 3, 0, 0, 0, 7, 4),
-            List.of(0, 4, 0, 0, 5, 0, 0, 3, 6),
-            List.of(7, 0, 3, 0, 1, 8, 0, 0, 0)
-    );
-
-    private static final List<List<Integer>> HARD_GRID = List.of(
-            List.of(0, 0, 0, 0, 0, 0, 6, 8, 0),
-            List.of(0, 0, 0, 0, 7, 3, 0, 0, 9),
-            List.of(3, 0, 9, 0, 0, 0, 0, 4, 5),
-            List.of(4, 9, 0, 0, 0, 0, 0, 0, 0),
-            List.of(8, 0, 3, 0, 5, 0, 9, 0, 2),
-            List.of(0, 0, 0, 0, 0, 0, 0, 3, 6),
-            List.of(9, 6, 0, 0, 0, 0, 3, 0, 8),
-            List.of(7, 0, 0, 6, 8, 0, 0, 0, 0),
-            List.of(0, 2, 8, 0, 0, 0, 0, 0, 0)
-    );
-
-    private static final Map<String, PuzzleResponse> PUZZLE_MAP = Map.of(
-            "easy",   new PuzzleResponse(EASY_GRID,   "easy"),
-            "medium", new PuzzleResponse(MEDIUM_GRID, "medium"),
-            "hard",   new PuzzleResponse(HARD_GRID,   "hard"),
-            "expert", new PuzzleResponse(HARD_GRID,   "expert")
-    );
-
+    private final PuzzleGenerator generator;
     private final List<HintStrategy> strategies;
 
     @Inject
     public SudokuServiceImpl(Instance<HintStrategy> strategyInstance) {
+        this.generator = new PuzzleGenerator(new Random());
         this.strategies = strategyInstance.stream()
                 .sorted(Comparator.comparingInt(HintStrategy::getDifficultyRank))
                 .collect(Collectors.toList());
@@ -79,17 +38,21 @@ public class SudokuServiceImpl implements SudokuService {
 
     // Test-only constructor (package-private)
     SudokuServiceImpl(List<HintStrategy> strategies) {
+        this.generator = new PuzzleGenerator(new Random());
+        this.strategies = List.copyOf(strategies);
+    }
+
+    // Test-only constructor with explicit generator (package-private)
+    SudokuServiceImpl(PuzzleGenerator generator, List<HintStrategy> strategies) {
+        this.generator = generator;
         this.strategies = List.copyOf(strategies);
     }
 
     @Override
     public PuzzleResponse generatePuzzle(String difficulty) {
-        return switch (difficulty.toLowerCase()) {
-            case "easy"   -> PUZZLE_MAP.get("easy");
-            case "hard"   -> PUZZLE_MAP.get("hard");
-            case "expert" -> PUZZLE_MAP.get("expert");
-            default       -> PUZZLE_MAP.get("medium");
-        };
+        String normalised = difficulty.toLowerCase();
+        List<List<Integer>> grid = generator.generate(normalised);
+        return new PuzzleResponse(grid, normalised);
     }
 
     @Override
