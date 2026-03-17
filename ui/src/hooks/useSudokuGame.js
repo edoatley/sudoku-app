@@ -22,7 +22,7 @@ export function useSudokuGame() {
   const [selectedCell, setSelectedCell] = useState(null);
   const [history, setHistory] = useState([]);
 
-  const startNewGame = useCallback(async (diff) => {
+  const startNewGame = useCallback(async (diff, signal) => {
     const activeDiff = diff ?? difficulty;
     setIsLoading(true);
     setErrorCells(new Set());
@@ -34,7 +34,7 @@ export function useSudokuGame() {
     setSelectedCell(null);
     setSelectedNumber(null);
     try {
-      const data = await generatePuzzle(activeDiff);
+      const data = await generatePuzzle(activeDiff, signal);
       setOriginalGrid(data.originalGrid);
       setCurrentGrid(data.originalGrid.map((row) => [...row]));
       setCandidateGrid(emptyCandidate());
@@ -42,6 +42,7 @@ export function useSudokuGame() {
       setAutoNotesActive(false);
       setHistory([]);
     } catch (err) {
+      if (err.name === 'AbortError') return;
       setStatusMessage(`Failed to load puzzle: ${err.message}`);
       setGameStatus('error');
     } finally {
@@ -50,7 +51,9 @@ export function useSudokuGame() {
   }, [difficulty]);
 
   useEffect(() => {
-    startNewGame();
+    const controller = new AbortController();
+    startNewGame(undefined, controller.signal);
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
