@@ -87,6 +87,10 @@ jobs:
 
       - name: Run unit, API and integration tests with coverage
         run: ./mvnw verify -DskipITs=false
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
 
       - name: Upload JaCoCo report
         if: always()

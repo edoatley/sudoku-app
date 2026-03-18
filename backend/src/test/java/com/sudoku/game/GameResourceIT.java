@@ -1,7 +1,9 @@
 package com.sudoku.game;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -11,6 +13,13 @@ import static org.hamcrest.Matchers.*;
 
 @QuarkusIntegrationTest
 class GameResourceIT {
+
+    @BeforeAll
+    static void configureRestAssured() {
+        int port = Integer.getInteger("quarkus.http.port", 8081);
+        RestAssured.baseURI = "http://localhost:" + port;
+        RestAssured.basePath = "/api/v1";
+    }
 
     @Test
     void postGames_createsGameAndReturns201() {
