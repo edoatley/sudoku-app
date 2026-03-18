@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 // Row 0, col 2 candidates: [1, 2, 4, 6]
 const CANNED_CANDIDATES = {
@@ -17,7 +17,7 @@ const CANNED_CANDIDATES = {
 };
 
 async function setupRoutes(page) {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.route('**/puzzles/candidates', (route) =>
     route.fulfill({ json: CANNED_CANDIDATES })
   );

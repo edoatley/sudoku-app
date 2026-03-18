@@ -28,7 +28,8 @@ test.describe('Generate puzzle', () => {
     await page.goto('/');
     await waitForGrid(page);
 
-    await page.getByRole('combobox').selectOption('hard');
+    await page.getByRole('combobox').click();
+    await page.getByRole('option', { name: /hard/i }).click();
     await page.getByRole('button', { name: /new game/i }).click();
 
     // Grid should still be visible after reload
@@ -64,14 +65,86 @@ test.describe('Hint', () => {
 
 test.describe('Auto-notes (candidates)', () => {
   test('clicking Auto-Notes shows candidates in empty cells', async ({ page }) => {
+    // Intercept the candidates API call to verify it is made
+    const candidatesResponse = page.waitForResponse(
+      (res) => res.url().includes('/puzzles/candidates') && res.status() === 200,
+      { timeout: 10_000 }
+    );
+
     await page.goto('/');
     await waitForGrid(page);
 
-    await page.getByRole('button', { name: /auto.?notes/i }).click();
+    await page.getByRole('button', { name: /^notes$/i }).click();
 
-    // At least one cell should now contain candidate digits
-    // Find a cell that is empty (no large digit) and check it has a candidate
-    const candidateDisplay = page.locator('[data-testid^="cell-"] [class*="candidate"], [data-testid^="cell-"] small').first();
-    await expect(candidateDisplay).toBeVisible({ timeout: 10_000 });
+    // Verify the candidates endpoint was called successfully
+    await candidatesResponse;
+
+    // After auto-notes activates, at least one empty cell should contain a 3×3 grid
+    // of candidate numbers (9 child boxes inside the cell)
+    await expect(async () => {
+      const cells = await page.locator('[data-testid^="cell-"]').all();
+      let foundCandidate = false;
+      for (const cell of cells) {
+        const childCount = await cell.locator('> div > div').count();
+        if (childCount === 9) { foundCandidate = true; break; }
+      }
+      expect(foundCandidate).toBe(true);
+    }).toPass({ timeout: 10_000 });
+  });
+});
+
+test.describe('Game persistence (real backend + DynamoDB via LocalStack)', () => {
+  test('POST /games returns a gameId and the UI stores it in localStorage', async ({ page }) => {
+    await page.goto('/');
+    await waitForGrid(page);
+
+    const storedId = await page.evaluate(() => localStorage.getItem('sudoku_gameId'));
+    expect(storedId).toBeTruthy();
+    // UUID format
+    expect(storedId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  test('GET /games/:id returns the same game state after a page reload', async ({ page }) => {
+    await page.goto('/');
+    await waitForGrid(page);
+
+    const gameId = await page.evaluate(() => localStorage.getItem('sudoku_gameId'));
+    expect(gameId).toBeTruthy();
+
+    // Reload — the hook should call GET /games/:id and restore the board
+    await page.reload();
+    await waitForGrid(page);
+
+    // gameId in localStorage should be unchanged
+    const gameIdAfterReload = await page.evaluate(() => localStorage.getItem('sudoku_gameId'));
+    expect(gameIdAfterReload).toBe(gameId);
+  });
+
+  test('entering a cell value and hiding the tab sends PATCH /games/:id', async ({ page }) => {
+    const patchRequests = [];
+    page.on('request', (req) => {
+      if (req.method() === 'PATCH' && req.url().includes('/games/')) {
+        patchRequests.push(req);
+      }
+    });
+
+    await page.goto('/');
+    await waitForGrid(page);
+
+    // Enter a value in an empty cell
+    await page.getByRole('button', { name: '4', exact: true }).click();
+    await page.getByTestId('cell-0-2').click();
+
+    // Simulate tab hide to trigger immediate sync
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await expect.poll(() => patchRequests.length, { timeout: 5000 }).toBeGreaterThan(0);
+
+    const body = JSON.parse(patchRequests[0].postData() || '{}');
+    expect(body.currentGrid).toBeDefined();
+    expect(body.timeSpentSeconds).toBeGreaterThanOrEqual(0);
   });
 });

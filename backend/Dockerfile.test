@@ -1,21 +1,9 @@
-# Multi-stage build for integration testing — builds the JVM jar then runs it.
+# Integration test image — runs Quarkus in dev mode so the Lambda mock HTTP server starts on port 8080.
 # Used by docker-compose.test.yml only; not deployed to production.
-FROM eclipse-temurin:21-jdk AS build
+FROM maven:3.9-eclipse-temurin-21
 WORKDIR /build
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN ./mvnw dependency:go-offline -q
+COPY pom.xml ./
+RUN mvn dependency:go-offline -q
 COPY src/ src/
-RUN ./mvnw package -DskipTests -q
-
-FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.24
-ENV LANGUAGE='en_US:en'
-COPY --chown=185 --from=build /build/target/quarkus-app/lib/ /deployments/lib/
-COPY --chown=185 --from=build /build/target/quarkus-app/*.jar /deployments/
-COPY --chown=185 --from=build /build/target/quarkus-app/app/ /deployments/app/
-COPY --chown=185 --from=build /build/target/quarkus-app/quarkus/ /deployments/quarkus/
 EXPOSE 8080
-USER 185
-ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
-ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
-ENTRYPOINT ["/opt/jboss/container/java/run/run-java.sh"]
+ENTRYPOINT ["mvn", "quarkus:dev", "-Dquarkus.http.host=0.0.0.0", "-Ddebug=false"]

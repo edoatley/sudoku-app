@@ -2,19 +2,26 @@ import { test, expect } from '@playwright/test';
 import { waitForGrid } from './helpers.js';
 
 // Near-complete puzzle: only cell-8-8 is empty (should be 9)
-const NEAR_COMPLETE_PUZZLE = {
+const NEAR_COMPLETE_GRID = [
+  [5, 3, 4, 6, 7, 8, 9, 1, 2],
+  [6, 7, 2, 1, 9, 5, 3, 4, 8],
+  [1, 9, 8, 3, 4, 2, 5, 6, 7],
+  [8, 5, 9, 7, 6, 1, 4, 2, 3],
+  [4, 2, 6, 8, 5, 3, 7, 9, 1],
+  [7, 1, 3, 9, 2, 4, 8, 5, 6],
+  [9, 6, 1, 5, 3, 7, 2, 8, 4],
+  [2, 8, 7, 4, 1, 9, 6, 3, 5],
+  [3, 4, 5, 2, 8, 6, 1, 7, 0],
+];
+
+const NEAR_COMPLETE_GAME_STATE = {
+  gameId: '123e4567-e89b-12d3-a456-426614174999',
   difficulty: 'easy',
-  originalGrid: [
-    [5, 3, 4, 6, 7, 8, 9, 1, 2],
-    [6, 7, 2, 1, 9, 5, 3, 4, 8],
-    [1, 9, 8, 3, 4, 2, 5, 6, 7],
-    [8, 5, 9, 7, 6, 1, 4, 2, 3],
-    [4, 2, 6, 8, 5, 3, 7, 9, 1],
-    [7, 1, 3, 9, 2, 4, 8, 5, 6],
-    [9, 6, 1, 5, 3, 7, 2, 8, 4],
-    [2, 8, 7, 4, 1, 9, 6, 3, 5],
-    [3, 4, 5, 2, 8, 6, 1, 7, 0],
-  ],
+  originalGrid: NEAR_COMPLETE_GRID,
+  currentGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
+  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  timeSpentSeconds: 0,
+  status: 'IN_PROGRESS',
 };
 
 const VALID_RESPONSE = {
@@ -24,9 +31,20 @@ const VALID_RESPONSE = {
 };
 
 async function setupRoutes(page) {
-  await page.route('**/puzzles/generate**', (route) =>
-    route.fulfill({ json: NEAR_COMPLETE_PUZZLE })
-  );
+  await page.route('**/games', (route) => {
+    if (route.request().method() === 'POST') {
+      route.fulfill({ status: 201, json: NEAR_COMPLETE_GAME_STATE });
+    } else {
+      route.continue();
+    }
+  });
+  await page.route('**/games/**', (route) => {
+    if (route.request().method() === 'PATCH') {
+      route.fulfill({ status: 200, body: '' });
+    } else {
+      route.continue();
+    }
+  });
   await page.route('**/puzzles/validate', (route) =>
     route.fulfill({ json: VALID_RESPONSE })
   );

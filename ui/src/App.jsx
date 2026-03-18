@@ -3,7 +3,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { useSudokuGame } from './hooks/useSudokuGame.js';
@@ -12,6 +11,7 @@ import GameControls from './components/GameControls.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import NumberPad from './components/NumberPad.jsx';
 import HintDialog from './components/HintDialog.jsx';
+import Header from './components/Header.jsx';
 
 const theme = createTheme();
 
@@ -46,17 +46,20 @@ function App() {
     selectedCell,
     toggleAutoNotes,
     clearStatus,
+    elapsedSeconds,
+    timerRunning,
   } = useSudokuGame();
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <Header
+        elapsedSeconds={elapsedSeconds}
+        timerRunning={timerRunning}
+        gameStarted={!!currentGrid}
+      />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
-          <Typography variant="h4" component="h1" fontWeight="bold">
-            Sudoku
-          </Typography>
-
           <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
 
           <GameControls

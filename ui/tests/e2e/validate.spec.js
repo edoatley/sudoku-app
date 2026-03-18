@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 const VALID_RESPONSE = {
   isValid: true,
@@ -14,7 +14,7 @@ const INVALID_RESPONSE = {
 };
 
 async function setupRoutes(page, validateResponse) {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.route('**/puzzles/validate', (route) =>
     route.fulfill({ json: validateResponse })
   );

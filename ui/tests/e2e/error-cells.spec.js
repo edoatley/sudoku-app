@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 // MUI v7 default theme: error.light = rgb(239, 83, 80)
 // App uses createTheme() with no overrides, so this value is stable.
 
 async function setupRoutes(page, validateResponse) {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.route('**/puzzles/validate', (route) =>
     route.fulfill({ json: validateResponse })
   );
