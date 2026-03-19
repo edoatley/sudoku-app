@@ -1,0 +1,49 @@
+name: CI (push)
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  ui-lint:
+    name: UI — Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node
+      - name: Lint
+        run: npm run lint
+
+  backend-unit:
+    name: Backend — Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-java
+      - name: Run unit tests
+        run: ./mvnw test
+
+  infra:
+    name: Infra — Terraform fmt & validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-terraform
+      - name: Terraform format check
+        run: terraform fmt -check -recursive
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false
+      - name: Terraform validate
+        run: terraform validate

@@ -1,0 +1,11 @@
+name: Setup Java
+description: Install Java 21 (Temurin) with Maven cache
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v5
+      with:
+        java-version: "21"
+        distribution: "temurin"
+        cache: "maven"
