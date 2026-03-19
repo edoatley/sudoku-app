@@ -10,6 +10,7 @@ jobs:
   ui:
     name: UI — Lint & E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ui
@@ -47,6 +48,7 @@ jobs:
   backend:
     name: Backend — Maven Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
@@ -103,6 +105,7 @@ jobs:
   integration:
     name: Integration — Docker Compose + Playwright
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [ui, backend]
     steps:
       - uses: actions/checkout@v4
@@ -156,6 +159,7 @@ jobs:
   infra:
     name: Infra — Terraform fmt & validate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: infra

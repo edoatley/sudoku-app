@@ -1,9 +1,7 @@
 package com.sudoku.game;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.restassured.RestAssured;
+import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -11,15 +9,20 @@ import java.util.Map;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
-@QuarkusIntegrationTest
-class GameResourceIT {
-
-    @BeforeAll
-    static void configureRestAssured() {
-        int port = Integer.getInteger("quarkus.http.port", 8081);
-        RestAssured.baseURI = "http://localhost:" + port;
-        RestAssured.basePath = "/api/v1";
-    }
+/**
+ * API-level tests for {@link GameResource}.
+ *
+ * <p>Uses {@code @QuarkusTest}, which starts the app in-process via the Quarkus Lambda mock
+ * event server (required because the project uses {@code quarkus-amazon-lambda-rest} — there
+ * is no real HTTP server process). Quarkus automatically wires RestAssured to the mock server,
+ * so no manual {@code baseURI} setup is needed here.
+ *
+ * <p>DynamoDB is pointed at LocalStack via {@code src/test/resources/application.properties}.
+ * Ensure LocalStack is running with the {@code SudokuGames} table created before executing
+ * these tests (the CI workflow handles this automatically).
+ */
+@QuarkusTest
+class GameResourceTest {
 
     @Test
     void postGames_createsGameAndReturns201() {
