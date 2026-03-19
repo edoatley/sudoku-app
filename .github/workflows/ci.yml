@@ -240,14 +240,22 @@ jobs:
             const fs = require('fs');
             const path = require('path');
 
-            // Parse JUnit-style XML: sum tests/failures/errors/skipped across all files in a dir
+            // Recursively collect all .xml files under a directory
+            function collectXml(dir) {
+              if (!fs.existsSync(dir)) return [];
+              return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+                const full = path.join(dir, entry.name);
+                return entry.isDirectory() ? collectXml(full) : (entry.name.endsWith('.xml') ? [full] : []);
+              });
+            }
+
+            // Parse JUnit-style XML: sum tests/failures/errors/skipped across all files in a dir tree
             function parseJUnit(dir) {
               let tests = 0, failures = 0, errors = 0, skipped = 0;
-              if (!fs.existsSync(dir)) return null;
-              const files = fs.readdirSync(dir).filter(f => f.endsWith('.xml'));
+              const files = collectXml(dir);
               if (files.length === 0) return null;
               for (const file of files) {
-                const xml = fs.readFileSync(path.join(dir, file), 'utf8');
+                const xml = fs.readFileSync(file, 'utf8');
                 const suites = [...xml.matchAll(/<testsuite[^>]+>/g)];
                 for (const suite of suites) {
                   tests    += parseInt(suite[0].match(/\btests="(\d+)"/)?.[1]    ?? '0');
