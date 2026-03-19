@@ -19,10 +19,42 @@ export const EASY_PUZZLE = {
   ],
 };
 
-export async function setupGenerateRoute(page) {
-  await page.route('**/puzzles/generate**', (route) =>
-    route.fulfill({ json: EASY_PUZZLE })
-  );
+export const CANNED_GAME_ID = '123e4567-e89b-12d3-a456-426614174000';
+
+export const CANNED_GAME_STATE = {
+  gameId: CANNED_GAME_ID,
+  difficulty: 'easy',
+  originalGrid: EASY_PUZZLE.originalGrid,
+  currentGrid: EASY_PUZZLE.originalGrid.map((r) => [...r]),
+  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  timeSpentSeconds: 0,
+  status: 'IN_PROGRESS',
+};
+
+/**
+ * Mock all three /games endpoints.
+ * POST /games      → 201 CANNED_GAME_STATE
+ * GET  /games/:id  → 200 CANNED_GAME_STATE
+ * PATCH /games/:id → 200 (empty body)
+ */
+export async function setupGameRoutes(page, overrides = {}) {
+  const gameState = { ...CANNED_GAME_STATE, ...overrides };
+  await page.route('**/games', (route) => {
+    if (route.request().method() === 'POST') {
+      route.fulfill({ status: 201, json: gameState });
+    } else {
+      route.continue();
+    }
+  });
+  await page.route('**/games/**', (route) => {
+    if (route.request().method() === 'GET') {
+      route.fulfill({ status: 200, json: gameState });
+    } else if (route.request().method() === 'PATCH') {
+      route.fulfill({ status: 200, body: '' });
+    } else {
+      route.continue();
+    }
+  });
 }
 
 export async function waitForGrid(page) {

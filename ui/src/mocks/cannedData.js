@@ -67,6 +67,36 @@ export const CANNED_HINT = {
   solvedCells: [{ row: 0, col: 2, value: 4 }],
 };
 
+export const CANNED_GAME_STATE = {
+  gameId: '123e4567-e89b-12d3-a456-426614174000',
+  difficulty: 'easy',
+  originalGrid: [
+    [5, 3, 0, 0, 7, 0, 0, 0, 0],
+    [6, 0, 0, 1, 9, 5, 0, 0, 0],
+    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+    [0, 0, 0, 0, 8, 0, 0, 7, 9],
+  ],
+  currentGrid: [
+    [5, 3, 0, 0, 7, 0, 0, 0, 0],
+    [6, 0, 0, 1, 9, 5, 0, 0, 0],
+    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+    [0, 0, 0, 0, 8, 0, 0, 7, 9],
+  ],
+  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  timeSpentSeconds: 0,
+  status: 'IN_PROGRESS',
+};
+
 // Candidates for the easy puzzle: [5,3,0,0,7,0,0,0,0 / 6,0,0,1,9,5,0,0,0 / ...]
 // Filled cells get [], empty cells get plausible candidates.
 export const CANNED_CANDIDATES = {

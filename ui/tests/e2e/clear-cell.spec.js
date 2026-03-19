@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 test('clear button removes a user-entered value from the selected cell', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -19,7 +19,7 @@ test('clear button removes a user-entered value from the selected cell', async (
 });
 
 test('clear button does not remove a given (pre-filled) cell value', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -34,7 +34,7 @@ test('clear button does not remove a given (pre-filled) cell value', async ({ pa
 });
 
 test('clear button is a no-op when no cell is selected', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 

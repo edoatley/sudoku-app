@@ -1,4 +1,4 @@
-import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES } from '../mocks/cannedData.js';
+import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, CANNED_GAME_STATE } from '../mocks/cannedData.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
@@ -21,6 +21,10 @@ async function apiFetch(label, url, options = {}) {
       console.groupEnd();
     }
     throw new Error(`HTTP ${res.status}`);
+  }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    if (LOG_API) { console.log('← (no content)'); console.groupEnd(); }
+    return null;
   }
   const data = await res.json();
   if (LOG_API) {
@@ -75,5 +79,40 @@ export async function getCandidates(currentGrid) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentGrid }),
+  });
+}
+
+export async function createGame(difficulty) {
+  if (MOCK_API) {
+    await delay(400);
+    return { ...CANNED_GAME_STATE, difficulty };
+  }
+
+  return apiFetch('createGame', `${API_URL}/games`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ difficulty }),
+  });
+}
+
+export async function loadGame(gameId) {
+  if (MOCK_API) {
+    await delay(200);
+    return { ...CANNED_GAME_STATE, gameId };
+  }
+
+  return apiFetch('loadGame', `${API_URL}/games/${gameId}`);
+}
+
+export async function saveGame(gameId, { currentGrid, candidates, timeSpentSeconds, isComplete = false }) {
+  if (MOCK_API) {
+    await delay(100);
+    return;
+  }
+
+  await apiFetch('saveGame', `${API_URL}/games/${gameId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentGrid, candidates, timeSpentSeconds, isComplete }),
   });
 }

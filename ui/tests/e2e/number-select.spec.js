@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 // EASY_PUZZLE row 0: [5, 3, 0, 0, 7, 0, 0, 0, 0]
 // Given cells: col 0 (5), col 1 (3), col 4 (7)
 // Empty cells: col 2, 3, 5, 6, 7, 8
 
 test('number-first flow — select number then cell', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -17,7 +17,7 @@ test('number-first flow — select number then cell', async ({ page }) => {
 });
 
 test('cell-first flow — select cell then number', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -28,7 +28,7 @@ test('cell-first flow — select cell then number', async ({ page }) => {
 });
 
 test('clicking same number twice deselects it — cell stays empty', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -42,7 +42,7 @@ test('clicking same number twice deselects it — cell stays empty', async ({ pa
 });
 
 test('candidate toggle-off — adding then removing a candidate', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -60,7 +60,7 @@ test('candidate toggle-off — adding then removing a candidate', async ({ page 
 });
 
 test('given cell cannot be overwritten', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 

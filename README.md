@@ -10,7 +10,7 @@ A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a 
 
 ```mermaid
 architecture-beta
-    group aws(cloud)[AWS-eu-west-2]
+    group aws(cloud)[AWS London]
 
     service amplify(internet)[Amplify] in aws
     service apigw(internet)[API Gateway] in aws

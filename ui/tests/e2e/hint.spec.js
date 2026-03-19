@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 const HINT_RESPONSE = {
   techniqueName: 'Naked Single',
@@ -14,7 +14,7 @@ const HINT_RESPONSE = {
 };
 
 test('hint — clicking Hint shows the hint dialog with nudge text', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.route('**/puzzles/hint', (route) =>
     route.fulfill({ json: HINT_RESPONSE })
   );
@@ -28,7 +28,7 @@ test('hint — clicking Hint shows the hint dialog with nudge text', async ({ pa
 });
 
 test('hint — advancing to reveal fills the hinted cell with the correct value', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.route('**/puzzles/hint', (route) =>
     route.fulfill({ json: HINT_RESPONSE })
   );

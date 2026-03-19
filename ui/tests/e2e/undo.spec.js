@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 // EASY_PUZZLE row 0: [5, 3, 0, 0, 7, 0, 0, 0, 0]
 // Given cells: col 0 (5), col 1 (3), col 4 (7)
 // Empty cells: col 2, 3, 5, 6, 7, 8
 
 test('undo is disabled initially', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -14,7 +14,7 @@ test('undo is disabled initially', async ({ page }) => {
 });
 
 test('undo restores a normal-mode fill', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -27,7 +27,7 @@ test('undo restores a normal-mode fill', async ({ page }) => {
 });
 
 test('undo re-disables after undoing the only move', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -42,7 +42,7 @@ test('undo re-disables after undoing the only move', async ({ page }) => {
 });
 
 test('undo restores candidates in candidate mode', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -61,7 +61,7 @@ test('undo restores candidates in candidate mode', async ({ page }) => {
 });
 
 test('undo button remains disabled when no moves made', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 

@@ -100,8 +100,131 @@ paths:
               schema:
                 $ref: '#/components/schemas/CandidatesResponse'
 
+  /games:
+    post:
+      tags:
+        - Games
+      summary: Start a new game
+      description: Generates a new puzzle, creates a database record, and returns the gameId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                difficulty:
+                  $ref: '#/components/schemas/Difficulty'
+      responses:
+        '201':
+          description: Game created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameState'
+
+  /games/{gameId}:
+    get:
+      tags:
+        - Games
+      summary: Load a saved game
+      description: Retrieves the full game state so the user can resume.
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Game state retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameState'
+        '404':
+          description: Game not found.
+
+    patch:
+      tags:
+        - Games
+      summary: Auto-save game progress
+      description: Updates the current grid, notes, and time spent.
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameUpdateRequest'
+      responses:
+        '200':
+          description: Game saved successfully.
+
+
 components:
   schemas:
+    GameState:
+      type: object
+      required:
+        - gameId
+        - difficulty
+        - originalGrid
+        - currentGrid
+        - candidates
+        - timeSpentSeconds
+        - status
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        originalGrid:
+          $ref: '#/components/schemas/Grid'
+        currentGrid:
+          $ref: '#/components/schemas/Grid'
+        candidates:
+          $ref: '#/components/schemas/CandidatesGrid'
+        timeSpentSeconds:
+          type: integer
+          description: Total time the user has actively spent on this puzzle.
+        status:
+          type: string
+          enum: [IN_PROGRESS, SOLVED, ABANDONED]
+      example:
+        gameId: "123e4567-e89b-12d3-a456-426614174000"
+        difficulty: "medium"
+        originalGrid: [[5,3,0...]] # Truncated for brevity
+        currentGrid: [[5,3,4...]] 
+        candidates: [[[], [], [1,2]]] 
+        timeSpentSeconds: 145
+        status: "IN_PROGRESS"
+
+    GameUpdateRequest:
+      type: object
+      required:
+        - currentGrid
+        - candidates
+        - timeSpentSeconds
+      properties:
+        currentGrid:
+          $ref: '#/components/schemas/Grid'
+        candidates:
+          $ref: '#/components/schemas/CandidatesGrid'
+        timeSpentSeconds:
+          type: integer
+        isComplete:
+          type: boolean
+          description: Pass true if the user just filled the final correct square.
+
     Difficulty:
       type: string
       enum: [easy, medium, hard, expert]

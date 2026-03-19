@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+        Add suppression entries here for false positives or accepted risks.
+        Example:
+        <suppress>
+            <notes>False positive - library not used in production code path</notes>
+            <gav regex="true">^groupId:artifactId:.*$</gav>
+            <cve>CVE-XXXX-XXXXX</cve>
+        </suppress>
+    -->
+</suppressions>

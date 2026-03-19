@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { setupGenerateRoute, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 test('candidate mode — adding a candidate shows it as a small number in the cell', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 
@@ -18,7 +18,7 @@ test('candidate mode — adding a candidate shows it as a small number in the ce
 });
 
 test('candidate mode — normal mode fills the cell with the selected number', async ({ page }) => {
-  await setupGenerateRoute(page);
+  await setupGameRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
 

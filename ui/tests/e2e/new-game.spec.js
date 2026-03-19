@@ -16,11 +16,34 @@ const HARD_PUZZLE = {
   ],
 };
 
+function makeGameState(puzzle) {
+  return {
+    gameId: crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-000000000001',
+    difficulty: puzzle.difficulty,
+    originalGrid: puzzle.originalGrid,
+    currentGrid: puzzle.originalGrid.map((r) => [...r]),
+    candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+    timeSpentSeconds: 0,
+    status: 'IN_PROGRESS',
+  };
+}
+
 test('new-game — selecting Hard difficulty and starting a new game loads the puzzle', async ({ page }) => {
   let callCount = 0;
-  await page.route('**/puzzles/generate**', (route) => {
-    callCount += 1;
-    route.fulfill({ json: callCount === 1 ? EASY_PUZZLE : HARD_PUZZLE });
+  await page.route('**/games', (route) => {
+    if (route.request().method() === 'POST') {
+      callCount += 1;
+      route.fulfill({ status: 201, json: makeGameState(callCount === 1 ? EASY_PUZZLE : HARD_PUZZLE) });
+    } else {
+      route.continue();
+    }
+  });
+  await page.route('**/games/**', (route) => {
+    if (route.request().method() === 'PATCH') {
+      route.fulfill({ status: 200, body: '' });
+    } else {
+      route.continue();
+    }
   });
 
   await page.goto('/');
