@@ -166,6 +166,7 @@
                     <failBuildOnCVSS>7</failBuildOnCVSS>
                     <suppressionFile>dependency-check-suppressions.xml</suppressionFile>
                     <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+                    <nvdApiKey>${nvdApiKey}</nvdApiKey>
                 </configuration>
             </plugin>
             <plugin>
