@@ -39,7 +39,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report
           path: ui/playwright-report/
@@ -47,7 +47,7 @@ jobs:
 
       - name: Upload E2E test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-results
           path: ui/test-results/results.xml
@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload JaCoCo report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: jacoco-report
           path: backend/target/site/jacoco/
@@ -112,12 +112,53 @@ jobs:
 
       - name: Upload surefire & failsafe XML reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: backend-test-results
           path: |
             backend/target/surefire-reports/TEST-*.xml
             backend/target/failsafe-reports/TEST-*.xml
+          retention-days: 14
+
+  security:
+    name: Security — Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: UI npm audit
+        working-directory: ui
+        run: npm audit --audit-level=high
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Backend OWASP dependency check
+        working-directory: backend
+        run: ./mvnw org.owasp:dependency-check-maven:${{ env.OWASP_VERSION }}:check -DfailBuildOnCVSS=7
+        env:
+          OWASP_VERSION: "12.1.1"
+
+      - name: Upload OWASP report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: owasp-report
+          path: backend/target/dependency-check-report.html
           retention-days: 14
 
   integration:
@@ -164,7 +205,7 @@ jobs:
 
       - name: Upload integration test report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: integration-playwright-report
           path: ui/playwright-report/
@@ -172,7 +213,7 @@ jobs:
 
       - name: Upload integration test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: integration-results
           path: ui/test-results/integration-results.xml
@@ -208,26 +249,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: github.event_name == 'pull_request' && always()
-    needs: [ui, backend, integration, infra]
+    needs: [ui, backend, integration, infra, security]
     permissions:
       pull-requests: write
     steps:
       - name: Download backend test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         continue-on-error: true
         with:
           name: backend-test-results
           path: artifacts/backend
 
       - name: Download E2E test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         continue-on-error: true
         with:
           name: e2e-results
           path: artifacts/e2e
 
       - name: Download integration test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         continue-on-error: true
         with:
           name: integration-results
@@ -286,6 +327,7 @@ jobs:
               'Backend — Maven Tests':                       '${{ needs.backend.result }}',
               'Integration — Docker Compose + Playwright':   '${{ needs.integration.result }}',
               'Infra — Terraform fmt & validate':            '${{ needs.infra.result }}',
+              'Security — Dependency Audit':                 '${{ needs.security.result }}',
             };
 
             const icon = (r) => r === 'success' ? '✅' : r === 'failure' ? '❌' : r === 'skipped' ? '⏭️' : '⚠️';
