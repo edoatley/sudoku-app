@@ -164,8 +164,8 @@ DEPLOY_POLICY=$(cat <<EOF
         "iam:TagPolicy", "iam:UntagPolicy"
       ],
       "Resource": [
-        "arn:aws:iam::${ACCOUNT_ID}:role/SudokuLambdaExecRole",
-        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuDynamoDBPolicy"
+        "arn:aws:iam::${ACCOUNT_ID}:role/SudokuLambdaExecRole*",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuDynamoDBPolicy*"
       ]
     },
     {
@@ -178,7 +178,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "dynamodb:DescribeContinuousBackups", "dynamodb:UpdateContinuousBackups",
         "dynamodb:DescribeTimeToLive"
       ],
-      "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames"
+      "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames*"
     },
     {
       "Sid": "LambdaZipBucket",
