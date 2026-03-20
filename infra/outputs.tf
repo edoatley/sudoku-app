@@ -22,3 +22,8 @@ output "lambda_function_arn" {
   description = "Lambda function ARN."
   value       = aws_lambda_function.sudoku.arn
 }
+
+output "amplify_app_id" {
+  description = "Amplify app ID (used by CI to trigger branch builds on first deploy)."
+  value       = aws_amplify_app.sudoku.id
+}

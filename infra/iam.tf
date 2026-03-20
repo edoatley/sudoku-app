@@ -1,5 +1,5 @@
 resource "aws_iam_role" "lambda_exec" {
-  name = "SudokuLambdaExecRole"
+  name = "SudokuLambdaExecRole${local.suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -19,7 +19,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 }
 
 resource "aws_iam_policy" "sudoku_dynamodb" {
-  name        = "SudokuDynamoDBPolicy"
+  name        = "SudokuDynamoDBPolicy${local.suffix}"
   description = "Grants the Sudoku Lambda minimal DynamoDB access"
 
   policy = jsonencode({

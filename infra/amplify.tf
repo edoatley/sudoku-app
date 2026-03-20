@@ -1,5 +1,5 @@
 resource "aws_amplify_app" "sudoku" {
-  name         = "sudoku"
+  name         = "sudoku${local.suffix}"
   repository   = "https://github.com/${var.github_owner}/${var.github_repo}"
   access_token = var.github_token
 
@@ -28,16 +28,16 @@ resource "aws_amplify_app" "sudoku" {
   }
 
   auto_branch_creation_config {
-    enable_auto_build = true
+    enable_auto_build = local.is_default
   }
 
-  enable_auto_branch_creation = true
+  enable_auto_branch_creation = local.is_default
 }
 
 resource "aws_amplify_branch" "main" {
   app_id      = aws_amplify_app.sudoku.id
-  branch_name = "main"
-  stage       = "PRODUCTION"
+  branch_name = local.is_default ? "main" : terraform.workspace
+  stage       = local.is_default ? "PRODUCTION" : "DEVELOPMENT"
 
   enable_auto_build = true
 }

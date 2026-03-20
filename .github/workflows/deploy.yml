@@ -60,6 +60,22 @@ jobs:
         with:
           role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
 
+      - name: Resolve Terraform workspace
+        id: workspace
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+          if [ "${BRANCH}" = "main" ]; then
+            WORKSPACE="default"
+            ENV="prod"
+          else
+            WORKSPACE="${SANITIZED}"
+            ENV="${SANITIZED}"
+          fi
+          echo "branch=${BRANCH}"       >> "$GITHUB_OUTPUT"
+          echo "workspace=${WORKSPACE}" >> "$GITHUB_OUTPUT"
+          echo "environment=${ENV}"     >> "$GITHUB_OUTPUT"
+
       - name: Download freshly built Lambda zip
         if: needs.changes.outputs.backend == 'true'
         uses: actions/download-artifact@v4
@@ -73,10 +89,11 @@ jobs:
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           BUCKET="sudoku-lambda-zip-${ACCOUNT_ID}"
+          WORKSPACE="${{ steps.workspace.outputs.workspace }}"
           mkdir -p backend/target
-          if aws s3 ls "s3://${BUCKET}/function.zip" > /dev/null 2>&1; then
-            echo "Downloading current zip from s3://${BUCKET}/function.zip"
-            aws s3 cp "s3://${BUCKET}/function.zip" backend/target/function.zip
+          if aws s3 ls "s3://${BUCKET}/${WORKSPACE}/function.zip" > /dev/null 2>&1; then
+            echo "Downloading current zip from s3://${BUCKET}/${WORKSPACE}/function.zip"
+            aws s3 cp "s3://${BUCKET}/${WORKSPACE}/function.zip" backend/target/function.zip
           else
             echo "needs_build=true" >> "$GITHUB_OUTPUT"
           fi
@@ -94,9 +111,22 @@ jobs:
         working-directory: infra
         run: terraform init
 
+      - name: Select or create Terraform workspace
+        working-directory: infra
+        run: |
+          WORKSPACE="${{ steps.workspace.outputs.workspace }}"
+          if [ "${WORKSPACE}" = "default" ]; then
+            terraform workspace select default
+          else
+            terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
+          fi
+
       - name: Terraform plan
         working-directory: infra
-        run: terraform plan -out=tfplan -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+        run: >-
+          terraform plan -out=tfplan
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "environment=${{ steps.workspace.outputs.environment }}"
 
       - name: Terraform apply
         working-directory: infra
@@ -117,6 +147,14 @@ jobs:
         run: |
           CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
+
+      - name: Trigger Amplify build
+        if: steps.workspace.outputs.workspace != 'default'
+        working-directory: infra
+        run: |
+          APP_ID=$(terraform output -raw amplify_app_id)
+          BRANCH="${{ steps.workspace.outputs.branch }}"
+          aws amplify start-job --app-id "${APP_ID}" --branch-name "${BRANCH}" --job-type RELEASE
 
       - name: Print deployment URLs
         working-directory: infra

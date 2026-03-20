@@ -1,5 +1,5 @@
 resource "aws_apigatewayv2_api" "sudoku" {
-  name          = "sudoku"
+  name          = "sudoku${local.suffix}"
   protocol_type = "HTTP"
 
   # Broad wildcard used as the Terraform-managed baseline to avoid a circular
@@ -62,8 +62,8 @@ resource "aws_apigatewayv2_stage" "default" {
 }
 
 resource "aws_cloudwatch_log_group" "api_gateway" {
-  name              = "/aws/apigateway/sudoku"
-  retention_in_days = 7
+  name              = "/aws/apigateway/sudoku${local.suffix}"
+  retention_in_days = local.is_default ? 7 : 3
 
   # checkov:skip=CKV_AWS_338: 7-day retention is intentional to minimise log storage cost for a personal project
   # checkov:skip=CKV_AWS_158: KMS CMK encryption costs ~$1/month with no meaningful benefit over AWS-managed encryption here

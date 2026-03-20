@@ -1,4 +1,5 @@
 resource "aws_s3_bucket" "lambda_zip" {
+  count  = local.is_default ? 1 : 0
   bucket = "sudoku-lambda-zip-${local.account_id}"
 
   # checkov:skip=CKV_AWS_18: Access logging not needed for a Lambda deployment artefact bucket
@@ -8,8 +9,14 @@ resource "aws_s3_bucket" "lambda_zip" {
   # checkov:skip=CKV2_AWS_62: Event notifications have no use case for a deployment artefact bucket
 }
 
+data "aws_s3_bucket" "lambda_zip_shared" {
+  count  = local.is_default ? 0 : 1
+  bucket = "sudoku-lambda-zip-${local.account_id}"
+}
+
 resource "aws_s3_bucket_public_access_block" "lambda_zip" {
-  bucket = aws_s3_bucket.lambda_zip.id
+  count  = local.is_default ? 1 : 0
+  bucket = aws_s3_bucket.lambda_zip[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -18,7 +25,8 @@ resource "aws_s3_bucket_public_access_block" "lambda_zip" {
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "lambda_zip" {
-  bucket = aws_s3_bucket.lambda_zip.id
+  count  = local.is_default ? 1 : 0
+  bucket = aws_s3_bucket.lambda_zip[0].id
 
   rule {
     id     = "expire-old-zips"
@@ -37,17 +45,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "lambda_zip" {
 }
 
 resource "aws_s3_object" "lambda_zip" {
-  bucket = aws_s3_bucket.lambda_zip.id
-  key    = "function.zip"
+  bucket = local.lambda_zip_bucket_id
+  key    = "${terraform.workspace}/function.zip"
   source = var.lambda_zip_path
   etag   = filemd5(var.lambda_zip_path)
 }
 
 resource "aws_lambda_function" "sudoku" {
-  function_name = "sudoku"
+  function_name = "sudoku${local.suffix}"
   role          = aws_iam_role.lambda_exec.arn
 
-  s3_bucket        = aws_s3_bucket.lambda_zip.id
+  s3_bucket        = local.lambda_zip_bucket_id
   s3_key           = aws_s3_object.lambda_zip.key
   source_code_hash = filebase64sha256(var.lambda_zip_path)
 

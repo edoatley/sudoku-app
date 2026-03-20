@@ -6,6 +6,10 @@ on:
       confirm:
         description: 'Type DESTROY to confirm teardown of all Terraform-managed resources'
         required: true
+      workspace:
+        description: 'Terraform workspace to destroy (e.g. rc-infra-buildout). Leave blank for production (default).'
+        required: false
+        default: ''
 
 permissions:
   id-token: write
@@ -36,6 +40,20 @@ jobs:
         working-directory: infra
         run: terraform init
 
+      - name: Resolve workspace
+        id: workspace
+        run: |
+          WORKSPACE="${{ github.event.inputs.workspace }}"
+          WORKSPACE="${WORKSPACE:-default}"
+          if [ "${WORKSPACE}" = "default" ]; then
+            echo "WARNING: Destroying the default workspace will tear down PRODUCTION resources."
+          fi
+          echo "workspace=${WORKSPACE}" >> "$GITHUB_OUTPUT"
+
+      - name: Select Terraform workspace
+        working-directory: infra
+        run: terraform workspace select "${{ steps.workspace.outputs.workspace }}"
+
       - name: Terraform destroy
         working-directory: infra
         run: >-
@@ -43,14 +61,29 @@ jobs:
           -auto-approve
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "lambda_zip_path=/dev/null"
+          -var "environment=${{ steps.workspace.outputs.workspace }}"
+
+      - name: Delete workspace
+        working-directory: infra
+        run: |
+          WORKSPACE="${{ steps.workspace.outputs.workspace }}"
+          if [ "${WORKSPACE}" != "default" ]; then
+            terraform workspace select default
+            terraform workspace delete "${WORKSPACE}"
+          fi
 
       - name: Bootstrap resources reminder
         run: |
-          echo "### Teardown complete" >> "$GITHUB_STEP_SUMMARY"
+          WORKSPACE="${{ steps.workspace.outputs.workspace }}"
+          echo "### Teardown complete (workspace: ${WORKSPACE})" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The following bootstrap resources were **NOT** destroyed and must be cleaned up manually if needed:" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- S3 bucket: \`sudoku-tf-state\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- DynamoDB table: \`sudoku-tf-locks\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- IAM OIDC provider: \`token.actions.githubusercontent.com\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- IAM role: \`sudoku-github-actions-deploy\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${WORKSPACE}" = "default" ]; then
+            echo "The following bootstrap resources were **NOT** destroyed and must be cleaned up manually if needed:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- S3 bucket: \`sudoku-tf-state\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- DynamoDB table: \`sudoku-tf-locks\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- IAM OIDC provider: \`token.actions.githubusercontent.com\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- IAM role: \`sudoku-github-actions-deploy\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Workspace \`${WORKSPACE}\` has been destroyed and deleted." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -97,6 +97,104 @@ All resources receive default tags via the provider `default_tags` block:
 
 ---
 
+## Multi-environment isolation
+
+The infrastructure uses **Terraform workspaces** to give each `rc-*` branch its own isolated AWS stack, while `main` continues using the `default` workspace with unchanged resource names.
+
+### Workspace strategy
+
+| Branch | Workspace | Resource suffix |
+|--------|-----------|-----------------|
+| `main` | `default` | _(none)_ |
+| `rc-infra-buildout` | `rc-infra-buildout` | `-rc-infra-buildout` |
+| `rc-some-feature` | `rc-some-feature` | `-rc-some-feature` |
+
+### Resource naming
+
+All resource names are driven by a single `local.suffix` local in `main.tf`:
+
+```hcl
+locals {
+  is_default = terraform.workspace == "default"
+  suffix     = local.is_default ? "" : "-${terraform.workspace}"
+}
+```
+
+Example resources for workspace `rc-infra-buildout`:
+
+| Resource | Default name | rc-* name |
+|----------|--------------|-----------|
+| Lambda function | `sudoku` | `sudoku-rc-infra-buildout` |
+| DynamoDB table | `SudokuGames` | `SudokuGames-rc-infra-buildout` |
+| API Gateway | `sudoku` | `sudoku-rc-infra-buildout` |
+| IAM role | `SudokuLambdaExecRole` | `SudokuLambdaExecRole-rc-infra-buildout` |
+| Amplify app | `sudoku` | `sudoku-rc-infra-buildout` |
+
+### State file paths (S3 backend)
+
+Terraform automatically isolates state files per workspace:
+
+| Workspace | S3 key |
+|-----------|--------|
+| `default` | `sudoku/terraform.tfstate` |
+| `rc-infra-buildout` | `env:/rc-infra-buildout/sudoku/terraform.tfstate` |
+
+No backend configuration change is required — this is standard Terraform S3 backend behaviour.
+
+### S3 zip bucket sharing
+
+The Lambda deployment zip bucket (`sudoku-lambda-zip-{account_id}`) is **owned by the `default` workspace** and shared by all `rc-*` workspaces via a `data "aws_s3_bucket"` reference. Each workspace writes to its own prefixed S3 key:
+
+| Workspace | S3 key |
+|-----------|--------|
+| `default` | `default/function.zip` |
+| `rc-infra-buildout` | `rc-infra-buildout/function.zip` |
+
+### Cost saving on rc-* stacks
+
+| Feature | `default` | `rc-*` |
+|---------|-----------|--------|
+| DynamoDB PITR | enabled | disabled |
+| CloudWatch log retention | 7 days | 3 days |
+| Amplify auto-branch creation | enabled | disabled |
+| Amplify stage | `PRODUCTION` | `DEVELOPMENT` |
+
+### Local operations for an rc-* workspace
+
+```bash
+cd infra
+
+# Select (or create) a workspace
+terraform workspace select rc-my-feature || terraform workspace new rc-my-feature
+
+# Plan and apply
+terraform plan  -var "github_token=<token>"
+terraform apply -var "github_token=<token>"
+
+# Switch back to default (production)
+terraform workspace select default
+```
+
+### Tearing down an rc-* workspace
+
+Trigger the **Teardown** workflow manually via GitHub Actions, supplying the workspace name (e.g. `rc-infra-buildout`). The workflow will:
+
+1. Select the workspace
+2. Run `terraform destroy`
+3. Switch back to `default` and delete the workspace
+
+Or locally:
+
+```bash
+cd infra
+terraform workspace select rc-my-feature
+terraform destroy -var "github_token=<token>" -var "lambda_zip_path=/dev/null"
+terraform workspace select default
+terraform workspace delete rc-my-feature
+```
+
+---
+
 ## Bootstrap (first-time setup)
 
 Before the first `terraform apply` the following resources must exist. Run the bootstrap script once with valid AWS credentials:
