@@ -101,22 +101,31 @@ jobs:
         env:
           API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
         run: |
-          echo "Testing API Gateway: ${API_URL}"
+          # Strip trailing slash to avoid double-slash URLs (API Gateway invoke URL ends with /)
+          API_BASE="${API_URL%/}"
+          echo "Testing API Gateway: ${API_BASE}"
 
           # /puzzles/generate
-          STATUS=$(curl -sf -o /tmp/generate.json -w "%{http_code}" "${API_URL}/api/v1/puzzles/generate")
+          STATUS=$(curl -s -o /tmp/generate.json -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate")
           echo "GET /puzzles/generate → HTTP ${STATUS}"
-          [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; exit 1; }
+          [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; echo "Response body:"; cat /tmp/generate.json; exit 1; }
 
           # Response should contain a cells array
           grep -q '"cells"' /tmp/generate.json || { echo "FAIL: response missing 'cells' field"; cat /tmp/generate.json; exit 1; }
           echo "PASS: /puzzles/generate returned valid JSON with cells"
 
           # /puzzles/generate?difficulty=hard
-          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${API_URL}/api/v1/puzzles/generate?difficulty=hard")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
           echo "GET /puzzles/generate?difficulty=hard → HTTP ${STATUS}"
           [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; exit 1; }
           echo "PASS: /puzzles/generate?difficulty=hard OK"
+
+      - name: UI integration tests — skipped (rc-* branch)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "### UI integration tests: skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "Amplify is wired to the \`main\` branch. UI Playwright tests only run on \`main\` pushes." >> "$GITHUB_STEP_SUMMARY"
+          echo "Skipping UI integration tests — this is an rc-* branch (API smoke tests above cover the backend)."
 
       # Playwright integration tests run only on main (Amplify is wired to main branch)
       - name: Wait for Amplify deployment to complete
