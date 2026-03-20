@@ -66,7 +66,8 @@ resource "aws_lambda_function" "sudoku" {
     mode = "PassThrough" # X-Ray traces only when upstream sends trace header — zero cost
   }
 
-  reserved_concurrent_executions = 10
+  # reserved_concurrent_executions not set — account limit is 10 total, reserving any would
+  # exhaust the 10-unit unreserved minimum AWS requires, causing a deployment error.
 
   # checkov:skip=CKV_AWS_116: Synchronous HTTP API invocation — DLQ only applies to async Lambda invocations
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit for this public API
