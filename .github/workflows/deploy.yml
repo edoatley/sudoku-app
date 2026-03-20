@@ -26,7 +26,6 @@ jobs:
             backend:
               - 'backend/**'
               - 'openapi.yaml'
-              - '.github/workflows/deploy.yml'
 
   build-backend:
     name: Build Backend
@@ -40,6 +39,15 @@ jobs:
       - name: Build Lambda zip
         working-directory: backend
         run: ./mvnw package -DskipTests
+      - name: Normalize zip timestamps (reproducible build)
+        working-directory: backend/target
+        run: |
+          mkdir -p function-contents
+          unzip -q function.zip -d function-contents
+          find function-contents -exec touch -t 202001010000.00 {} +
+          rm function.zip
+          cd function-contents && zip -qrX ../function.zip . --no-dir-entries
+          cd .. && rm -rf function-contents
       - name: Upload Lambda zip artifact
         uses: actions/upload-artifact@v4
         with:
@@ -92,7 +100,14 @@ jobs:
       - name: Build Lambda zip (S3 fallback — no prior deployment found)
         if: steps.s3-download.outputs.needs_build == 'true'
         working-directory: backend
-        run: ./mvnw package -DskipTests
+        run: |
+          ./mvnw package -DskipTests
+          mkdir -p target/function-contents
+          unzip -q target/function.zip -d target/function-contents
+          find target/function-contents -exec touch -t 202001010000.00 {} +
+          rm target/function.zip
+          cd target/function-contents && zip -qrX ../function.zip . --no-dir-entries
+          cd ../.. && rm -rf target/function-contents
 
       - uses: ./.github/actions/setup-terraform
 
