@@ -132,7 +132,10 @@ DEPLOY_POLICY=$(cat <<EOF
         "lambda:CreateAlias", "lambda:UpdateAlias", "lambda:GetAlias", "lambda:DeleteAlias",
         "lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy",
         "lambda:PutFunctionEventInvokeConfig", "lambda:GetFunctionEventInvokeConfig",
-        "lambda:ListTags", "lambda:TagResource", "lambda:UntagResource"
+        "lambda:ListTags", "lambda:TagResource", "lambda:UntagResource",
+        "lambda:PutFunctionConcurrency", "lambda:GetFunctionConcurrency",
+        "lambda:DeleteFunctionConcurrency", "lambda:PutFunctionCodeSigningConfig",
+        "lambda:GetFunctionCodeSigningConfig"
       ],
       "Resource": "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:function:sudoku*"
     },
