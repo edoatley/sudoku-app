@@ -172,7 +172,8 @@ DEPLOY_POLICY=$(cat <<EOF
         "dynamodb:CreateTable", "dynamodb:DescribeTable", "dynamodb:DeleteTable",
         "dynamodb:UpdateTable", "dynamodb:ListTagsOfResource",
         "dynamodb:TagResource", "dynamodb:UntagResource",
-        "dynamodb:DescribeContinuousBackups", "dynamodb:UpdateContinuousBackups"
+        "dynamodb:DescribeContinuousBackups", "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeTimeToLive"
       ],
       "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames"
     },
@@ -188,6 +189,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "s3:GetBucketVersioning", "s3:GetBucketWebsite",
         "s3:GetLifecycleConfiguration", "s3:GetObject", "s3:PutObject",
         "s3:DeleteObject", "s3:ListBucket", "s3:GetAccelerateConfiguration",
+        "s3:GetReplicationConfiguration",
         "s3:PutBucketPublicAccessBlock", "s3:PutBucketVersioning",
         "s3:PutLifecycleConfiguration", "s3:PutBucketTagging",
         "s3:PutBucketOwnershipControls"
