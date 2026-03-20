@@ -9,12 +9,31 @@ on:
 permissions:
   id-token: write
   contents: read
+  actions: write
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'openapi.yaml'
+              - '.github/workflows/deploy.yml'
+
   build-backend:
     name: Build Backend
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-java
@@ -22,7 +41,7 @@ jobs:
         working-directory: backend
         run: ./mvnw package -DskipTests
       - name: Upload Lambda zip artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: lambda-zip
           path: backend/target/function.zip
@@ -32,24 +51,48 @@ jobs:
     name: Terraform Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build-backend
+    needs: [changes, build-backend]
+    if: always() && !failure() && !cancelled()
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download Lambda zip artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lambda-zip
-          path: backend/target/
-
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-west-2
+
+      - name: Download freshly built Lambda zip
+        if: needs.changes.outputs.backend == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-zip
+          path: backend/target/
+
+      - name: Download current Lambda zip from S3 (no backend changes)
+        id: s3-download
+        if: needs.changes.outputs.backend != 'true'
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET="sudoku-lambda-zip-${ACCOUNT_ID}"
+          mkdir -p backend/target
+          if aws s3 ls "s3://${BUCKET}/function.zip" > /dev/null 2>&1; then
+            echo "Downloading current zip from s3://${BUCKET}/function.zip"
+            aws s3 cp "s3://${BUCKET}/function.zip" backend/target/function.zip
+          else
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ./.github/actions/setup-java
+        if: steps.s3-download.outputs.needs_build == 'true'
+
+      - name: Build Lambda zip (S3 fallback — no prior deployment found)
+        if: steps.s3-download.outputs.needs_build == 'true'
+        working-directory: backend
+        run: ./mvnw package -DskipTests
 
       - uses: ./.github/actions/setup-terraform
 
@@ -158,7 +201,7 @@ jobs:
 
       - name: Upload Playwright integration report
         if: failure() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: smoke-playwright-report
           path: ui/playwright-report/
@@ -166,7 +209,7 @@ jobs:
 
       - name: Upload Playwright integration results
         if: always() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: smoke-integration-results
           path: ui/test-results/integration-results.xml
@@ -205,3 +248,8 @@ jobs:
             echo "### Smoke tests failed ❌ (status: ${SMOKE_STATUS})" >> "$GITHUB_STEP_SUMMARY"
             echo "Check the smoke-test job logs for details." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Delete lambda-zip artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[] | select(.name == "lambda-zip") | .id' | xargs -I{} gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/{}
