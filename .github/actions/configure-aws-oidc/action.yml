@@ -1,0 +1,16 @@
+name: Configure AWS OIDC Credentials
+description: Assumes an IAM role via OIDC and configures AWS credentials for the job
+
+inputs:
+  role-arn:
+    description: IAM role ARN to assume via OIDC
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure AWS credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-arn }}
+        aws-region: eu-west-2

@@ -36,18 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-java
-      - name: Build Lambda zip
-        working-directory: backend
-        run: ./mvnw package -DskipTests
-      - name: Normalize zip timestamps (reproducible build)
-        working-directory: backend/target
-        run: |
-          mkdir -p function-contents
-          unzip -q function.zip -d function-contents
-          find function-contents -exec touch -t 202001010000.00 {} +
-          rm function.zip
-          cd function-contents && zip -qrX ../function.zip . --no-dir-entries
-          cd .. && rm -rf function-contents
+      - uses: ./.github/actions/build-lambda-zip
       - name: Upload Lambda zip artifact
         uses: actions/upload-artifact@v4
         with:
@@ -67,11 +56,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: ./.github/actions/configure-aws-oidc
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: eu-west-2
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
 
       - name: Download freshly built Lambda zip
         if: needs.changes.outputs.backend == 'true'
@@ -99,17 +86,9 @@ jobs:
 
       - name: Build Lambda zip (S3 fallback — no prior deployment found)
         if: steps.s3-download.outputs.needs_build == 'true'
-        working-directory: backend
-        run: |
-          ./mvnw package -DskipTests
-          mkdir -p target/function-contents
-          unzip -q target/function.zip -d target/function-contents
-          find target/function-contents -exec touch -t 202001010000.00 {} +
-          rm target/function.zip
-          cd target/function-contents && zip -qrX ../function.zip . --no-dir-entries
-          cd ../.. && rm -rf target/function-contents
+        uses: ./.github/actions/build-lambda-zip
 
-      - uses: ./.github/actions/setup-terraform
+      - uses: hashicorp/setup-terraform@v4
 
       - name: Terraform init
         working-directory: infra

@@ -1,0 +1,20 @@
+name: Build Lambda Zip
+description: Builds the Quarkus Lambda zip and normalises timestamps for a reproducible artifact
+
+runs:
+  using: composite
+  steps:
+    - name: Build Lambda zip
+      shell: bash
+      working-directory: backend
+      run: ./mvnw package -DskipTests
+    - name: Normalize zip timestamps (reproducible build)
+      shell: bash
+      working-directory: backend/target
+      run: |
+        mkdir -p function-contents
+        unzip -q function.zip -d function-contents
+        find function-contents -exec touch -t 202001010000.00 {} +
+        rm function.zip
+        cd function-contents && zip -qrX ../function.zip . --no-dir-entries
+        cd .. && rm -rf function-contents
