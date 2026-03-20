@@ -49,7 +49,7 @@ resource "aws_lambda_function" "sudoku" {
 
   s3_bucket        = aws_s3_bucket.lambda_zip.id
   s3_key           = aws_s3_object.lambda_zip.key
-  source_code_hash = aws_s3_object.lambda_zip.etag
+  source_code_hash = filebase64sha256(var.lambda_zip_path)
 
   runtime       = "java21"
   handler       = "io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest"
