@@ -148,13 +148,6 @@ jobs:
           CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
-      - name: Trigger Amplify build
-        if: steps.workspace.outputs.workspace != 'default'
-        working-directory: infra
-        run: |
-          APP_ID=$(terraform output -raw amplify_app_id)
-          BRANCH="${{ steps.workspace.outputs.branch }}"
-          aws amplify start-job --app-id "${APP_ID}" --branch-name "${BRANCH}" --job-type RELEASE
 
       - name: Print deployment URLs
         working-directory: infra
