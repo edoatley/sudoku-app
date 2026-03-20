@@ -22,7 +22,7 @@ jobs:
         working-directory: backend
         run: ./mvnw package -DskipTests
       - name: Upload Lambda zip artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lambda-zip
           path: backend/target/function.zip
@@ -110,9 +110,9 @@ jobs:
           echo "GET /puzzles/generate → HTTP ${STATUS}"
           [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; echo "Response body:"; cat /tmp/generate.json; exit 1; }
 
-          # Response should contain a cells array
-          grep -q '"cells"' /tmp/generate.json || { echo "FAIL: response missing 'cells' field"; cat /tmp/generate.json; exit 1; }
-          echo "PASS: /puzzles/generate returned valid JSON with cells"
+          # Response should contain an originalGrid array
+          grep -q '"originalGrid"' /tmp/generate.json || { echo "FAIL: response missing 'originalGrid' field"; cat /tmp/generate.json; exit 1; }
+          echo "PASS: /puzzles/generate returned valid JSON with originalGrid"
 
           # /puzzles/generate?difficulty=hard
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
@@ -158,7 +158,7 @@ jobs:
 
       - name: Upload Playwright integration report
         if: failure() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: smoke-playwright-report
           path: ui/playwright-report/
@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload Playwright integration results
         if: always() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: smoke-integration-results
           path: ui/test-results/integration-results.xml
