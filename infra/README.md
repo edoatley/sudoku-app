@@ -24,7 +24,7 @@ flowchart LR
 
         subgraph Compute["Compute"]
             LAM[Lambda: sudoku\nJava 21 · SnapStart\n512 MB · 10 max concurrency\nalias: live]
-            S3Z[S3 Bucket\nlambda-zip-{account}\n30-day lifecycle]
+            S3Z["S3 Bucket\nlambda-zip-{account}\n30-day lifecycle"]
         end
 
         subgraph Data["Data"]
