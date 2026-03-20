@@ -187,12 +187,18 @@ DEPLOY_POLICY=$(cat <<EOF
         "s3:GetBucketPolicyStatus", "s3:GetBucketPublicAccessBlock",
         "s3:GetBucketRequestPayment", "s3:GetBucketTagging",
         "s3:GetBucketVersioning", "s3:GetBucketWebsite",
-        "s3:GetLifecycleConfiguration", "s3:GetObject", "s3:PutObject",
-        "s3:DeleteObject", "s3:ListBucket", "s3:GetAccelerateConfiguration",
-        "s3:GetReplicationConfiguration",
+        "s3:GetAccelerateConfiguration", "s3:GetBucketAcl",
+        "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging",
+        "s3:GetBucketNotification", "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketPolicy", "s3:GetBucketPolicyStatus",
+        "s3:GetBucketPublicAccessBlock", "s3:GetBucketRequestPayment",
+        "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite",
+        "s3:GetEncryptionConfiguration", "s3:GetLifecycleConfiguration",
+        "s3:GetObject", "s3:GetReplicationConfiguration",
+        "s3:ListBucket", "s3:PutObject", "s3:DeleteObject",
         "s3:PutBucketPublicAccessBlock", "s3:PutBucketVersioning",
         "s3:PutLifecycleConfiguration", "s3:PutBucketTagging",
-        "s3:PutBucketOwnershipControls"
+        "s3:PutBucketOwnershipControls", "s3:PutEncryptionConfiguration"
       ],
       "Resource": [
         "arn:aws:s3:::sudoku-lambda-zip-${ACCOUNT_ID}",
