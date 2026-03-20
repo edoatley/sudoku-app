@@ -13,7 +13,7 @@ runs:
       working-directory: backend/target
       run: |
         mkdir -p function-contents
-        unzip -q function.zip -d function-contents
+        unzip -qo function.zip -d function-contents
         find function-contents -exec touch -t 202001010000.00 {} +
         rm function.zip
         cd function-contents && zip -qrX ../function.zip . --no-dir-entries
