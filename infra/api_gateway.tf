@@ -9,7 +9,6 @@ resource "aws_apigatewayv2_api" "sudoku" {
   cors_configuration {
     allow_methods = ["GET", "POST", "OPTIONS"]
     allow_origins = [
-      "https://*.amplifyapp.com",
       "http://localhost:5173"
     ]
     allow_headers = ["Content-Type", "Authorization"]

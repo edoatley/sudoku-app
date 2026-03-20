@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Bootstrap script — run once with valid AWS credentials before first Terraform apply.
-# Creates: S3 state bucket, DynamoDB lock table, GitHub OIDC provider, GitHub Actions deploy role.
+# Creates: S3 state bucket, GitHub OIDC provider, GitHub Actions deploy role.
 # Safe to re-run (idempotent).
 
 set -euo pipefail
 
 REGION="eu-west-2"
 STATE_BUCKET="sudoku-tf-state"
-LOCK_TABLE="sudoku-tf-locks"
 OIDC_URL="https://token.actions.githubusercontent.com"
 OIDC_AUDIENCE="sts.amazonaws.com"
 DEPLOY_ROLE_NAME="sudoku-github-actions-deploy"
@@ -17,7 +16,6 @@ GITHUB_REPO="${GITHUB_REPO:-sudoku-app}"
 echo "==> Bootstrapping Sudoku infrastructure prerequisites"
 echo "    Region:       ${REGION}"
 echo "    State bucket: ${STATE_BUCKET}"
-echo "    Lock table:   ${LOCK_TABLE}"
 echo "    GitHub:       ${GITHUB_ORG}/${GITHUB_REPO}"
 echo ""
 
@@ -26,7 +24,7 @@ echo "    AWS account:  ${ACCOUNT_ID}"
 echo ""
 
 # ── 1. S3 state bucket ─────────────────────────────────────────────────────────
-echo "==> [1/4] S3 state bucket: ${STATE_BUCKET}"
+echo "==> [1/3] S3 state bucket: ${STATE_BUCKET}"
 
 if aws s3api head-bucket --bucket "${STATE_BUCKET}" 2>/dev/null; then
   echo "    Already exists — skipping creation."
@@ -62,23 +60,8 @@ aws s3api put-bucket-ownership-controls \
 
 echo "    Configured: versioning, SSE-S3, public access blocked, ACLs disabled."
 
-# ── 2. DynamoDB lock table ──────────────────────────────────────────────────────
-echo "==> [2/4] DynamoDB lock table: ${LOCK_TABLE}"
-
-if aws dynamodb describe-table --table-name "${LOCK_TABLE}" --region "${REGION}" 2>/dev/null; then
-  echo "    Already exists — skipping creation."
-else
-  aws dynamodb create-table \
-    --table-name "${LOCK_TABLE}" \
-    --attribute-definitions AttributeName=LockID,AttributeType=S \
-    --key-schema AttributeName=LockID,KeyType=HASH \
-    --billing-mode PAY_PER_REQUEST \
-    --region "${REGION}"
-  echo "    Created."
-fi
-
-# ── 3. GitHub Actions OIDC provider ────────────────────────────────────────────
-echo "==> [3/4] GitHub Actions OIDC provider"
+# ── 2. GitHub Actions OIDC provider ────────────────────────────────────────────
+echo "==> [2/3] GitHub Actions OIDC provider"
 
 OIDC_ARN="arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
 
@@ -99,8 +82,8 @@ else
   echo "    Created (thumbprint: ${THUMBPRINT})."
 fi
 
-# ── 4. GitHub Actions deploy IAM role ──────────────────────────────────────────
-echo "==> [4/4] IAM role: ${DEPLOY_ROLE_NAME}"
+# ── 3. GitHub Actions deploy IAM role ──────────────────────────────────────────
+echo "==> [3/3] IAM role: ${DEPLOY_ROLE_NAME}"
 
 TRUST_POLICY=$(cat <<EOF
 {
@@ -138,12 +121,6 @@ DEPLOY_POLICY=$(cat <<EOF
         "arn:aws:s3:::${STATE_BUCKET}",
         "arn:aws:s3:::${STATE_BUCKET}/*"
       ]
-    },
-    {
-      "Sid": "TerraformLocks",
-      "Effect": "Allow",
-      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"],
-      "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${LOCK_TABLE}"
     },
     {
       "Sid": "Lambda",
@@ -194,7 +171,8 @@ DEPLOY_POLICY=$(cat <<EOF
       "Action": [
         "dynamodb:CreateTable", "dynamodb:DescribeTable", "dynamodb:DeleteTable",
         "dynamodb:UpdateTable", "dynamodb:ListTagsOfResource",
-        "dynamodb:TagResource", "dynamodb:UntagResource"
+        "dynamodb:TagResource", "dynamodb:UntagResource",
+        "dynamodb:DescribeContinuousBackups", "dynamodb:UpdateContinuousBackups"
       ],
       "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames"
     },
@@ -209,7 +187,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "s3:GetBucketRequestPayment", "s3:GetBucketTagging",
         "s3:GetBucketVersioning", "s3:GetBucketWebsite",
         "s3:GetLifecycleConfiguration", "s3:GetObject", "s3:PutObject",
-        "s3:DeleteObject", "s3:ListBucket",
+        "s3:DeleteObject", "s3:ListBucket", "s3:GetAccelerateConfiguration",
         "s3:PutBucketPublicAccessBlock", "s3:PutBucketVersioning",
         "s3:PutLifecycleConfiguration", "s3:PutBucketTagging",
         "s3:PutBucketOwnershipControls"

@@ -10,7 +10,7 @@ terraform {
     bucket         = "sudoku-tf-state"
     key            = "sudoku/terraform.tfstate"
     region         = "eu-west-2"
-    dynamodb_table = "sudoku-tf-locks"
+    use_lockfile = true
     encrypt        = true
   }
 }
