@@ -213,12 +213,19 @@ DEPLOY_POLICY=$(cat <<EOF
         "logs:CreateLogGroup", "logs:DeleteLogGroup",
         "logs:PutRetentionPolicy", "logs:DescribeLogGroups",
         "logs:ListTagsLogGroup", "logs:TagLogGroup", "logs:UntagLogGroup",
-        "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource",
+        "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource"
+      ],
+      "Resource": "arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:*"
+    },
+    {
+      "Sid": "CloudWatchLogDelivery",
+      "Effect": "Allow",
+      "Action": [
         "logs:CreateLogDelivery", "logs:DeleteLogDelivery",
         "logs:GetLogDelivery", "logs:UpdateLogDelivery", "logs:ListLogDeliveries",
         "logs:PutResourcePolicy", "logs:DescribeResourcePolicies"
       ],
-      "Resource": "arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:*"
+      "Resource": "*"
     }
   ]
 }
