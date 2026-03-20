@@ -7,47 +7,15 @@ Terraform configuration for the Serverless Sudoku application. Target region: **
 ## Architecture
 
 ```mermaid
-flowchart TD
-    GH[GitHub Repository]
-
-    subgraph AWS["AWS eu-west-2"]
-        subgraph Frontend
-            AMP[Amplify\nmain → PRODUCTION]
-        end
-
-        subgraph API["API Layer"]
-            APIGW[API Gateway v2\nHTTP API]
-            CWL[CloudWatch Logs\n7-day retention]
-        end
-
-        subgraph Compute
-            LAM[Lambda: sudoku\nJava 21 · SnapStart\n512 MB · alias: live]
-            S3Z["S3: lambda-zip-{account}"]
-        end
-
-        subgraph Data
-            DDB[DynamoDB\nSudokuGames]
-        end
-
-        subgraph IAM
-            ROLE[SudokuLambdaExecRole]
-            POL[SudokuDynamoDBPolicy]
-        end
-
-        subgraph State["Terraform State"]
-            S3S[S3: sudoku-tf-state]
-            DDBL[DynamoDB: sudoku-tf-locks]
-        end
-    end
-
-    GH -->|CI/CD| AMP
-    AMP -->|VITE_API_URL| APIGW
-    APIGW -->|AWS_PROXY| LAM
-    APIGW --> CWL
-    LAM -->|reads zip| S3Z
-    LAM --> DDB
-    LAM --> ROLE
-    ROLE --> POL
+flowchart LR
+    GH[GitHub] -->|CI/CD| AMP[Amplify]
+    AMP -->|API URL| APIGW[API Gateway v2]
+    APIGW -->|proxy| LAM[Lambda]
+    APIGW --> CWL[CloudWatch Logs]
+    LAM --> S3Z[S3 zip bucket]
+    LAM --> DDB[(DynamoDB)]
+    LAM --> ROLE[IAM Role]
+    ROLE --> POL[DynamoDB Policy]
     POL --> DDB
 ```
 
