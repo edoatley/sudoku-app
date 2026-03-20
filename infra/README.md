@@ -7,42 +7,40 @@ Terraform configuration for the Serverless Sudoku application. Target region: **
 ## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph GitHub
-        GH[GitHub Repository]
-    end
+flowchart TD
+    GH[GitHub Repository]
 
     subgraph AWS["AWS eu-west-2"]
         subgraph Frontend
-            AMP[Amplify App\nmain branch → PRODUCTION]
+            AMP[Amplify\nmain → PRODUCTION]
         end
 
         subgraph API["API Layer"]
-            APIGW[API Gateway v2\nHTTP API\nthrottle: 25 rps / 50 burst]
-            CWL[CloudWatch Logs\n/aws/apigateway/sudoku\n7-day retention]
+            APIGW[API Gateway v2\nHTTP API]
+            CWL[CloudWatch Logs\n7-day retention]
         end
 
-        subgraph Compute["Compute"]
-            LAM[Lambda: sudoku\nJava 21 · SnapStart\n512 MB · 10 max concurrency\nalias: live]
-            S3Z["S3 Bucket\nlambda-zip-{account}\n30-day lifecycle"]
+        subgraph Compute
+            LAM[Lambda: sudoku\nJava 21 · SnapStart\n512 MB · alias: live]
+            S3Z["S3: lambda-zip-{account}"]
         end
 
-        subgraph Data["Data"]
-            DDB[DynamoDB\nSudokuGames\nPAY_PER_REQUEST\nPITR enabled]
+        subgraph Data
+            DDB[DynamoDB\nSudokuGames]
         end
 
-        subgraph IAM["IAM"]
+        subgraph IAM
             ROLE[SudokuLambdaExecRole]
-            POL[SudokuDynamoDBPolicy\nGetItem · PutItem · UpdateItem]
+            POL[SudokuDynamoDBPolicy]
         end
 
-        subgraph State["Terraform State (bootstrap)"]
+        subgraph State["Terraform State"]
             S3S[S3: sudoku-tf-state]
             DDBL[DynamoDB: sudoku-tf-locks]
         end
     end
 
-    GH -->|Git-based CI/CD| AMP
+    GH -->|CI/CD| AMP
     AMP -->|VITE_API_URL| APIGW
     APIGW -->|AWS_PROXY| LAM
     APIGW --> CWL
