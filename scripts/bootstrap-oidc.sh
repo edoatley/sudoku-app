@@ -196,6 +196,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "s3:GetEncryptionConfiguration", "s3:GetLifecycleConfiguration",
         "s3:GetObject", "s3:GetReplicationConfiguration",
         "s3:ListBucket", "s3:PutObject", "s3:DeleteObject",
+        "s3:PutObjectTagging", "s3:GetObjectTagging", "s3:DeleteObjectTagging",
         "s3:PutBucketPublicAccessBlock", "s3:PutBucketVersioning",
         "s3:PutLifecycleConfiguration", "s3:PutBucketTagging",
         "s3:PutBucketOwnershipControls", "s3:PutEncryptionConfiguration"
@@ -212,7 +213,10 @@ DEPLOY_POLICY=$(cat <<EOF
         "logs:CreateLogGroup", "logs:DeleteLogGroup",
         "logs:PutRetentionPolicy", "logs:DescribeLogGroups",
         "logs:ListTagsLogGroup", "logs:TagLogGroup", "logs:UntagLogGroup",
-        "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource"
+        "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource",
+        "logs:CreateLogDelivery", "logs:DeleteLogDelivery",
+        "logs:GetLogDelivery", "logs:UpdateLogDelivery", "logs:ListLogDeliveries",
+        "logs:PutResourcePolicy", "logs:DescribeResourcePolicies"
       ],
       "Resource": "arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:*"
     }
