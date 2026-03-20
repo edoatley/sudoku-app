@@ -8,8 +8,9 @@ resource "aws_dynamodb_table" "sudoku_games" {
     type = "S"
   }
 
-  tags = {
-    Project   = "Sudoku"
-    ManagedBy = "Terraform"
+  point_in_time_recovery {
+    enabled = true
   }
+
+  # checkov:skip=CKV_AWS_119: KMS CMK encryption costs ~$1/month; AWS-owned encryption (default) is sufficient for this project
 }

@@ -1,0 +1,109 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - "rc-*"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-java
+      - name: Build Lambda zip
+        run: ./mvnw package -DskipTests -f backend/pom.xml
+      - name: Upload Lambda zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zip
+          path: backend/target/function.zip
+          retention-days: 1
+
+  deploy:
+    name: Terraform Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build-backend
+    outputs:
+      api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
+      amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download Lambda zip artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-zip
+          path: backend/target/
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - uses: ./.github/actions/setup-terraform
+
+      - name: Terraform init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: infra
+        run: terraform plan -out=tfplan -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+
+      - name: Terraform apply
+        working-directory: infra
+        run: terraform apply -auto-approve tfplan
+
+      - name: Capture outputs
+        id: outputs
+        working-directory: infra
+        run: |
+          echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
+          echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
+          echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Tighten CORS to exact Amplify URL
+        env:
+          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          API_ID: ${{ steps.outputs.outputs.api_id }}
+        run: |
+          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
+          aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
+
+      - name: Print deployment URLs
+        working-directory: infra
+        run: terraform output
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    steps:
+      - name: Deployment summary
+        env:
+          DEPLOY_STATUS: ${{ needs.deploy.result }}
+          API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
+          APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+        run: |
+          if [ "${DEPLOY_STATUS}" = "success" ]; then
+            echo "### Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Resource | URL |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|----------|-----|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| API Gateway | ${API_URL} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Amplify App | ${APP_URL} |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Deployment failed (status: ${DEPLOY_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check the deploy job logs for details." >> "$GITHUB_STEP_SUMMARY"
+          fi
