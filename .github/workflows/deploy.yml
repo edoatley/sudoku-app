@@ -174,27 +174,40 @@ jobs:
           API_BASE="${API_URL%/}"
           echo "Testing API Gateway: ${API_BASE}"
 
+          SUMMARY=""
+          FAILED=0
+
+          check() {
+            local label="$1" status="$2" expected="$3" extra="$4"
+            if [ "${status}" = "${expected}" ] && { [ -z "${extra}" ] || eval "${extra}"; }; then
+              SUMMARY="${SUMMARY}\n| ${label} | ✅ ${status} |"
+            else
+              SUMMARY="${SUMMARY}\n| ${label} | ❌ ${status} (expected ${expected}) |"
+              FAILED=1
+            fi
+          }
+
           # /health
           STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" "${API_BASE}/api/v1/health")
-          echo "GET /health → HTTP ${STATUS}"
-          [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; echo "Response body:"; cat /tmp/health.json; exit 1; }
-          grep -q '"status"' /tmp/health.json || { echo "FAIL: health response missing 'status' field"; cat /tmp/health.json; exit 1; }
-          echo "PASS: /health returned 200"
+          check "GET /api/v1/health" "${STATUS}" "200" "grep -q '\"status\"' /tmp/health.json"
 
           # /puzzles/generate
           STATUS=$(curl -s -o /tmp/generate.json -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate")
-          echo "GET /puzzles/generate → HTTP ${STATUS}"
-          [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; echo "Response body:"; cat /tmp/generate.json; exit 1; }
-
-          # Response should contain an originalGrid array
-          grep -q '"originalGrid"' /tmp/generate.json || { echo "FAIL: response missing 'originalGrid' field"; cat /tmp/generate.json; exit 1; }
-          echo "PASS: /puzzles/generate returned valid JSON with originalGrid"
+          check "GET /api/v1/puzzles/generate" "${STATUS}" "200" "grep -q '\"originalGrid\"' /tmp/generate.json"
 
           # /puzzles/generate?difficulty=hard
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
-          echo "GET /puzzles/generate?difficulty=hard → HTTP ${STATUS}"
-          [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; exit 1; }
-          echo "PASS: /puzzles/generate?difficulty=hard OK"
+          check "GET /api/v1/puzzles/generate?difficulty=hard" "${STATUS}" "200"
+
+          {
+            echo "### API Smoke Tests"
+            echo ""
+            echo "| Endpoint | Result |"
+            echo "|----------|--------|"
+            printf "%b\n" "${SUMMARY}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          [ "${FAILED}" = "0" ] || { echo "One or more API smoke tests failed"; exit 1; }
 
       - name: UI integration tests — skipped (rc-* branch)
         if: github.ref != 'refs/heads/main'
@@ -247,6 +260,37 @@ jobs:
           name: smoke-integration-results
           path: ui/test-results/integration-results.xml
           retention-days: 14
+
+      - name: Smoke test summary
+        if: always()
+        env:
+          API_RESULT: ${{ steps.api-smoke.outcome }}
+          PLAYWRIGHT_RESULT: ${{ steps.playwright.outcome }}
+          IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          {
+            echo ""
+            echo "### Smoke Test Summary"
+            echo ""
+            echo "| Suite | Result |"
+            echo "|-------|--------|"
+            case "${API_RESULT}" in
+              success) echo "| API smoke tests | ✅ passed |" ;;
+              failure) echo "| API smoke tests | ❌ failed |" ;;
+              skipped) echo "| API smoke tests | ⏭️ skipped |" ;;
+              *)       echo "| API smoke tests | ❓ ${API_RESULT} |" ;;
+            esac
+            if [ "${IS_MAIN}" = "true" ]; then
+              case "${PLAYWRIGHT_RESULT}" in
+                success) echo "| Playwright UI tests | ✅ passed |" ;;
+                failure) echo "| Playwright UI tests | ❌ failed |" ;;
+                skipped) echo "| Playwright UI tests | ⏭️ skipped |" ;;
+                *)       echo "| Playwright UI tests | ❓ ${PLAYWRIGHT_RESULT} |" ;;
+              esac
+            else
+              echo "| Playwright UI tests | ⏭️ skipped (rc-* branch) |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   notify:
     name: Notify

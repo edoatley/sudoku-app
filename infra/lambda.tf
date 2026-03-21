@@ -66,6 +66,12 @@ resource "aws_lambda_function" "sudoku" {
   timeout       = 8
   publish       = true
 
+  environment {
+    variables = {
+      CORS_ALLOWED_ORIGINS = "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},http://localhost:5173"
+    }
+  }
+
   snap_start {
     apply_on = "PublishedVersions"
   }
