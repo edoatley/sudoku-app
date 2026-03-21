@@ -9,13 +9,15 @@ Terraform configuration for the Serverless Sudoku application. Target region: **
 ```mermaid
 flowchart LR
     GH[GitHub] -->|CI/CD| AMP[Amplify]
-    AMP -->|API URL| APIGW[API Gateway v2]
+    AMP -->|OAuth| COG[Cognito]
+    AMP -->|API URL + JWT| APIGW[API Gateway v2]
+    APIGW -->|JWT authorizer| COG
     APIGW -->|proxy| LAM[Lambda]
     APIGW --> CWL[CloudWatch Logs]
     LAM --> S3Z[S3 zip bucket]
     LAM --> DDB[(DynamoDB)]
     LAM --> ROLE[IAM Role]
-    ROLE --> POL[DynamoDB Policy]
+    ROLE --> POL[DynamoDB Policies]
     POL --> DDB
 ```
 
@@ -27,13 +29,14 @@ flowchart LR
 |------|---------|
 | `terraform.tf` | Provider + S3/DynamoDB remote backend |
 | `main.tf` | Data sources and locals |
-| `variables.tf` | Input variables |
-| `outputs.tf` | Exported values (API URL, Amplify URL, Lambda name/ARN, API ID) |
+| `variables.tf` | Input variables (including `google_client_id`, `google_client_secret`) |
+| `outputs.tf` | Exported values (API URL, Amplify URL, Lambda name/ARN, API ID, Cognito IDs) |
 | `lambda.tf` | S3 zip bucket, Lambda function, alias, and permission |
-| `api_gateway.tf` | HTTP API v2, integration, route, stage, and CloudWatch log group |
-| `dynamodb.tf` | `SudokuGames` table |
+| `api_gateway.tf` | HTTP API v2, JWT authorizer, protected routes, stage, and CloudWatch log group |
+| `cognito.tf` | User Pool, Google identity provider, hosted UI domain, app client |
+| `dynamodb.tf` | `SudokuGames` and `SudokuPlayers` tables |
 | `amplify.tf` | Amplify app and main branch |
-| `iam.tf` | Lambda execution role and DynamoDB policy |
+| `iam.tf` | Lambda execution role, DynamoDB policies for SudokuGames and SudokuPlayers |
 
 ---
 
@@ -54,7 +57,9 @@ flowchart LR
 
 `ignore_changes = [cors_configuration]` prevents Terraform from reverting the tightened CORS on subsequent applies.
 
-Allowed methods: `GET`, `POST`, `OPTIONS`. Allowed headers: `Content-Type`, `Authorization`.
+Allowed methods: `GET`, `POST`, `PATCH`, `OPTIONS`. Allowed headers: `Content-Type`, `Authorization`.
+
+**JWT Authorizer:** A Cognito JWT authorizer protects the `/games/*` and `/players/me` routes. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). HTTP API v2 uses most-specific-match routing, so explicit protected routes take priority.
 
 ### Lambda
 
@@ -68,22 +73,37 @@ Allowed methods: `GET`, `POST`, `OPTIONS`. Allowed headers: `Content-Type`, `Aut
 
 ### DynamoDB
 
-- Table: `SudokuGames`, partition key: `gameId` (String)
+**`SudokuGames`**
+- Partition key: `userId` (String), sort key: `gameId` (String)
 - Billing: `PAY_PER_REQUEST`
-- Point-in-time recovery: enabled
+- Point-in-time recovery: enabled on `default` workspace
+
+**`SudokuPlayers`**
+- Partition key: `userId` (String)
+- Billing: `PAY_PER_REQUEST`
+- Point-in-time recovery: enabled on `default` workspace
 
 ### Amplify
 
 - Source: GitHub repository (`edoatley/sudoku-app`), connected via classic OAuth token
 - Build: `cd ui && npm ci && npm run build`, artifacts from `ui/dist`
 - Branch: `main` → `PRODUCTION` stage, auto-build on push
-- Environment variables set automatically: `VITE_API_URL` (from API Gateway output), `VITE_MOCK_API=false`
+- Environment variables set automatically:
+
+| Variable | Source |
+|----------|--------|
+| `VITE_API_URL` | API Gateway invoke URL (Terraform output) |
+| `VITE_MOCK_API` | `false` |
+| `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID (Terraform output) |
+| `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID (Terraform output) |
+| `VITE_COGNITO_DOMAIN` | Cognito hosted UI domain (Terraform output) |
 
 ### IAM
 
 - Role `SudokuLambdaExecRole`: assumed by `lambda.amazonaws.com`
 - Attached managed policy: `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
-- Inline policy `SudokuDynamoDBPolicy`: `GetItem`, `PutItem`, `UpdateItem` on `SudokuGames` only
+- Policy `SudokuDynamoDBPolicy`: `GetItem`, `PutItem`, `UpdateItem` on `SudokuGames`
+- Policy `SudokuPlayersPolicy`: `GetItem`, `PutItem`, `UpdateItem` on `SudokuPlayers`
 
 ### Tagging
 
@@ -168,8 +188,8 @@ cd infra
 terraform workspace select rc-my-feature || terraform workspace new rc-my-feature
 
 # Plan and apply
-terraform plan  -var "github_token=<token>"
-terraform apply -var "github_token=<token>"
+terraform plan  -var "github_token=<token>" -var "google_client_id=<id>" -var "google_client_secret=<secret>"
+terraform apply -var "github_token=<token>" -var "google_client_id=<id>" -var "google_client_secret=<secret>"
 
 # Switch back to default (production)
 terraform workspace select default
@@ -188,7 +208,7 @@ Or locally:
 ```bash
 cd infra
 terraform workspace select rc-my-feature
-terraform destroy -var "github_token=<token>" -var "lambda_zip_path=/dev/null"
+terraform destroy -var "github_token=<token>" -var "google_client_id=<id>" -var "google_client_secret=<secret>" -var "lambda_zip_path=/dev/null"
 terraform workspace select default
 terraform workspace delete rc-my-feature
 ```
@@ -212,12 +232,17 @@ This creates (idempotent — safe to re-run):
 | GitHub OIDC provider | `token.actions.githubusercontent.com` |
 | GitHub Actions deploy role | `sudoku-github-actions-deploy` |
 
-After running, add two GitHub Actions secrets:
+After running, add the following GitHub Actions secrets:
 
 | Secret | Value |
 |--------|-------|
 | `AWS_DEPLOY_ROLE_ARN` | printed by the script |
 | `AMPLIFY_GITHUB_TOKEN` | GitHub classic OAuth token (repo scope) |
+| `GOOGLE_CLIENT_ID` | OAuth 2.0 Client ID from Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | OAuth 2.0 Client Secret from Google Cloud Console |
+
+Also add the Cognito redirect URI in Google Cloud Console before deploying:
+- `https://sudoku-auth<suffix>.auth.eu-west-2.amazoncognito.com/oauth2/idpresponse`
 
 Then initialise Terraform:
 
@@ -241,7 +266,9 @@ Deployment is fully automated via GitHub Actions (`.github/workflows/deploy.yml`
 1. **Build backend** — Maven packages `backend/target/function.zip`
 2. **Terraform deploy** — authenticates via OIDC, runs `init → plan → apply`
 3. **Tighten CORS** — calls `aws apigatewayv2 update-api` with the exact Amplify URL
-4. **Summary** — prints API Gateway and Amplify URLs to the workflow summary
+4. **Tighten Cognito callbacks** — calls `aws cognito-idp update-user-pool-client` to pin callback/logout URLs to the exact Amplify URL
+5. **Amplify build** — triggers and waits for the Amplify build to complete
+6. **Summary** — prints API Gateway and Amplify URLs to the workflow summary
 
 A manual **Teardown** workflow (`.github/workflows/teardown.yml`) runs `terraform destroy`. It requires typing `DESTROY` as confirmation. Bootstrap resources are not destroyed.
 
@@ -256,13 +283,23 @@ cd infra
 terraform init
 
 # Preview changes
-terraform plan -var "github_token=<token>"
+terraform plan \
+  -var "github_token=<token>" \
+  -var "google_client_id=<id>" \
+  -var "google_client_secret=<secret>"
 
 # Apply
-terraform apply -var "github_token=<token>"
+terraform apply \
+  -var "github_token=<token>" \
+  -var "google_client_id=<id>" \
+  -var "google_client_secret=<secret>"
 
 # Destroy all Terraform-managed resources
-terraform destroy -var "github_token=<token>" -var "lambda_zip_path=/dev/null"
+terraform destroy \
+  -var "github_token=<token>" \
+  -var "google_client_id=<id>" \
+  -var "google_client_secret=<secret>" \
+  -var "lambda_zip_path=/dev/null"
 ```
 
 > **Note:** `lambda_zip_path` defaults to `../backend/target/function.zip`. Build the backend first or override with `/dev/null` for destroy-only operations.

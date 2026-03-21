@@ -171,10 +171,21 @@ DEPLOY_POLICY=$(cat <<EOF
       ]
     },
     {
-      "Sid": "Cognito",
+      "Sid": "CognitoUserPool",
       "Effect": "Allow",
       "Action": ["cognito-idp:*"],
       "Resource": ["arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/*"]
+    },
+    {
+      "Sid": "CognitoDomain",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:CreateUserPoolDomain",
+        "cognito-idp:DeleteUserPoolDomain",
+        "cognito-idp:DescribeUserPoolDomain",
+        "cognito-idp:UpdateUserPoolDomain"
+      ],
+      "Resource": "*"
     },
     {
       "Sid": "DynamoDB",
