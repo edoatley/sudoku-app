@@ -209,16 +209,8 @@ jobs:
 
           [ "${FAILED}" = "0" ] || { echo "One or more API smoke tests failed"; exit 1; }
 
-      - name: UI integration tests — skipped (rc-* branch)
-        if: github.ref != 'refs/heads/main'
-        run: |
-          echo "### UI integration tests: skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "Amplify is wired to the \`main\` branch. UI Playwright tests only run on \`main\` pushes." >> "$GITHUB_STEP_SUMMARY"
-          echo "Skipping UI integration tests — this is an rc-* branch (API smoke tests above cover the backend)."
-
-      # Playwright integration tests run only on main (Amplify is wired to main branch)
+      # Playwright integration tests run against Amplify for all branches
       - name: Wait for Amplify deployment to complete
-        if: github.ref == 'refs/heads/main'
         env:
           APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
         run: |
@@ -232,13 +224,11 @@ jobs:
           done
 
       - uses: ./.github/actions/setup-node
-        if: github.ref == 'refs/heads/main'
         with:
           install-playwright: "true"
 
       - name: Run Playwright integration tests against Amplify
         id: playwright
-        if: github.ref == 'refs/heads/main'
         working-directory: ui
         env:
           CI: "true"
@@ -246,7 +236,7 @@ jobs:
         run: npx playwright test --config playwright.integration.config.js
 
       - name: Upload Playwright integration report
-        if: failure() && github.ref == 'refs/heads/main'
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: smoke-playwright-report
@@ -254,7 +244,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Playwright integration results
-        if: always() && github.ref == 'refs/heads/main'
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: smoke-integration-results
@@ -266,7 +256,6 @@ jobs:
         env:
           API_RESULT: ${{ steps.api-smoke.outcome }}
           PLAYWRIGHT_RESULT: ${{ steps.playwright.outcome }}
-          IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
         run: |
           {
             echo ""
@@ -280,16 +269,12 @@ jobs:
               skipped) echo "| API smoke tests | ⏭️ skipped |" ;;
               *)       echo "| API smoke tests | ❓ ${API_RESULT} |" ;;
             esac
-            if [ "${IS_MAIN}" = "true" ]; then
-              case "${PLAYWRIGHT_RESULT}" in
-                success) echo "| Playwright UI tests | ✅ passed |" ;;
-                failure) echo "| Playwright UI tests | ❌ failed |" ;;
-                skipped) echo "| Playwright UI tests | ⏭️ skipped |" ;;
-                *)       echo "| Playwright UI tests | ❓ ${PLAYWRIGHT_RESULT} |" ;;
-              esac
-            else
-              echo "| Playwright UI tests | ⏭️ skipped (rc-* branch) |"
-            fi
+            case "${PLAYWRIGHT_RESULT}" in
+              success) echo "| Playwright UI tests | ✅ passed |" ;;
+              failure) echo "| Playwright UI tests | ❌ failed |" ;;
+              skipped) echo "| Playwright UI tests | ⏭️ skipped |" ;;
+              *)       echo "| Playwright UI tests | ❓ ${PLAYWRIGHT_RESULT} |" ;;
+            esac
           } >> "$GITHUB_STEP_SUMMARY"
 
   notify:

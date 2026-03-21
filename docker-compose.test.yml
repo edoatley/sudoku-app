@@ -37,7 +37,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SUDOKU_CORS_ALLOWED_ORIGINS: "http://localhost:5174,http://ui:5174"
+      CORS_ALLOWED_ORIGINS: "http://localhost:5174,http://ui:5174"
       QUARKUS_DYNAMODB_ENDPOINT_OVERRIDE: "http://localstack:4566"
       QUARKUS_DYNAMODB_AWS_REGION: "us-east-1"
       QUARKUS_DYNAMODB_AWS_CREDENTIALS_TYPE: "static"
