@@ -299,19 +299,22 @@ jobs:
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
-          # Build auth-parameters; include SECRET_HASH only when the client has a secret
-          AUTH_PARAMS="USERNAME=${USERNAME} PASSWORD=${PASSWORD}"
+          # Build auth-parameters JSON; include SECRET_HASH only when the client has a secret
+          AUTH_PARAMS=$(jq -n \
+            --arg u "${USERNAME}" \
+            --arg p "${PASSWORD}" \
+            '{"USERNAME": $u, "PASSWORD": $p}')
           if [[ -n "${CLIENT_SECRET}" ]]; then
             SECRET_HASH=$(echo -n "${USERNAME}${CLIENT_ID}" \
               | openssl dgst -sha256 -hmac "${CLIENT_SECRET}" -binary \
               | base64)
-            AUTH_PARAMS="${AUTH_PARAMS} SECRET_HASH=${SECRET_HASH}"
+            AUTH_PARAMS=$(echo "${AUTH_PARAMS}" | jq --arg s "${SECRET_HASH}" '. + {"SECRET_HASH": $s}')
           fi
 
           RESPONSE=$(aws cognito-idp initiate-auth \
             --auth-flow USER_PASSWORD_AUTH \
             --client-id "${CLIENT_ID}" \
-            --auth-parameters ${AUTH_PARAMS} \
+            --auth-parameters "${AUTH_PARAMS}" \
             --output json)
 
           ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
