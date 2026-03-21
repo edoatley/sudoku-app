@@ -148,10 +148,9 @@ jobs:
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
-          # Secret output — write to masked env file, not GITHUB_OUTPUT
-          terraform output -raw cognito_smoke_test_client_secret >> /tmp/smoke_client_secret
-          echo "SMOKE_CLIENT_SECRET=$(cat /tmp/smoke_client_secret)" >> "$GITHUB_ENV"
-          rm /tmp/smoke_client_secret
+          # Secret output — captured via JSON to avoid sensitive-output masking issues
+          SMOKE_CLIENT_SECRET=$(terraform output -json | jq -r '.cognito_smoke_test_client_secret.value')
+          echo "SMOKE_CLIENT_SECRET=${SMOKE_CLIENT_SECRET}" >> "$GITHUB_ENV"
 
       - name: Tighten CORS to exact Amplify URL
         env:
