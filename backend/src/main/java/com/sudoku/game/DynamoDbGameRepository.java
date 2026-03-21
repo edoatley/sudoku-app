@@ -12,19 +12,22 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 
 import java.util.Optional;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 @ApplicationScoped
 public class DynamoDbGameRepository implements GameRepository {
 
-    static final String TABLE_NAME = "SudokuGames";
-
     @Inject
     DynamoDbEnhancedClient enhancedClient;
+
+    @ConfigProperty(name = "sudoku.dynamodb.table-name")
+    String tableName;
 
     private DynamoDbTable<GameItem> table;
 
     @PostConstruct
     void init() {
-        table = enhancedClient.table(TABLE_NAME, TableSchema.fromBean(GameItem.class));
+        table = enhancedClient.table(tableName, TableSchema.fromBean(GameItem.class));
     }
 
     @Override
