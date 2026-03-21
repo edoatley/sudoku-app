@@ -307,10 +307,7 @@ jobs:
           RESPONSE=$(aws cognito-idp initiate-auth \
             --auth-flow USER_PASSWORD_AUTH \
             --client-id "${CLIENT_ID}" \
-            --auth-parameters \
-              USERNAME="${USERNAME}" \
-              PASSWORD="${PASSWORD}" \
-              SECRET_HASH="${SECRET_HASH}" \
+            --auth-parameters "USERNAME=${USERNAME}" "PASSWORD=${PASSWORD}" "SECRET_HASH=${SECRET_HASH}" \
             --output json)
 
           ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
