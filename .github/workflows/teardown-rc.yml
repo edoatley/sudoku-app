@@ -1,0 +1,74 @@
+name: Teardown RC Environment
+
+on:
+  delete:
+    # Fires for both branch and tag deletions; we filter to rc-* branches below
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  teardown:
+    name: Terraform Destroy (rc-* only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # github.event.ref is the deleted ref name; github.event.ref_type is "branch" or "tag"
+    if: github.event.ref_type == 'branch' && startsWith(github.event.ref, 'rc-')
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - uses: hashicorp/setup-terraform@v4
+
+      - name: Resolve workspace from deleted branch name
+        id: workspace
+        run: |
+          BRANCH="${{ github.event.ref }}"
+          WORKSPACE=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+          echo "Branch '${BRANCH}' → workspace '${WORKSPACE}'"
+          # Safety: never destroy production
+          if [ "${WORKSPACE}" = "default" ]; then
+            echo "ERROR: Resolved to default workspace — aborting."
+            exit 1
+          fi
+          echo "workspace=${WORKSPACE}" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform init
+        working-directory: infra
+        run: terraform init
+
+      - name: Select Terraform workspace
+        working-directory: infra
+        run: |
+          WORKSPACE="${{ steps.workspace.outputs.workspace }}"
+          if ! terraform workspace select "${WORKSPACE}" 2>/dev/null; then
+            echo "Workspace '${WORKSPACE}' does not exist — nothing to destroy."
+            exit 0
+          fi
+
+      - name: Terraform destroy
+        working-directory: infra
+        run: >-
+          terraform destroy
+          -auto-approve
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "lambda_zip_path=/dev/null"
+          -var "environment=${{ steps.workspace.outputs.workspace }}"
+
+      - name: Delete Terraform workspace
+        working-directory: infra
+        run: |
+          terraform workspace select default
+          terraform workspace delete "${{ steps.workspace.outputs.workspace }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### RC environment torn down" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Branch: \`${{ github.event.ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Workspace: \`${{ steps.workspace.outputs.workspace }}\`" >> "$GITHUB_STEP_SUMMARY"
