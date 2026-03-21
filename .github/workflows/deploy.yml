@@ -158,6 +158,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: deploy
+    if: always() && needs.deploy.result == 'success'
     outputs:
       api_smoke_result: ${{ steps.api-smoke.outcome }}
       playwright_result: ${{ steps.playwright.outcome }}
