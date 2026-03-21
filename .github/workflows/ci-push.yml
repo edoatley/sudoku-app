@@ -43,11 +43,78 @@ jobs:
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/create-localstack-dynamodb
       - name: Run unit tests
-        run: ./mvnw test
+        run: ./mvnw verify
         env:
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           AWS_DEFAULT_REGION: us-east-1
+
+      - name: Test summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // --- Surefire XML parsing ---
+            const reportsDir = 'backend/target/surefire-reports';
+            let rows = [];
+            let totalTests = 0, totalPassed = 0, totalFailed = 0, totalErrors = 0;
+
+            if (fs.existsSync(reportsDir)) {
+              const files = fs.readdirSync(reportsDir).filter(f => f.startsWith('TEST-') && f.endsWith('.xml'));
+              for (const file of files) {
+                const xml = fs.readFileSync(path.join(reportsDir, file), 'utf8');
+                const suiteMatch = xml.match(/<testsuite[^>]+>/);
+                if (!suiteMatch) continue;
+                const suite = suiteMatch[0];
+                const name    = (suite.match(/\bname="([^"]+)"/))?.[1] ?? file.replace(/^TEST-/, '').replace(/\.xml$/, '');
+                const tests   = parseInt((suite.match(/\btests="(\d+)"/))?.[1]    ?? '0');
+                const failed  = parseInt((suite.match(/\bfailures="(\d+)"/))?.[1] ?? '0');
+                const errors  = parseInt((suite.match(/\berrors="(\d+)"/))?.[1]   ?? '0');
+                const skipped = parseInt((suite.match(/\bskipped="(\d+)"/))?.[1]  ?? '0');
+                const passed  = tests - failed - errors - skipped;
+                totalTests  += tests;
+                totalPassed += passed;
+                totalFailed += failed;
+                totalErrors += errors;
+                // Shorten fully-qualified class name to simple class name
+                const shortName = name.split('.').pop();
+                rows.push(`| ${shortName} | ${tests} | ${passed} | ${failed} | ${errors} |`);
+              }
+            }
+
+            // --- JaCoCo XML parsing ---
+            let coverageLine = '_coverage report not found_';
+            const jacocoXml = 'backend/target/site/jacoco/jacoco.xml';
+            if (fs.existsSync(jacocoXml)) {
+              const xml = fs.readFileSync(jacocoXml, 'utf8');
+              const lineMatch = xml.match(/<counter type="LINE" missed="(\d+)" covered="(\d+)"/);
+              if (lineMatch) {
+                const missed  = parseInt(lineMatch[1]);
+                const covered = parseInt(lineMatch[2]);
+                const total   = missed + covered;
+                const pct     = total > 0 ? ((covered / total) * 100).toFixed(1) : '0.0';
+                coverageLine  = `**JaCoCo Line Coverage:** ${pct}%`;
+              }
+            }
+
+            // --- Build summary ---
+            const header = [
+              '### Backend Test Results',
+              '',
+              '| Test Class | Tests | Passed | Failed | Errors |',
+              '|------------|-------|--------|--------|--------|',
+            ];
+            const footer = [
+              `| **Total** | ${totalTests} | ${totalPassed} | ${totalFailed} | ${totalErrors} |`,
+              '',
+              coverageLine,
+            ];
+
+            const summary = [...header, ...rows, ...footer].join('\n');
+            await core.summary.addRaw(summary).write();
 
   infra:
     name: Infra — Terraform fmt & validate
