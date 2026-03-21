@@ -13,9 +13,20 @@ import NumberPad from './components/NumberPad.jsx';
 import HintDialog from './components/HintDialog.jsx';
 import Header from './components/Header.jsx';
 
+const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
+const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
+
+// Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
+let Authenticator = null;
+if (!MOCK_API && !SKIP_AUTH) {
+  const amplifyUi = await import('@aws-amplify/ui-react');
+  await import('@aws-amplify/ui-react/styles.css');
+  Authenticator = amplifyUi.Authenticator;
+}
+
 const theme = createTheme();
 
-function App() {
+function SudokuApp({ user, signOut }) {
   const {
     originalGrid,
     currentGrid,
@@ -48,7 +59,7 @@ function App() {
     clearStatus,
     elapsedSeconds,
     timerRunning,
-  } = useSudokuGame();
+  } = useSudokuGame(user);
 
   return (
     <ThemeProvider theme={theme}>
@@ -57,6 +68,8 @@ function App() {
         elapsedSeconds={elapsedSeconds}
         timerRunning={timerRunning}
         gameStarted={!!currentGrid}
+        user={user}
+        onSignOut={signOut}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
@@ -114,6 +127,18 @@ function App() {
         </Stack>
       </Container>
     </ThemeProvider>
+  );
+}
+
+function App() {
+  if (MOCK_API || SKIP_AUTH) {
+    return <SudokuApp user={null} signOut={null} />;
+  }
+
+  return (
+    <Authenticator hideSignUp socialProviders={['google']}>
+      {({ signOut, user }) => <SudokuApp user={user} signOut={signOut} />}
+    </Authenticator>
   );
 }
 

@@ -25,7 +25,7 @@ function lsClear() {
 
 const emptyCandidate = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
 
-export function useSudokuGame() {
+export function useSudokuGame(user) {
   const [originalGrid, setOriginalGrid] = useState(null);
   const [currentGrid, setCurrentGrid] = useState(null);
   const [candidateGrid, setCandidateGrid] = useState(null);
@@ -47,6 +47,7 @@ export function useSudokuGame() {
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
   const [gameId, setGameId] = useState(null);
+  const prevUserIdRef = useRef(user?.username ?? null);
   const [isSyncing, setIsSyncing] = useState(false);
   const gameIdRef = useRef(null);
   gameIdRef.current = gameId;
@@ -66,6 +67,15 @@ export function useSudokuGame() {
   }, []);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  // Clear localStorage game state when the authenticated user changes
+  useEffect(() => {
+    const currentUserId = user?.username ?? null;
+    if (prevUserIdRef.current !== currentUserId) {
+      prevUserIdRef.current = currentUserId;
+      lsClear();
+    }
+  }, [user]);
 
   const startNewGame = useCallback(async (diff, signal) => {
     const activeDiff = diff ?? difficulty;

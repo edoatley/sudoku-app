@@ -9,7 +9,7 @@ public interface GameRepository {
 
     void save(GameState gameState);
 
-    Optional<GameState> findById(String gameId);
+    Optional<GameState> findById(String userId, String gameId);
 
-    void update(String gameId, GameUpdateRequest request);
+    void update(String userId, String gameId, GameUpdateRequest request);
 }

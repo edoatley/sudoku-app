@@ -57,11 +57,12 @@ services:
     build:
       context: ui
       dockerfile: Dockerfile.test
+      args:
+        VITE_API_URL: "http://localhost:8080/api/v1"
+        VITE_MOCK_API: "false"
+        VITE_SKIP_AUTH: "true"
     ports:
       - "5174:5174"
-    environment:
-      VITE_API_URL: "http://localhost:8080/api/v1"
-      VITE_MOCK_API: "false"
     depends_on:
       backend:
         condition: service_healthy

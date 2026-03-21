@@ -8,6 +8,7 @@ import com.sudoku.dto.GameUpdateRequest;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
 import java.util.List;
 
@@ -22,6 +23,7 @@ public class GameItem {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private String userId;
     private String gameId;
     private String difficulty;
     private String originalGrid;
@@ -30,9 +32,14 @@ public class GameItem {
     private int timeSpentSeconds;
     private String status;
 
-    // --- partition key ---
+    // --- composite key ---
 
     @DynamoDbPartitionKey
+    @DynamoDbAttribute("userId")
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    @DynamoDbSortKey
     @DynamoDbAttribute("gameId")
     public String getGameId() { return gameId; }
     public void setGameId(String gameId) { this.gameId = gameId; }
@@ -61,6 +68,7 @@ public class GameItem {
 
     static GameItem from(GameState state) {
         GameItem item = new GameItem();
+        item.setUserId(state.userId());
         item.setGameId(state.gameId());
         item.setDifficulty(state.difficulty());
         item.setOriginalGrid(toJson(state.originalGrid()));
@@ -73,6 +81,7 @@ public class GameItem {
 
     GameState toGameState() {
         return new GameState(
+                userId,
                 gameId,
                 difficulty,
                 fromJson(originalGrid, new TypeReference<List<List<Integer>>>() {}),

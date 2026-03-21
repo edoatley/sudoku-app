@@ -27,3 +27,29 @@ output "amplify_app_id" {
   description = "Amplify app ID (used by CI to trigger branch builds on first deploy)."
   value       = aws_amplify_app.sudoku.id
 }
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID."
+  value       = aws_cognito_user_pool.main.id
+}
+
+output "cognito_client_id" {
+  description = "Cognito App Client ID (public, safe to embed in frontend)."
+  value       = aws_cognito_user_pool_client.web.id
+}
+
+output "cognito_domain" {
+  description = "Cognito hosted UI domain (used by the deploy workflow to tighten callback URLs post-apply)."
+  value       = "${aws_cognito_user_pool_domain.main.domain}.auth.eu-west-2.amazoncognito.com"
+}
+
+output "cognito_smoke_test_client_id" {
+  description = "Smoke-test app client ID (server-side, used by CI only)."
+  value       = aws_cognito_user_pool_client.smoke_test.id
+}
+
+output "cognito_smoke_test_client_secret" {
+  description = "Smoke-test app client secret (server-side, used by CI only)."
+  value       = aws_cognito_user_pool_client.smoke_test.client_secret
+  sensitive   = true
+}

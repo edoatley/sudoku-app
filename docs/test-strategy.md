@@ -11,16 +11,18 @@
 
 ## Environment Variable Rules
 
-| Environment | File | `VITE_MOCK_API` | Effect |
-|---|---|---|---|
-| Developer (no backend) | `.env.development.local` (git-ignored) | `true` | Canned responses; no `fetch` calls fired |
-| Playwright tests | `.env.test` | `false` | Real `fetch` → intercepted by `page.route()` |
-| Production / CI with backend | `.env` or env vars | `false` | Real `fetch` → real backend |
+| Environment | File | `VITE_MOCK_API` | `VITE_SKIP_AUTH` | Effect |
+|---|---|---|---|---|
+| Developer (no backend) | `.env.development.local` (git-ignored) | `true` | — | Canned responses; no `fetch` calls fired; auth bypassed automatically |
+| Playwright E2E tests | `.env.test` | `false` | `true` | Real `fetch` → intercepted by `page.route()`; auth bypassed so Authenticator login wall is skipped |
+| Integration tests (Docker Compose) | build args in `docker-compose.test.yml` | `false` | `true` | Real `fetch` → real backend; auth bypassed; backend `DevUserFilter` injects mock user |
+| Production / CI with backend | `.env` or env vars | `false` | `false` / unset | Real `fetch` → real backend; Cognito Authenticator active |
 
 **Rules:**
 - `VITE_MOCK_API=true` only in `.env.development.local` (git-ignored) — developer convenience only, lets UI devs work without a running backend
 - `VITE_MOCK_API=false` in `.env.test` — required so Playwright's `page.route()` interception fires
 - Never set `VITE_MOCK_API=true` in CI or `.env.test`; doing so silences all `fetch` calls and makes `page.route()` stubs unreachable
+- `VITE_SKIP_AUTH=true` bypasses the `<Authenticator>` wrapper and skips Amplify initialisation — use in test environments only; never set in production
 
 ---
 
@@ -275,6 +277,7 @@ jobs:
 
 ### Key CI notes
 - `VITE_MOCK_API` must not be set (or must be `false`) in CI. The `.env.test` file already handles this for Playwright runs.
+- `VITE_SKIP_AUTH=true` is set in `.env.test` (E2E) and as a Docker build arg in `docker-compose.test.yml` (integration). Never set it in production.
 - The `integration` job runs only after both `ui` and `backend` pass, minimising unnecessary Docker builds.
 - JaCoCo artifact is uploaded `if: always()` so the report is available even when the coverage threshold causes a failure.
 - The `integration` job tears down the Docker Compose stack `if: always()` to avoid orphaned containers.

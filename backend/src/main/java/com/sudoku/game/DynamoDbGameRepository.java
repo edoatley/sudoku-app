@@ -36,14 +36,20 @@ public class DynamoDbGameRepository implements GameRepository {
     }
 
     @Override
-    public Optional<GameState> findById(String gameId) {
-        GameItem item = table.getItem(Key.builder().partitionValue(gameId).build());
+    public Optional<GameState> findById(String userId, String gameId) {
+        GameItem item = table.getItem(Key.builder()
+                .partitionValue(userId)
+                .sortValue(gameId)
+                .build());
         return Optional.ofNullable(item).map(GameItem::toGameState);
     }
 
     @Override
-    public void update(String gameId, GameUpdateRequest request) {
-        GameItem existing = table.getItem(Key.builder().partitionValue(gameId).build());
+    public void update(String userId, String gameId, GameUpdateRequest request) {
+        GameItem existing = table.getItem(Key.builder()
+                .partitionValue(userId)
+                .sortValue(gameId)
+                .build());
         if (existing == null) {
             return;
         }

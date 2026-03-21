@@ -34,7 +34,56 @@ resource "aws_apigatewayv2_route" "default" {
   route_key = "$default"
   target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
 
-  # checkov:skip=CKV_AWS_309: Public API by design — authorization will be added when auth feature is implemented
+  # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game routes use explicit JWT-protected routes below
+}
+
+# ── JWT Authorizer ────────────────────────────────────────────────────────────
+
+resource "aws_apigatewayv2_authorizer" "cognito_jwt" {
+  api_id           = aws_apigatewayv2_api.sudoku.id
+  authorizer_type  = "JWT"
+  identity_sources = ["$request.header.Authorization"]
+  name             = "cognito-jwt${local.suffix}"
+
+  jwt_configuration {
+    issuer   = "https://cognito-idp.eu-west-2.amazonaws.com/${aws_cognito_user_pool.main.id}"
+    audience = [aws_cognito_user_pool_client.web.id, aws_cognito_user_pool_client.smoke_test.id]
+  }
+}
+
+# ── Protected routes (JWT required) ──────────────────────────────────────────
+# HTTP API v2 uses most-specific-match routing, so these take priority over $default.
+
+resource "aws_apigatewayv2_route" "post_games" {
+  api_id             = aws_apigatewayv2_api.sudoku.id
+  route_key          = "POST /api/v1/games"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+}
+
+resource "aws_apigatewayv2_route" "get_game" {
+  api_id             = aws_apigatewayv2_api.sudoku.id
+  route_key          = "GET /api/v1/games/{gameId}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+}
+
+resource "aws_apigatewayv2_route" "patch_game" {
+  api_id             = aws_apigatewayv2_api.sudoku.id
+  route_key          = "PATCH /api/v1/games/{gameId}"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+}
+
+resource "aws_apigatewayv2_route" "get_player_me" {
+  api_id             = aws_apigatewayv2_api.sudoku.id
+  route_key          = "GET /api/v1/players/me"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }
 
 resource "aws_apigatewayv2_stage" "default" {

@@ -13,10 +13,12 @@ architecture-beta
     group aws(cloud)[AWS London]
 
     service amplify(internet)[Amplify] in aws
-    service apigw(internet)[API Gateway] in aws
+    service cognito(shield)[Cognito] in aws
+    service apigw(internet)[API Gateway + JWT Authorizer] in aws
     service lambda(server)[Lambda Quarkus Java 21] in aws
     service dynamo(database)[DynamoDB] in aws
 
+    amplify:R --> L:cognito
     amplify:R --> L:apigw
     apigw:R --> L:lambda
     lambda:R --> L:dynamo
@@ -26,13 +28,14 @@ architecture-beta
 
 ## Tech Stack
 
-| Layer      | Technology                                          |
-|------------|-----------------------------------------------------|
-| Frontend   | React 19, Vite 8, MUI v7                            |
-| Backend    | Java 21, Quarkus 3.32.3, quarkus-amazon-lambda-rest |
-| Database   | AWS DynamoDB                                        |
-| Hosting    | AWS Amplify (frontend), AWS Lambda (backend)        |
-| IaC        | Terraform (AWS provider, eu-west-2)                 |
+| Layer      | Technology                                                         |
+|------------|--------------------------------------------------------------------|
+| Frontend   | React 19, Vite 8, MUI v7, aws-amplify v6                          |
+| Backend    | Java 21, Quarkus 3.32.3, quarkus-amazon-lambda-rest, quarkus-oidc |
+| Auth       | Amazon Cognito User Pool (Google social login via OAuth 2.0)       |
+| Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`)                      |
+| Hosting    | AWS Amplify (frontend), AWS Lambda (backend)                       |
+| IaC        | Terraform (AWS provider, eu-west-2)                                |
 
 ---
 
@@ -97,10 +100,13 @@ Copy `ui/.env.example` to `ui/.env.development.local` and adjust as needed:
 cp ui/.env.example ui/.env.development.local
 ```
 
-| Variable        | Default                        | Description                        |
-|-----------------|--------------------------------|------------------------------------|
-| `VITE_API_URL`  | `http://localhost:8080/api/v1` | Backend API base URL               |
-| `VITE_MOCK_API` | `false`                        | Set to `true` to use mock API data |
+| Variable                    | Default                        | Description                                      |
+|-----------------------------|--------------------------------|--------------------------------------------------|
+| `VITE_API_URL`              | `http://localhost:8080/api/v1` | Backend API base URL                             |
+| `VITE_MOCK_API`             | `false`                        | Set to `true` to bypass auth and use mock data   |
+| `VITE_COGNITO_USER_POOL_ID` | _(set by Terraform)_           | Cognito User Pool ID (not needed in mock mode)   |
+| `VITE_COGNITO_CLIENT_ID`    | _(set by Terraform)_           | Cognito App Client ID (not needed in mock mode)  |
+| `VITE_COGNITO_DOMAIN`       | _(set by Terraform)_           | Cognito hosted UI domain (not needed in mock mode) |
 
 ---
 
@@ -108,12 +114,23 @@ cp ui/.env.example ui/.env.development.local
 
 Base path: `/api/v1`. Full contract: [`openapi.yaml`](openapi.yaml).
 
-| Method | Path                  | Description                                                    |
-|--------|-----------------------|----------------------------------------------------------------|
+**Public routes** (no authentication required):
+
+| Method | Path                  | Description                                                      |
+|--------|-----------------------|------------------------------------------------------------------|
 | GET    | `/puzzles/generate`   | Generate a new puzzle (`?difficulty=easy\|medium\|hard\|expert`) |
-| POST   | `/puzzles/validate`   | Validate the current board state                               |
-| POST   | `/puzzles/hint`       | Get a progressive logical hint (Nudge / Focus / Reveal)        |
-| POST   | `/puzzles/candidates` | Calculate all valid candidates for empty cells                 |
+| POST   | `/puzzles/validate`   | Validate the current board state                                 |
+| POST   | `/puzzles/hint`       | Get a progressive logical hint (Nudge / Focus / Reveal)          |
+| POST   | `/puzzles/candidates` | Calculate all valid candidates for empty cells                   |
+
+**Protected routes** (JWT Bearer token required — issued by Cognito after Google login):
+
+| Method | Path                  | Description                                  |
+|--------|-----------------------|----------------------------------------------|
+| POST   | `/games`              | Create a new game for the authenticated user |
+| GET    | `/games/{gameId}`     | Load a saved game                            |
+| PATCH  | `/games/{gameId}`     | Save game progress                           |
+| GET    | `/players/me`         | Get or create the current user's profile     |
 
 ---
 
@@ -154,8 +171,9 @@ CI runs all three test suites on every push. Playwright reports are uploaded as 
 | [`docs/frontend.md`](docs/frontend.md)             | Frontend coding standards   |
 | [`docs/security.md`](docs/security.md)             | Security standards          |
 | [`docs/infrastructure.md`](docs/infrastructure.md) | IaC standards               |
-| [`docs/test-strategy.md`](docs/test-strategy.md)   | Test strategy               |
-| [`CLAUDE.md`](CLAUDE.md)                           | AI assistant instructions   |
+| [`docs/test-strategy.md`](docs/test-strategy.md)               | Test strategy               |
+| [`docs/user-authentication.md`](docs/user-authentication.md)   | Auth standards (Cognito, JWT, OIDC) |
+| [`CLAUDE.md`](CLAUDE.md)                                       | AI assistant instructions   |
 
 ---
 
@@ -174,7 +192,9 @@ Deployment is automated via GitHub Actions on push to `main` or `rc-*` branches:
 1. Maven builds `backend/target/function.zip`
 2. Terraform authenticates via OIDC and runs `init → plan → apply`
 3. A post-apply step tightens API Gateway CORS to the exact Amplify URL
-4. Workflow summary prints the API Gateway and Amplify URLs
+4. A post-apply step pins Cognito callback URLs to the exact Amplify URL
+5. Amplify build is triggered and waited on
+6. Workflow summary prints the API Gateway and Amplify URLs
 
 A manual **Teardown** workflow is available via GitHub Actions (`workflow_dispatch`) for full `terraform destroy`.
 

@@ -39,3 +39,27 @@ variable "api_gateway_throttle_rate_limit" {
   type        = number
   default     = 25
 }
+
+variable "google_client_id" {
+  description = "Google OAuth 2.0 Client ID for Cognito social login."
+  type        = string
+  sensitive   = true
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth 2.0 Client Secret for Cognito social login."
+  type        = string
+  sensitive   = true
+}
+
+variable "smoke_test_user_email" {
+  description = "Email address of the CI smoke-test Cognito user. Never used for real logins."
+  type        = string
+  sensitive   = true
+}
+
+variable "smoke_test_user_password" {
+  description = "Permanent password for the CI smoke-test Cognito user."
+  type        = string
+  sensitive   = true
+}

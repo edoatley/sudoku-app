@@ -70,6 +70,9 @@ resource "aws_lambda_function" "sudoku" {
     variables = {
       CORS_ALLOWED_ORIGINS = "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},http://localhost:5173"
       DYNAMODB_TABLE_NAME  = aws_dynamodb_table.sudoku_games.name
+      PLAYERS_TABLE_NAME   = aws_dynamodb_table.sudoku_players.name
+      COGNITO_ISSUER_URL   = "https://cognito-idp.eu-west-2.amazonaws.com/${aws_cognito_user_pool.main.id}"
+      COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.web.id
     }
   }
 

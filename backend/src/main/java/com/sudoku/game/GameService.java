@@ -5,9 +5,9 @@ import com.sudoku.dto.GameUpdateRequest;
 
 public interface GameService {
 
-    GameState createGame(String difficulty);
+    GameState createGame(String userId, String difficulty);
 
-    GameState loadGame(String gameId);
+    GameState loadGame(String userId, String gameId);
 
-    void updateGame(String gameId, GameUpdateRequest request);
+    void updateGame(String userId, String gameId, GameUpdateRequest request);
 }

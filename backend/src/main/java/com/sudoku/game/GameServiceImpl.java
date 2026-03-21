@@ -22,7 +22,7 @@ public class GameServiceImpl implements GameService {
     GameRepository gameRepository;
 
     @Override
-    public GameState createGame(String difficulty) {
+    public GameState createGame(String userId, String difficulty) {
         var puzzle = sudokuService.generatePuzzle(difficulty);
         List<List<List<Integer>>> emptyCandidates = IntStream.range(0, 9)
                 .mapToObj(r -> IntStream.range(0, 9)
@@ -31,6 +31,7 @@ public class GameServiceImpl implements GameService {
                 .collect(Collectors.toList());
 
         GameState gameState = new GameState(
+                userId,
                 UUID.randomUUID().toString(),
                 puzzle.difficulty(),
                 puzzle.originalGrid(),
@@ -44,13 +45,13 @@ public class GameServiceImpl implements GameService {
     }
 
     @Override
-    public GameState loadGame(String gameId) {
-        return gameRepository.findById(gameId)
+    public GameState loadGame(String userId, String gameId) {
+        return gameRepository.findById(userId, gameId)
                 .orElseThrow(() -> new NotFoundException("Game not found: " + gameId));
     }
 
     @Override
-    public void updateGame(String gameId, GameUpdateRequest request) {
-        gameRepository.update(gameId, request);
+    public void updateGame(String userId, String gameId, GameUpdateRequest request) {
+        gameRepository.update(userId, gameId, request);
     }
 }

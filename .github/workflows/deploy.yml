@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -26,6 +27,8 @@ jobs:
             backend:
               - 'backend/**'
               - 'openapi.yaml'
+            frontend:
+              - 'ui/**'
 
   build-backend:
     name: Build Backend
@@ -53,6 +56,9 @@ jobs:
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+      cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
+      cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
+      cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
     steps:
       - uses: actions/checkout@v6
 
@@ -127,6 +133,10 @@ jobs:
           terraform plan -out=tfplan
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "environment=${{ steps.workspace.outputs.environment }}"
+          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
+          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
+          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
 
       - name: Terraform apply
         working-directory: infra
@@ -139,6 +149,10 @@ jobs:
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
+          # cognito_smoke_test_client_secret is sensitive — fetched directly in smoke-test job via AWS API
 
       - name: Tighten CORS to exact Amplify URL
         env:
@@ -148,7 +162,24 @@ jobs:
           CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
+      - name: Tighten Cognito callback URLs to exact Amplify URL
+        env:
+          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
+          CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
+        run: |
+          aws cognito-idp update-user-pool-client \
+            --user-pool-id "${USER_POOL_ID}" \
+            --client-id "${CLIENT_ID}" \
+            --callback-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
+            --logout-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
+            --supported-identity-providers "Google" \
+            --allowed-o-auth-flows "code" \
+            --allowed-o-auth-scopes "openid" "email" "profile" \
+            --allowed-o-auth-flows-user-pool-client
+
       - name: Trigger Amplify build and wait
+        if: needs.changes.outputs.frontend == 'true'
         working-directory: infra
         env:
           BRANCH: ${{ steps.workspace.outputs.branch }}
@@ -228,6 +259,11 @@ jobs:
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
           check "GET /api/v1/puzzles/generate?difficulty=hard" "${STATUS}" "200"
 
+          # POST /games without token — JWT authorizer must reject with 401
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/games" \
+            -H "Content-Type: application/json" -d '{"difficulty":"easy"}')
+          check "POST /api/v1/games (no token → 401)" "${STATUS}" "401"
+
           {
             echo "### API Smoke Tests"
             echo ""
@@ -252,6 +288,54 @@ jobs:
             sleep 15
           done
 
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Acquire Cognito ID token for smoke test user
+        id: get-token
+        env:
+          USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
+          CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
+          USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
+          PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+        run: |
+          # Fetch the client secret directly via AWS API to avoid cross-job masking issues
+          CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
+            --user-pool-id "${USER_POOL_ID}" \
+            --client-id "${CLIENT_ID}" \
+            --query 'UserPoolClient.ClientSecret' \
+            --output text)
+          echo "::add-mask::${CLIENT_SECRET}"
+
+          # Build auth-parameters JSON; include SECRET_HASH when client has a secret
+          AUTH_PARAMS=$(jq -n \
+            --arg u "${USERNAME}" \
+            --arg p "${PASSWORD}" \
+            '{"USERNAME": $u, "PASSWORD": $p}')
+          if [[ -n "${CLIENT_SECRET}" && "${CLIENT_SECRET}" != "None" ]]; then
+            SECRET_HASH=$(echo -n "${USERNAME}${CLIENT_ID}" \
+              | openssl dgst -sha256 -hmac "${CLIENT_SECRET}" -binary \
+              | base64)
+            AUTH_PARAMS=$(echo "${AUTH_PARAMS}" | jq --arg s "${SECRET_HASH}" '. + {"SECRET_HASH": $s}')
+          fi
+
+          RESPONSE=$(aws cognito-idp initiate-auth \
+            --auth-flow USER_PASSWORD_AUTH \
+            --client-id "${CLIENT_ID}" \
+            --auth-parameters "${AUTH_PARAMS}" \
+            --output json)
+
+          ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
+          ACCESS_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.AccessToken')
+
+          # Mask both tokens so they never appear in logs
+          echo "::add-mask::${ID_TOKEN}"
+          echo "::add-mask::${ACCESS_TOKEN}"
+
+          echo "SMOKE_ID_TOKEN=${ID_TOKEN}"     >> "$GITHUB_ENV"
+          echo "SMOKE_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
+
       - uses: ./.github/actions/setup-node
         with:
           install-playwright: "true"
@@ -262,6 +346,10 @@ jobs:
         env:
           CI: "true"
           INTEGRATION_BASE_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+          COGNITO_USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
+          COGNITO_CLIENT_ID: ${{ needs.deploy.outputs.cognito_client_id }}
+          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
+          SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
         run: npx playwright test --config playwright.integration.config.js
 
       - name: Upload Playwright integration report
