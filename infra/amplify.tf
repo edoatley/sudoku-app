@@ -23,7 +23,7 @@ resource "aws_amplify_app" "sudoku" {
   EOT
 
   environment_variables = {
-    VITE_API_URL  = aws_apigatewayv2_stage.default.invoke_url
+    VITE_API_URL  = trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")
     VITE_MOCK_API = "false"
   }
 

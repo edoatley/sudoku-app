@@ -1,6 +1,6 @@
 output "api_gateway_url" {
   description = "API Gateway HTTP v2 invoke URL."
-  value       = aws_apigatewayv2_stage.default.invoke_url
+  value       = trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")
 }
 
 output "api_gateway_api_id" {
