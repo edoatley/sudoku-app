@@ -58,7 +58,6 @@ jobs:
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
-      cognito_smoke_test_client_secret: ${{ steps.outputs.outputs.cognito_smoke_test_client_secret }}
     steps:
       - uses: actions/checkout@v6
 
@@ -152,10 +151,7 @@ jobs:
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
-          # terraform output -json redacts sensitive values as null; use -raw to get the actual value
-          SMOKE_CLIENT_SECRET=$(terraform output -raw cognito_smoke_test_client_secret)
-          echo "::add-mask::${SMOKE_CLIENT_SECRET}"
-          echo "cognito_smoke_test_client_secret=${SMOKE_CLIENT_SECRET}" >> "$GITHUB_OUTPUT"
+          # cognito_smoke_test_client_secret is sensitive — fetched directly in smoke-test job via AWS API
 
       - name: Tighten CORS to exact Amplify URL
         env:
@@ -300,16 +296,23 @@ jobs:
         env:
           USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
           CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
-          CLIENT_SECRET: ${{ needs.deploy.outputs.cognito_smoke_test_client_secret }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
-          # Build auth-parameters JSON; include SECRET_HASH only when the client has a secret
+          # Fetch the client secret directly via AWS API to avoid cross-job masking issues
+          CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
+            --user-pool-id "${USER_POOL_ID}" \
+            --client-id "${CLIENT_ID}" \
+            --query 'UserPoolClient.ClientSecret' \
+            --output text)
+          echo "::add-mask::${CLIENT_SECRET}"
+
+          # Build auth-parameters JSON; include SECRET_HASH when client has a secret
           AUTH_PARAMS=$(jq -n \
             --arg u "${USERNAME}" \
             --arg p "${PASSWORD}" \
             '{"USERNAME": $u, "PASSWORD": $p}')
-          if [[ -n "${CLIENT_SECRET}" ]]; then
+          if [[ -n "${CLIENT_SECRET}" && "${CLIENT_SECRET}" != "None" ]]; then
             SECRET_HASH=$(echo -n "${USERNAME}${CLIENT_ID}" \
               | openssl dgst -sha256 -hmac "${CLIENT_SECRET}" -binary \
               | base64)
