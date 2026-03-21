@@ -69,6 +69,7 @@ resource "aws_lambda_function" "sudoku" {
   environment {
     variables = {
       CORS_ALLOWED_ORIGINS = "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},http://localhost:5173"
+      DYNAMODB_TABLE_NAME  = aws_dynamodb_table.sudoku_games.name
     }
   }
 
