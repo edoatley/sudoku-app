@@ -58,6 +58,7 @@ jobs:
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
+      cognito_smoke_test_client_secret: ${{ steps.outputs.outputs.cognito_smoke_test_client_secret }}
     steps:
       - uses: actions/checkout@v6
 
@@ -154,7 +155,7 @@ jobs:
           # terraform output -json redacts sensitive values as null; use -raw to get the actual value
           SMOKE_CLIENT_SECRET=$(terraform output -raw cognito_smoke_test_client_secret)
           echo "::add-mask::${SMOKE_CLIENT_SECRET}"
-          echo "SMOKE_CLIENT_SECRET=${SMOKE_CLIENT_SECRET}" >> "$GITHUB_ENV"
+          echo "cognito_smoke_test_client_secret=${SMOKE_CLIENT_SECRET}" >> "$GITHUB_OUTPUT"
 
       - name: Tighten CORS to exact Amplify URL
         env:
@@ -299,7 +300,7 @@ jobs:
         env:
           USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
           CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
-          CLIENT_SECRET: ${{ env.SMOKE_CLIENT_SECRET }}
+          CLIENT_SECRET: ${{ needs.deploy.outputs.cognito_smoke_test_client_secret }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
