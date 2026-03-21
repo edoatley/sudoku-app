@@ -18,7 +18,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -34,11 +34,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/build-lambda-zip
       - name: Upload Lambda zip artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lambda-zip
           path: backend/target/function.zip
@@ -54,7 +54,7 @@ jobs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/configure-aws-oidc
         with:
@@ -78,7 +78,7 @@ jobs:
 
       - name: Download freshly built Lambda zip
         if: needs.changes.outputs.backend == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: lambda-zip
           path: backend/target/
@@ -162,7 +162,7 @@ jobs:
       api_smoke_result: ${{ steps.api-smoke.outcome }}
       playwright_result: ${{ steps.playwright.outcome }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: API smoke tests
         id: api-smoke
@@ -226,7 +226,7 @@ jobs:
 
       - name: Upload Playwright integration report
         if: failure() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-playwright-report
           path: ui/playwright-report/
@@ -234,7 +234,7 @@ jobs:
 
       - name: Upload Playwright integration results
         if: always() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-integration-results
           path: ui/test-results/integration-results.xml

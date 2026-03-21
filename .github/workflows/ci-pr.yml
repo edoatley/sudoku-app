@@ -13,7 +13,7 @@ jobs:
       run:
         working-directory: ui
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-node
         with:
           install-playwright: "true"
@@ -25,14 +25,14 @@ jobs:
           CI: "true"
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: ui/playwright-report/
           retention-days: 14
       - name: Upload E2E test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-results
           path: ui/test-results/results.xml
@@ -59,7 +59,7 @@ jobs:
           --health-retries 12
           --health-start-period 15s
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/create-localstack-dynamodb
       - name: Run unit, API and integration tests with coverage
@@ -70,14 +70,14 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
       - name: Upload JaCoCo report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-report
           path: backend/target/site/jacoco/
           retention-days: 14
       - name: Upload surefire & failsafe XML reports
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-results
           path: |
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-node
       - name: UI npm audit
         working-directory: ui
@@ -103,7 +103,7 @@ jobs:
           OWASP_VERSION: "12.1.1"
       - name: Upload OWASP report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: owasp-report
           path: backend/target/dependency-check-report.html
@@ -115,7 +115,7 @@ jobs:
     timeout-minutes: 20
     needs: [ui, backend]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-node
         with:
           install-playwright: "true"
@@ -138,14 +138,14 @@ jobs:
           CI: "true"
       - name: Upload integration test report
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: integration-playwright-report
           path: ui/playwright-report/
           retention-days: 14
       - name: Upload integration test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: integration-results
           path: ui/test-results/integration-results.xml
@@ -162,7 +162,7 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: hashicorp/setup-terraform@v4
       - uses: ./.github/actions/terraform-validate
 
@@ -176,28 +176,28 @@ jobs:
       pull-requests: write
     steps:
       - name: Download backend test results
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: backend-test-results
           path: artifacts/backend
 
       - name: Download E2E test results
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: e2e-results
           path: artifacts/e2e
 
       - name: Download integration test results
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: integration-results
           path: artifacts/integration
 
       - name: Parse test results and post PR comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
