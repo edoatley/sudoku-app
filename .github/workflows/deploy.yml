@@ -57,6 +57,7 @@ jobs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
+      cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
       cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
     steps:
       - uses: actions/checkout@v6
@@ -346,7 +347,7 @@ jobs:
           CI: "true"
           INTEGRATION_BASE_URL: ${{ needs.deploy.outputs.amplify_app_url }}
           COGNITO_USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          COGNITO_CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
+          COGNITO_CLIENT_ID: ${{ needs.deploy.outputs.cognito_client_id }}
           SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
           SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
         run: npx playwright test --config playwright.integration.config.js
