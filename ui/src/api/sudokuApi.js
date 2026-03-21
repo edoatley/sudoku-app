@@ -8,13 +8,26 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function apiFetch(label, url, options = {}) {
+async function getIdToken() {
+  const { fetchAuthSession } = await import('aws-amplify/auth');
+  const session = await fetchAuthSession();
+  return session.tokens?.idToken?.toString();
+}
+
+async function apiFetch(label, url, options = {}, authenticated = false) {
   if (LOG_API) {
     const body = options.body ? JSON.parse(options.body) : undefined;
     console.group(`[API] ${options.method ?? 'GET'} ${label}`);
     console.log('→ request:', { url, ...(body !== undefined && { body }) });
   }
-  const res = await fetch(url, options);
+
+  const headers = { ...options.headers };
+  if (authenticated) {
+    const token = await getIdToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     if (LOG_API) {
       console.log('← error:', res.status);
@@ -92,7 +105,7 @@ export async function createGame(difficulty) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ difficulty }),
-  });
+  }, true);
 }
 
 export async function loadGame(gameId) {
@@ -101,7 +114,7 @@ export async function loadGame(gameId) {
     return { ...CANNED_GAME_STATE, gameId };
   }
 
-  return apiFetch('loadGame', `${API_URL}/games/${gameId}`);
+  return apiFetch('loadGame', `${API_URL}/games/${gameId}`, {}, true);
 }
 
 export async function saveGame(gameId, { currentGrid, candidates, timeSpentSeconds, isComplete = false }) {
@@ -114,5 +127,5 @@ export async function saveGame(gameId, { currentGrid, candidates, timeSpentSecon
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentGrid, candidates, timeSpentSeconds, isComplete }),
-  });
+  }, true);
 }

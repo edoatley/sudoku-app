@@ -3,9 +3,11 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import PauseIcon from '@mui/icons-material/Pause';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 function formatTime(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -17,7 +19,7 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function Header({ elapsedSeconds, timerRunning, gameStarted }) {
+export default function Header({ elapsedSeconds, timerRunning, gameStarted, user, onSignOut }) {
   return (
     <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
       <Toolbar sx={{ justifyContent: 'space-between' }}>
@@ -34,22 +36,40 @@ export default function Header({ elapsedSeconds, timerRunning, gameStarted }) {
           </Typography>
         </Box>
 
-        {gameStarted && (
-          <Chip
-            icon={timerRunning ? <TimerOutlinedIcon /> : <PauseIcon />}
-            label={formatTime(elapsedSeconds)}
-            variant="outlined"
-            sx={{
-              color: 'primary.contrastText',
-              borderColor: 'rgba(255,255,255,0.5)',
-              '& .MuiChip-icon': { color: 'primary.contrastText' },
-              fontFamily: 'monospace',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              px: 1,
-            }}
-          />
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {gameStarted && (
+            <Chip
+              icon={timerRunning ? <TimerOutlinedIcon /> : <PauseIcon />}
+              label={formatTime(elapsedSeconds)}
+              variant="outlined"
+              sx={{
+                color: 'primary.contrastText',
+                borderColor: 'rgba(255,255,255,0.5)',
+                '& .MuiChip-icon': { color: 'primary.contrastText' },
+                fontFamily: 'monospace',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                px: 1,
+              }}
+            />
+          )}
+
+          {user && onSignOut && (
+            <Button
+              onClick={onSignOut}
+              startIcon={<LogoutIcon />}
+              sx={{
+                color: 'primary.contrastText',
+                borderColor: 'rgba(255,255,255,0.5)',
+                '&:hover': { borderColor: 'primary.contrastText', bgcolor: 'rgba(255,255,255,0.1)' },
+              }}
+              variant="outlined"
+              size="small"
+            >
+              Sign out
+            </Button>
+          )}
+        </Box>
       </Toolbar>
     </AppBar>
   );

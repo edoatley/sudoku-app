@@ -3,6 +3,7 @@ package com.sudoku.dto;
 import java.util.List;
 
 public record GameState(
+        String userId,
         String gameId,
         String difficulty,
         List<List<Integer>> originalGrid,

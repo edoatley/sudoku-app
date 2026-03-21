@@ -34,6 +34,7 @@ class GameResourceTest {
         .then()
             .statusCode(201)
             .contentType(ContentType.JSON)
+            .body("userId", equalTo("local-dev-user"))
             .body("gameId", notNullValue())
             .body("difficulty", equalTo("easy"))
             .body("originalGrid", hasSize(9))
@@ -60,6 +61,7 @@ class GameResourceTest {
         .then()
             .statusCode(200)
             .contentType(ContentType.JSON)
+            .body("userId", equalTo("local-dev-user"))
             .body("gameId", equalTo(gameId))
             .body("difficulty", equalTo("medium"))
             .body("status", equalTo("IN_PROGRESS"));

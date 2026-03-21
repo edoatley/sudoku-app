@@ -166,8 +166,15 @@ DEPLOY_POLICY=$(cat <<EOF
       ],
       "Resource": [
         "arn:aws:iam::${ACCOUNT_ID}:role/SudokuLambdaExecRole*",
-        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuDynamoDBPolicy*"
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuDynamoDBPolicy*",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuPlayersPolicy*"
       ]
+    },
+    {
+      "Sid": "Cognito",
+      "Effect": "Allow",
+      "Action": ["cognito-idp:*"],
+      "Resource": ["arn:aws:cognito-idp:${REGION}:${ACCOUNT_ID}:userpool/*"]
     },
     {
       "Sid": "DynamoDB",
@@ -179,7 +186,10 @@ DEPLOY_POLICY=$(cat <<EOF
         "dynamodb:DescribeContinuousBackups", "dynamodb:UpdateContinuousBackups",
         "dynamodb:DescribeTimeToLive"
       ],
-      "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames*"
+      "Resource": [
+        "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames*",
+        "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuPlayers*"
+      ]
     },
     {
       "Sid": "LambdaZipBucket",
@@ -274,11 +284,15 @@ echo ""
 echo "  2. Create a GitHub classic OAuth token (scopes: repo) and add:"
 echo "       AMPLIFY_GITHUB_TOKEN = <your-token>"
 echo ""
-echo "  3. The backend S3 block is already in infra/terraform.tf."
+echo "  3. Add the following GitHub Actions secrets for Google social login:"
+echo "       GOOGLE_CLIENT_ID     = <your-google-oauth-client-id>"
+echo "       GOOGLE_CLIENT_SECRET = <your-google-oauth-client-secret>"
+echo ""
+echo "  4. The backend S3 block is already in infra/terraform.tf."
 echo "     Run: cd infra && terraform init"
 echo ""
-echo "  4. If SudokuGames DynamoDB table already exists in AWS, import it:"
+echo "  5. If SudokuGames DynamoDB table already exists in AWS, import it:"
 echo "       terraform import aws_dynamodb_table.sudoku_games SudokuGames"
 echo ""
-echo "  5. Push to main to trigger the deploy workflow."
+echo "  6. Push to main to trigger the deploy workflow."
 echo "========================================================================"

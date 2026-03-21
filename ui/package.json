@@ -12,10 +12,12 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@aws-amplify/ui-react": "^6.15.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
+    "aws-amplify": "^6.16.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0"

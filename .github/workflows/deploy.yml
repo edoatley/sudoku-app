@@ -127,6 +127,8 @@ jobs:
           terraform plan -out=tfplan
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "environment=${{ steps.workspace.outputs.environment }}"
+          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
+          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
 
       - name: Terraform apply
         working-directory: infra
@@ -139,6 +141,8 @@ jobs:
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
 
       - name: Tighten CORS to exact Amplify URL
         env:
@@ -147,6 +151,22 @@ jobs:
         run: |
           CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
+
+      - name: Tighten Cognito callback URLs to exact Amplify URL
+        env:
+          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
+          CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
+        run: |
+          aws cognito-idp update-user-pool-client \
+            --user-pool-id "${USER_POOL_ID}" \
+            --client-id "${CLIENT_ID}" \
+            --callback-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
+            --logout-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
+            --supported-identity-providers "Google" \
+            --allowed-o-auth-flows "code" \
+            --allowed-o-auth-scopes "openid" "email" "profile" \
+            --allowed-o-auth-flows-user-pool-client
 
       - name: Trigger Amplify build and wait
         working-directory: infra
@@ -227,6 +247,11 @@ jobs:
           # /puzzles/generate?difficulty=hard
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
           check "GET /api/v1/puzzles/generate?difficulty=hard" "${STATUS}" "200"
+
+          # POST /games without token — JWT authorizer must reject with 401
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/games" \
+            -H "Content-Type: application/json" -d '{"difficulty":"easy"}')
+          check "POST /api/v1/games (no token → 401)" "${STATUS}" "401"
 
           {
             echo "### API Smoke Tests"

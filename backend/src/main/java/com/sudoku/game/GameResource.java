@@ -10,8 +10,10 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 
 import java.util.Map;
 
@@ -23,23 +25,29 @@ public class GameResource {
     @Inject
     GameService gameService;
 
+    @Context
+    SecurityContext securityContext;
+
     @POST
     public Response createGame(Map<String, String> body) {
+        String userId = securityContext.getUserPrincipal().getName();
         String difficulty = body.getOrDefault("difficulty", "medium");
-        GameState gameState = gameService.createGame(difficulty);
+        GameState gameState = gameService.createGame(userId, difficulty);
         return Response.status(Response.Status.CREATED).entity(gameState).build();
     }
 
     @GET
     @Path("/{gameId}")
     public GameState loadGame(@PathParam("gameId") String gameId) {
-        return gameService.loadGame(gameId);
+        String userId = securityContext.getUserPrincipal().getName();
+        return gameService.loadGame(userId, gameId);
     }
 
     @PATCH
     @Path("/{gameId}")
     public Response updateGame(@PathParam("gameId") String gameId, GameUpdateRequest request) {
-        gameService.updateGame(gameId, request);
+        String userId = securityContext.getUserPrincipal().getName();
+        gameService.updateGame(userId, gameId, request);
         return Response.ok().build();
     }
 }

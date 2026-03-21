@@ -67,7 +67,7 @@ terraform plan
 terraform apply
 ```
 
-Provider configured for AWS `eu-west-2`. Resource definitions (`main.tf`, `variables.tf`, `outputs.tf`) are empty placeholders pending implementation.
+Provider configured for AWS `eu-west-2`.
 
 ## Security & Cost Protection Standards
 
@@ -84,6 +84,18 @@ Provider configured for AWS `eu-west-2`. Resource definitions (`main.tf`, `varia
 ## Frontend Coding Standards
 
 **`docs/frontend.md` must be followed for all generated frontend code.**
+
+## API Usage Standards
+
+**`docs/api-use.md` must be followed for all frontend↔API integration code.**
+
+## Testing Standards
+
+**`docs/test-strategy.md` must be followed for all test code.**
+
+## User Authentication Standards
+
+**`docs/user-authentication.md` must be followed for all authentication and identity code.**
 
 ## Architecture Notes
 

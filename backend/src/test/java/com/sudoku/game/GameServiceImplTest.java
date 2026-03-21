@@ -23,6 +23,8 @@ class GameServiceImplTest {
     private GameRepository gameRepository;
     private GameServiceImpl gameService;
 
+    private static final String USER_ID = "test-user-123";
+
     private static final List<List<Integer>> GRID = List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
@@ -48,8 +50,9 @@ class GameServiceImplTest {
     void createGame_generatesPuzzleAndPersistsGameState() {
         when(sudokuService.generatePuzzle("easy")).thenReturn(new PuzzleResponse(GRID, "easy"));
 
-        GameState result = gameService.createGame("easy");
+        GameState result = gameService.createGame(USER_ID, "easy");
 
+        assertEquals(USER_ID, result.userId());
         assertNotNull(result.gameId());
         assertEquals("easy", result.difficulty());
         assertEquals(GRID, result.originalGrid());
@@ -64,8 +67,8 @@ class GameServiceImplTest {
     void createGame_generatesUniqueGameIds() {
         when(sudokuService.generatePuzzle(anyString())).thenReturn(new PuzzleResponse(GRID, "medium"));
 
-        GameState game1 = gameService.createGame("medium");
-        GameState game2 = gameService.createGame("medium");
+        GameState game1 = gameService.createGame(USER_ID, "medium");
+        GameState game2 = gameService.createGame(USER_ID, "medium");
 
         assertNotEquals(game1.gameId(), game2.gameId());
     }
@@ -73,19 +76,19 @@ class GameServiceImplTest {
     @Test
     void loadGame_whenFound_returnsGameState() {
         String gameId = "test-id-123";
-        GameState expected = new GameState(gameId, "easy", GRID, GRID, List.of(), 42, "IN_PROGRESS");
-        when(gameRepository.findById(gameId)).thenReturn(Optional.of(expected));
+        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, GRID, List.of(), 42, "IN_PROGRESS");
+        when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(expected));
 
-        GameState result = gameService.loadGame(gameId);
+        GameState result = gameService.loadGame(USER_ID, gameId);
 
         assertEquals(expected, result);
     }
 
     @Test
     void loadGame_whenNotFound_throwsNotFoundException() {
-        when(gameRepository.findById("unknown")).thenReturn(Optional.empty());
+        when(gameRepository.findById(USER_ID, "unknown")).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> gameService.loadGame("unknown"));
+        assertThrows(NotFoundException.class, () -> gameService.loadGame(USER_ID, "unknown"));
     }
 
     @Test
@@ -93,8 +96,8 @@ class GameServiceImplTest {
         String gameId = "test-id-456";
         GameUpdateRequest request = new GameUpdateRequest(GRID, List.of(), 120, false);
 
-        gameService.updateGame(gameId, request);
+        gameService.updateGame(USER_ID, gameId, request);
 
-        verify(gameRepository).update(eq(gameId), eq(request));
+        verify(gameRepository).update(eq(USER_ID), eq(gameId), eq(request));
     }
 }
