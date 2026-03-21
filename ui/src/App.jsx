@@ -14,10 +14,11 @@ import HintDialog from './components/HintDialog.jsx';
 import Header from './components/Header.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
+const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
 let Authenticator = null;
-if (!MOCK_API) {
+if (!MOCK_API && !SKIP_AUTH) {
   const amplifyUi = await import('@aws-amplify/ui-react');
   await import('@aws-amplify/ui-react/styles.css');
   Authenticator = amplifyUi.Authenticator;
@@ -130,7 +131,7 @@ function SudokuApp({ user, signOut }) {
 }
 
 function App() {
-  if (MOCK_API) {
+  if (MOCK_API || SKIP_AUTH) {
     return <SudokuApp user={null} signOut={null} />;
   }
 

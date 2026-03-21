@@ -4,8 +4,9 @@ import './index.css'
 import App from './App.jsx'
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
+const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 
-if (!MOCK_API) {
+if (!MOCK_API && !SKIP_AUTH) {
   const { Amplify } = await import('aws-amplify');
   Amplify.configure({
     Auth: {
