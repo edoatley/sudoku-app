@@ -7,7 +7,7 @@ resource "aws_apigatewayv2_api" "sudoku" {
   # domain cannot be referenced here). The deploy workflow tightens this to the
   # exact Amplify URL immediately after `terraform apply` via a post-apply step.
   cors_configuration {
-    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_methods = ["GET", "POST", "PATCH", "OPTIONS"]
     allow_origins = [
       "http://localhost:5173"
     ]

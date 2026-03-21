@@ -28,7 +28,7 @@ resource "aws_amplify_app" "sudoku" {
   }
 
   auto_branch_creation_config {
-    enable_auto_build = local.is_default
+    enable_auto_build = false
   }
 
   enable_auto_branch_creation = local.is_default
@@ -39,5 +39,9 @@ resource "aws_amplify_branch" "main" {
   branch_name = local.is_default ? "main" : terraform.workspace
   stage       = local.is_default ? "PRODUCTION" : "DEVELOPMENT"
 
-  enable_auto_build = true
+  # Auto-build is disabled so that the CI workflow can trigger the build
+  # *after* terraform apply has set the correct VITE_API_URL env var.
+  # If auto-build were enabled, Amplify would start building on push before
+  # Terraform runs, baking a stale (or missing) API URL into the JS bundle.
+  enable_auto_build = false
 }
