@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v4
@@ -26,6 +27,8 @@ jobs:
             backend:
               - 'backend/**'
               - 'openapi.yaml'
+            frontend:
+              - 'ui/**'
 
   build-backend:
     name: Build Backend
@@ -177,6 +180,7 @@ jobs:
             --allowed-o-auth-flows-user-pool-client
 
       - name: Trigger Amplify build and wait
+        if: needs.changes.outputs.frontend == 'true'
         working-directory: infra
         env:
           BRANCH: ${{ steps.workspace.outputs.branch }}
