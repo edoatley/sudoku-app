@@ -11,3 +11,5 @@ For the backend leverage the OWASP dependency-check-maven plugin:
 1. Run `mvn dependency-check:check`
 2. Update any vulnerable dependencies
 3. Run tests and verify the updates did not break anything
+
+Update GitHub actions versions using the skill **update-github-actions** found in (~/.claude/skills/update-github-actions/).
