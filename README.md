@@ -163,17 +163,22 @@ CI runs all three test suites on every push. Playwright reports are uploaded as 
 
 Terraform configuration lives in `infra/`. Target region: `eu-west-2` (London).
 
-> **Status:** Provider and backend configured. Resource definitions (Lambda, API Gateway, DynamoDB, Amplify) are pending implementation.
+See [`infra/README.md`](infra/README.md) for the full infrastructure reference including architecture diagram, resource details, bootstrap instructions, and local operations.
 
 ---
 
 ## Deployment
 
-> **Placeholder** — deployment pipeline not yet implemented.
+Deployment is automated via GitHub Actions on push to `main` or `rc-*` branches:
 
-Planned deployment targets:
-- **Frontend:** AWS Amplify (Git-based CI/CD)
-- **Backend:** AWS Lambda with SnapStart (JVM mode) or GraalVM native image
+1. Maven builds `backend/target/function.zip`
+2. Terraform authenticates via OIDC and runs `init → plan → apply`
+3. A post-apply step tightens API Gateway CORS to the exact Amplify URL
+4. Workflow summary prints the API Gateway and Amplify URLs
+
+A manual **Teardown** workflow is available via GitHub Actions (`workflow_dispatch`) for full `terraform destroy`.
+
+See [`infra/README.md`](infra/README.md) for bootstrap steps required before the first deploy.
 
 ---
 

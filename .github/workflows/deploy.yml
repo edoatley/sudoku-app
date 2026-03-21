@@ -1,0 +1,280 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - "rc-*"
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'openapi.yaml'
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/build-lambda-zip
+      - name: Upload Lambda zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zip
+          path: backend/target/function.zip
+          retention-days: 1
+
+  deploy:
+    name: Terraform Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [changes, build-backend]
+    if: always() && !failure() && !cancelled()
+    outputs:
+      api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
+      amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Resolve Terraform workspace
+        id: workspace
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+          if [ "${BRANCH}" = "main" ]; then
+            WORKSPACE="default"
+            ENV="prod"
+          else
+            WORKSPACE="${SANITIZED}"
+            ENV="${SANITIZED}"
+          fi
+          echo "branch=${BRANCH}"       >> "$GITHUB_OUTPUT"
+          echo "workspace=${WORKSPACE}" >> "$GITHUB_OUTPUT"
+          echo "environment=${ENV}"     >> "$GITHUB_OUTPUT"
+
+      - name: Download freshly built Lambda zip
+        if: needs.changes.outputs.backend == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-zip
+          path: backend/target/
+
+      - name: Download current Lambda zip from S3 (no backend changes)
+        id: s3-download
+        if: needs.changes.outputs.backend != 'true'
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET="sudoku-lambda-zip-${ACCOUNT_ID}"
+          WORKSPACE="${{ steps.workspace.outputs.workspace }}"
+          mkdir -p backend/target
+          if aws s3 ls "s3://${BUCKET}/${WORKSPACE}/function.zip" > /dev/null 2>&1; then
+            echo "Downloading current zip from s3://${BUCKET}/${WORKSPACE}/function.zip"
+            aws s3 cp "s3://${BUCKET}/${WORKSPACE}/function.zip" backend/target/function.zip
+          else
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ./.github/actions/setup-java
+        if: steps.s3-download.outputs.needs_build == 'true'
+
+      - name: Build Lambda zip (S3 fallback — no prior deployment found)
+        if: steps.s3-download.outputs.needs_build == 'true'
+        uses: ./.github/actions/build-lambda-zip
+
+      - uses: hashicorp/setup-terraform@v4
+
+      - name: Terraform init
+        working-directory: infra
+        run: terraform init
+
+      - name: Select or create Terraform workspace
+        working-directory: infra
+        run: |
+          WORKSPACE="${{ steps.workspace.outputs.workspace }}"
+          if [ "${WORKSPACE}" = "default" ]; then
+            terraform workspace select default
+          else
+            terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
+          fi
+
+      - name: Terraform plan
+        working-directory: infra
+        run: >-
+          terraform plan -out=tfplan
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "environment=${{ steps.workspace.outputs.environment }}"
+
+      - name: Terraform apply
+        working-directory: infra
+        run: terraform apply -auto-approve tfplan
+
+      - name: Capture outputs
+        id: outputs
+        working-directory: infra
+        run: |
+          echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
+          echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
+          echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Tighten CORS to exact Amplify URL
+        env:
+          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          API_ID: ${{ steps.outputs.outputs.api_id }}
+        run: |
+          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
+          aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
+
+
+      - name: Print deployment URLs
+        working-directory: infra
+        run: terraform output
+
+  smoke-test:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: deploy
+    outputs:
+      api_smoke_result: ${{ steps.api-smoke.outcome }}
+      playwright_result: ${{ steps.playwright.outcome }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: API smoke tests
+        id: api-smoke
+        env:
+          API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
+        run: |
+          # Strip trailing slash to avoid double-slash URLs (API Gateway invoke URL ends with /)
+          API_BASE="${API_URL%/}"
+          echo "Testing API Gateway: ${API_BASE}"
+
+          # /puzzles/generate
+          STATUS=$(curl -s -o /tmp/generate.json -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate")
+          echo "GET /puzzles/generate → HTTP ${STATUS}"
+          [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; echo "Response body:"; cat /tmp/generate.json; exit 1; }
+
+          # Response should contain an originalGrid array
+          grep -q '"originalGrid"' /tmp/generate.json || { echo "FAIL: response missing 'originalGrid' field"; cat /tmp/generate.json; exit 1; }
+          echo "PASS: /puzzles/generate returned valid JSON with originalGrid"
+
+          # /puzzles/generate?difficulty=hard
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
+          echo "GET /puzzles/generate?difficulty=hard → HTTP ${STATUS}"
+          [ "${STATUS}" = "200" ] || { echo "FAIL: expected 200, got ${STATUS}"; exit 1; }
+          echo "PASS: /puzzles/generate?difficulty=hard OK"
+
+      - name: UI integration tests — skipped (rc-* branch)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "### UI integration tests: skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "Amplify is wired to the \`main\` branch. UI Playwright tests only run on \`main\` pushes." >> "$GITHUB_STEP_SUMMARY"
+          echo "Skipping UI integration tests — this is an rc-* branch (API smoke tests above cover the backend)."
+
+      # Playwright integration tests run only on main (Amplify is wired to main branch)
+      - name: Wait for Amplify deployment to complete
+        if: github.ref == 'refs/heads/main'
+        env:
+          APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+        run: |
+          echo "Waiting for Amplify app to be reachable at ${APP_URL}"
+          for i in $(seq 1 20); do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${APP_URL}" || echo "000")
+            echo "Attempt ${i}/20 → HTTP ${STATUS}"
+            [ "${STATUS}" = "200" ] && { echo "Amplify ready"; break; }
+            [ "${i}" = "20" ] && { echo "FAIL: Amplify not ready after 60s"; exit 1; }
+            sleep 15
+          done
+
+      - uses: ./.github/actions/setup-node
+        if: github.ref == 'refs/heads/main'
+        with:
+          install-playwright: "true"
+
+      - name: Run Playwright integration tests against Amplify
+        id: playwright
+        if: github.ref == 'refs/heads/main'
+        working-directory: ui
+        env:
+          CI: "true"
+          INTEGRATION_BASE_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+        run: npx playwright test --config playwright.integration.config.js
+
+      - name: Upload Playwright integration report
+        if: failure() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-playwright-report
+          path: ui/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright integration results
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-integration-results
+          path: ui/test-results/integration-results.xml
+          retention-days: 14
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-test]
+    if: always()
+    steps:
+      - name: Deployment summary
+        env:
+          DEPLOY_STATUS: ${{ needs.deploy.result }}
+          SMOKE_STATUS: ${{ needs.smoke-test.result }}
+          API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
+          APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+        run: |
+          if [ "${DEPLOY_STATUS}" = "success" ]; then
+            echo "### Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Resource | URL |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|----------|-----|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| API Gateway | ${API_URL} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Amplify App | ${APP_URL} |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Deployment failed (status: ${DEPLOY_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check the deploy job logs for details." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${SMOKE_STATUS}" = "success" ]; then
+            echo "### Smoke tests passed ✅" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${SMOKE_STATUS}" = "skipped" ]; then
+            echo "### Smoke tests skipped ⏭️" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Smoke tests failed ❌ (status: ${SMOKE_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check the smoke-test job logs for details." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Delete lambda-zip artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts --jq '.artifacts[] | select(.name == "lambda-zip") | .id' | xargs -I{} gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/{}
