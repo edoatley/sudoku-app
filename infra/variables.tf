@@ -51,3 +51,15 @@ variable "google_client_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "smoke_test_user_email" {
+  description = "Email address of the CI smoke-test Cognito user. Never used for real logins."
+  type        = string
+  sensitive   = true
+}
+
+variable "smoke_test_user_password" {
+  description = "Permanent password for the CI smoke-test Cognito user."
+  type        = string
+  sensitive   = true
+}

@@ -76,6 +76,59 @@ resource "aws_cognito_identity_provider" "google" {
   }
 }
 
+# ---------------------------------------------------------------------------
+# Smoke-test user — admin-created, username/password auth only.
+# Never surfaced in the UI; used exclusively by CI to obtain a real JWT.
+# ---------------------------------------------------------------------------
+resource "aws_cognito_user" "smoke_test" {
+  user_pool_id = aws_cognito_user_pool.main.id
+  username     = var.smoke_test_user_email
+
+  attributes = {
+    email          = var.smoke_test_user_email
+    email_verified = "true"
+    name           = "Smoke Test User"
+  }
+
+  # Set a permanent password so CI can authenticate without a challenge flow
+  password              = var.smoke_test_user_password
+  message_action        = "SUPPRESS"   # Don't send a welcome email
+  force_alias_creation  = false
+}
+
+# Server-side app client used only by CI — has a client secret and enables
+# USER_PASSWORD_AUTH so the smoke test can exchange credentials for tokens.
+# The public web client remains social-only.
+resource "aws_cognito_user_pool_client" "smoke_test" {
+  name         = "sudoku-smoke-test${local.suffix}"
+  user_pool_id = aws_cognito_user_pool.main.id
+
+  generate_secret = true # Server-side client; secret kept in GitHub Actions secrets
+
+  allowed_oauth_flows                  = []
+  allowed_oauth_flows_user_pool_client = false
+  allowed_oauth_scopes                 = []
+  supported_identity_providers         = ["COGNITO"]
+
+  # Allow direct username/password auth — needed for CI token acquisition
+  explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  enable_token_revocation = true
+
+  refresh_token_validity = 1
+  access_token_validity  = 1
+  id_token_validity      = 1
+
+  token_validity_units {
+    access_token  = "hours"
+    id_token      = "hours"
+    refresh_token = "days"
+  }
+}
+
 resource "aws_cognito_user_pool_client" "web" {
   name         = "sudoku-web${local.suffix}"
   user_pool_id = aws_cognito_user_pool.main.id

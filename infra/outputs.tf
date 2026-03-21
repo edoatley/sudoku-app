@@ -42,3 +42,14 @@ output "cognito_domain" {
   description = "Cognito hosted UI domain (used by the deploy workflow to tighten callback URLs post-apply)."
   value       = "${aws_cognito_user_pool_domain.main.domain}.auth.eu-west-2.amazoncognito.com"
 }
+
+output "cognito_smoke_test_client_id" {
+  description = "Smoke-test app client ID (server-side, used by CI only)."
+  value       = aws_cognito_user_pool_client.smoke_test.id
+}
+
+output "cognito_smoke_test_client_secret" {
+  description = "Smoke-test app client secret (server-side, used by CI only)."
+  value       = aws_cognito_user_pool_client.smoke_test.client_secret
+  sensitive   = true
+}

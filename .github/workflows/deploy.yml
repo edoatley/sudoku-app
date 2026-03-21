@@ -53,6 +53,8 @@ jobs:
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+      cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
+      cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
     steps:
       - uses: actions/checkout@v6
 
@@ -129,6 +131,8 @@ jobs:
           -var "environment=${{ steps.workspace.outputs.environment }}"
           -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
           -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
+          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
 
       - name: Terraform apply
         working-directory: infra
@@ -143,6 +147,11 @@ jobs:
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
+          # Secret output — write to masked env file, not GITHUB_OUTPUT
+          terraform output -raw cognito_smoke_test_client_secret >> /tmp/smoke_client_secret
+          echo "SMOKE_CLIENT_SECRET=$(cat /tmp/smoke_client_secret)" >> "$GITHUB_ENV"
+          rm /tmp/smoke_client_secret
 
       - name: Tighten CORS to exact Amplify URL
         env:
@@ -277,6 +286,43 @@ jobs:
             sleep 15
           done
 
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Acquire Cognito ID token for smoke test user
+        id: get-token
+        env:
+          USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
+          CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
+          CLIENT_SECRET: ${{ env.SMOKE_CLIENT_SECRET }}
+          USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
+          PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+        run: |
+          # Cognito USER_PASSWORD_AUTH requires a SECRET_HASH when the client has a secret
+          SECRET_HASH=$(echo -n "${USERNAME}${CLIENT_ID}" \
+            | openssl dgst -sha256 -hmac "${CLIENT_SECRET}" -binary \
+            | base64)
+
+          RESPONSE=$(aws cognito-idp initiate-auth \
+            --auth-flow USER_PASSWORD_AUTH \
+            --client-id "${CLIENT_ID}" \
+            --auth-parameters \
+              USERNAME="${USERNAME}" \
+              PASSWORD="${PASSWORD}" \
+              SECRET_HASH="${SECRET_HASH}" \
+            --output json)
+
+          ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
+          ACCESS_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.AccessToken')
+
+          # Mask both tokens so they never appear in logs
+          echo "::add-mask::${ID_TOKEN}"
+          echo "::add-mask::${ACCESS_TOKEN}"
+
+          echo "SMOKE_ID_TOKEN=${ID_TOKEN}"     >> "$GITHUB_ENV"
+          echo "SMOKE_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
+
       - uses: ./.github/actions/setup-node
         with:
           install-playwright: "true"
@@ -287,6 +333,10 @@ jobs:
         env:
           CI: "true"
           INTEGRATION_BASE_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+          COGNITO_USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
+          COGNITO_CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
+          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
+          SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
         run: npx playwright test --config playwright.integration.config.js
 
       - name: Upload Playwright integration report
