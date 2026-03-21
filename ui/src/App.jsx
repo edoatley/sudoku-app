@@ -135,7 +135,7 @@ function App() {
   }
 
   return (
-    <Authenticator hideSignUp>
+    <Authenticator hideSignUp socialProviders={['google']}>
       {({ signOut, user }) => <SudokuApp user={user} signOut={signOut} />}
     </Authenticator>
   );
