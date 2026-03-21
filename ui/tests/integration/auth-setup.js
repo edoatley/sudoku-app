@@ -51,18 +51,18 @@ export default async function globalSetup() {
     }),
   };
 
-  // Write the storage state using a real browser so Playwright can reuse it
+  // Write the storage state using a real browser so Playwright can reuse it.
+  // Use addInitScript so tokens are in localStorage before any page JS runs —
+  // this prevents Amplify from redirecting to the hosted UI on first load.
   const browser = await chromium.launch();
   const context = await browser.newContext({ baseURL });
-  const page = await context.newPage();
-
-  // Navigate to the origin so localStorage writes are accepted
-  await page.goto('/');
-  await page.evaluate((entries) => {
+  await context.addInitScript((entries) => {
     for (const [key, value] of Object.entries(entries)) {
       localStorage.setItem(key, value);
     }
   }, storageEntries);
+  const page = await context.newPage();
+  await page.goto('/');
 
   await context.storageState({ path: STATE_FILE });
   await browser.close();
