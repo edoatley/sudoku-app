@@ -15,6 +15,7 @@ jobs:
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -131,6 +132,7 @@ jobs:
         working-directory: infra
         run: >-
           terraform plan -out=tfplan
+          -input=false
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "environment=${{ steps.workspace.outputs.environment }}"
           -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
@@ -140,7 +142,7 @@ jobs:
 
       - name: Terraform apply
         working-directory: infra
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve -input=false tfplan
 
       - name: Capture outputs
         id: outputs
@@ -397,6 +399,7 @@ jobs:
   notify:
     name: Notify
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [deploy, smoke-test]
     if: always()
     steps:

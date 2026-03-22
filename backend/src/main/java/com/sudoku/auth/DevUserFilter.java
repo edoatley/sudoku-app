@@ -15,7 +15,7 @@ import java.security.Principal;
  * Not included in the production Lambda bundle — @IfBuildProfile removes it at compile time.
  */
 @Provider
-@IfBuildProfile(anyOf = {"dev", "it"})
+@IfBuildProfile(anyOf = {"dev", "it", "test"})
 public class DevUserFilter implements ContainerRequestFilter {
 
     private static final String MOCK_USER_ID = "local-dev-user";

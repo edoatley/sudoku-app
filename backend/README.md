@@ -99,7 +99,7 @@ src/main/java/com/sudoku/
 | PATCH | `/api/v1/games/{gameId}` | Save game progress |
 | GET | `/api/v1/players/me` | Get or create the current user's profile |
 
-The JWT is validated by the API Gateway JWT authorizer (Cognito issuer/audience). Quarkus extracts the `userId` from the `SecurityContext` via `quarkus-oidc` in production, or from the `DevUserFilter` mock in `dev`/`it` profiles.
+The JWT is validated by the API Gateway JWT authorizer (Cognito issuer/audience). Quarkus extracts the `userId` from the `SecurityContext` via `quarkus-oidc` in production, or from the `DevUserFilter` mock in `dev`/`test`/`it` profiles.
 
 ---
 
@@ -162,6 +162,21 @@ The CI deploy workflow builds `target/function.zip` and uploads it to S3 for Ter
 
 ---
 
+## Quarkus Build Profiles
+
+Quarkus selects a profile at build/run time. This controls which beans are included and which `application.properties` overrides apply.
+
+| Profile | Activated by | OIDC | `DevUserFilter` | DynamoDB target | Purpose |
+|---------|-------------|------|-----------------|-----------------|---------|
+| `dev` | `./mvnw quarkus:dev` | Disabled | Active (injects `local-dev-user`) | LocalStack `:4566` | Hot-reload local development — no Cognito required |
+| `test` | `@QuarkusTest` (Maven `test` phase) | Disabled | Active (injects `local-dev-user`) | LocalStack `:4566` (via `src/test/resources/application.properties`) | `@QuarkusTest` API tests run in CI and locally against LocalStack |
+| `it` | `@QuarkusIntegrationTest` (`-DskipITs=false`) | Disabled | Active (injects `local-dev-user`) | LocalStack `:4566` | Packaged JAR integration tests; Lambda zip runs in-process against LocalStack |
+| `prod` | Default (no active profile flag) | Enabled (Cognito issuer) | Excluded from build | Real DynamoDB (env-var injected) | Lambda deployed to AWS — API Gateway validates JWTs before invocation |
+
+`DevUserFilter` is compiled into the `dev`, `test`, and `it` builds only (`@IfBuildProfile`). It is absent from the production Lambda zip.
+
+---
+
 ## Configuration
 
 Key properties in `src/main/resources/application.properties`:
@@ -174,4 +189,4 @@ Key properties in `src/main/resources/application.properties`:
 | `sudoku.dynamodb.table-name` | `SudokuGames` table name (injected via `GAMES_TABLE_NAME` env var) |
 | `sudoku.dynamodb.players-table-name` | `SudokuPlayers` table name (injected via `PLAYERS_TABLE_NAME` env var) |
 
-In `dev` and `it` profiles, OIDC is disabled (`%dev.quarkus.oidc.enabled=false`) and proactive auth is turned off so the `DevUserFilter` can inject a mock identity.
+In `dev`, `test`, and `it` profiles, OIDC is disabled and proactive auth is turned off so the `DevUserFilter` can inject a mock identity.

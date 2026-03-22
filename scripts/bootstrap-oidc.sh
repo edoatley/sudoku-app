@@ -159,6 +159,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "iam:AttachRolePolicy", "iam:DetachRolePolicy",
         "iam:CreatePolicy", "iam:GetPolicy", "iam:DeletePolicy",
         "iam:GetPolicyVersion", "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion", "iam:DeletePolicyVersion",
         "iam:ListAttachedRolePolicies", "iam:ListRolePolicies",
         "iam:ListInstanceProfilesForRole",
         "iam:PassRole", "iam:TagRole", "iam:UntagRole",

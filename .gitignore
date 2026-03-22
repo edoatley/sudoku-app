@@ -1,1 +1,4 @@
 .playwright-mcp
+scripts/.env.local
+tfplan
+backend/target
