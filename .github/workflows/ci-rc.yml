@@ -1,9 +1,8 @@
-name: Deploy
+name: CI + Deploy (rc-*)
 
 on:
   push:
     branches:
-      - main
       - "rc-*"
 
 permissions:
@@ -12,10 +11,54 @@ permissions:
   actions: write
 
 jobs:
+  ci:
+    name: CI Checks
+    uses: ./.github/workflows/ci-checks.yml
+    secrets: inherit
+
+  integration:
+    name: Integration — Docker Compose + Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: ci
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-node
+        with:
+          install-playwright: "true"
+      - name: Build and start services
+        run: docker compose -f docker-compose.test.yml up -d --build
+      - name: Wait for backend to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/api/v1/puzzles/generate > /dev/null; then
+              echo "Backend is ready"
+              break
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 3
+          done
+      - name: Run integration tests
+        working-directory: ui
+        run: npx playwright test --config playwright.integration.config.js
+        env:
+          CI: "true"
+      - name: Upload integration test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: push-integration-playwright-report
+          path: ui/playwright-report/
+          retention-days: 7
+      - name: Tear down services
+        if: always()
+        run: docker compose -f docker-compose.test.yml down
+
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: [ci, integration]
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -35,7 +78,7 @@ jobs:
     name: Build Backend
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: changes
+    needs: [ci, integration, changes]
     if: needs.changes.outputs.backend == 'true'
     steps:
       - uses: actions/checkout@v6
@@ -52,7 +95,7 @@ jobs:
     name: Terraform Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [changes, build-backend]
+    needs: [ci, integration, changes, build-backend]
     if: always() && !failure() && !cancelled()
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
@@ -72,16 +115,9 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
           SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
-          if [ "${BRANCH}" = "main" ]; then
-            WORKSPACE="default"
-            ENV="prod"
-          else
-            WORKSPACE="${SANITIZED}"
-            ENV="${SANITIZED}"
-          fi
-          echo "branch=${BRANCH}"       >> "$GITHUB_OUTPUT"
-          echo "workspace=${WORKSPACE}" >> "$GITHUB_OUTPUT"
-          echo "environment=${ENV}"     >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}"             >> "$GITHUB_OUTPUT"
+          echo "workspace=${SANITIZED}"       >> "$GITHUB_OUTPUT"
+          echo "environment=${SANITIZED}"     >> "$GITHUB_OUTPUT"
 
       - name: Download freshly built Lambda zip
         if: needs.changes.outputs.backend == 'true'
@@ -122,11 +158,7 @@ jobs:
         working-directory: infra
         run: |
           WORKSPACE="${{ steps.workspace.outputs.workspace }}"
-          if [ "${WORKSPACE}" = "default" ]; then
-            terraform workspace select default
-          else
-            terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
-          fi
+          terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
 
       - name: Terraform plan
         working-directory: infra
@@ -276,7 +308,6 @@ jobs:
 
           [ "${FAILED}" = "0" ] || { echo "One or more API smoke tests failed"; exit 1; }
 
-      # Playwright integration tests run against Amplify for all branches
       - name: Wait for Amplify deployment to complete
         env:
           APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}

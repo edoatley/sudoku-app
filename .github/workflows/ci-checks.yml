@@ -1,8 +1,7 @@
-name: CI (push)
+name: CI Checks (reusable)
 
 on:
-  push:
-    branches: ["**"]
+  workflow_call:
 
 jobs:
   ui-lint:
@@ -115,45 +114,6 @@ jobs:
 
             const summary = [...header, ...rows, ...footer].join('\n');
             await core.summary.addRaw(summary).write();
-
-  integration:
-    name: Integration — Docker Compose + Playwright
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: github.ref != 'refs/heads/main'
-    needs: backend-unit
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-node
-        with:
-          install-playwright: "true"
-      - name: Build and start services
-        run: docker compose -f docker-compose.test.yml up -d --build
-      - name: Wait for backend to be healthy
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/api/v1/puzzles/generate > /dev/null; then
-              echo "Backend is ready"
-              break
-            fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 3
-          done
-      - name: Run integration tests
-        working-directory: ui
-        run: npx playwright test --config playwright.integration.config.js
-        env:
-          CI: "true"
-      - name: Upload integration test report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: push-integration-playwright-report
-          path: ui/playwright-report/
-          retention-days: 7
-      - name: Tear down services
-        if: always()
-        run: docker compose -f docker-compose.test.yml down
 
   infra:
     name: Infra — Terraform fmt & validate
