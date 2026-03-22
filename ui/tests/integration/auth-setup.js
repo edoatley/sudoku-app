@@ -21,7 +21,6 @@ const STATE_FILE = path.join(
 export default async function globalSetup() {
   const idToken = process.env.SMOKE_ID_TOKEN;
   const accessToken = process.env.SMOKE_ACCESS_TOKEN;
-  const userPoolId = process.env.COGNITO_USER_POOL_ID;
   const clientId = process.env.COGNITO_CLIENT_ID;
   const baseURL = process.env.INTEGRATION_BASE_URL ?? 'http://localhost:5174';
 

@@ -10,10 +10,10 @@ resource "aws_cognito_user_pool" "main" {
 
   # email and name are mapped from the Google IdP token
   schema {
-    name                     = "email"
-    attribute_data_type      = "String"
-    required                 = true
-    mutable                  = true
+    name                = "email"
+    attribute_data_type = "String"
+    required            = true
+    mutable             = true
     string_attribute_constraints {
       min_length = 0
       max_length = 2048
@@ -21,10 +21,10 @@ resource "aws_cognito_user_pool" "main" {
   }
 
   schema {
-    name                     = "name"
-    attribute_data_type      = "String"
-    required                 = false
-    mutable                  = true
+    name                = "name"
+    attribute_data_type = "String"
+    required            = false
+    mutable             = true
     string_attribute_constraints {
       min_length = 0
       max_length = 2048
@@ -91,9 +91,9 @@ resource "aws_cognito_user" "smoke_test" {
   }
 
   # Set a permanent password so CI can authenticate without a challenge flow
-  password              = var.smoke_test_user_password
-  message_action        = "SUPPRESS"   # Don't send a welcome email
-  force_alias_creation  = false
+  password             = var.smoke_test_user_password
+  message_action       = "SUPPRESS" # Don't send a welcome email
+  force_alias_creation = false
 }
 
 # Server-side app client used only by CI — has a client secret and enables
@@ -145,7 +145,7 @@ resource "aws_cognito_user_pool_client" "web" {
   # No SRP or password flows — social-only
   explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH"]
 
-  enable_token_revocation      = true
+  enable_token_revocation       = true
   prevent_user_existence_errors = "ENABLED"
 
   refresh_token_validity = 30
