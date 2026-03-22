@@ -197,19 +197,37 @@ jobs:
           CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
-      - name: Tighten Cognito callback URLs to exact Amplify URL
-        # Skipped for rc-* — the shared rc pool keeps a broad wildcard covering all rc-* branches.
-        if: ${{ !startsWith(steps.workspace.outputs.workspace, 'rc-') }}
+      - name: Update Cognito callback URLs
+        # Non-rc: replace with exact Amplify URL (each workspace owns its own pool).
+        # rc-*:   Cognito does not support wildcard callback URLs, so we accumulate
+        #         exact URLs — read the current list and add this branch's URL if missing.
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
           USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
           CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
+          IS_RC: ${{ startsWith(steps.workspace.outputs.workspace, 'rc-') }}
         run: |
+          BRANCH_URL="${AMPLIFY_URL}/"
+          if [[ "${IS_RC}" == "true" ]]; then
+            # Read existing callback URLs, append this branch's URL if not already present,
+            # and remove the defunct wildcard entry that Cognito silently rejects.
+            EXISTING=$(aws cognito-idp describe-user-pool-client \
+              --user-pool-id "${USER_POOL_ID}" \
+              --client-id "${CLIENT_ID}" \
+              --query 'UserPoolClient.CallbackURLs' \
+              --output json)
+            CALLBACK_URLS=$(echo "${EXISTING}" | jq -r \
+              --arg url "${BRANCH_URL}" \
+              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + ["http://localhost:5173/"] | unique | .[]')
+          else
+            CALLBACK_URLS="${BRANCH_URL}
+http://localhost:5173/"
+          fi
           aws cognito-idp update-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
             --client-id "${CLIENT_ID}" \
-            --callback-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
-            --logout-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
+            --callback-urls ${CALLBACK_URLS} \
+            --logout-urls ${CALLBACK_URLS} \
             --supported-identity-providers "Google" \
             --allowed-o-auth-flows "code" \
             --allowed-o-auth-scopes "openid" "email" "profile" \

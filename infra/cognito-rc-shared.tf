@@ -109,11 +109,16 @@ resource "aws_cognito_user_pool_client" "rc_shared_web" {
     refresh_token = "days"
   }
 
-  # Broad baseline — the rc-* deploy workflow tightens this to the exact Amplify URL.
-  # ignore_changes is intentionally omitted here: the rc-shared pool is shared, so
-  # callback URLs must remain broad to cover all rc-* Amplify branches.
-  callback_urls = ["https://*.amplifyapp.com/", "http://localhost:5173/"]
-  logout_urls   = ["https://*.amplifyapp.com/", "http://localhost:5173/"]
+  # Cognito does not support wildcard callback URLs — they are accepted by the API
+  # but silently rejected during the OAuth flow (returns HTTP 400).
+  # The deploy workflow adds each rc-* branch's exact Amplify URL after terraform apply.
+  # ignore_changes prevents Terraform from reverting the accumulated URL list on each run.
+  callback_urls = ["http://localhost:5173/"]
+  logout_urls   = ["http://localhost:5173/"]
+
+  lifecycle {
+    ignore_changes = [callback_urls, logout_urls]
+  }
 
   depends_on = [aws_cognito_identity_provider.rc_shared_google]
 }
