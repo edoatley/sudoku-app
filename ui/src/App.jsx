@@ -180,6 +180,9 @@ function SudokuApp({ user, signOut }) {
 }
 
 function LoginLayout() {
+  // When unauthenticated, Authenticator renders its own centered login form.
+  // When authenticated, children are called with { user, signOut } and we render
+  // SudokuApp at the top level — its own Header replaces the login chrome.
   const authContent = (
     <Authenticator hideSignUp socialProviders={['google']}>
       {({ signOut, user }) => <SudokuApp user={user} signOut={signOut} />}
@@ -189,23 +192,11 @@ function LoginLayout() {
   return (
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
-      <Header minimal />
-      <Box
-        sx={{
-          minHeight: 'calc(100vh - 64px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: 'grey.50',
-          p: 2,
-        }}
-      >
-        {AmplifyThemeProvider && amplifyTheme ? (
-          <AmplifyThemeProvider theme={amplifyTheme}>
-            {authContent}
-          </AmplifyThemeProvider>
-        ) : authContent}
-      </Box>
+      {AmplifyThemeProvider && amplifyTheme ? (
+        <AmplifyThemeProvider theme={amplifyTheme}>
+          {authContent}
+        </AmplifyThemeProvider>
+      ) : authContent}
     </ThemeProvider>
   );
 }

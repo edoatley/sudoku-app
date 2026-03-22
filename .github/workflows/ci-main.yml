@@ -277,34 +277,17 @@ jobs:
         id: get-token
         env:
           USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
+          # Use the public web client (no secret) so the token audience matches what
+          # Amplify expects in the browser — the smoke client's aud would mismatch.
+          CLIENT_ID: ${{ needs.deploy.outputs.cognito_client_id }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
-          # Fetch the client secret directly via AWS API to avoid cross-job masking issues
-          CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
-            --user-pool-id "${USER_POOL_ID}" \
-            --client-id "${CLIENT_ID}" \
-            --query 'UserPoolClient.ClientSecret' \
-            --output text)
-          echo "::add-mask::${CLIENT_SECRET}"
-
-          # Build auth-parameters JSON; include SECRET_HASH when client has a secret
-          AUTH_PARAMS=$(jq -n \
-            --arg u "${USERNAME}" \
-            --arg p "${PASSWORD}" \
-            '{"USERNAME": $u, "PASSWORD": $p}')
-          if [[ -n "${CLIENT_SECRET}" && "${CLIENT_SECRET}" != "None" ]]; then
-            SECRET_HASH=$(echo -n "${USERNAME}${CLIENT_ID}" \
-              | openssl dgst -sha256 -hmac "${CLIENT_SECRET}" -binary \
-              | base64)
-            AUTH_PARAMS=$(echo "${AUTH_PARAMS}" | jq --arg s "${SECRET_HASH}" '. + {"SECRET_HASH": $s}')
-          fi
-
+          # The web client has no secret, so no SECRET_HASH is required.
           RESPONSE=$(aws cognito-idp initiate-auth \
             --auth-flow USER_PASSWORD_AUTH \
             --client-id "${CLIENT_ID}" \
-            --auth-parameters "${AUTH_PARAMS}" \
+            --auth-parameters "USERNAME=${USERNAME},PASSWORD=${PASSWORD}" \
             --output json)
 
           ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
