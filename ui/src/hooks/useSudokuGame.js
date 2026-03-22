@@ -66,6 +66,20 @@ export function useSudokuGame(user) {
     setTimerRunning(false);
   }, []);
 
+  const [isPaused, setIsPaused] = useState(false);
+
+  const pauseGame = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimerRunning(false);
+    setIsPaused(true);
+  }, []);
+
+  const resumeGame = useCallback(() => {
+    setIsPaused(false);
+    setTimerRunning(true);
+    timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+  }, []);
+
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   // Clear localStorage game state when the authenticated user changes
@@ -179,6 +193,35 @@ export function useSudokuGame(user) {
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [syncToBackend, pauseTimer]);
+
+  const inactivityRef = useRef(null);
+  const isPausedRef = useRef(isPaused);
+  isPausedRef.current = isPaused;
+  const timerRunningRef = useRef(timerRunning);
+  timerRunningRef.current = timerRunning;
+
+  useEffect(() => {
+    if (!currentGrid || isPaused) return;
+    const INACTIVITY_MS = 3 * 60 * 1000;
+    const resetTimer = () => {
+      if (inactivityRef.current) clearTimeout(inactivityRef.current);
+      inactivityRef.current = setTimeout(() => {
+        if (timerRunningRef.current && !isPausedRef.current) {
+          setIsPaused(true);
+          if (timerRef.current) clearInterval(timerRef.current);
+          setTimerRunning(false);
+        }
+      }, INACTIVITY_MS);
+    };
+    resetTimer();
+    document.addEventListener('mousemove', resetTimer);
+    document.addEventListener('keydown', resetTimer);
+    return () => {
+      if (inactivityRef.current) clearTimeout(inactivityRef.current);
+      document.removeEventListener('mousemove', resetTimer);
+      document.removeEventListener('keydown', resetTimer);
+    };
+  }, [currentGrid, isPaused]);
 
   const writeCellValue = useCallback((row, col, number) => {
     if (originalGrid && originalGrid[row][col] !== 0) return;
@@ -457,5 +500,8 @@ export function useSudokuGame(user) {
     elapsedSeconds,
     timerRunning,
     pauseTimer,
+    isPaused,
+    pauseGame,
+    resumeGame,
   };
 }
