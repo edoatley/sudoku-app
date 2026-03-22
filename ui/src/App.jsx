@@ -169,6 +169,7 @@ function SudokuApp({ user, signOut }) {
       </Container>
 
       <NewGameModal
+        key={difficulty}
         open={newGameModalOpen}
         defaultDifficulty={difficulty}
         isLoading={isLoading}

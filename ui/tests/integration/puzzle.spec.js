@@ -28,11 +28,11 @@ test.describe('Generate puzzle', () => {
     await page.goto('/');
     await waitForGrid(page);
 
-    await page.getByRole('combobox').click();
-    await page.getByRole('option', { name: /hard/i }).click();
     await page.getByRole('button', { name: /new game/i }).click();
+    await page.getByRole('radio', { name: /hard/i }).click();
+    await page.getByRole('button', { name: /start/i }).click();
 
-    // Grid should still be visible after reload
+    // Grid should still be visible after new game loads
     await waitForGrid(page);
   });
 });

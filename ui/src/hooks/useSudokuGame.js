@@ -69,10 +69,9 @@ export function useSudokuGame(user) {
   const [isPaused, setIsPaused] = useState(false);
 
   const pauseGame = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setTimerRunning(false);
+    pauseTimer();
     setIsPaused(true);
-  }, []);
+  }, [pauseTimer]);
 
   const resumeGame = useCallback(() => {
     setIsPaused(false);
@@ -195,21 +194,16 @@ export function useSudokuGame(user) {
   }, [syncToBackend, pauseTimer]);
 
   const inactivityRef = useRef(null);
-  const isPausedRef = useRef(isPaused);
-  isPausedRef.current = isPaused;
-  const timerRunningRef = useRef(timerRunning);
-  timerRunningRef.current = timerRunning;
+  const gameActiveRef = useRef(false);
+  gameActiveRef.current = !!currentGrid && !isPaused;
 
   useEffect(() => {
-    if (!currentGrid || isPaused) return;
     const INACTIVITY_MS = 3 * 60 * 1000;
     const resetTimer = () => {
       if (inactivityRef.current) clearTimeout(inactivityRef.current);
       inactivityRef.current = setTimeout(() => {
-        if (timerRunningRef.current && !isPausedRef.current) {
-          setIsPaused(true);
-          if (timerRef.current) clearInterval(timerRef.current);
-          setTimerRunning(false);
+        if (gameActiveRef.current) {
+          pauseGame();
         }
       }, INACTIVITY_MS);
     };
@@ -221,7 +215,8 @@ export function useSudokuGame(user) {
       document.removeEventListener('mousemove', resetTimer);
       document.removeEventListener('keydown', resetTimer);
     };
-  }, [currentGrid, isPaused]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const writeCellValue = useCallback((row, col, number) => {
     if (originalGrid && originalGrid[row][col] !== 0) return;
