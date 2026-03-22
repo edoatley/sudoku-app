@@ -102,7 +102,6 @@ jobs:
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
-      cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
     steps:
       - uses: actions/checkout@v6
 
@@ -333,10 +332,22 @@ jobs:
         id: get-token
         env:
           USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+          SMOKE_CLIENT_NAME: "sudoku-smoke-test-rc"
         run: |
+          # Resolve smoke-test client ID by name — avoids GitHub secret-masking
+          # that silently drops job outputs whose value matches a registered secret.
+          CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
+            --user-pool-id "${USER_POOL_ID}" \
+            --query "UserPoolClients[?ClientName=='${SMOKE_CLIENT_NAME}'].ClientId | [0]" \
+            --output text)
+          if [[ -z "${CLIENT_ID}" || "${CLIENT_ID}" == "None" ]]; then
+            echo "::error::Could not resolve smoke-test client ID for pool ${USER_POOL_ID}"
+            exit 1
+          fi
+          echo "Resolved smoke-test CLIENT_ID for pool ${USER_POOL_ID}"
+
           # Fetch the client secret directly via AWS API to avoid cross-job masking issues
           CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
