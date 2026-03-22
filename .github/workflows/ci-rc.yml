@@ -232,7 +232,8 @@ jobs:
             --supported-identity-providers "Google" \
             --allowed-o-auth-flows "code" \
             --allowed-o-auth-scopes "openid" "email" "profile" \
-            --allowed-o-auth-flows-user-pool-client
+            --allowed-o-auth-flows-user-pool-client \
+            --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
 
       - name: Trigger Amplify build and wait
         if: needs.changes.outputs.frontend == 'true'

@@ -21,7 +21,6 @@ const STATE_FILE = path.join(
 export default async function globalSetup() {
   const idToken = process.env.SMOKE_ID_TOKEN;
   const accessToken = process.env.SMOKE_ACCESS_TOKEN;
-  const clientId = process.env.COGNITO_CLIENT_ID;
   const baseURL = process.env.INTEGRATION_BASE_URL ?? 'http://localhost:5174';
 
   if (!idToken) {
@@ -35,6 +34,9 @@ export default async function globalSetup() {
   const { jwtDecode } = await import('jwt-decode');
   const claims = jwtDecode(idToken);
   const username = claims['cognito:username'] ?? claims.sub;
+  // Extract client ID from the token's aud claim — avoids the GitHub Actions
+  // secret-masking problem where COGNITO_CLIENT_ID arrives as an empty string.
+  const clientId = Array.isArray(claims.aud) ? claims.aud[0] : claims.aud;
 
   const prefix = `CognitoIdentityServiceProvider.${clientId}`;
   const storageEntries = {
