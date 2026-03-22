@@ -209,25 +209,26 @@ jobs:
         run: |
           BRANCH_URL="${AMPLIFY_URL}/"
           if [[ "${IS_RC}" == "true" ]]; then
-            # Read existing callback URLs, append this branch's URL if not already present,
-            # and remove the defunct wildcard entry that Cognito silently rejects.
+            # rc-* branches share one Cognito pool — accumulate URLs so deploying one
+            # branch does not break other active rc-* branches that are already registered.
+            # Also strip any defunct wildcard entries Cognito silently rejects.
             EXISTING=$(aws cognito-idp describe-user-pool-client \
               --user-pool-id "${USER_POOL_ID}" \
               --client-id "${CLIENT_ID}" \
               --query 'UserPoolClient.CallbackURLs' \
               --output json)
-            CALLBACK_URLS=$(echo "${EXISTING}" | jq -r \
+            mapfile -t CALLBACK_URLS < <(echo "${EXISTING}" | jq -r \
               --arg url "${BRANCH_URL}" \
               '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + ["http://localhost:5173/"] | unique | .[]')
           else
-            CALLBACK_URLS="${BRANCH_URL}
-http://localhost:5173/"
+            # Non-rc workspaces each own their own pool — just set the exact URLs.
+            CALLBACK_URLS=("${BRANCH_URL}" "http://localhost:5173/")
           fi
           aws cognito-idp update-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
             --client-id "${CLIENT_ID}" \
-            --callback-urls ${CALLBACK_URLS} \
-            --logout-urls ${CALLBACK_URLS} \
+            --callback-urls "${CALLBACK_URLS[@]}" \
+            --logout-urls "${CALLBACK_URLS[@]}" \
             --supported-identity-providers "Google" \
             --allowed-o-auth-flows "code" \
             --allowed-o-auth-scopes "openid" "email" "profile" \
@@ -357,10 +358,14 @@ http://localhost:5173/"
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
           # The web client has no secret, so no SECRET_HASH is required.
+          AUTH_PARAMS=$(jq -n \
+            --arg u "${USERNAME}" \
+            --arg p "${PASSWORD}" \
+            '{"USERNAME": $u, "PASSWORD": $p}')
           RESPONSE=$(aws cognito-idp initiate-auth \
             --auth-flow USER_PASSWORD_AUTH \
             --client-id "${CLIENT_ID}" \
-            --auth-parameters "USERNAME=${USERNAME},PASSWORD=${PASSWORD}" \
+            --auth-parameters "${AUTH_PARAMS}" \
             --output json)
 
           ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')

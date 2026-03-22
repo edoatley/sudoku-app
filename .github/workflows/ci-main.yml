@@ -284,10 +284,14 @@ jobs:
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
           # The web client has no secret, so no SECRET_HASH is required.
+          AUTH_PARAMS=$(jq -n \
+            --arg u "${USERNAME}" \
+            --arg p "${PASSWORD}" \
+            '{"USERNAME": $u, "PASSWORD": $p}')
           RESPONSE=$(aws cognito-idp initiate-auth \
             --auth-flow USER_PASSWORD_AUTH \
             --client-id "${CLIENT_ID}" \
-            --auth-parameters "USERNAME=${USERNAME},PASSWORD=${PASSWORD}" \
+            --auth-parameters "${AUTH_PARAMS}" \
             --output json)
 
           ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
