@@ -102,7 +102,8 @@ jobs:
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
-      cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
+      # Base64-encoded to prevent GitHub from masking the value when it matches a secret
+      cognito_smoke_client_id_b64: ${{ steps.outputs.outputs.cognito_smoke_client_id_b64 }}
     steps:
       - uses: actions/checkout@v6
 
@@ -187,8 +188,9 @@ jobs:
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
-          echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
-          # cognito_smoke_test_client_secret is sensitive — fetched directly in smoke-test job via AWS API
+          # Base64-encode the smoke client ID so GitHub does not mask it when the value matches
+          # the RC_COGNITO_SMOKE_CLIENT_ID secret, which would cause downstream jobs to see "***".
+          echo "cognito_smoke_client_id_b64=$(terraform output -raw cognito_smoke_test_client_id | base64 -w0)" >> "$GITHUB_OUTPUT"
 
       - name: Tighten CORS to exact Amplify URL
         env:
@@ -321,7 +323,7 @@ jobs:
             STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${APP_URL}" || echo "000")
             echo "Attempt ${i}/20 → HTTP ${STATUS}"
             [ "${STATUS}" = "200" ] && { echo "Amplify ready"; break; }
-            [ "${i}" = "20" ] && { echo "FAIL: Amplify not ready after 60s"; exit 1; }
+            [ "${i}" = "20" ] && { echo "FAIL: Amplify not ready after 300s"; exit 1; }
             sleep 15
           done
 
@@ -333,11 +335,16 @@ jobs:
         id: get-token
         env:
           USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
+          # Decoded here from the base64 value set by the deploy job — base64 encoding prevents
+          # GitHub from masking the value when it matches the RC_COGNITO_SMOKE_CLIENT_ID secret.
+          CLIENT_ID_B64: ${{ needs.deploy.outputs.cognito_smoke_client_id_b64 }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
-          # Fetch the client secret directly via AWS API to avoid cross-job masking issues
+          CLIENT_ID=$(echo "${CLIENT_ID_B64}" | base64 -d)
+
+          # Fetch the client secret from AWS — it is sensitive so we never store it as a secret
+          # or pass it between jobs.
           CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
             --client-id "${CLIENT_ID}" \
@@ -385,8 +392,8 @@ jobs:
           INTEGRATION_BASE_URL: ${{ needs.deploy.outputs.amplify_app_url }}
           COGNITO_USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
           COGNITO_CLIENT_ID: ${{ needs.deploy.outputs.cognito_client_id }}
-          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
-          SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
+          # SMOKE_ID_TOKEN and SMOKE_ACCESS_TOKEN are injected via $GITHUB_ENV by the get-token
+          # step and are automatically available to all subsequent steps in this job.
         run: npx playwright test --config playwright.integration.config.js
 
       - name: Upload Playwright integration report
