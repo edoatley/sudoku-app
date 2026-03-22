@@ -118,7 +118,7 @@ jobs:
   infra:
     name: Infra — Terraform fmt & validate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: infra
