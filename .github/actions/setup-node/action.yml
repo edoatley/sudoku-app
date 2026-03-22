@@ -21,8 +21,22 @@ runs:
       working-directory: ui
       run: npm ci
 
-    - name: Install Playwright Chromium browser
+    - name: Cache Playwright browsers
+      id: playwright-cache
       if: inputs.install-playwright == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('ui/package-lock.json') }}
+
+    - name: Install Playwright Chromium browser
+      if: inputs.install-playwright == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
       shell: bash
       working-directory: ui
       run: npx playwright install --with-deps chromium
+
+    - name: Install Playwright system dependencies only
+      if: inputs.install-playwright == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
+      shell: bash
+      working-directory: ui
+      run: npx playwright install-deps chromium

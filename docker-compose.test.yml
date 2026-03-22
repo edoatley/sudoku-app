@@ -32,6 +32,7 @@ services:
         condition: service_healthy
 
   backend:
+    image: sudoku-app-backend:latest
     build:
       context: backend
       dockerfile: Dockerfile.test
@@ -55,6 +56,7 @@ services:
         condition: service_completed_successfully
 
   ui:
+    image: sudoku-app-ui:latest
     build:
       context: ui
       dockerfile: Dockerfile.test

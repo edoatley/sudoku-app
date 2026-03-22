@@ -96,9 +96,23 @@ jobs:
         working-directory: ui
         run: npm audit --audit-level=high
       - uses: ./.github/actions/setup-java
+      - name: Compute OWASP cache week key
+        id: owasp-week
+        run: echo "week=$(date -u +'%Y-%U')" >> "$GITHUB_OUTPUT"
+      - name: Cache OWASP NVD database
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: owasp-nvd-${{ steps.owasp-week.outputs.week }}
+          restore-keys: |
+            owasp-nvd-
       - name: Backend OWASP dependency check
         working-directory: backend
-        run: ./mvnw org.owasp:dependency-check-maven:${{ env.OWASP_VERSION }}:check -DfailBuildOnCVSS=7 -DnvdApiKey=${{ secrets.NVD_API_KEY }}
+        run: >-
+          ./mvnw org.owasp:dependency-check-maven:${{ env.OWASP_VERSION }}:check
+          -DfailBuildOnCVSS=7
+          -DnvdApiKey=${{ secrets.NVD_API_KEY }}
+          -DdataDirectory="${HOME}/.m2/repository/org/owasp/dependency-check-data"
         env:
           OWASP_VERSION: "12.1.1"
       - name: Upload OWASP report
@@ -161,8 +175,8 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache-backend && mv /tmp/.buildx-cache-backend-new /tmp/.buildx-cache-backend
           rm -rf /tmp/.buildx-cache-ui && mv /tmp/.buildx-cache-ui-new /tmp/.buildx-cache-ui
-      - name: Build and start services
-        run: docker compose -f docker-compose.test.yml up -d --build
+      - name: Start services
+        run: docker compose -f docker-compose.test.yml up -d --no-build
       - name: Wait for backend to be healthy
         run: |
           for i in $(seq 1 30); do
