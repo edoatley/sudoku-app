@@ -351,13 +351,23 @@ jobs:
         id: get-token
         env:
           USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          # Use the public web client (no secret) so the token audience matches what
-          # Amplify expects in the browser — the smoke client's aud would mismatch.
-          CLIENT_ID: ${{ needs.deploy.outputs.cognito_client_id }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+          WEB_CLIENT_NAME: "sudoku-web-rc"
         run: |
-          # The web client has no secret, so no SECRET_HASH is required.
+          # Resolve the web client ID by name — the value from Terraform output matches
+          # the RC_COGNITO_WEB_CLIENT_ID secret and gets masked by GitHub Actions.
+          # Using the web client (not smoke client) so token aud matches what Amplify expects.
+          CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
+            --user-pool-id "${USER_POOL_ID}" \
+            --query "UserPoolClients[?ClientName=='${WEB_CLIENT_NAME}'].ClientId | [0]" \
+            --output text)
+          if [[ -z "${CLIENT_ID}" || "${CLIENT_ID}" == "None" ]]; then
+            echo "::error::Could not resolve web client ID for pool ${USER_POOL_ID}"
+            exit 1
+          fi
+
+          # No client secret on the web client, so no SECRET_HASH needed.
           AUTH_PARAMS=$(jq -n \
             --arg u "${USERNAME}" \
             --arg p "${PASSWORD}" \
