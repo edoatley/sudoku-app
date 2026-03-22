@@ -171,6 +171,8 @@ jobs:
           -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
           -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
           -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
+          -var "rc_cognito_web_client_id=${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}"
+          -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
 
       - name: Terraform apply
         working-directory: infra
@@ -197,6 +199,8 @@ jobs:
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
       - name: Tighten Cognito callback URLs to exact Amplify URL
+        # Skipped for rc-* — the shared rc pool keeps a broad wildcard covering all rc-* branches.
+        if: ${{ !startsWith(steps.workspace.outputs.workspace, 'rc-') }}
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
           USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}

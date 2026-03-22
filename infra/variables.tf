@@ -63,3 +63,15 @@ variable "smoke_test_user_password" {
   type        = string
   sensitive   = true
 }
+
+variable "rc_cognito_web_client_id" {
+  description = "Client ID of the shared sudoku-web-rc Cognito app client (rc-* workspaces only)."
+  type        = string
+  default     = ""
+}
+
+variable "rc_cognito_smoke_client_id" {
+  description = "Client ID of the shared sudoku-smoke-test-rc Cognito app client (rc-* workspaces only)."
+  type        = string
+  default     = ""
+}

@@ -46,8 +46,8 @@ resource "aws_apigatewayv2_authorizer" "cognito_jwt" {
   name             = "cognito-jwt${local.suffix}"
 
   jwt_configuration {
-    issuer   = "https://cognito-idp.eu-west-2.amazonaws.com/${aws_cognito_user_pool.main.id}"
-    audience = [aws_cognito_user_pool_client.web.id, aws_cognito_user_pool_client.smoke_test.id]
+    issuer   = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
+    audience = [local.cognito_web_client_id, local.cognito_smoke_client_id]
   }
 }
 

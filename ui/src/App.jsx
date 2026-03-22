@@ -5,7 +5,6 @@ import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
-import Paper from '@mui/material/Paper';
 
 import { useSudokuGame } from './hooks/useSudokuGame.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
@@ -201,21 +200,11 @@ function LoginLayout() {
           p: 2,
         }}
       >
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            borderRadius: 3,
-            width: '100%',
-            maxWidth: 460,
-          }}
-        >
-          {AmplifyThemeProvider && amplifyTheme ? (
-            <AmplifyThemeProvider theme={amplifyTheme}>
-              {authContent}
-            </AmplifyThemeProvider>
-          ) : authContent}
-        </Paper>
+        {AmplifyThemeProvider && amplifyTheme ? (
+          <AmplifyThemeProvider theme={amplifyTheme}>
+            {authContent}
+          </AmplifyThemeProvider>
+        ) : authContent}
       </Box>
     </ThemeProvider>
   );
