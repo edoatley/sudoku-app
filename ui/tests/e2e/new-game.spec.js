@@ -49,12 +49,10 @@ test('new-game — selecting Hard difficulty and starting a new game loads the p
   await page.goto('/');
   await waitForGrid(page);
 
-  // Change difficulty to Hard
-  await page.getByLabel('Difficulty').click();
-  await page.getByRole('option', { name: 'Hard' }).click();
-
-  // Start new game
+  // Open new game modal and select Hard difficulty
   await page.getByRole('button', { name: 'New Game' }).click();
+  await page.getByRole('radio', { name: 'Hard' }).click();
+  await page.getByRole('button', { name: 'Start' }).click();
 
   // Grid should still be visible after reload
   await expect(page.getByTestId('cell-0-0')).toBeVisible();
