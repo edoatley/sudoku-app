@@ -11,13 +11,13 @@ data "aws_cognito_user_pools" "rc_shared" {
 }
 
 data "aws_cognito_user_pool_client" "rc_web" {
-  count        = local.is_rc ? 1 : 0
+  count        = local.is_rc && var.rc_cognito_web_client_id != "" ? 1 : 0
   user_pool_id = data.aws_cognito_user_pools.rc_shared[0].ids[0]
   client_id    = var.rc_cognito_web_client_id
 }
 
 data "aws_cognito_user_pool_client" "rc_smoke" {
-  count        = local.is_rc ? 1 : 0
+  count        = local.is_rc && var.rc_cognito_smoke_client_id != "" ? 1 : 0
   user_pool_id = data.aws_cognito_user_pools.rc_shared[0].ids[0]
   client_id    = var.rc_cognito_smoke_client_id
 }
