@@ -9,19 +9,19 @@ A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a 
 ## High-Level Architecture
 
 ```mermaid
-architecture-beta
-    group aws(cloud)[AWS London]
+flowchart LR
+    subgraph aws["☁️ AWS London"]
+        amplify["🌐 Amplify"]
+        cognito["🔒 Cognito"]
+        apigw["🌐 API Gateway + JWT Authorizer"]
+        lambda["⚙️ Lambda\nQuarkus Java 21"]
+        dynamo[("🗄️ DynamoDB")]
+    end
 
-    service amplify(internet)[Amplify] in aws
-    service cognito(shield)[Cognito] in aws
-    service apigw(internet)[API Gateway + JWT Authorizer] in aws
-    service lambda(server)[Lambda Quarkus Java 21] in aws
-    service dynamo(database)[DynamoDB] in aws
-
-    amplify:R --> L:cognito
-    amplify:R --> L:apigw
-    apigw:R --> L:lambda
-    lambda:R --> L:dynamo
+    amplify --> cognito
+    amplify --> apigw
+    apigw --> lambda
+    lambda --> dynamo
 ```
 
 ---
