@@ -1,5 +1,34 @@
+# ---------------------------------------------------------------------------
+# Shared rc-* Cognito resources.
+# All rc-* workspaces share a single Cognito user pool ("sudoku-rc") so that
+# only one Google OAuth redirect URI needs registering in the Google Cloud
+# Console. The pool itself is owned by the "rc-shared" Terraform workspace;
+# all other rc-* workspaces reference it via data sources.
+# ---------------------------------------------------------------------------
+data "aws_cognito_user_pools" "rc_shared" {
+  count = local.is_rc ? 1 : 0
+  name  = "sudoku-rc"
+}
+
+data "aws_cognito_user_pool_client" "rc_web" {
+  count        = local.is_rc ? 1 : 0
+  user_pool_id = data.aws_cognito_user_pools.rc_shared[0].ids[0]
+  client_id    = var.rc_cognito_web_client_id
+}
+
+data "aws_cognito_user_pool_client" "rc_smoke" {
+  count        = local.is_rc ? 1 : 0
+  user_pool_id = data.aws_cognito_user_pools.rc_shared[0].ids[0]
+  client_id    = var.rc_cognito_smoke_client_id
+}
+
+# ---------------------------------------------------------------------------
+# Owned Cognito resources — created for default (prod) and non-rc workspaces.
+# Skipped for rc-* workspaces which share the pool above.
+# ---------------------------------------------------------------------------
 resource "aws_cognito_user_pool" "main" {
-  name = "sudoku${local.suffix}"
+  count = local.is_rc ? 0 : 1
+  name  = "sudoku${local.suffix}"
 
   # Social-only pool — block native username/password sign-up
   admin_create_user_config {
@@ -48,12 +77,14 @@ resource "aws_cognito_user_pool" "main" {
 }
 
 resource "aws_cognito_user_pool_domain" "main" {
+  count        = local.is_rc ? 0 : 1
   domain       = "sudoku-auth${local.suffix}"
-  user_pool_id = aws_cognito_user_pool.main.id
+  user_pool_id = aws_cognito_user_pool.main[0].id
 }
 
 resource "aws_cognito_identity_provider" "google" {
-  user_pool_id  = aws_cognito_user_pool.main.id
+  count         = local.is_rc ? 0 : 1
+  user_pool_id  = aws_cognito_user_pool.main[0].id
   provider_name = "Google"
   provider_type = "Google"
 
@@ -81,7 +112,8 @@ resource "aws_cognito_identity_provider" "google" {
 # Never surfaced in the UI; used exclusively by CI to obtain a real JWT.
 # ---------------------------------------------------------------------------
 resource "aws_cognito_user" "smoke_test" {
-  user_pool_id = aws_cognito_user_pool.main.id
+  count        = local.is_rc ? 0 : 1
+  user_pool_id = aws_cognito_user_pool.main[0].id
   username     = var.smoke_test_user_email
 
   attributes = {
@@ -100,8 +132,9 @@ resource "aws_cognito_user" "smoke_test" {
 # USER_PASSWORD_AUTH so the smoke test can exchange credentials for tokens.
 # The public web client remains social-only.
 resource "aws_cognito_user_pool_client" "smoke_test" {
+  count        = local.is_rc ? 0 : 1
   name         = "sudoku-smoke-test${local.suffix}"
-  user_pool_id = aws_cognito_user_pool.main.id
+  user_pool_id = aws_cognito_user_pool.main[0].id
 
   generate_secret = true # Server-side client; secret kept in GitHub Actions secrets
 
@@ -130,8 +163,9 @@ resource "aws_cognito_user_pool_client" "smoke_test" {
 }
 
 resource "aws_cognito_user_pool_client" "web" {
+  count        = local.is_rc ? 0 : 1
   name         = "sudoku-web${local.suffix}"
-  user_pool_id = aws_cognito_user_pool.main.id
+  user_pool_id = aws_cognito_user_pool.main[0].id
 
   generate_secret = false # Public SPA client — secret cannot be kept in browser JS
 
@@ -142,8 +176,9 @@ resource "aws_cognito_user_pool_client" "web" {
   # Only Google — explicitly excludes native username/password login
   supported_identity_providers = ["Google"]
 
-  # No SRP or password flows — social-only
-  explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH"]
+  # USER_PASSWORD_AUTH enabled for smoke-test CI token acquisition.
+  # The smoke test user is admin-created and never surfaced in the UI.
+  explicit_auth_flows = ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
 
   enable_token_revocation       = true
   prevent_user_existence_errors = "ENABLED"

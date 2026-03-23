@@ -2,6 +2,8 @@
 
 **Stack:** Terraform, AWS
 
+**AWS Profile**: sandbox
+
 ## Resource Definitions
 
 - **File Structure:** Maintain a clean separation of concerns. Use `main.tf` (provider), `variables.tf` (inputs), `outputs.tf` (exports), `lambda.tf` (compute), `api_gateway.tf` (routing), `dynamodb.tf` (data), `amplify.tf` (frontend hosting), and `iam.tf` (roles and policies).

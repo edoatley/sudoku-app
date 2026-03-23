@@ -102,7 +102,6 @@ jobs:
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
-      cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
     steps:
       - uses: actions/checkout@v6
 
@@ -171,6 +170,8 @@ jobs:
           -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
           -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
           -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
+          -var "rc_cognito_web_client_id=${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}"
+          -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
 
       - name: Terraform apply
         working-directory: infra
@@ -196,21 +197,43 @@ jobs:
           CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
-      - name: Tighten Cognito callback URLs to exact Amplify URL
+      - name: Update Cognito callback URLs
+        # Non-rc: replace with exact Amplify URL (each workspace owns its own pool).
+        # rc-*:   Cognito does not support wildcard callback URLs, so we accumulate
+        #         exact URLs — read the current list and add this branch's URL if missing.
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
           USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
           CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
+          IS_RC: ${{ startsWith(steps.workspace.outputs.workspace, 'rc-') }}
         run: |
+          BRANCH_URL="${AMPLIFY_URL}/"
+          if [[ "${IS_RC}" == "true" ]]; then
+            # rc-* branches share one Cognito pool — accumulate URLs so deploying one
+            # branch does not break other active rc-* branches that are already registered.
+            # Also strip any defunct wildcard entries Cognito silently rejects.
+            EXISTING=$(aws cognito-idp describe-user-pool-client \
+              --user-pool-id "${USER_POOL_ID}" \
+              --client-id "${CLIENT_ID}" \
+              --query 'UserPoolClient.CallbackURLs' \
+              --output json)
+            mapfile -t CALLBACK_URLS < <(echo "${EXISTING}" | jq -r \
+              --arg url "${BRANCH_URL}" \
+              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + ["http://localhost:5173/"] | unique | .[]')
+          else
+            # Non-rc workspaces each own their own pool — just set the exact URLs.
+            CALLBACK_URLS=("${BRANCH_URL}" "http://localhost:5173/")
+          fi
           aws cognito-idp update-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
             --client-id "${CLIENT_ID}" \
-            --callback-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
-            --logout-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
+            --callback-urls "${CALLBACK_URLS[@]}" \
+            --logout-urls "${CALLBACK_URLS[@]}" \
             --supported-identity-providers "Google" \
             --allowed-o-auth-flows "code" \
             --allowed-o-auth-scopes "openid" "email" "profile" \
-            --allowed-o-auth-flows-user-pool-client
+            --allowed-o-auth-flows-user-pool-client \
+            --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
 
       - name: Trigger Amplify build and wait
         if: needs.changes.outputs.frontend == 'true'
@@ -317,7 +340,7 @@ jobs:
             STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${APP_URL}" || echo "000")
             echo "Attempt ${i}/20 → HTTP ${STATUS}"
             [ "${STATUS}" = "200" ] && { echo "Amplify ready"; break; }
-            [ "${i}" = "20" ] && { echo "FAIL: Amplify not ready after 60s"; exit 1; }
+            [ "${i}" = "20" ] && { echo "FAIL: Amplify not ready after 300s"; exit 1; }
             sleep 15
           done
 
@@ -329,30 +352,27 @@ jobs:
         id: get-token
         env:
           USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          CLIENT_ID: ${{ needs.deploy.outputs.cognito_smoke_test_client_id }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+          WEB_CLIENT_NAME: "sudoku-web-rc"
         run: |
-          # Fetch the client secret directly via AWS API to avoid cross-job masking issues
-          CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
+          # Resolve the web client ID by name — the value from Terraform output matches
+          # the RC_COGNITO_WEB_CLIENT_ID secret and gets masked by GitHub Actions.
+          # Using the web client (not smoke client) so token aud matches what Amplify expects.
+          CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
             --user-pool-id "${USER_POOL_ID}" \
-            --client-id "${CLIENT_ID}" \
-            --query 'UserPoolClient.ClientSecret' \
+            --query "UserPoolClients[?ClientName=='${WEB_CLIENT_NAME}'].ClientId | [0]" \
             --output text)
-          echo "::add-mask::${CLIENT_SECRET}"
+          if [[ -z "${CLIENT_ID}" || "${CLIENT_ID}" == "None" ]]; then
+            echo "::error::Could not resolve web client ID for pool ${USER_POOL_ID}"
+            exit 1
+          fi
 
-          # Build auth-parameters JSON; include SECRET_HASH when client has a secret
+          # No client secret on the web client, so no SECRET_HASH needed.
           AUTH_PARAMS=$(jq -n \
             --arg u "${USERNAME}" \
             --arg p "${PASSWORD}" \
             '{"USERNAME": $u, "PASSWORD": $p}')
-          if [[ -n "${CLIENT_SECRET}" && "${CLIENT_SECRET}" != "None" ]]; then
-            SECRET_HASH=$(echo -n "${USERNAME}${CLIENT_ID}" \
-              | openssl dgst -sha256 -hmac "${CLIENT_SECRET}" -binary \
-              | base64)
-            AUTH_PARAMS=$(echo "${AUTH_PARAMS}" | jq --arg s "${SECRET_HASH}" '. + {"SECRET_HASH": $s}')
-          fi
-
           RESPONSE=$(aws cognito-idp initiate-auth \
             --auth-flow USER_PASSWORD_AUTH \
             --client-id "${CLIENT_ID}" \

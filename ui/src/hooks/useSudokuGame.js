@@ -66,6 +66,19 @@ export function useSudokuGame(user) {
     setTimerRunning(false);
   }, []);
 
+  const [isPaused, setIsPaused] = useState(false);
+
+  const pauseGame = useCallback(() => {
+    pauseTimer();
+    setIsPaused(true);
+  }, [pauseTimer]);
+
+  const resumeGame = useCallback(() => {
+    setIsPaused(false);
+    setTimerRunning(true);
+    timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+  }, []);
+
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   // Clear localStorage game state when the authenticated user changes
@@ -179,6 +192,31 @@ export function useSudokuGame(user) {
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [syncToBackend, pauseTimer]);
+
+  const inactivityRef = useRef(null);
+  const gameActiveRef = useRef(false);
+  gameActiveRef.current = !!currentGrid && !isPaused;
+
+  useEffect(() => {
+    const INACTIVITY_MS = 3 * 60 * 1000;
+    const resetTimer = () => {
+      if (inactivityRef.current) clearTimeout(inactivityRef.current);
+      inactivityRef.current = setTimeout(() => {
+        if (gameActiveRef.current) {
+          pauseGame();
+        }
+      }, INACTIVITY_MS);
+    };
+    resetTimer();
+    document.addEventListener('mousemove', resetTimer);
+    document.addEventListener('keydown', resetTimer);
+    return () => {
+      if (inactivityRef.current) clearTimeout(inactivityRef.current);
+      document.removeEventListener('mousemove', resetTimer);
+      document.removeEventListener('keydown', resetTimer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const writeCellValue = useCallback((row, col, number) => {
     if (originalGrid && originalGrid[row][col] !== 0) return;
@@ -457,5 +495,8 @@ export function useSudokuGame(user) {
     elapsedSeconds,
     timerRunning,
     pauseTimer,
+    isPaused,
+    pauseGame,
+    resumeGame,
   };
 }

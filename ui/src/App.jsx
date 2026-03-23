@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
@@ -12,21 +13,53 @@ import StatusBar from './components/StatusBar.jsx';
 import NumberPad from './components/NumberPad.jsx';
 import HintDialog from './components/HintDialog.jsx';
 import Header from './components/Header.jsx';
+import PauseOverlay from './components/PauseOverlay.jsx';
+import NewGameModal from './components/NewGameModal.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
 let Authenticator = null;
+let AmplifyThemeProvider = null;
+let amplifyTheme = null;
 if (!MOCK_API && !SKIP_AUTH) {
   const amplifyUi = await import('@aws-amplify/ui-react');
   await import('@aws-amplify/ui-react/styles.css');
   Authenticator = amplifyUi.Authenticator;
+  AmplifyThemeProvider = amplifyUi.ThemeProvider;
+  amplifyTheme = amplifyUi.createTheme({
+    name: 'sudoku-theme',
+    tokens: {
+      colors: {
+        brand: {
+          primary: {
+            10: { value: '#e3f2fd' },
+            20: { value: '#bbdefb' },
+            40: { value: '#64b5f6' },
+            60: { value: '#42a5f5' },
+            80: { value: '#1976d2' },
+            90: { value: '#1565c0' },
+            100: { value: '#0d47a1' },
+          },
+        },
+      },
+      components: {
+        button: {
+          primary: {
+            backgroundColor: { value: '#1976d2' },
+          },
+        },
+      },
+    },
+  });
 }
 
-const theme = createTheme();
+const muiTheme = createTheme();
 
 function SudokuApp({ user, signOut }) {
+  const [newGameModalOpen, setNewGameModalOpen] = useState(false);
+
   const {
     originalGrid,
     currentGrid,
@@ -43,7 +76,6 @@ function SudokuApp({ user, signOut }) {
     selectedNumber,
     setInputMode,
     handleNumberSelect,
-    setDifficulty,
     startNewGame,
     updateCell,
     clearCell,
@@ -59,10 +91,18 @@ function SudokuApp({ user, signOut }) {
     clearStatus,
     elapsedSeconds,
     timerRunning,
+    isPaused,
+    pauseGame,
+    resumeGame,
   } = useSudokuGame(user);
 
+  const handleNewGameConfirm = (selectedDifficulty) => {
+    setNewGameModalOpen(false);
+    startNewGame(selectedDifficulty);
+  };
+
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={muiTheme}>
       <CssBaseline />
       <Header
         elapsedSeconds={elapsedSeconds}
@@ -70,20 +110,20 @@ function SudokuApp({ user, signOut }) {
         gameStarted={!!currentGrid}
         user={user}
         onSignOut={signOut}
+        isPaused={isPaused}
+        onPause={pauseGame}
+        onResume={resumeGame}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
           <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
 
-          <GameControls
-            difficulty={difficulty}
-            isLoading={isLoading}
-            onDifficultyChange={setDifficulty}
-            onNewGame={() => startNewGame(difficulty)}
-          />
+          <GameControls onOpenNewGame={() => setNewGameModalOpen(true)} />
 
           {isLoading && !currentGrid ? (
             <CircularProgress />
+          ) : isPaused ? (
+            <PauseOverlay onResume={resumeGame} />
           ) : (
             <Box sx={{
               display: 'flex',
@@ -126,6 +166,37 @@ function SudokuApp({ user, signOut }) {
           />
         </Stack>
       </Container>
+
+      <NewGameModal
+        key={difficulty}
+        open={newGameModalOpen}
+        defaultDifficulty={difficulty}
+        isLoading={isLoading}
+        onConfirm={handleNewGameConfirm}
+        onCancel={() => setNewGameModalOpen(false)}
+      />
+    </ThemeProvider>
+  );
+}
+
+function LoginLayout() {
+  // When unauthenticated, Authenticator renders its own centered login form.
+  // When authenticated, children are called with { user, signOut } and we render
+  // SudokuApp at the top level — its own Header replaces the login chrome.
+  const authContent = (
+    <Authenticator hideSignUp socialProviders={['google']}>
+      {({ signOut, user }) => <SudokuApp user={user} signOut={signOut} />}
+    </Authenticator>
+  );
+
+  return (
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      {AmplifyThemeProvider && amplifyTheme ? (
+        <AmplifyThemeProvider theme={amplifyTheme}>
+          {authContent}
+        </AmplifyThemeProvider>
+      ) : authContent}
     </ThemeProvider>
   );
 }
@@ -135,11 +206,7 @@ function App() {
     return <SudokuApp user={null} signOut={null} />;
   }
 
-  return (
-    <Authenticator hideSignUp socialProviders={['google']}>
-      {({ signOut, user }) => <SudokuApp user={user} signOut={signOut} />}
-    </Authenticator>
-  );
+  return <LoginLayout />;
 }
 
 export default App;
