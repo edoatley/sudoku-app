@@ -448,7 +448,7 @@ jobs:
           SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
         run: |
           API_BASE="${API_URL%/}"
-          IMAGE_B64=$(base64 -w 0 image_recognition/tests/fixtures/puzzle_1.jpeg)
+          IMAGE_B64=$(base64 -w 0 image_recognition/tests/fixtures/CI_Puzzle.jpg)
           BODY=$(jq -n --arg img "${IMAGE_B64}" '{"image": $img}')
           STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
             -X POST "${API_BASE}/api/v1/puzzles/import" \
