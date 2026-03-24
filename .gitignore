@@ -2,3 +2,5 @@
 scripts/.env.local
 tfplan
 backend/target
+.venv
+.DS_Store
