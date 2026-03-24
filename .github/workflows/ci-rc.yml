@@ -269,13 +269,32 @@ jobs:
             --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
 
       - name: Trigger Amplify build and wait
-        if: needs.changes.outputs.frontend == 'true'
+        # Always build when frontend changed. Also build when there are no prior
+        # builds for this branch (first RC deployment) regardless of changed files.
         working-directory: infra
         env:
           BRANCH: ${{ steps.workspace.outputs.branch }}
+          FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
         run: |
           APP_ID=$(terraform output -raw amplify_app_id)
-          echo "Triggering Amplify build for branch ${BRANCH} on app ${APP_ID}"
+
+          # Check if this branch has ever had an Amplify build
+          PRIOR_BUILDS=$(aws amplify list-jobs \
+            --app-id "${APP_ID}" \
+            --branch-name "${BRANCH}" \
+            --query 'length(jobSummaries)' --output text 2>/dev/null || echo "0")
+
+          if [[ "${FRONTEND_CHANGED}" != "true" && "${PRIOR_BUILDS}" != "0" ]]; then
+            echo "No frontend changes and branch already has ${PRIOR_BUILDS} build(s) — skipping Amplify build."
+            exit 0
+          fi
+
+          if [[ "${PRIOR_BUILDS}" == "0" ]]; then
+            echo "First deployment for branch ${BRANCH} — triggering initial Amplify build."
+          else
+            echo "Frontend changed — triggering Amplify build for branch ${BRANCH}."
+          fi
+
           JOB_ID=$(aws amplify start-job \
             --app-id "${APP_ID}" \
             --branch-name "${BRANCH}" \
