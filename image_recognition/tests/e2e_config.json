@@ -1,0 +1,22 @@
+{
+  "puzzles": [
+    {
+      "name": "puzzle_1",
+      "file": "tests/fixtures/puzzle_1.jpeg",
+      "min_clues": 17,
+      "comment": "Screenshot from a Sudoku app — coloured cell highlights, thick 3x3 borders"
+    },
+    {
+      "name": "puzzle_2",
+      "file": "tests/fixtures/puzzle_2.jpeg",
+      "min_clues": 17,
+      "comment": "Screenshot from a Sudoku app"
+    },
+    {
+      "name": "puzzle_3",
+      "file": "tests/fixtures/puzzle_3.jpeg",
+      "min_clues": 17,
+      "comment": "Screenshot from a Sudoku app"
+    }
+  ]
+}
