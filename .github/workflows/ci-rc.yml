@@ -118,6 +118,9 @@ jobs:
         run: |
           WORKSPACE=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
           REPO_NAME="sudoku-image-recognition-${WORKSPACE}"
+          aws ecr describe-repositories --repository-names "${REPO_NAME}" --region eu-west-2 > /dev/null 2>&1 || \
+            aws ecr create-repository --repository-name "${REPO_NAME}" --region eu-west-2 \
+              --image-scanning-configuration scanOnPush=true --image-tag-mutability MUTABLE
           IMAGE_URI="${REGISTRY}/${REPO_NAME}:sha-${SHA}"
           docker build -t "${IMAGE_URI}" -t "${REGISTRY}/${REPO_NAME}:latest" image_recognition/
           docker push "${REGISTRY}/${REPO_NAME}:sha-${SHA}"
