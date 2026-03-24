@@ -78,10 +78,10 @@ jobs:
           REPO: sudoku-image-recognition
           SHA: ${{ github.sha }}
         run: |
-          IMAGE_URI="${REGISTRY}/${REPO}:sha-${SHA}"
-          docker build -t "${IMAGE_URI}" -t "${REGISTRY}/${REPO}:latest" image_recognition/
-          docker push "${REGISTRY}/${REPO}:sha-${SHA}"
-          docker push "${REGISTRY}/${REPO}:latest"
+          IMAGE_URI="${REGISTRY}/${REPO}:main-sha-${SHA}"
+          docker build -t "${IMAGE_URI}" -t "${REGISTRY}/${REPO}:main-latest" image_recognition/
+          docker push "${IMAGE_URI}"
+          docker push "${REGISTRY}/${REPO}:main-latest"
           echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
 
   deploy:

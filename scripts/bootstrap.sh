@@ -307,6 +307,9 @@ aws iam put-role-policy \
 echo "    Inline policy updated."
 
 # ── 4. ECR repository for image recognition Lambda ─────────────────────────────
+# Single shared repo for all environments. Branch-prefixed tags distinguish images:
+#   main-sha-<sha>, main-latest
+#   <branch>-sha-<sha>, <branch>-latest
 echo "==> [4/4] ECR repository: sudoku-image-recognition"
 
 ECR_REPO_NAME="sudoku-image-recognition"
@@ -328,13 +331,13 @@ aws ecr put-lifecycle-policy \
   --lifecycle-policy-text '{
     "rules": [{
       "rulePriority": 1,
-      "description": "Keep only the 5 most recent images",
-      "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 5},
+      "description": "Keep only the 10 most recent images across all branches",
+      "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 10},
       "action": {"type": "expire"}
     }]
   }'
 
-echo "    Lifecycle policy applied (keep 5 most recent images)."
+echo "    Lifecycle policy applied (keep 10 most recent images)."
 
 # ── Summary ─────────────────────────────────────────────────────────────────────
 echo ""

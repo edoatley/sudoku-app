@@ -6,36 +6,12 @@
 # ---------------------------------------------------------------------------
 
 # ── ECR repository ────────────────────────────────────────────────────────────
-
-resource "aws_ecr_repository" "image_recognition" {
-  name                 = "sudoku-image-recognition${local.suffix}"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  # checkov:skip=CKV_AWS_51: MUTABLE tags used intentionally — 'latest' is overwritten on each deploy; immutability would require a new tag scheme
-  # checkov:skip=CKV_AWS_136: KMS CMK encryption costs ~$1/month; AWS-managed encryption (default) is sufficient for Lambda container images
-}
-
-resource "aws_ecr_lifecycle_policy" "image_recognition" {
-  repository = aws_ecr_repository.image_recognition.name
-
-  policy = jsonencode({
-    rules = [
-      {
-        rulePriority = 1
-        description  = "Keep only the 5 most recent images"
-        selection = {
-          tagStatus   = "any"
-          countType   = "imageCountMoreThan"
-          countNumber = 5
-        }
-        action = { type = "expire" }
-      }
-    ]
-  })
+# A single shared repository is used for all environments (main + RC branches).
+# Branch-prefixed tags distinguish images: <branch>-<sha> and <branch>-latest.
+# The repository is managed by scripts/bootstrap.sh, not Terraform, so it is
+# never accidentally destroyed during terraform destroy of an RC workspace.
+data "aws_ecr_repository" "image_recognition" {
+  name = "sudoku-image-recognition"
 }
 
 # ── IAM role ──────────────────────────────────────────────────────────────────
