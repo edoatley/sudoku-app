@@ -46,21 +46,28 @@ jobs:
       run:
         working-directory: backend
     services:
-      localstack:
-        image: localstack/localstack:latest
+      dynamodb-local:
+        image: amazon/dynamodb-local:latest
         ports:
-          - "4566:4566"
-        env:
-          SERVICES: dynamodb
-        options: >-
-          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-          --health-start-period 15s
+          - "8000:8000"
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-java
+      - name: Wait for DynamoDB Local
+        run: |
+          for i in $(seq 1 20); do
+            if aws dynamodb list-tables --endpoint-url http://localhost:8000 --region us-east-1 > /dev/null 2>&1; then
+              echo "DynamoDB Local is ready"
+              exit 0
+            fi
+            echo "Waiting... ($i/20)"
+            sleep 2
+          done
+          echo "DynamoDB Local did not become ready in time" && exit 1
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
       - uses: ./.github/actions/create-localstack-dynamodb
       - name: Run unit, API and integration tests with coverage
         run: ./mvnw verify -DskipITs=false
