@@ -61,5 +61,5 @@ output "image_recognition_lambda_function_name" {
 
 output "image_recognition_ecr_repository_url" {
   description = "ECR repository URL for the image recognition container image."
-  value       = aws_ecr_repository.image_recognition.repository_url
+  value       = data.aws_ecr_repository.image_recognition.repository_url
 }
