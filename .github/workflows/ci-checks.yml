@@ -26,7 +26,7 @@ jobs:
         working-directory: backend
     services:
       localstack:
-        image: localstack/localstack:latest
+        image: localstack/localstack-community:latest
         ports:
           - "4566:4566"
         env:
