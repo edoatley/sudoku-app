@@ -186,7 +186,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer",
         "ecr:BatchCheckLayerAvailability", "ecr:PutImage",
         "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload",
-        "ecr:GetAuthorizationToken"
+        "ecr:GetAuthorizationToken", "ecr:DescribeImages"
       ],
       "Resource": "arn:aws:ecr:${REGION}:${ACCOUNT_ID}:repository/sudoku-*"
     },
@@ -209,7 +209,8 @@ DEPLOY_POLICY=$(cat <<EOF
         "cognito-idp:CreateUserPoolDomain",
         "cognito-idp:DeleteUserPoolDomain",
         "cognito-idp:DescribeUserPoolDomain",
-        "cognito-idp:UpdateUserPoolDomain"
+        "cognito-idp:UpdateUserPoolDomain",
+        "cognito-idp:ListUserPools"
       ],
       "Resource": "*"
     },
