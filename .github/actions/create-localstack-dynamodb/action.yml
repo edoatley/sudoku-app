@@ -1,5 +1,5 @@
-name: Create LocalStack DynamoDB Tables
-description: Creates the SudokuGames and SudokuPlayers DynamoDB tables in a running LocalStack instance
+name: Create DynamoDB Local Tables
+description: Creates the SudokuGames and SudokuPlayers DynamoDB tables in a running DynamoDB Local instance
 
 runs:
   using: composite
@@ -7,14 +7,14 @@ runs:
     - name: Create DynamoDB tables in LocalStack
       shell: bash
       run: |
-        aws --endpoint-url=http://localhost:4566 dynamodb create-table \
+        aws --endpoint-url=http://localhost:8000 dynamodb create-table \
           --table-name SudokuGames \
           --attribute-definitions AttributeName=userId,AttributeType=S AttributeName=gameId,AttributeType=S \
           --key-schema AttributeName=userId,KeyType=HASH AttributeName=gameId,KeyType=RANGE \
           --billing-mode PAY_PER_REQUEST \
           --region us-east-1
 
-        aws --endpoint-url=http://localhost:4566 dynamodb create-table \
+        aws --endpoint-url=http://localhost:8000 dynamodb create-table \
           --table-name SudokuPlayers \
           --attribute-definitions AttributeName=userId,AttributeType=S \
           --key-schema AttributeName=userId,KeyType=HASH \

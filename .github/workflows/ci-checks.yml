@@ -25,18 +25,16 @@ jobs:
       run:
         working-directory: backend
     services:
-      localstack:
-        image: localstack/localstack:latest
+      dynamodb-local:
+        image: amazon/dynamodb-local:latest
         ports:
-          - "4566:4566"
-        env:
-          SERVICES: dynamodb
+          - "8000:8000"
         options: >-
-          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
+          --health-cmd "curl -sf -X POST http://localhost:8000 -H 'X-Amz-Target: DynamoDB_20120810.ListTables' -H 'Content-Type: application/x-amz-json-1.0' -d '{}'"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
-          --health-start-period 15s
+          --health-start-period 10s
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-java
