@@ -324,6 +324,15 @@ jobs:
           API_BASE="${API_URL%/}"
           echo "Testing API Gateway: ${API_BASE}"
 
+          # Warm up Lambda — retry /health until we get a 200 (handles cold starts)
+          echo "Waiting for Lambda to be ready..."
+          for i in $(seq 1 15); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${API_BASE}/api/v1/health")
+            [ "${STATUS}" = "200" ] && echo "Lambda ready (attempt ${i})" && break
+            echo "  attempt ${i}: got ${STATUS}, retrying in 5s..."
+            sleep 5
+          done
+
           SUMMARY=""
           FAILED=0
 
