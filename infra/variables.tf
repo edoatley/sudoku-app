@@ -75,3 +75,9 @@ variable "rc_cognito_smoke_client_id" {
   type        = string
   default     = ""
 }
+
+variable "image_recognition_image_uri" {
+  description = "ECR image URI for the image recognition Lambda (e.g. 123456789.dkr.ecr.eu-west-2.amazonaws.com/sudoku-image-recognition:latest)."
+  type        = string
+  default     = ""
+}

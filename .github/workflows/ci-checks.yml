@@ -115,6 +115,25 @@ jobs:
             const summary = [...header, ...rows, ...footer].join('\n');
             await core.summary.addRaw(summary).write();
 
+  image-recognition:
+    name: Image Recognition — Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: image_recognition
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: image_recognition/requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run unit tests
+        run: pytest tests/test_unit.py -v --tb=short
+
   infra:
     name: Infra — Terraform fmt & validate
     runs-on: ubuntu-latest

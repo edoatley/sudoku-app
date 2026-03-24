@@ -11,18 +11,19 @@ All scripts require:
 
 ---
 
-## bootstrap-oidc.sh
+## bootstrap.sh
 
 **Run once** before the first Terraform apply. Creates the AWS prerequisites that Terraform itself cannot manage (chicken-and-egg):
 
 - S3 bucket for Terraform state (`sudoku-tf-state`)
 - GitHub Actions OIDC provider
-- IAM role `sudoku-github-actions-deploy` with the inline deploy policy
+- IAM role `sudoku-github-actions-deploy` with the inline deploy policy (includes ECR, Lambda, API Gateway, IAM, DynamoDB, CloudWatch permissions)
+- ECR repository `sudoku-image-recognition` for the image recognition Lambda container image
 
 Safe to re-run — all steps are idempotent. Re-running updates the trust policy and inline policy in-place, which is how IAM permission changes are applied (e.g. after adding new actions to the policy).
 
 ```bash
-bash scripts/bootstrap-oidc.sh
+bash scripts/bootstrap.sh
 ```
 
 ---
@@ -57,7 +58,7 @@ Secrets collected:
 
 ## deploy-local.sh
 
-Runs a full Terraform plan + apply locally, mirroring the `deploy` job in `deploy.yml`. Skips the Amplify build trigger and smoke tests — infrastructure only.
+Runs a full Terraform plan + apply locally, mirroring the `deploy` job in the CI workflows. Skips the Amplify build trigger and smoke tests — infrastructure only.
 
 Automatically:
 - Resolves the Terraform workspace from the branch name (`main` → `default`/prod, `rc-*` → named workspace)
@@ -85,6 +86,15 @@ SMOKE_TEST_USER_PASSWORD=xxx \
 bash scripts/deploy-local.sh
 ```
 
+To also update the image recognition Lambda, pass the ECR image URI:
+
+```bash
+IMAGE_RECOGNITION_IMAGE_URI=123456789.dkr.ecr.eu-west-2.amazonaws.com/sudoku-image-recognition:latest \
+bash scripts/deploy-local.sh
+```
+
+If `IMAGE_RECOGNITION_IMAGE_URI` is unset, the image recognition Lambda is not updated (useful when only testing backend or infra changes locally).
+
 ---
 
 ## destroy-rc.sh
@@ -104,3 +114,21 @@ Secrets are loaded automatically from `scripts/.env.local` if present (only `AMP
 > AWS_PROFILE=sandbox aws s3 rm \
 >   s3://sudoku-tf-state/env:/<workspace>/sudoku/terraform.tfstate.tflock
 > ```
+
+---
+
+## smoke-token-local.sh
+
+Validates Cognito token acquisition locally using the `sudoku-smoke-test-rc` app client. Useful for debugging smoke test authentication failures without running the full CI pipeline.
+
+```bash
+AWS_PROFILE=sandbox bash scripts/smoke-token-local.sh <user-pool-id> <username> <password>
+```
+
+Example:
+
+```bash
+AWS_PROFILE=sandbox bash scripts/smoke-token-local.sh eu-west-2_71X75OgH8 user@example.com MyP@ss
+```
+
+Prints truncated `IdToken` and `AccessToken` values on success (first 40 characters only, safe to share in logs).

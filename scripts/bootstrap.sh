@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Bootstrap script — run once with valid AWS credentials before first Terraform apply.
-# Creates: S3 state bucket, GitHub OIDC provider, GitHub Actions deploy role.
+# Creates: S3 state bucket, GitHub OIDC provider, GitHub Actions deploy role,
+#          ECR repository for the image recognition Lambda.
 # Safe to re-run (idempotent).
 
 set -euo pipefail
@@ -24,7 +25,7 @@ echo "    AWS account:  ${ACCOUNT_ID}"
 echo ""
 
 # ── 1. S3 state bucket ─────────────────────────────────────────────────────────
-echo "==> [1/3] S3 state bucket: ${STATE_BUCKET}"
+echo "==> [1/4] S3 state bucket: ${STATE_BUCKET}"
 
 if aws s3api head-bucket --bucket "${STATE_BUCKET}" 2>/dev/null; then
   echo "    Already exists — skipping creation."
@@ -61,7 +62,7 @@ aws s3api put-bucket-ownership-controls \
 echo "    Configured: versioning, SSE-S3, public access blocked, ACLs disabled."
 
 # ── 2. GitHub Actions OIDC provider ────────────────────────────────────────────
-echo "==> [2/3] GitHub Actions OIDC provider"
+echo "==> [2/4] GitHub Actions OIDC provider"
 
 OIDC_ARN="arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
 
@@ -83,7 +84,7 @@ else
 fi
 
 # ── 3. GitHub Actions deploy IAM role ──────────────────────────────────────────
-echo "==> [3/3] IAM role: ${DEPLOY_ROLE_NAME}"
+echo "==> [3/4] IAM role: ${DEPLOY_ROLE_NAME}"
 
 TRUST_POLICY=$(cat <<EOF
 {
@@ -167,9 +168,33 @@ DEPLOY_POLICY=$(cat <<EOF
       ],
       "Resource": [
         "arn:aws:iam::${ACCOUNT_ID}:role/SudokuLambdaExecRole*",
+        "arn:aws:iam::${ACCOUNT_ID}:role/SudokuImageRecognitionExecRole*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuDynamoDBPolicy*",
-        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuPlayersPolicy*"
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuPlayersPolicy*",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuImageRecognitionBedrockPolicy*"
       ]
+    },
+    {
+      "Sid": "ECR",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository", "ecr:DeleteRepository", "ecr:DescribeRepositories",
+        "ecr:GetRepositoryPolicy", "ecr:SetRepositoryPolicy", "ecr:DeleteRepositoryPolicy",
+        "ecr:PutImageTagMutability", "ecr:PutImageScanningConfiguration",
+        "ecr:GetLifecyclePolicy", "ecr:PutLifecyclePolicy", "ecr:DeleteLifecyclePolicy",
+        "ecr:ListTagsForResource", "ecr:TagResource", "ecr:UntagResource",
+        "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchCheckLayerAvailability", "ecr:PutImage",
+        "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload",
+        "ecr:GetAuthorizationToken"
+      ],
+      "Resource": "arn:aws:ecr:${REGION}:${ACCOUNT_ID}:repository/sudoku-*"
+    },
+    {
+      "Sid": "ECRToken",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
     },
     {
       "Sid": "CognitoUserPool",
@@ -280,6 +305,36 @@ aws iam put-role-policy \
   --policy-document "${DEPLOY_POLICY}"
 
 echo "    Inline policy updated."
+
+# ── 4. ECR repository for image recognition Lambda ─────────────────────────────
+echo "==> [4/4] ECR repository: sudoku-image-recognition"
+
+ECR_REPO_NAME="sudoku-image-recognition"
+
+if aws ecr describe-repositories --repository-names "${ECR_REPO_NAME}" --region "${REGION}" 2>/dev/null; then
+  echo "    Already exists — skipping creation."
+else
+  aws ecr create-repository \
+    --repository-name "${ECR_REPO_NAME}" \
+    --region "${REGION}" \
+    --image-scanning-configuration scanOnPush=true \
+    --image-tag-mutability MUTABLE
+  echo "    Created."
+fi
+
+aws ecr put-lifecycle-policy \
+  --repository-name "${ECR_REPO_NAME}" \
+  --region "${REGION}" \
+  --lifecycle-policy-text '{
+    "rules": [{
+      "rulePriority": 1,
+      "description": "Keep only the 5 most recent images",
+      "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 5},
+      "action": {"type": "expire"}
+    }]
+  }'
+
+echo "    Lifecycle policy applied (keep 5 most recent images)."
 
 # ── Summary ─────────────────────────────────────────────────────────────────────
 echo ""

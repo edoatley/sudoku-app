@@ -91,11 +91,44 @@ jobs:
           path: backend/target/function.zip
           retention-days: 1
 
+  build-image-recognition:
+    name: Build Image Recognition Lambda
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [ci, integration]
+    outputs:
+      image_uri: ${{ steps.push.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Log in to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image recognition image
+        id: push
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPO: sudoku-image-recognition${{ needs.changes.outputs.suffix }}
+          SHA: ${{ github.sha }}
+        run: |
+          WORKSPACE=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+          REPO_NAME="sudoku-image-recognition-${WORKSPACE}"
+          IMAGE_URI="${REGISTRY}/${REPO_NAME}:sha-${SHA}"
+          docker build -t "${IMAGE_URI}" -t "${REGISTRY}/${REPO_NAME}:latest" image_recognition/
+          docker push "${REGISTRY}/${REPO_NAME}:sha-${SHA}"
+          docker push "${REGISTRY}/${REPO_NAME}:latest"
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
   deploy:
     name: Terraform Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [ci, integration, changes, build-backend]
+    needs: [ci, integration, changes, build-backend, build-image-recognition]
     if: always() && !failure() && !cancelled()
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
@@ -172,6 +205,7 @@ jobs:
           -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
           -var "rc_cognito_web_client_id=${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}"
           -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
+          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
 
       - name: Terraform apply
         working-directory: infra
@@ -321,6 +355,11 @@ jobs:
             -H "Content-Type: application/json" -d '{"difficulty":"easy"}')
           check "POST /api/v1/games (no token → 401)" "${STATUS}" "401"
 
+          # POST /puzzles/import without token — JWT authorizer must reject with 401
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/puzzles/import" \
+            -H "Content-Type: application/json" -d '{"image":"dGVzdA=="}')
+          check "POST /api/v1/puzzles/import (no token → 401)" "${STATUS}" "401"
+
           {
             echo "### API Smoke Tests"
             echo ""
@@ -389,6 +428,40 @@ jobs:
           echo "SMOKE_ID_TOKEN=${ID_TOKEN}"     >> "$GITHUB_ENV"
           echo "SMOKE_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
 
+      - name: Image recognition smoke test
+        id: import-smoke
+        env:
+          API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
+          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
+        run: |
+          API_BASE="${API_URL%/}"
+          IMAGE_B64=$(base64 -w 0 image_recognition/tests/fixtures/puzzle_1.jpeg)
+          BODY=$(jq -n --arg img "${IMAGE_B64}" '{"image": $img}')
+          STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
+            -X POST "${API_BASE}/api/v1/puzzles/import" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SMOKE_ID_TOKEN}" \
+            -d "${BODY}")
+          echo "POST /api/v1/puzzles/import → HTTP ${STATUS}"
+          cat /tmp/import.json
+          if [ "${STATUS}" != "200" ]; then
+            echo "❌ Expected 200, got ${STATUS}"
+            exit 1
+          fi
+          ROWS=$(python3 -c "import json,sys; g=json.load(open('/tmp/import.json')).get('originalGrid',[]); print(len(g))")
+          if [ "${ROWS}" != "9" ]; then
+            echo "❌ Expected 9 rows in originalGrid, got ${ROWS}"
+            exit 1
+          fi
+          echo "✅ Image recognition smoke test passed (${ROWS} rows)"
+          {
+            echo "### Image Recognition Smoke Test"
+            echo ""
+            echo "| Endpoint | Result |"
+            echo "|----------|--------|"
+            echo "| POST /api/v1/puzzles/import | ✅ ${STATUS} — ${ROWS} rows |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: ./.github/actions/setup-node
         with:
           install-playwright: "true"
@@ -425,26 +498,19 @@ jobs:
         if: always()
         env:
           API_RESULT: ${{ steps.api-smoke.outcome }}
+          IMPORT_RESULT: ${{ steps.import-smoke.outcome }}
           PLAYWRIGHT_RESULT: ${{ steps.playwright.outcome }}
         run: |
+          icon() { case "$1" in success) echo "✅ passed";; failure) echo "❌ failed";; skipped) echo "⏭️ skipped";; *) echo "❓ $1";; esac; }
           {
             echo ""
             echo "### Smoke Test Summary"
             echo ""
             echo "| Suite | Result |"
             echo "|-------|--------|"
-            case "${API_RESULT}" in
-              success) echo "| API smoke tests | ✅ passed |" ;;
-              failure) echo "| API smoke tests | ❌ failed |" ;;
-              skipped) echo "| API smoke tests | ⏭️ skipped |" ;;
-              *)       echo "| API smoke tests | ❓ ${API_RESULT} |" ;;
-            esac
-            case "${PLAYWRIGHT_RESULT}" in
-              success) echo "| Playwright UI tests | ✅ passed |" ;;
-              failure) echo "| Playwright UI tests | ❌ failed |" ;;
-              skipped) echo "| Playwright UI tests | ⏭️ skipped |" ;;
-              *)       echo "| Playwright UI tests | ❓ ${PLAYWRIGHT_RESULT} |" ;;
-            esac
+            echo "| API smoke tests | $(icon "${API_RESULT}") |"
+            echo "| Image recognition import | $(icon "${IMPORT_RESULT}") |"
+            echo "| Playwright UI tests | $(icon "${PLAYWRIGHT_RESULT}") |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   notify:

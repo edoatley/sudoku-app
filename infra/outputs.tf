@@ -53,3 +53,13 @@ output "cognito_smoke_test_client_secret" {
   value       = local.cognito_smoke_client_secret
   sensitive   = true
 }
+
+output "image_recognition_lambda_function_name" {
+  description = "Image recognition Lambda function name."
+  value       = aws_lambda_function.image_recognition.function_name
+}
+
+output "image_recognition_ecr_repository_url" {
+  description = "ECR repository URL for the image recognition container image."
+  value       = aws_ecr_repository.image_recognition.repository_url
+}
