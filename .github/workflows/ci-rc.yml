@@ -486,10 +486,17 @@ jobs:
           CI: "true"
           INTEGRATION_BASE_URL: ${{ needs.deploy.outputs.amplify_app_url }}
           COGNITO_USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          COGNITO_CLIENT_ID: ${{ needs.deploy.outputs.cognito_client_id }}
           SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
           SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
-        run: npx playwright test --config playwright.integration.config.js
+        run: |
+          # Resolve web client ID by name — the Terraform output value matches the
+          # RC_COGNITO_WEB_CLIENT_ID secret and gets masked by GitHub Actions.
+          COGNITO_CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
+            --user-pool-id "${COGNITO_USER_POOL_ID}" \
+            --query "UserPoolClients[?ClientName=='sudoku-web-rc'].ClientId | [0]" \
+            --output text)
+          export COGNITO_CLIENT_ID
+          npx playwright test --config playwright.integration.config.js
 
       - name: Upload Playwright integration report
         if: failure()
