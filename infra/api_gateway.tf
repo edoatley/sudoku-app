@@ -62,6 +62,14 @@ resource "aws_apigatewayv2_route" "post_games" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }
 
+resource "aws_apigatewayv2_route" "post_games_from_image" {
+  api_id             = aws_apigatewayv2_api.sudoku.id
+  route_key          = "POST /api/v1/games/from-image"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+}
+
 resource "aws_apigatewayv2_route" "get_game" {
   api_id             = aws_apigatewayv2_api.sudoku.id
   route_key          = "GET /api/v1/games/{gameId}"

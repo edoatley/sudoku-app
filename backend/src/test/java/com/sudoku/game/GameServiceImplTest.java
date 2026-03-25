@@ -92,6 +92,30 @@ class GameServiceImplTest {
     }
 
     @Test
+    void createGameFromExistingGrid_usesSuppliedException_andPersists() {
+        GameState result = gameService.createGameFromExistingGrid(USER_ID, GRID);
+
+        assertEquals(USER_ID, result.userId());
+        assertNotNull(result.gameId());
+        assertEquals("imported", result.difficulty());
+        assertEquals(GRID, result.originalGrid());
+        assertEquals(GRID, result.currentGrid());
+        assertEquals(0, result.timeSpentSeconds());
+        assertEquals("IN_PROGRESS", result.status());
+        assertEquals(9, result.candidates().size());
+        verify(sudokuService, never()).generatePuzzle(anyString());
+        verify(gameRepository).save(any(GameState.class));
+    }
+
+    @Test
+    void createGameFromExistingGrid_generatesUniqueGameIds() {
+        GameState game1 = gameService.createGameFromExistingGrid(USER_ID, GRID);
+        GameState game2 = gameService.createGameFromExistingGrid(USER_ID, GRID);
+
+        assertNotEquals(game1.gameId(), game2.gameId());
+    }
+
+    @Test
     void updateGame_delegatesToRepository() {
         String gameId = "test-id-456";
         GameUpdateRequest request = new GameUpdateRequest(GRID, List.of(), 120, false);

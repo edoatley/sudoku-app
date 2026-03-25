@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame } from '../api/sudokuApi.js';
+import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, importPuzzle, createGameFromGrid } from '../api/sudokuApi.js';
 
 const LS_KEY_GAME_ID = 'sudoku_gameId';
 const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
@@ -455,6 +455,37 @@ export function useSudokuGame(user) {
     setGameStatus('idle');
   }, []);
 
+  const startNewGameFromImage = useCallback(async (imageFile) => {
+    setIsLoading(true);
+    setErrorCells(new Set());
+    setActiveHint(null);
+    setHintStage('nudge');
+    setHighlightCells([]);
+    setStatusMessage(null);
+    setGameStatus('idle');
+    setSelectedCell(null);
+    setSelectedNumber(null);
+    try {
+      const { originalGrid: importedGrid } = await importPuzzle(imageFile);
+      const data = await createGameFromGrid(importedGrid);
+      const emptyGrid = emptyCandidate();
+      setGameId(data.gameId);
+      setOriginalGrid(data.originalGrid);
+      setCurrentGrid(data.currentGrid.map((row) => [...row]));
+      setCandidateGrid(emptyGrid);
+      setAutoNotesGrid(null);
+      setAutoNotesActive(false);
+      setHistory([]);
+      lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0);
+      startTimer();
+    } catch (err) {
+      setStatusMessage(`Failed to import puzzle: ${err.message}`);
+      setGameStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startTimer]);
+
   const handleSetDifficulty = useCallback((diff) => {
     setDifficulty(diff);
   }, []);
@@ -482,6 +513,7 @@ export function useSudokuGame(user) {
     handleNumberSelect,
     setDifficulty: handleSetDifficulty,
     startNewGame,
+    startNewGameFromImage,
     updateCell,
     clearCell,
     undoLastMove,

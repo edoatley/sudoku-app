@@ -45,6 +45,28 @@ public class GameServiceImpl implements GameService {
     }
 
     @Override
+    public GameState createGameFromExistingGrid(String userId, List<List<Integer>> originalGrid) {
+        List<List<List<Integer>>> emptyCandidates = IntStream.range(0, 9)
+                .mapToObj(r -> IntStream.range(0, 9)
+                        .mapToObj(c -> List.<Integer>of())
+                        .collect(Collectors.toList()))
+                .collect(Collectors.toList());
+
+        GameState gameState = new GameState(
+                userId,
+                UUID.randomUUID().toString(),
+                "imported",
+                originalGrid,
+                originalGrid.stream().map(row -> row.stream().collect(Collectors.toList())).collect(Collectors.toList()),
+                emptyCandidates,
+                0,
+                "IN_PROGRESS"
+        );
+        gameRepository.save(gameState);
+        return gameState;
+    }
+
+    @Override
     public GameState loadGame(String userId, String gameId) {
         return gameRepository.findById(userId, gameId)
                 .orElseThrow(() -> new NotFoundException("Game not found: " + gameId));
