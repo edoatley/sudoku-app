@@ -50,7 +50,8 @@ test('new-game — selecting Hard difficulty and starting a new game loads the p
   await waitForGrid(page);
 
   // Open new game modal and select Hard difficulty
-  await page.getByRole('button', { name: 'New Game' }).click();
+  await page.getByRole('button', { name: 'Game menu' }).click();
+  await page.getByRole('menuitem', { name: 'New Game' }).click();
   await page.getByRole('radio', { name: 'Hard' }).click();
   await page.getByRole('button', { name: 'Start' }).click();
 

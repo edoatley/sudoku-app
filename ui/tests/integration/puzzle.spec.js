@@ -28,7 +28,8 @@ test.describe('Generate puzzle', () => {
     await page.goto('/');
     await waitForGrid(page);
 
-    await page.getByRole('button', { name: /new game/i }).click();
+    await page.getByRole('button', { name: /game menu/i }).click();
+    await page.getByRole('menuitem', { name: /new game/i }).click();
     await page.getByRole('radio', { name: /hard/i }).click();
     await page.getByRole('button', { name: /start/i }).click();
 
