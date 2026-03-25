@@ -149,8 +149,9 @@ class TestDownscaleImage:
         out = Image.open(io.BytesIO(result))
         assert out.mode == "RGB"
         px = out.getpixel((50, 50))
-        # After L→RGB conversion all channels are equal; allow ±2 for JPEG rounding
-        assert abs(px[0] - px[1]) <= 2 and abs(px[1] - px[2]) <= 2
+        # After full desaturation (Color.enhance(0.0)) all channels are equal;
+        # allow ±5 for JPEG rounding and contrast/sharpness post-processing.
+        assert abs(px[0] - px[1]) <= 5 and abs(px[1] - px[2]) <= 5
 
 
 # ---------------------------------------------------------------------------

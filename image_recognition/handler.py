@@ -128,8 +128,20 @@ def handler(event: dict, context: object) -> dict:
 # ---------------------------------------------------------------------------
 
 def _recognize_with_bedrock(image_bytes: bytes) -> list[list[int]]:
-    """Try each model in _MODELS; return the first valid, plausible grid."""
+    """Try each model in _MODELS; return the best valid grid across all attempts.
+
+    Scoring (higher is better):
+      +2  no duplicate digits in any row/col/box
+      +1  per 10 clues above the minimum threshold (rewards richer grids)
+
+    A grid with duplicates is still returned if it's the best we got — the
+    duplicate check is a quality signal, not a hard rejection.  This avoids
+    surfacing 422 errors to the user when the image is recognisable but the
+    model made a small mis-read.
+    """
     client = boto3.client("bedrock-runtime", region_name="eu-west-2")
+    best_grid: list[list[int]] | None = None
+    best_score: int = -1
     last_error: Exception | None = None
 
     for model_id in _MODELS:
@@ -141,13 +153,31 @@ def _recognize_with_bedrock(image_bytes: bytes) -> list[list[int]]:
                     f"Grid has only {clues} filled cells — "
                     "expected at least 10 for a valid puzzle"
                 )
-            if _has_row_col_box_duplicate(grid):
-                raise ValueError("Grid contains duplicate digits — likely a mis-read")
-            logger.info("Model %s returned a valid grid (%d clues)", model_id, clues)
-            return grid
+            has_dupe = _has_row_col_box_duplicate(grid)
+            score = (0 if has_dupe else 2) + (clues - _MIN_PLAUSIBLE_CLUES) // 10
+            if has_dupe:
+                logger.warning(
+                    "Model %s: grid has duplicate digits (score=%d, clues=%d) — "
+                    "keeping as candidate but trying next model",
+                    model_id, score, clues,
+                )
+            else:
+                logger.info(
+                    "Model %s returned a clean grid (score=%d, clues=%d)",
+                    model_id, score, clues,
+                )
+            if score > best_score:
+                best_score = score
+                best_grid = grid
+            # Stop early if we have a clean, high-quality result
+            if not has_dupe and clues >= 17:
+                break
         except (ValueError, ClientError) as exc:
             logger.warning("Model %s failed: %s", model_id, exc)
             last_error = exc
+
+    if best_grid is not None:
+        return best_grid
 
     raise ValueError(
         f"All models failed to extract a valid Sudoku grid. "
@@ -272,9 +302,19 @@ def _downscale_image(image_bytes: bytes) -> bytes:
         if img.mode != "RGB":
             img = img.convert("RGB")
 
-        # Convert to greyscale and back to RGB to eliminate colour-based
-        # model confusion (e.g. orange selected-cell highlight mis-read as a digit).
-        img = img.convert("L").convert("RGB")
+        # Desaturate to a neutral grey palette so the model cannot confuse cell
+        # background colours (orange, yellow, blue highlights) with digit content,
+        # while preserving the luminance contrast that makes digits legible.
+        # Using ImageEnhance rather than a hard L→RGB round-trip retains slightly
+        # more detail in low-contrast printed numerals.
+        try:
+            from PIL import ImageEnhance  # type: ignore[import]
+            img = ImageEnhance.Color(img).enhance(0.0)   # full desaturation
+            img = ImageEnhance.Contrast(img).enhance(1.4)  # boost digit contrast
+            img = ImageEnhance.Sharpness(img).enhance(2.0)  # crisp digit edges
+        except Exception:  # noqa: BLE001
+            # Fallback: hard greyscale round-trip (original approach)
+            img = img.convert("L").convert("RGB")
 
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
