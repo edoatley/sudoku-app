@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
@@ -96,6 +96,17 @@ function SudokuApp({ user, signOut }) {
     resumeGame,
   } = useSudokuGame(user);
 
+  const completedNumbers = useMemo(() => {
+    if (!currentGrid) return new Set();
+    const counts = {};
+    for (const row of currentGrid) {
+      for (const val of row) {
+        if (val !== 0) counts[val] = (counts[val] || 0) + 1;
+      }
+    }
+    return new Set(Object.entries(counts).filter(([, c]) => c === 9).map(([n]) => Number(n)));
+  }, [currentGrid]);
+
   const handleNewGameConfirm = (selectedDifficulty) => {
     setNewGameModalOpen(false);
     startNewGame(selectedDifficulty);
@@ -154,6 +165,7 @@ function SudokuApp({ user, signOut }) {
                 autoNotesActive={autoNotesActive}
                 onAutoNotes={toggleAutoNotes}
                 isLoading={isLoading}
+                completedNumbers={completedNumbers}
               />
             </Box>
           )}
