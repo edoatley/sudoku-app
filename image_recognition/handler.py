@@ -51,13 +51,16 @@ _SYSTEM_PROMPT = (
 _USER_PROMPT = (
     "Analyze the provided image of a Sudoku puzzle.\n\n"
     "Instructions:\n"
-    "1. Ignore all shadows, background objects, colours, and watermarks. "
-    "Focus only on the 9x9 grid.\n"
-    "2. Read the numbers from left to right, top to bottom.\n"
-    "3. If a cell contains a number, output that digit (1-9).\n"
-    "4. If a cell is completely blank, output the number 0.\n"
-    "5. Include digits in ALL cells regardless of background colour "
-    "(orange, yellow, grey, or any other highlight).\n\n"
+    "1. Focus only on the 9x9 grid. Ignore all UI chrome, shadows, watermarks, "
+    "and background objects outside the grid.\n"
+    "2. Read cells left to right, top to bottom.\n"
+    "3. A cell contains a digit ONLY if a printed numeral (1-9) is visibly drawn "
+    "inside it. Cell background colour (orange, yellow, grey, white) is purely "
+    "decorative and must NOT be used to infer a digit.\n"
+    "4. The orange-highlighted cell is the app's currently selected cell and is "
+    "almost always empty — output 0 for it unless a numeral is clearly printed "
+    "inside it.\n"
+    "5. Output 0 for every cell that has no printed numeral.\n\n"
     "Output the result as a JSON object with a single key 'originalGrid' "
     "whose value is a 2D array: a list of 9 lists, each containing 9 integers.\n\n"
     "Crucial: output ONLY the raw JSON object. "
@@ -138,6 +141,8 @@ def _recognize_with_bedrock(image_bytes: bytes) -> list[list[int]]:
                     f"Grid has only {clues} filled cells — "
                     "expected at least 10 for a valid puzzle"
                 )
+            if _has_row_col_box_duplicate(grid):
+                raise ValueError("Grid contains duplicate digits — likely a mis-read")
             logger.info("Model %s returned a valid grid (%d clues)", model_id, clues)
             return grid
         except (ValueError, ClientError) as exc:
@@ -267,6 +272,10 @@ def _downscale_image(image_bytes: bytes) -> bytes:
         if img.mode != "RGB":
             img = img.convert("RGB")
 
+        # Convert to greyscale and back to RGB to eliminate colour-based
+        # model confusion (e.g. orange selected-cell highlight mis-read as a digit).
+        img = img.convert("L").convert("RGB")
+
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=85)
         return buf.getvalue()
@@ -274,6 +283,24 @@ def _downscale_image(image_bytes: bytes) -> bytes:
     except Exception as exc:  # noqa: BLE001
         logger.warning("Image downscale failed (%s); using original bytes", exc)
         return image_bytes
+
+
+def _has_row_col_box_duplicate(grid: list[list[int]]) -> bool:
+    """Return True if any row, column, or 3x3 box contains a duplicate non-zero digit."""
+    for i in range(9):
+        row_vals = [v for v in grid[i] if v != 0]
+        col_vals = [grid[r][i] for r in range(9) if grid[r][i] != 0]
+        box_r, box_c = (i // 3) * 3, (i % 3) * 3
+        box_vals = [
+            grid[box_r + dr][box_c + dc]
+            for dr in range(3) for dc in range(3)
+            if grid[box_r + dr][box_c + dc] != 0
+        ]
+        if (len(row_vals) != len(set(row_vals))
+                or len(col_vals) != len(set(col_vals))
+                or len(box_vals) != len(set(box_vals))):
+            return True
+    return False
 
 
 def _error(status_code: int, message: str) -> dict:

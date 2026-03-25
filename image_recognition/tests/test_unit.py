@@ -140,6 +140,62 @@ class TestDownscaleImage:
         result = handler._downscale_image(corrupt)
         assert result == corrupt
 
+    def test_output_is_greyscale_normalised_to_rgb(self):
+        """Orange pixels should become grey (R≈G≈B) after downscale."""
+        img = Image.new("RGB", (100, 100), color=(255, 100, 0))  # vivid orange
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        result = handler._downscale_image(buf.getvalue())
+        out = Image.open(io.BytesIO(result))
+        assert out.mode == "RGB"
+        px = out.getpixel((50, 50))
+        # After L→RGB conversion all channels are equal; allow ±2 for JPEG rounding
+        assert abs(px[0] - px[1]) <= 2 and abs(px[1] - px[2]) <= 2
+
+
+# ---------------------------------------------------------------------------
+# _has_row_col_box_duplicate
+# ---------------------------------------------------------------------------
+
+
+class TestHasRowColBoxDuplicate:
+
+    def _clean_grid(self) -> list[list[int]]:
+        return [[0] * 9 for _ in range(9)]
+
+    def test_all_zeros_no_duplicate(self):
+        assert not handler._has_row_col_box_duplicate(self._clean_grid())
+
+    def test_distinct_values_no_duplicate(self):
+        grid = self._clean_grid()
+        grid[0][0] = 1
+        grid[0][8] = 2
+        grid[8][0] = 3
+        assert not handler._has_row_col_box_duplicate(grid)
+
+    def test_detects_row_duplicate(self):
+        grid = self._clean_grid()
+        grid[0][0] = 5
+        grid[0][5] = 5
+        assert handler._has_row_col_box_duplicate(grid)
+
+    def test_detects_column_duplicate(self):
+        grid = self._clean_grid()
+        grid[0][3] = 7
+        grid[6][3] = 7
+        assert handler._has_row_col_box_duplicate(grid)
+
+    def test_detects_box_duplicate(self):
+        grid = self._clean_grid()
+        grid[0][0] = 4
+        grid[2][2] = 4  # same top-left 3x3 box
+        assert handler._has_row_col_box_duplicate(grid)
+
+    def test_zeros_not_counted_as_duplicates(self):
+        grid = self._clean_grid()
+        # entire grid is zeros — must not trigger
+        assert not handler._has_row_col_box_duplicate(grid)
+
 
 # ---------------------------------------------------------------------------
 # handler() — request validation (no AWS calls)
