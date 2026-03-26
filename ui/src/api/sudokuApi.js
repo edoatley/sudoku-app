@@ -123,7 +123,7 @@ export async function saveGame(gameId, { currentGrid, candidates, timeSpentSecon
     return;
   }
 
-  await apiFetch('saveGame', `${API_URL}/games/${gameId}`, {
+  return apiFetch('saveGame', `${API_URL}/games/${gameId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentGrid, candidates, timeSpentSeconds, isComplete }),
