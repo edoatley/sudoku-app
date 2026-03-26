@@ -36,6 +36,7 @@ async function mountAndWait(user = null) {
 
 beforeEach(() => {
   localStorage.clear();
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   createGame.mockResolvedValue(CANNED_GAME_STATE);
   loadGame.mockResolvedValue(CANNED_GAME_STATE);
   saveGame.mockResolvedValue(undefined);
@@ -52,7 +53,6 @@ beforeEach(() => {
   getCandidates.mockResolvedValue({
     candidatesGrid: Array(9).fill(null).map(() => Array(9).fill([])),
   });
-  vi.useFakeTimers();
 });
 
 afterEach(() => {

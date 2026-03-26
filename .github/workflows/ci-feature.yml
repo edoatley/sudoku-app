@@ -24,7 +24,7 @@ jobs:
         with:
           install-playwright: "true"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Cache backend Docker layers
         uses: actions/cache@v5
         with:
@@ -40,7 +40,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-ui-
       - name: Pre-build backend image with cache
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: backend
           file: backend/Dockerfile.test
@@ -49,7 +49,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache-backend
           cache-to: type=local,dest=/tmp/.buildx-cache-backend-new,mode=max
       - name: Pre-build UI image with cache
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ui
           file: ui/Dockerfile.test
