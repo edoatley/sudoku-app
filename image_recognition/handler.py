@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import io
+import re
 import json
 import logging
 
@@ -42,7 +43,7 @@ _MIN_PLAUSIBLE_CLUES = 10
 # Prompts
 # ---------------------------------------------------------------------------
 _SYSTEM_PROMPT = (
-    "You are an automated data extraction API. "
+    "You are a highly precise automated data extraction system. "
     "Your only purpose is to read images of Sudoku grids and output strict, "
     "perfectly formatted JSON. "
     "You do not output markdown, greetings, or conversational text of any kind."
@@ -52,19 +53,17 @@ _USER_PROMPT = (
     "Analyze the provided image of a Sudoku puzzle.\n\n"
     "Instructions:\n"
     "1. Focus only on the 9x9 grid. Ignore all UI chrome, shadows, watermarks, "
-    "and background objects outside the grid.\n"
-    "2. Read cells left to right, top to bottom.\n"
-    "3. A cell contains a digit ONLY if a printed numeral (1-9) is visibly drawn "
-    "inside it. Cell background colour (orange, yellow, grey, white) is purely "
-    "decorative and must NOT be used to infer a digit.\n"
-    "4. The orange-highlighted cell is the app's currently selected cell and is "
-    "almost always empty — output 0 for it unless a numeral is clearly printed "
-    "inside it.\n"
-    "5. Output 0 for every cell that has no printed numeral.\n\n"
-    "Output the result as a JSON object with a single key 'originalGrid' "
-    "whose value is a 2D array: a list of 9 lists, each containing 9 integers.\n\n"
-    "Crucial: output ONLY the raw JSON object. "
-    "Do not wrap it in ```json blocks or add any other text."
+    "and background objects.\n"
+    "2. You must first use a <scratchpad> to read the board systematically. "
+    "Go through the grid row by row (Row 1 to Row 9). For each row, write down "
+    "the 9 digits from left to right. Output 0 for empty cells.\n"
+    "3. Once you have transcribed all 9 rows, output the final result as a JSON object "
+    "inside <json> tags.\n\n"
+    "The JSON object must have a single key 'originalGrid' whose value is a 2D array "
+    "(a list of 9 lists, each containing 9 integers).\n\n"
+    "Example structure:\n"
+    "<scratchpad>\nRow 1: 5 3 0 0 7 0 0 0 0\n...\n</scratchpad>\n"
+    "<json>\n{\"originalGrid\": [[5,3,0...], ...]}\n</json>"
 )
 
 
@@ -107,12 +106,12 @@ def handler(event: dict, context: object) -> dict:
 
         # Downscale to reduce image-token cost; re-detect media type after
         image_bytes = _downscale_image(image_bytes)
-        grid = _recognize_with_bedrock(image_bytes)
+        grid, valid = _recognize_with_bedrock(image_bytes)
 
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"originalGrid": grid}),
+            "body": json.dumps({"originalGrid": grid, "validPuzzle": valid}),
         }
 
     except ValueError as exc:
@@ -127,8 +126,8 @@ def handler(event: dict, context: object) -> dict:
 # Bedrock orchestration
 # ---------------------------------------------------------------------------
 
-def _recognize_with_bedrock(image_bytes: bytes) -> list[list[int]]:
-    """Try each model in _MODELS; return the best valid grid across all attempts.
+def _recognize_with_bedrock(image_bytes: bytes) -> tuple[list[list[int]], bool]:
+    """Try each model in _MODELS; return (best_grid, valid) across all attempts.
 
     Scoring (higher is better):
       +2  no duplicate digits in any row/col/box
@@ -138,10 +137,15 @@ def _recognize_with_bedrock(image_bytes: bytes) -> list[list[int]]:
     duplicate check is a quality signal, not a hard rejection.  This avoids
     surfacing 422 errors to the user when the image is recognisable but the
     model made a small mis-read.
+
+    ``valid`` is True when the best grid has no duplicate digits and has at
+    least 17 clues (the minimum for a uniquely-solvable Sudoku puzzle).
     """
     client = boto3.client("bedrock-runtime", region_name="eu-west-2")
     best_grid: list[list[int]] | None = None
     best_score: int = -1
+    best_has_dupe: bool = True
+    best_clues: int = 0
     last_error: Exception | None = None
 
     for model_id in _MODELS:
@@ -169,6 +173,8 @@ def _recognize_with_bedrock(image_bytes: bytes) -> list[list[int]]:
             if score > best_score:
                 best_score = score
                 best_grid = grid
+                best_has_dupe = has_dupe
+                best_clues = clues
             # Stop early if we have a clean, high-quality result
             if not has_dupe and clues >= 17:
                 break
@@ -177,7 +183,8 @@ def _recognize_with_bedrock(image_bytes: bytes) -> list[list[int]]:
             last_error = exc
 
     if best_grid is not None:
-        return best_grid
+        valid = not best_has_dupe and best_clues >= 17
+        return best_grid, valid
 
     raise ValueError(
         f"All models failed to extract a valid Sudoku grid. "
@@ -228,53 +235,52 @@ def _invoke_model(
 def _parse_grid(text: str) -> list[list[int]]:
     """
     Parse the model text response into a 9x9 list of ints.
-    Handles accidental markdown fences and prose-wrapped JSON.
+    Prioritizes extracting data from within <json> tags.
+    Falls back to finding the first {...} block if tags are missing.
     Raises ValueError if no valid grid is found.
     """
     cleaned = text.strip()
+    json_string = None
 
-    # Strip markdown code fences
-    if "```" in cleaned:
-        lines = cleaned.splitlines()
-        cleaned = "\n".join(
-            line for line in lines if not line.startswith("```")
-        ).strip()
-
-    # Try direct parse
-    data = None
-    try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError:
-        pass
-
-    # Fall back: extract the first complete {...} object
-    if data is None:
+    # 1. Primary Strategy: Extract from <json> tags (Chain of Thought)
+    match = re.search(r'<json>\s*(.*?)\s*</json>', cleaned, re.DOTALL | re.IGNORECASE)
+    if match:
+        json_string = match.group(1).strip()
+    else:
+        # 2. Fallback Strategy: Strip markdown and find the first {...} object
+        if "```" in cleaned:
+            lines = cleaned.splitlines()
+            cleaned = "\n".join(
+                line for line in lines if not line.startswith("```")
+            ).strip()
+            
         start = cleaned.find("{")
         end = cleaned.rfind("}") + 1
-        if start == -1 or end <= 0:
-            raise ValueError(
-                f"No JSON object found in model response: {cleaned[:200]!r}"
-            )
-        try:
-            data = json.loads(cleaned[start:end])
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"Model response contains invalid JSON: {exc}"
-            ) from exc
+        if start != -1 and end > 0:
+            json_string = cleaned[start:end]
 
+    if not json_string:
+        raise ValueError(
+            f"No JSON object or <json> tags found in model response: {text[:200]!r}"
+        )
+
+    # 3. Parse the JSON string
+    try:
+        data = json.loads(json_string)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Extracted string is invalid JSON: {exc}\nString: {json_string[:100]}") from exc
+
+    # 4. Validate the 9x9 grid structure
     grid = data.get("originalGrid")
     if not isinstance(grid, list) or len(grid) != 9:
-        raise ValueError(
-            f"'originalGrid' must be a 9-element list, got: {type(grid)}"
-        )
+        raise ValueError(f"'originalGrid' must be a 9-element list, got: {type(grid)}")
+        
     for i, row in enumerate(grid):
         if not isinstance(row, list) or len(row) != 9:
             raise ValueError(f"Row {i} must be a 9-element list, got: {row!r}")
         for j, val in enumerate(row):
             if not isinstance(val, int) or not (0 <= val <= 9):
-                raise ValueError(
-                    f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}"
-                )
+                raise ValueError(f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}")
 
     return grid
 
@@ -286,42 +292,50 @@ def _parse_grid(text: str) -> list[list[int]]:
 def _downscale_image(image_bytes: bytes) -> bytes:
     """
     Downscale the image so its longest edge is at most _MAX_IMAGE_EDGE pixels,
-    then re-encode as JPEG.
-
+    then re-encode as a standard JPEG. Removes alpha channels (transparency)
+    which can sometimes confuse Vision-Language Models.
+    
     Falls back to the original bytes if Pillow is unavailable or decoding fails.
     """
     try:
-        from PIL import Image  # type: ignore[import]
+        try:
+            from PIL import Image
+        except ImportError as exc:
+            # Explicitly log if the library is missing from the Lambda Layer
+            logger.error("Pillow (PIL) is not installed in the Lambda environment. Cannot resize image.")
+            raise exc
 
         img = Image.open(io.BytesIO(image_bytes))
         w, h = img.size
+        
+        # Resize if necessary
         if max(w, h) > _MAX_IMAGE_EDGE:
             scale = _MAX_IMAGE_EDGE / max(w, h)
-            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            new_w, new_h = int(w * scale), int(h * scale)
+            
+            # Handle Pillow deprecation of Image.LANCZOS
+            resample_filter = getattr(Image, "Resampling", Image).LANCZOS
+            img = img.resize((new_w, new_h), resample_filter)
 
+        # Convert to RGB to strip alpha channels (PNG transparency) 
+        # and ensure it saves correctly as a JPEG
         if img.mode != "RGB":
-            img = img.convert("RGB")
-
-        # Desaturate to a neutral grey palette so the model cannot confuse cell
-        # background colours (orange, yellow, blue highlights) with digit content,
-        # while preserving the luminance contrast that makes digits legible.
-        # Using ImageEnhance rather than a hard L→RGB round-trip retains slightly
-        # more detail in low-contrast printed numerals.
-        try:
-            from PIL import ImageEnhance  # type: ignore[import]
-            img = ImageEnhance.Color(img).enhance(0.0)   # full desaturation
-            img = ImageEnhance.Contrast(img).enhance(1.4)  # boost digit contrast
-            img = ImageEnhance.Sharpness(img).enhance(2.0)  # crisp digit edges
-        except Exception:  # noqa: BLE001
-            # Fallback: hard greyscale round-trip (original approach)
-            img = img.convert("L").convert("RGB")
+            # If the image has an alpha channel, paste it onto a white background first
+            if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                background.paste(img, mask=img.convert('RGBA').split()[3]) # Use alpha channel as mask
+                img = background
+            else:
+                img = img.convert("RGB")
 
         buf = io.BytesIO()
+        # Save as standard JPEG. Quality 85 is an excellent balance of size vs. legibility
         img.save(buf, format="JPEG", quality=85)
         return buf.getvalue()
 
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Image downscale failed (%s); using original bytes", exc)
+    except Exception as exc:
+        # If anything fails (e.g., corrupt image bytes), fallback to sending the raw bytes to Bedrock
+        logger.warning("Image downscale failed (%s); using original bytes.", exc)
         return image_bytes
 
 
