@@ -19,7 +19,7 @@ runs:
     - name: Install UI dependencies
       shell: bash
       working-directory: ui
-      run: npm ci
+      run: npm ci || npm install
 
     - name: Cache Playwright browsers
       id: playwright-cache

@@ -6,7 +6,7 @@ on:
 
 jobs:
   ui:
-    name: UI — Lint & E2E Tests
+    name: UI — Lint, Unit Tests & E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -19,6 +19,22 @@ jobs:
           install-playwright: "true"
       - name: Lint
         run: npm run lint
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-unit-results
+          path: ui/test-results/unit-results.xml
+          retention-days: 14
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-coverage
+          path: ui/coverage/coverage-summary.json
+          retention-days: 14
       - name: Run E2E tests
         run: npm run test:e2e
         env:
@@ -46,28 +62,21 @@ jobs:
       run:
         working-directory: backend
     services:
-      dynamodb-local:
-        image: amazon/dynamodb-local:latest
+      localstack:
+        image: localstack/localstack:latest
         ports:
-          - "8000:8000"
+          - "4566:4566"
+        env:
+          SERVICES: dynamodb
+        options: >-
+          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 15s
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-java
-      - name: Wait for DynamoDB Local
-        run: |
-          for i in $(seq 1 20); do
-            if aws dynamodb list-tables --endpoint-url http://localhost:8000 --region us-east-1 > /dev/null 2>&1; then
-              echo "DynamoDB Local is ready"
-              exit 0
-            fi
-            echo "Waiting... ($i/20)"
-            sleep 2
-          done
-          echo "DynamoDB Local did not become ready in time" && exit 1
-        env:
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
-          AWS_DEFAULT_REGION: us-east-1
       - uses: ./.github/actions/create-localstack-dynamodb
       - name: Run unit, API and integration tests with coverage
         run: ./mvnw verify -DskipITs=false
@@ -107,7 +116,7 @@ jobs:
         id: owasp-week
         run: echo "week=$(date -u +'%Y-%U')" >> "$GITHUB_OUTPUT"
       - name: Cache OWASP NVD database
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: owasp-nvd-${{ steps.owasp-week.outputs.week }}
@@ -141,23 +150,23 @@ jobs:
         with:
           install-playwright: "true"
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v3
       - name: Cache backend Docker layers
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache-backend
           key: ${{ runner.os }}-buildx-backend-${{ hashFiles('backend/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-buildx-backend-
       - name: Cache UI Docker layers
-        uses: actions/cache@v5
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache-ui
           key: ${{ runner.os }}-buildx-ui-${{ hashFiles('ui/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-buildx-ui-
       - name: Pre-build backend image with cache
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v6
         with:
           context: backend
           file: backend/Dockerfile.test
@@ -166,7 +175,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache-backend
           cache-to: type=local,dest=/tmp/.buildx-cache-backend-new,mode=max
       - name: Pre-build UI image with cache
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v6
         with:
           context: ui
           file: ui/Dockerfile.test
@@ -245,6 +254,27 @@ jobs:
           name: backend-test-results
           path: artifacts/backend
 
+      - name: Download JaCoCo coverage report
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: jacoco-report
+          path: artifacts/jacoco
+
+      - name: Download UI unit test results
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: ui-unit-results
+          path: artifacts/ui-unit
+
+      - name: Download UI coverage summary
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: ui-coverage
+          path: artifacts/ui-coverage
+
       - name: Download E2E test results
         uses: actions/download-artifact@v8
         continue-on-error: true
@@ -301,16 +331,49 @@ jobs:
               return parts.join(', ');
             }
 
+            // --- Parse JaCoCo XML for backend line coverage ---
+            function parseJaCoCo(dir) {
+              const xmlPath = path.join(dir, 'jacoco.xml');
+              if (!fs.existsSync(xmlPath)) return null;
+              const xml = fs.readFileSync(xmlPath, 'utf8');
+              const m = xml.match(/<counter type="LINE" missed="(\d+)" covered="(\d+)"/);
+              if (!m) return null;
+              const missed  = parseInt(m[1]);
+              const covered = parseInt(m[2]);
+              const total   = missed + covered;
+              return total > 0 ? ((covered / total) * 100).toFixed(1) : '0.0';
+            }
+
+            // --- Parse Vitest coverage-summary.json ---
+            function parseVitestCoverage(dir) {
+              const summaryPath = path.join(dir, 'coverage-summary.json');
+              if (!fs.existsSync(summaryPath)) return null;
+              try {
+                const data = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+                const t = data.total;
+                if (!t) return null;
+                return {
+                  lines: t.lines?.pct ?? null,
+                  statements: t.statements?.pct ?? null,
+                  functions: t.functions?.pct ?? null,
+                };
+              } catch { return null; }
+            }
+
             const backend     = parseJUnit('artifacts/backend');
+            const unitTests   = parseJUnit('artifacts/ui-unit');
             const e2e         = parseJUnit('artifacts/e2e');
             const integration = parseJUnit('artifacts/integration');
 
+            const backendCovPct  = parseJaCoCo('artifacts/jacoco');
+            const uiCov          = parseVitestCoverage('artifacts/ui-coverage');
+
             const jobResults = {
-              'UI — Lint & E2E Tests':                      '${{ needs.ui.result }}',
-              'Backend — Maven Tests':                       '${{ needs.backend.result }}',
-              'Integration — Docker Compose + Playwright':   '${{ needs.integration.result }}',
-              'Infra — Terraform fmt & validate':            '${{ needs.infra.result }}',
-              'Security — Dependency Audit':                 '${{ needs.security.result }}',
+              'UI — Lint, Unit Tests & E2E':               '${{ needs.ui.result }}',
+              'Backend — Maven Tests':                      '${{ needs.backend.result }}',
+              'Integration — Docker Compose + Playwright':  '${{ needs.integration.result }}',
+              'Infra — Terraform fmt & validate':           '${{ needs.infra.result }}',
+              'Security — Dependency Audit':                '${{ needs.security.result }}',
             };
 
             const icon = (r) => r === 'success' ? '✅' : r === 'failure' ? '❌' : r === 'skipped' ? '⏭️' : '⚠️';
@@ -321,10 +384,15 @@ jobs:
               .map(([name, result]) => `| ${icon(result)} | ${name} | \`${result}\` |`)
               .join('\n');
 
+            // Coverage column: show % or dash if not available
+            const backendCovStr = backendCovPct  ? `${backendCovPct}% line` : '_n/a_';
+            const uiCovStr      = uiCov?.lines   ? `${uiCov.lines}% line`  : '_n/a_';
+
             const testRows = [
-              `| 🧪 Backend unit & integration | ${fmtCounts(backend)} |`,
-              `| 🎭 UI E2E (Playwright)         | ${fmtCounts(e2e)} |`,
-              `| 🔗 Full-stack integration      | ${fmtCounts(integration)} |`,
+              `| 🧪 Backend unit & API tests | ${fmtCounts(backend)}   | ${backendCovStr} |`,
+              `| 🔬 UI unit tests (Vitest)    | ${fmtCounts(unitTests)} | ${uiCovStr} |`,
+              `| 🎭 UI E2E (Playwright)        | ${fmtCounts(e2e)}       | _n/a_ |`,
+              `| 🔗 Full-stack integration     | ${fmtCounts(integration)} | _n/a_ |`,
             ].join('\n');
 
             const body = [
@@ -335,9 +403,9 @@ jobs:
               '|---|---|---|',
               jobRows,
               '',
-              '### Test counts',
-              '| Suite | Results |',
-              '|---|---|',
+              '### Test counts & coverage',
+              '| Suite | Results | Coverage |',
+              '|---|---|---|',
               testRows,
               '',
               `> Run [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`,
