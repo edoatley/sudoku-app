@@ -68,6 +68,7 @@ jobs:
           - "4566:4566"
         env:
           SERVICES: dynamodb
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         options: >-
           --health-cmd "curl -sf http://localhost:4566/_localstack/health"
           --health-interval 5s
