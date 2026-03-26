@@ -91,10 +91,12 @@ export default function Header({
                   <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>New Game</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={() => { handleGameMenuClose(); onImport?.(); }}>
-                  <ListItemIcon><ImageIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Import from Image</ListItemText>
-                </MenuItem>
+                {onImport && (
+                  <MenuItem onClick={() => { handleGameMenuClose(); onImport(); }}>
+                    <ListItemIcon><ImageIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Import from Image</ListItemText>
+                  </MenuItem>
+                )}
               </Menu>
             </>
           )}

@@ -215,18 +215,14 @@ elif [[ "${HAS_DOCKER}" == "false" ]]; then
 elif [[ "${HAS_AWS}" == "false" ]]; then
   skip "$SUITE" "aws CLI not found (needed to create DynamoDB tables)"
 else
-  # Start DynamoDB Local
-  echo "Starting DynamoDB Local..."
-  docker run -d --name "${DYNAMO_CONTAINER}" -p 8000:8000 amazon/dynamodb-local:latest
+  # Start LocalStack (mirrors CI: localstack/localstack on port 4566)
+  echo "Starting LocalStack..."
+  docker run -d --name "${DYNAMO_CONTAINER}" -p 4566:4566 localstack/localstack:latest
 
-  echo "Waiting for DynamoDB Local to be ready..."
-  AWS_ACCESS_KEY_ID=test
-  AWS_SECRET_ACCESS_KEY=test
-  AWS_DEFAULT_REGION=us-east-1
-
+  echo "Waiting for LocalStack to be ready..."
   for i in $(seq 1 20); do
-    if AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws dynamodb list-tables --endpoint-url http://localhost:8000 --region us-east-1 &>/dev/null; then
-      echo "DynamoDB Local is ready"
+    if curl -sf http://localhost:4566/_localstack/health &>/dev/null; then
+      echo "LocalStack is ready"
       break
     fi
     echo "  Waiting... ($i/20)"
@@ -236,7 +232,7 @@ else
   # Create tables (mirrors .github/actions/create-localstack-dynamodb/action.yml)
   echo "Creating DynamoDB tables..."
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
-  aws --endpoint-url=http://localhost:8000 dynamodb create-table \
+  aws --endpoint-url=http://localhost:4566 dynamodb create-table \
     --table-name SudokuGames \
     --attribute-definitions AttributeName=userId,AttributeType=S AttributeName=gameId,AttributeType=S \
     --key-schema AttributeName=userId,KeyType=HASH AttributeName=gameId,KeyType=RANGE \
@@ -244,7 +240,7 @@ else
     --region us-east-1
 
   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
-  aws --endpoint-url=http://localhost:8000 dynamodb create-table \
+  aws --endpoint-url=http://localhost:4566 dynamodb create-table \
     --table-name SudokuPlayers \
     --attribute-definitions AttributeName=userId,AttributeType=S \
     --key-schema AttributeName=userId,KeyType=HASH \

@@ -28,6 +28,7 @@ resource "aws_amplify_app" "sudoku" {
     VITE_COGNITO_USER_POOL_ID = local.cognito_user_pool_id
     VITE_COGNITO_CLIENT_ID    = local.cognito_web_client_id
     VITE_COGNITO_DOMAIN       = "${local.cognito_domain}.auth.eu-west-2.amazoncognito.com"
+    VITE_ENABLE_IMPORT        = local.is_default ? "false" : "true"
   }
 
   auto_branch_creation_config {
