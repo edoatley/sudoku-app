@@ -1,7 +1,17 @@
 import Box from '@mui/material/Box';
 
-const cellSize = { width: { xs: 32, sm: 44 }, height: { xs: 32, sm: 44 } };
-const fontSize = { xs: '0.875rem', sm: '1.125rem' };
+// Cell size: fills available space up to a max of ~84px (9×84=756px ≈ 20cm at 96dpi).
+// On mobile (xs) the grid fills the viewport width minus a small gutter.
+// On desktop (md+) it fills available height minus header + numberpad space.
+// The --cell-size CSS variable is set on the grid container (SudokuGrid) so all
+// cells inherit it; here we just reference it with a sensible px fallback.
+const cellSize = {
+  width: 'var(--sudoku-cell-size, 44px)',
+  height: 'var(--sudoku-cell-size, 44px)',
+};
+
+// Font scales proportionally: ~26% of cell size, clamped to readable range
+const fontSize = 'calc(var(--sudoku-cell-size, 44px) * 0.28)';
 
 function getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRegionHighlight, isGiven) {
   if (isError)           return 'error.light';
@@ -31,7 +41,7 @@ function CandidateDisplay({ candidates }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: { xs: '0.45rem', sm: '0.6rem' },
+            fontSize: 'calc(var(--sudoku-cell-size, 44px) * 0.22)',
             lineHeight: 1,
             color: candidates.includes(n) ? 'primary.main' : 'transparent',
             fontWeight: 'bold',
@@ -60,7 +70,7 @@ export default function SudokuCell({ row, col, value, isGiven, isError, isHighli
         justifyContent: 'center',
         bgcolor: bg,
         fontWeight: isGiven ? 'bold' : 'normal',
-        fontSize,
+        fontSize: fontSize,
         color: (isNumberHighlight || isSelected) && !isError && !isHighlight ? 'white' : 'inherit',
         cursor: 'pointer',
         userSelect: 'none',

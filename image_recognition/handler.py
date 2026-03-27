@@ -42,30 +42,45 @@ _MIN_PLAUSIBLE_CLUES = 10
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
+
+# _SYSTEM_PROMPT = (
+#     "You are a highly precise automated data extraction system. "
+#     "Your only purpose is to read images of Sudoku grids and output strict, "
+#     "perfectly formatted JSON. "
+#     "You do not output markdown, greetings, or conversational text of any kind."
+# )
+
 _SYSTEM_PROMPT = (
-    "You are a highly precise automated data extraction system. "
-    "Your only purpose is to read images of Sudoku grids and output strict, "
-    "perfectly formatted JSON. "
-    "You do not output markdown, greetings, or conversational text of any kind."
+    "You are a precise Sudoku digit extractor. You specialize in spatial mapping. "
+    "You count columns from left to right (1-9) and rows from top to bottom (1-9). "
+    "You never skip a cell, even if it is empty. You use visual anchors to stay aligned."
 )
+
+# _USER_PROMPT = (
+#     "Analyze the provided image of a Sudoku puzzle.\n\n"
+#     "Instructions:\n"
+#     "1. Focus only on the 9x9 grid. Ignore all UI chrome, shadows, watermarks, "
+#     "and background objects.\n"
+#     "2. You must first use a <scratchpad> to read the board systematically. "
+#     "Go through the grid row by row (Row 1 to Row 9). For each row, write down "
+#     "the 9 digits from left to right. Output 0 for empty cells.\n"
+#     "3. Once you have transcribed all 9 rows, output the final result as a JSON object "
+#     "inside <json> tags.\n\n"
+#     "The JSON object must have a single key 'originalGrid' whose value is a 2D array "
+#     "(a list of 9 lists, each containing 9 integers).\n\n"
+#     "Example structure:\n"
+#     "<scratchpad>\nRow 1: 5 3 0 0 7 0 0 0 0\n...\n</scratchpad>\n"
+#     "<json>\n{\"originalGrid\": [[5,3,0...], ...]}\n</json>"
+# )
 
 _USER_PROMPT = (
-    "Analyze the provided image of a Sudoku puzzle.\n\n"
-    "Instructions:\n"
-    "1. Focus only on the 9x9 grid. Ignore all UI chrome, shadows, watermarks, "
-    "and background objects.\n"
-    "2. You must first use a <scratchpad> to read the board systematically. "
-    "Go through the grid row by row (Row 1 to Row 9). For each row, write down "
-    "the 9 digits from left to right. Output 0 for empty cells.\n"
-    "3. Once you have transcribed all 9 rows, output the final result as a JSON object "
-    "inside <json> tags.\n\n"
-    "The JSON object must have a single key 'originalGrid' whose value is a 2D array "
-    "(a list of 9 lists, each containing 9 integers).\n\n"
-    "Example structure:\n"
-    "<scratchpad>\nRow 1: 5 3 0 0 7 0 0 0 0\n...\n</scratchpad>\n"
-    "<json>\n{\"originalGrid\": [[5,3,0...], ...]}\n</json>"
+    "Analyze the image of the Sudoku puzzle.\n\n"
+    "1. In <scratchpad>, transcribe the grid using a pipe-delimited table. Use '.' for empty cells.\n"
+    "   Example: | 5 | . | . | | . | 2 | . | | . | . | 8 |\n"
+    "2. Ensure every row has exactly 9 cells and the 3x3 blocks align vertically.\n"
+    "3. Output the final result as JSON in <json> tags with the key 'originalGrid'.\n\n"
+    "Output 0 for empty cells in the final JSON."
 )
-
 
 # ---------------------------------------------------------------------------
 # Lambda entry point
@@ -231,8 +246,64 @@ def _invoke_model(
 # ---------------------------------------------------------------------------
 # Response parsing
 # ---------------------------------------------------------------------------
+# --- Enhanced Robust Parser ---
 
 def _parse_grid(text: str) -> list[list[int]]:
+    """
+    Enhanced parser that handles JSON and falls back to parsing
+    the pipe-delimited scratchpad if the JSON is malformed.
+    """
+    cleaned = text.strip()
+
+    # 1. Try to find a JSON object — prefer <json> tags, fall back to first {...} block
+    json_match = re.search(r'<json>\s*(.*?)\s*</json>', cleaned, re.DOTALL | re.IGNORECASE)
+    if not json_match:
+        json_match = re.search(r'(\{.*\})', cleaned, re.DOTALL)
+
+    if json_match:
+        json_str = json_match.group(1).strip()
+        json_str = re.sub(r'//.*', '', json_str)  # remove JS-style comments
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Extracted string is invalid JSON: {exc}\nString: {json_str[:100]}") from exc
+
+        grid = data.get("originalGrid")
+        if not isinstance(grid, list) or len(grid) != 9:
+            raise ValueError(f"'originalGrid' must be a 9-element list, got: {type(grid)}")
+
+        for i, row in enumerate(grid):
+            if not isinstance(row, list) or len(row) != 9:
+                raise ValueError(f"Row {i} must be a 9-element list, got: {row!r}")
+            for j, val in enumerate(row):
+                if not isinstance(val, int) or not (0 <= val <= 9):
+                    raise ValueError(f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}")
+
+        return grid
+
+    # 2. Fallback: Parse the pipe-delimited scratchpad
+    # This looks for rows like | 1 | . | 5 | ...
+    grid_from_text = []
+    for line in cleaned.splitlines():
+        if '|' in line:
+            parts = [p.strip() for p in line.split('|') if p.strip()]
+            row_digits = []
+            for p in parts:
+                if p.isdigit():
+                    row_digits.append(int(p))
+                elif p == '.':
+                    row_digits.append(0)
+            if len(row_digits) == 9:
+                grid_from_text.append(row_digits)
+
+    if len(grid_from_text) == 9:
+        logger.info("Successfully recovered grid from scratchpad pipes.")
+        return grid_from_text
+
+    raise ValueError("No JSON object found and no valid pipe-delimited scratchpad in model response.")
+
+
+def _parse_grid_zeroes(text: str) -> list[list[int]]:
     """
     Parse the model text response into a 9x9 list of ints.
     Prioritizes extracting data from within <json> tags.
@@ -317,19 +388,21 @@ def _downscale_image(image_bytes: bytes) -> bytes:
             resample_filter = getattr(Image, "Resampling", Image).LANCZOS
             img = img.resize((new_w, new_h), resample_filter)
 
-        # Convert to RGB to strip alpha channels (PNG transparency) 
-        # and ensure it saves correctly as a JPEG
+        # Convert to RGB, compositing alpha onto white if present
         if img.mode != "RGB":
-            # If the image has an alpha channel, paste it onto a white background first
             if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
                 background = Image.new("RGB", img.size, (255, 255, 255))
-                background.paste(img, mask=img.convert('RGBA').split()[3]) # Use alpha channel as mask
+                background.paste(img, mask=img.convert('RGBA').split()[3])
                 img = background
             else:
                 img = img.convert("RGB")
 
+        # Desaturate to greyscale-normalised RGB — removes colour bias so the model
+        # focuses on digit shapes rather than ink/paper colour variation
+        from PIL import ImageEnhance
+        img = ImageEnhance.Color(img).enhance(0.0)
+
         buf = io.BytesIO()
-        # Save as standard JPEG. Quality 85 is an excellent balance of size vs. legibility
         img.save(buf, format="JPEG", quality=85)
         return buf.getvalue()
 

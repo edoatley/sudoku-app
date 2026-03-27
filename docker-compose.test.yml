@@ -39,6 +39,7 @@ services:
       QUARKUS_DYNAMODB_AWS_CREDENTIALS_TYPE: "static"
       QUARKUS_DYNAMODB_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: "test"
       QUARKUS_DYNAMODB_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: "test"
+      SUDOKU_API_LOGGING_ENABLED: "false"
     healthcheck:
       test: ["CMD", "sh", "-c", "wget -qO- http://localhost:8080/api/v1/puzzles/generate || exit 1"]
       interval: 5s
@@ -58,6 +59,7 @@ services:
         VITE_API_URL: "http://localhost:8080/api/v1"
         VITE_MOCK_API: "false"
         VITE_SKIP_AUTH: "true"
+        VITE_DEV_TOOLS: "true"
     ports:
       - "5174:5174"
     depends_on:

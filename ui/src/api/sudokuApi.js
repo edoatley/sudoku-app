@@ -153,6 +153,15 @@ export async function importPuzzle(imageFile) {
   }, true);
 }
 
+export async function getDemoGrid(technique) {
+  if (MOCK_API) {
+    await delay(200);
+    return CANNED_PUZZLES.easy;
+  }
+
+  return apiFetch('getDemoGrid', `${API_URL}/dev/hint-demo?technique=${encodeURIComponent(technique)}`);
+}
+
 export async function createGameFromGrid(originalGrid) {
   if (MOCK_API) {
     await delay(300);

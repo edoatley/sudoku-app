@@ -1,4 +1,4 @@
-package com.sudoku.puzzle;
+package com.sudoku.puzzle.developer;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;

@@ -7,6 +7,7 @@
 | 10 | Full House | Easy | `FullHouseStrategy.java` |
 | 20 | Naked Single | Easy | `NakedSingleStrategy.java` |
 | 30 | Naked Pair | Medium | `NakedPairStrategy.java` |
+| 40 | Hidden Single | Easy | `HiddenSingleStrategy.java` |
 
 ## Remaining Strategies
 
@@ -195,7 +196,7 @@ A pivot cell with exactly two candidates `{A, B}` sees a "pincer" cell with cand
 
 ## Implementation Checklist
 
-- [ ] HiddenSingleStrategy + test
+- [x] HiddenSingleStrategy + test
 - [ ] PointingPairStrategy + test
 - [ ] NakedTripleStrategy + test
 - [ ] HiddenPairStrategy + test

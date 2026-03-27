@@ -19,6 +19,7 @@ import ImportModal from './components/ImportModal.jsx';
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const ENABLE_IMPORT = import.meta.env.VITE_ENABLE_IMPORT === 'true';
+const DEV_TOOLS = import.meta.env.VITE_DEV_TOOLS === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
 let Authenticator = null;
@@ -80,6 +81,7 @@ function SudokuApp({ user, signOut }) {
     handleNumberSelect,
     startNewGame,
     startNewGameFromImage,
+    loadDemoGame,
     updateCell,
     clearCell,
     undoLastMove,
@@ -123,9 +125,10 @@ function SudokuApp({ user, signOut }) {
         onResume={resumeGame}
         onNewGame={() => setNewGameModalOpen(true)}
         onImport={ENABLE_IMPORT ? () => setImportModalOpen(true) : null}
+        onDemoGame={DEV_TOOLS ? loadDemoGame : null}
       />
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
+      <Container maxWidth="lg" disableGutters sx={{ px: { xs: 1, sm: 2, md: 3 }, py: { xs: 1, md: 2 } }}>
+        <Stack spacing={{ xs: 1, md: 2 }} alignItems={{ xs: 'center', md: 'flex-start' }}>
           <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
 
           {isLoading && !currentGrid ? (
@@ -136,8 +139,9 @@ function SudokuApp({ user, signOut }) {
             <Box sx={{
               display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
-              gap: 3,
+              gap: { xs: 1, md: 2 },
               alignItems: { xs: 'center', md: 'flex-start' },
+              width: '100%',
             }}>
               <SudokuGrid
                 originalGrid={originalGrid}

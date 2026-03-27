@@ -10,6 +10,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import Divider from '@mui/material/Divider';
 import Snackbar from '@mui/material/Snackbar';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
@@ -22,6 +23,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
 import ImageIcon from '@mui/icons-material/Image';
+import BugReportIcon from '@mui/icons-material/BugReport';
 
 function formatTime(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -38,6 +40,13 @@ function getUserInitial(user) {
   return loginId.charAt(0).toUpperCase() || '?';
 }
 
+const DEMO_TECHNIQUES = [
+  { slug: 'full-house',    label: 'Full House demo' },
+  { slug: 'naked-single',  label: 'Naked Single demo' },
+  { slug: 'naked-pair',    label: 'Naked Pair demo' },
+  { slug: 'hidden-single', label: 'Hidden Single demo' },
+];
+
 export default function Header({
   elapsedSeconds,
   timerRunning,
@@ -50,16 +59,21 @@ export default function Header({
   minimal,
   onNewGame,
   onImport,
+  onDemoGame,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [gameMenuAnchorEl, setGameMenuAnchorEl] = useState(null);
+  const [devMenuAnchorEl, setDevMenuAnchorEl] = useState(null);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   const handleAvatarClick = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
 
   const handleGameMenuOpen = (e) => setGameMenuAnchorEl(e.currentTarget);
-  const handleGameMenuClose = () => setGameMenuAnchorEl(null);
+  const handleGameMenuClose = () => { setGameMenuAnchorEl(null); setDevMenuAnchorEl(null); };
+
+  const handleDevMenuOpen = (e) => setDevMenuAnchorEl(e.currentTarget);
+  const handleDevMenuClose = () => setDevMenuAnchorEl(null);
 
   const handleComingSoon = () => {
     handleMenuClose();
@@ -97,7 +111,33 @@ export default function Header({
                     <ListItemText>Import from Image</ListItemText>
                   </MenuItem>
                 )}
+                {onDemoGame && <Divider />}
+                {onDemoGame && (
+                  <MenuItem onClick={handleDevMenuOpen}>
+                    <ListItemIcon><BugReportIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Developer</ListItemText>
+                    <Typography variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>▶</Typography>
+                  </MenuItem>
+                )}
               </Menu>
+              {onDemoGame && (
+                <Menu
+                  anchorEl={devMenuAnchorEl}
+                  open={Boolean(devMenuAnchorEl)}
+                  onClose={handleDevMenuClose}
+                  transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                  anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
+                >
+                  {DEMO_TECHNIQUES.map(({ slug, label }) => (
+                    <MenuItem
+                      key={slug}
+                      onClick={() => { handleGameMenuClose(); onDemoGame(slug); }}
+                    >
+                      <ListItemText>{label}</ListItemText>
+                    </MenuItem>
+                  ))}
+                </Menu>
+              )}
             </>
           )}
           <GridOnIcon sx={{ fontSize: 28, color: 'primary.contrastText' }} />

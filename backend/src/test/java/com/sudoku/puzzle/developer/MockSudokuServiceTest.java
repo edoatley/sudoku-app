@@ -1,4 +1,4 @@
-package com.sudoku.puzzle;
+package com.sudoku.puzzle.developer;
 
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
@@ -158,9 +158,6 @@ class MockSudokuServiceTest {
 
     @Test
     void validatePuzzle_multipleConflicts_cellAppearsOnce() {
-        // Make cell (0,3) = 5, conflicting with (0,0)=5 in row AND with (1,3)=1...
-        // Better: make (0,2)=3, conflicting with (0,1)=3 in row AND with (1,2)...
-        // Use: row 0 gets duplicate 3 at (0,2), also block 0 has 3 at (0,1) and (0,2)
         List<List<Integer>> grid = mutableCopy(EASY_GRID);
         grid.get(0).set(2, 3); // was 0, now 3 — duplicates (0,1)=3 in row 0 and block 0
 
@@ -168,7 +165,6 @@ class MockSudokuServiceTest {
 
         assertFalse(response.isValid());
         List<Coordinate> errors = response.errors();
-        // (0,1) and (0,2) should both appear — but each only once despite appearing in both row and block conflicts
         long count01 = errors.stream().filter(c -> c.row() == 0 && c.col() == 1).count();
         long count02 = errors.stream().filter(c -> c.row() == 0 && c.col() == 2).count();
         assertEquals(1, count01, "Cell (0,1) should appear exactly once in errors");
