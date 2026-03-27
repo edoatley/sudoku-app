@@ -2,7 +2,22 @@ Your goal is to run all of the tests to check the project is working correctly a
 
 ## Steps
 
-### 1. Frontend Lint
+### 1. Image Recognition Python Tests
+
+Run from the `image_recognition/` directory. Tests require a virtual environment with dev dependencies installed.
+
+```bash
+cd image_recognition && python -m pytest --cov --cov-report=term-missing -m "not real_images and not e2e"
+```
+
+This runs unit tests (excluding those marked `real_images` or `e2e` which require network/AWS access) and reports coverage. The `pyproject.toml` enforces a **70% coverage threshold** — the run fails if not met.
+
+If the `.venv` is not set up or dependencies are missing, first run:
+```bash
+cd image_recognition && python -m venv .venv && source .venv/bin/activate && pip install -r requirements-dev.txt
+```
+
+### 2. Frontend Lint
 
 Run from the `ui/` directory:
 
@@ -90,6 +105,12 @@ After running all tests, provide a summary in this format:
 - Total: X | Passed: X | Failed: X | Skipped: X
 - [List any failing tests with their error messages]
 - [Note if skipped due to Docker not being available]
+
+### Image Recognition (pytest — unit + coverage)
+- Total: X | Passed: X | Failed: X | Skipped: X
+- Coverage: X% (threshold: 70%)
+- [List any failing tests with their error messages]
+- [Note if skipped due to missing .venv or dependencies]
 
 ### Overall Status: PASS / FAIL
 ```

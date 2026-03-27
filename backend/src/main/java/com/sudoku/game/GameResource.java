@@ -1,5 +1,6 @@
 package com.sudoku.game;
 
+import com.sudoku.dto.CreateGameFromGridRequest;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import jakarta.inject.Inject;
@@ -33,6 +34,14 @@ public class GameResource {
         String userId = securityContext.getUserPrincipal().getName();
         String difficulty = body.getOrDefault("difficulty", "medium");
         GameState gameState = gameService.createGame(userId, difficulty);
+        return Response.status(Response.Status.CREATED).entity(gameState).build();
+    }
+
+    @POST
+    @Path("/from-image")
+    public Response createGameFromExistingGrid(CreateGameFromGridRequest body) {
+        String userId = securityContext.getUserPrincipal().getName();
+        GameState gameState = gameService.createGameFromExistingGrid(userId, body.originalGrid());
         return Response.status(Response.Status.CREATED).entity(gameState).build();
     }
 

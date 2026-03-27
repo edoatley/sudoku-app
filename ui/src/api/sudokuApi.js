@@ -123,9 +123,45 @@ export async function saveGame(gameId, { currentGrid, candidates, timeSpentSecon
     return;
   }
 
-  await apiFetch('saveGame', `${API_URL}/games/${gameId}`, {
+  return apiFetch('saveGame', `${API_URL}/games/${gameId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentGrid, candidates, timeSpentSeconds, isComplete }),
+  }, true);
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function importPuzzle(imageFile) {
+  if (MOCK_API) {
+    await delay(1200);
+    return { originalGrid: CANNED_PUZZLES.easy.originalGrid };
+  }
+
+  const base64 = await fileToBase64(imageFile);
+  return apiFetch('importPuzzle', `${API_URL}/puzzles/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: base64 }),
+  }, true);
+}
+
+export async function createGameFromGrid(originalGrid) {
+  if (MOCK_API) {
+    await delay(300);
+    return { ...CANNED_GAME_STATE, originalGrid, currentGrid: originalGrid.map((r) => [...r]) };
+  }
+
+  return apiFetch('createGameFromGrid', `${API_URL}/games/from-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ originalGrid }),
   }, true);
 }

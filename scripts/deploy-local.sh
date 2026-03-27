@@ -91,6 +91,9 @@ fi
 
 echo ""
 echo "==> terraform plan"
+# IMAGE_RECOGNITION_IMAGE_URI: optional — leave empty to skip re-deploying the image
+# recognition Lambda (useful when only backend/infra changes are being tested locally).
+IMAGE_RECOGNITION_IMAGE_URI="${IMAGE_RECOGNITION_IMAGE_URI:-}"
 AWS_PROFILE=sandbox terraform plan -out=tfplan \
   -input=false \
   -var "github_token=${AMPLIFY_GITHUB_TOKEN}" \
@@ -99,7 +102,8 @@ AWS_PROFILE=sandbox terraform plan -out=tfplan \
   -var "google_client_id=${GOOGLE_CLIENT_ID}" \
   -var "google_client_secret=${GOOGLE_CLIENT_SECRET}" \
   -var "smoke_test_user_email=${SMOKE_TEST_USER_EMAIL}" \
-  -var "smoke_test_user_password=${SMOKE_TEST_USER_PASSWORD}"
+  -var "smoke_test_user_password=${SMOKE_TEST_USER_PASSWORD}" \
+  -var "image_recognition_image_uri=${IMAGE_RECOGNITION_IMAGE_URI}"
 
 echo ""
 read -r -p "==> Apply the plan? [y/N] " CONFIRM

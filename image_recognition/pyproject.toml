@@ -1,0 +1,16 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+pythonpath = ["."]
+markers = [
+    "real_images: tests that use real puzzle images (may require network access)",
+    "e2e: end-to-end tests that call AWS Bedrock (require AWS credentials)",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "Dockerfile"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 70

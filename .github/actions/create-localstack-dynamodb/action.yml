@@ -1,5 +1,5 @@
-name: Create LocalStack DynamoDB Tables
-description: Creates the SudokuGames and SudokuPlayers DynamoDB tables in a running LocalStack instance
+name: Create DynamoDB Local Tables
+description: Creates the SudokuGames and SudokuPlayers DynamoDB tables in a running DynamoDB Local instance
 
 runs:
   using: composite

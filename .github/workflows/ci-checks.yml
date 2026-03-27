@@ -4,10 +4,10 @@ on:
   workflow_call:
 
 jobs:
-  ui-lint:
-    name: UI — Lint
+  ui:
+    name: UI — Lint & Unit Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: ui
@@ -17,7 +17,92 @@ jobs:
       - name: Lint
         run: npm run lint
 
-  backend-unit:
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-unit-results
+          path: ui/test-results/unit-results.xml
+          retention-days: 14
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-coverage
+          path: ui/coverage/
+          retention-days: 14
+
+      - name: UI test summary
+        if: always()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // --- JUnit XML parsing (Vitest output) ---
+            const junitFile = 'ui/test-results/unit-results.xml';
+            let rows = [];
+            let totalTests = 0, totalPassed = 0, totalFailed = 0, totalErrors = 0;
+
+            if (fs.existsSync(junitFile)) {
+              const xml = fs.readFileSync(junitFile, 'utf8');
+              const suites = [...xml.matchAll(/<testsuite[^>]+>/g)];
+              for (const suite of suites) {
+                const attrs = suite[0];
+                const name     = (attrs.match(/\bname="([^"]+)"/))?.[1] ?? 'unknown';
+                const tests    = parseInt((attrs.match(/\btests="(\d+)"/))?.[1]    ?? '0');
+                const failed   = parseInt((attrs.match(/\bfailures="(\d+)"/))?.[1] ?? '0');
+                const errors   = parseInt((attrs.match(/\berrors="(\d+)"/))?.[1]   ?? '0');
+                const skipped  = parseInt((attrs.match(/\bskipped="(\d+)"/))?.[1]  ?? '0');
+                const passed   = tests - failed - errors - skipped;
+                totalTests  += tests;
+                totalPassed += passed;
+                totalFailed += failed;
+                totalErrors += errors;
+                const shortName = name.split(' > ')[0];
+                if (tests > 0) rows.push(`| ${shortName} | ${tests} | ${passed} | ${failed} | ${errors} |`);
+              }
+            }
+
+            // --- Coverage summary (json-summary reporter) ---
+            let coverageLine = '_coverage report not found_';
+            const coverageSummary = 'ui/coverage/coverage-summary.json';
+            if (fs.existsSync(coverageSummary)) {
+              const data = JSON.parse(fs.readFileSync(coverageSummary, 'utf8'));
+              const total = data.total;
+              if (total) {
+                const lines  = total.lines  ? `Lines: ${total.lines.pct}%`   : '';
+                const stmts  = total.statements ? `Stmts: ${total.statements.pct}%` : '';
+                const funcs  = total.functions ? `Funcs: ${total.functions.pct}%`  : '';
+                const parts  = [lines, stmts, funcs].filter(Boolean);
+                coverageLine = parts.length > 0 ? `**Coverage:** ${parts.join(' | ')}` : coverageLine;
+              }
+            }
+
+            const header = [
+              '### UI Unit Test Results',
+              '',
+              '| Test Suite | Tests | Passed | Failed | Errors |',
+              '|------------|-------|--------|--------|--------|',
+            ];
+            const footer = [
+              `| **Total** | ${totalTests} | ${totalPassed} | ${totalFailed} | ${totalErrors} |`,
+              '',
+              coverageLine,
+            ];
+
+            const body = rows.length > 0
+              ? [...header, ...rows, ...footer].join('\n')
+              : `### UI Unit Test Results\n\n_No test results found_`;
+
+            await core.summary.addRaw(body).write();
+
+  backend:
     name: Backend — Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -31,6 +116,7 @@ jobs:
           - "4566:4566"
         env:
           SERVICES: dynamodb
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         options: >-
           --health-cmd "curl -sf http://localhost:4566/_localstack/health"
           --health-interval 5s
@@ -126,3 +212,64 @@ jobs:
       - uses: actions/checkout@v6
       - uses: hashicorp/setup-terraform@v4
       - uses: ./.github/actions/terraform-validate
+
+      - name: Infra summary
+        if: always()
+        uses: actions/github-script@v8
+        env:
+          INFRA_RESULT: ${{ job.status }}
+        with:
+          script: |
+            const result = process.env.INFRA_RESULT;
+            const icon   = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⚠️';
+            const body   = [
+              '### Infrastructure Checks',
+              '',
+              '| Check | Result |',
+              '|-------|--------|',
+              `| ${icon} Terraform fmt & validate | \`${result}\` |`,
+            ].join('\n');
+            await core.summary.addRaw(body).write();
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    needs: [ui, backend, infra]
+    steps:
+      - name: Holistic CI summary
+        uses: actions/github-script@v8
+        env:
+          UI_RESULT:      ${{ needs.ui.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          INFRA_RESULT:   ${{ needs.infra.result }}
+        with:
+          script: |
+            const icon = (r) =>
+              r === 'success' ? '✅' : r === 'failure' ? '❌' : r === 'skipped' ? '⏭️' : '⚠️';
+
+            const results = {
+              'UI — Lint & Unit Tests':           process.env.UI_RESULT,
+              'Backend — Unit Tests':             process.env.BACKEND_RESULT,
+              'Infra — Terraform fmt & validate': process.env.INFRA_RESULT,
+            };
+
+            const allPassed = Object.values(results).every(r => r === 'success');
+            const overall   = allPassed ? '✅ All checks passed' : '❌ Some checks failed';
+
+            const rows = Object.entries(results)
+              .map(([name, r]) => `| ${icon(r)} | ${name} | \`${r}\` |`)
+              .join('\n');
+
+            const body = [
+              `### CI Summary — ${overall}`,
+              '',
+              '| | Job | Result |',
+              '|---|---|---|',
+              rows,
+              '',
+              '_See individual job summaries for detailed test counts and coverage._',
+            ].join('\n');
+
+            await core.summary.addRaw(body).write();

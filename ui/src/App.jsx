@@ -8,16 +8,17 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { useSudokuGame } from './hooks/useSudokuGame.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
-import GameControls from './components/GameControls.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import NumberPad from './components/NumberPad.jsx';
 import HintDialog from './components/HintDialog.jsx';
 import Header from './components/Header.jsx';
 import PauseOverlay from './components/PauseOverlay.jsx';
 import NewGameModal from './components/NewGameModal.jsx';
+import ImportModal from './components/ImportModal.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
+const ENABLE_IMPORT = import.meta.env.VITE_ENABLE_IMPORT === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
 let Authenticator = null;
@@ -59,6 +60,7 @@ const muiTheme = createTheme();
 
 function SudokuApp({ user, signOut }) {
   const [newGameModalOpen, setNewGameModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const {
     originalGrid,
@@ -77,6 +79,7 @@ function SudokuApp({ user, signOut }) {
     setInputMode,
     handleNumberSelect,
     startNewGame,
+    startNewGameFromImage,
     updateCell,
     clearCell,
     undoLastMove,
@@ -101,6 +104,11 @@ function SudokuApp({ user, signOut }) {
     startNewGame(selectedDifficulty);
   };
 
+  const handleImportConfirm = (imageFile) => {
+    setImportModalOpen(false);
+    startNewGameFromImage(imageFile);
+  };
+
   return (
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
@@ -113,12 +121,12 @@ function SudokuApp({ user, signOut }) {
         isPaused={isPaused}
         onPause={pauseGame}
         onResume={resumeGame}
+        onNewGame={() => setNewGameModalOpen(true)}
+        onImport={ENABLE_IMPORT ? () => setImportModalOpen(true) : null}
       />
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
           <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
-
-          <GameControls onOpenNewGame={() => setNewGameModalOpen(true)} />
 
           {isLoading && !currentGrid ? (
             <CircularProgress />
@@ -174,6 +182,12 @@ function SudokuApp({ user, signOut }) {
         isLoading={isLoading}
         onConfirm={handleNewGameConfirm}
         onCancel={() => setNewGameModalOpen(false)}
+      />
+      <ImportModal
+        open={importModalOpen}
+        isLoading={isLoading}
+        onConfirm={handleImportConfirm}
+        onCancel={() => setImportModalOpen(false)}
       />
     </ThemeProvider>
   );

@@ -19,6 +19,9 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import HistoryIcon from '@mui/icons-material/History';
+import MenuIcon from '@mui/icons-material/Menu';
+import AddIcon from '@mui/icons-material/Add';
+import ImageIcon from '@mui/icons-material/Image';
 
 function formatTime(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -45,12 +48,18 @@ export default function Header({
   onResume,
   isPaused,
   minimal,
+  onNewGame,
+  onImport,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
+  const [gameMenuAnchorEl, setGameMenuAnchorEl] = useState(null);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
 
   const handleAvatarClick = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
+
+  const handleGameMenuOpen = (e) => setGameMenuAnchorEl(e.currentTarget);
+  const handleGameMenuClose = () => setGameMenuAnchorEl(null);
 
   const handleComingSoon = () => {
     handleMenuClose();
@@ -61,6 +70,36 @@ export default function Header({
     <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
       <Toolbar sx={{ justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {!minimal && (
+            <>
+              <IconButton
+                onClick={handleGameMenuOpen}
+                sx={{ color: 'primary.contrastText' }}
+                size="small"
+                aria-label="Game menu"
+              >
+                <MenuIcon />
+              </IconButton>
+              <Menu
+                anchorEl={gameMenuAnchorEl}
+                open={Boolean(gameMenuAnchorEl)}
+                onClose={handleGameMenuClose}
+                transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+              >
+                <MenuItem onClick={() => { handleGameMenuClose(); onNewGame?.(); }}>
+                  <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText>New Game</ListItemText>
+                </MenuItem>
+                {onImport && (
+                  <MenuItem onClick={() => { handleGameMenuClose(); onImport(); }}>
+                    <ListItemIcon><ImageIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>Import from Image</ListItemText>
+                  </MenuItem>
+                )}
+              </Menu>
+            </>
+          )}
           <GridOnIcon sx={{ fontSize: 28, color: 'primary.contrastText' }} />
           <Typography
             variant="h5"

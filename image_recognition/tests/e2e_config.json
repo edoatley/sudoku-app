@@ -1,0 +1,25 @@
+{
+  "puzzles": [
+    {
+      "name": "puzzle_1",
+      "file": "tests/fixtures/puzzle_1.jpeg",
+      "min_clues": 17,
+      "expected_empty_cells": [[0, 0]],
+      "comment": "Screenshot from a Sudoku app — orange selected cell at [0][0] must be blank (previously returned 2 incorrectly)"
+    },
+    {
+      "name": "puzzle_2",
+      "file": "tests/fixtures/puzzle_2.jpeg",
+      "min_clues": 17,
+      "expected_empty_cells": [[0, 1]],
+      "comment": "Screenshot from a Sudoku app — orange selected cell at [0][1] must be blank"
+    },
+    {
+      "name": "puzzle_3",
+      "file": "tests/fixtures/puzzle_3.jpeg",
+      "min_clues": 17,
+      "expected_empty_cells": [[0, 0]],
+      "comment": "Screenshot from a Sudoku app — orange selected cell at [0][0] must be blank"
+    }
+  ]
+}
