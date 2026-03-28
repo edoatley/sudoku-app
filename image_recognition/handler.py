@@ -5,8 +5,6 @@ Accepts a base64-encoded image via API Gateway and returns a 9x9 Sudoku grid.
 Uses the Bedrock Converse API so the model receives a proper system prompt,
 which is essential for structured JSON output.
 
-Primary model:  Amazon Nova Pro  (on-demand, eu-west-2)
-Fallback model: Amazon Nova Lite (on-demand, eu-west-2)
 """
 from __future__ import annotations
 
@@ -25,13 +23,13 @@ logger.setLevel(logging.INFO)
 
 # ---------------------------------------------------------------------------
 # Model cascade — tried in order, first valid result wins.
-# Both are available on-demand in eu-west-2 with no extra form submission.
 # ---------------------------------------------------------------------------
 _MODELS = [
-    "amazon.nova-2-lite-v1:0",  # cheapest
-    "amazon.nova-pro-v1:0",   # best accuracy; slightly more expensive
-    "anthropic.claude-3-haiku-20240307-v1:0", # pricey
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0", # very pricey
+    # "us.amazon.nova-lite-v1:0",                # Extremely fast/cheap
+    # "us.amazon.nova-pro-v1:0",                 # Highly capable vision
+    "nvidia.nemotron-nano-12b-v2", # The ultimate fallback
+    "mistral.magistral-small-2509", # The ultimate fallback
+    # "global.anthropic.claude-haiku-4-5-20251001-v1:0", # very pricey
 ]
 
 # Downscale to at most this many pixels on the longest edge before sending.
@@ -46,19 +44,12 @@ _MIN_PLAUSIBLE_CLUES = 10
 # Configuration
 # ---------------------------------------------------------------------------
 
-_DEFAULT_REGION = "eu-west-2"
+_DEFAULT_REGION = "us-east-1"
 _AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
 
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
-
-# _SYSTEM_PROMPT = (
-#     "You are a highly precise automated data extraction system. "
-#     "Your only purpose is to read images of Sudoku grids and output strict, "
-#     "perfectly formatted JSON. "
-#     "You do not output markdown, greetings, or conversational text of any kind."
-# )
 
 _SYSTEM_PROMPT = (
     "You are a precise Sudoku digit extractor. You specialize in spatial mapping. "
@@ -66,30 +57,13 @@ _SYSTEM_PROMPT = (
     "You never skip a cell, even if it is empty. You use visual anchors to stay aligned."
 )
 
-# _USER_PROMPT = (
-#     "Analyze the provided image of a Sudoku puzzle.\n\n"
-#     "Instructions:\n"
-#     "1. Focus only on the 9x9 grid. Ignore all UI chrome, shadows, watermarks, "
-#     "and background objects.\n"
-#     "2. You must first use a <scratchpad> to read the board systematically. "
-#     "Go through the grid row by row (Row 1 to Row 9). For each row, write down "
-#     "the 9 digits from left to right. Output 0 for empty cells.\n"
-#     "3. Once you have transcribed all 9 rows, output the final result as a JSON object "
-#     "inside <json> tags.\n\n"
-#     "The JSON object must have a single key 'originalGrid' whose value is a 2D array "
-#     "(a list of 9 lists, each containing 9 integers).\n\n"
-#     "Example structure:\n"
-#     "<scratchpad>\nRow 1: 5 3 0 0 7 0 0 0 0\n...\n</scratchpad>\n"
-#     "<json>\n{\"originalGrid\": [[5,3,0...], ...]}\n</json>"
-# )
-
 _USER_PROMPT = (
     "Analyze the image of the Sudoku puzzle.\n\n"
     "1. In <scratchpad>, transcribe the grid using a pipe-delimited table. Use '.' for empty cells.\n"
     "   Example: | 5 | . | . | | . | 2 | . | | . | . | 8 |\n"
     "2. Ensure every row has exactly 9 cells and the 3x3 blocks align vertically.\n"
     "3. Output the final result as JSON in <json> tags with the key 'originalGrid'.\n\n"
-    "Output 0 for empty cells in the final JSON."
+    "CRITICAL: You MUST wrap your final JSON in <json> and </json> tags. Do not use standard markdown code blocks. Output 0 for empty cells."
 )
 
 # ---------------------------------------------------------------------------
@@ -130,7 +104,8 @@ def handler(event: dict, context: object) -> dict:
             return _error(400, "Image too large — maximum size is 8 MB.")
 
         # Downscale to reduce image-token cost; re-detect media type after
-        image_bytes = _downscale_image(image_bytes)
+        # image_bytes = _downscale_image(image_bytes) # Temporarily bypass to see if PIL is degrading the image too much
+        
         client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
         grid, valid = _recognize_with_bedrock(client, image_bytes)
 
@@ -279,8 +254,11 @@ def _parse_grid(text: str) -> list[list[int]]:
             raise ValueError(f"Extracted string is invalid JSON: {exc}\nString: {json_str[:100]}") from exc
 
         grid = data.get("originalGrid")
+        
+        # FIX: Better error logging so it prints the actual length, not just <class 'list'>
         if not isinstance(grid, list) or len(grid) != 9:
-            raise ValueError(f"'originalGrid' must be a 9-element list, got: {type(grid)}")
+            actual_len = len(grid) if isinstance(grid, list) else 'N/A'
+            raise ValueError(f"'originalGrid' must be a 9-element list, got a {type(grid).__name__} of length {actual_len}")
 
         for i, row in enumerate(grid):
             if not isinstance(row, list) or len(row) != 9:
@@ -292,17 +270,23 @@ def _parse_grid(text: str) -> list[list[int]]:
         return grid
 
     # 2. Fallback: Parse the pipe-delimited scratchpad
-    # This looks for rows like | 1 | . | 5 | ...
     grid_from_text = []
     for line in cleaned.splitlines():
         if '|' in line:
-            parts = [p.strip() for p in line.split('|') if p.strip()]
+            # FIX: Strip out "Row 1:" prefixes before splitting
+            if ':' in line:
+                line = line.split(':', 1)[-1]
+                
+            parts = [p.strip() for p in line.split('|')]
             row_digits = []
             for p in parts:
+                # Strip markdown bolding just in case (e.g., **5**)
+                p = re.sub(r'[*_]', '', p).strip()
                 if p.isdigit():
                     row_digits.append(int(p))
-                elif p == '.':
+                elif p == '.' or p.lower() == 'empty':
                     row_digits.append(0)
+            
             if len(row_digits) == 9:
                 grid_from_text.append(row_digits)
 

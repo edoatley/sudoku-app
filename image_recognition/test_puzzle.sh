@@ -74,3 +74,73 @@ else:
     print(f"Status: {status}")
     print(f"Error:  {body.get('error', 'unknown')}")
 PYEOF
+
+# -- 6. Check answer is correct
+# 1. Extract the inner stringified body from the Lambda response, parse it, and grab just the originalGrid array. 
+# The '-c' flag makes it "compact" (one line, no spaces) so bash can compare it easily.
+actual_grid=$(echo "$RESULT" | jq -r '.body' | jq -c '.originalGrid')
+
+# 2. Use 'cat' with a here-doc, and format it compactly to match
+expected_grid=$(cat << 'EOF' | jq -c '.originalGrid'
+{
+  "originalGrid": [
+    [0, 0, 0, 0, 0, 0, 4, 0, 0],
+    [2, 0, 0, 1, 0, 0, 5, 9, 0],
+    [0, 0, 0, 7, 0, 3, 0, 0, 8],
+    [6, 9, 0, 0, 0, 0, 0, 0, 7],
+    [0, 8, 0, 0, 0, 0, 0, 6, 0],
+    [0, 1, 0, 0, 0, 0, 9, 3, 0],
+    [0, 0, 0, 5, 4, 0, 0, 0, 1],
+    [0, 0, 0, 0, 2, 9, 3, 0, 0],
+    [0, 0, 0, 0, 6, 0, 0, 0, 0]
+  ]
+}
+EOF
+)
+
+# 3. Compare the two compact JSON strings
+# ... (Keep Step 1 and 2 where you extract actual_grid and expected_grid) ...
+
+# 3. Compare the two compact JSON strings and highlight diffs
+if [[ "$actual_grid" == "$expected_grid" ]]; then
+    echo "✅ SUCCESS: The extracted grid matches the expected grid perfectly!"
+else
+    echo "❌ FAILURE: The grids do not match."
+    echo ""
+    
+    # Export variables so Python can read them safely without quote-escaping issues
+    export EXPECTED_GRID="$expected_grid"
+    export ACTUAL_GRID="$actual_grid"
+    
+    "$VENV_DIR/bin/python" - << 'PYEOF'
+import os, json
+
+expected = json.loads(os.environ.get("EXPECTED_GRID", "[]"))
+actual = json.loads(os.environ.get("ACTUAL_GRID", "[]"))
+
+RED = '\033[91m'
+GREEN = '\033[92m'
+RESET = '\033[0m'
+
+def format_grid(primary_grid, reference_grid, diff_color):
+    """Formats the grid into a single string, coloring values that differ."""
+    grid_str = ""
+    for r_idx, p_row in enumerate(primary_grid):
+        r_row = reference_grid[r_idx] if r_idx < len(reference_grid) else []
+        row_str = []
+        for c_idx, p_val in enumerate(p_row):
+            r_val = r_row[c_idx] if c_idx < len(r_row) else None
+            # If values don't match, paint it!
+            if p_val != r_val:
+                row_str.append(f"{diff_color}{p_val}{RESET}")
+            else:
+                row_str.append(str(p_val))
+        grid_str += "[" + ",".join(row_str) + "],"
+    return f"[{grid_str.rstrip(',')}]"
+
+print(f"Expected: {format_grid(expected, actual, GREEN)}")
+print(f"Actual:   {format_grid(actual, expected, RED)}")
+PYEOF
+    echo ""
+    exit 1
+fi
