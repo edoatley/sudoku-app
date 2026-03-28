@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import io
+import os
 import re
 import json
 import logging
@@ -27,8 +28,10 @@ logger.setLevel(logging.INFO)
 # Both are available on-demand in eu-west-2 with no extra form submission.
 # ---------------------------------------------------------------------------
 _MODELS = [
+    "amazon.nova-2-lite-v1:0",  # cheapest
     "amazon.nova-pro-v1:0",   # best accuracy; slightly more expensive
-    "amazon.nova-lite-v1:0",  # cheaper fallback
+    "anthropic.claude-3-haiku-20240307-v1:0", # pricey
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0", # very pricey
 ]
 
 # Downscale to at most this many pixels on the longest edge before sending.
@@ -38,6 +41,13 @@ _MAX_IMAGE_EDGE = 800
 # A valid Sudoku has at least 17 clues.  We use a lower threshold so that
 # very sparse / near-empty grids trigger a retry with the next model.
 _MIN_PLAUSIBLE_CLUES = 10
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+_DEFAULT_REGION = "eu-west-2"
+_AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
 
 # ---------------------------------------------------------------------------
 # Prompts
@@ -121,7 +131,8 @@ def handler(event: dict, context: object) -> dict:
 
         # Downscale to reduce image-token cost; re-detect media type after
         image_bytes = _downscale_image(image_bytes)
-        grid, valid = _recognize_with_bedrock(image_bytes)
+        client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
+        grid, valid = _recognize_with_bedrock(client, image_bytes)
 
         return {
             "statusCode": 200,
@@ -141,7 +152,7 @@ def handler(event: dict, context: object) -> dict:
 # Bedrock orchestration
 # ---------------------------------------------------------------------------
 
-def _recognize_with_bedrock(image_bytes: bytes) -> tuple[list[list[int]], bool]:
+def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[list[int]], bool]:
     """Try each model in _MODELS; return (best_grid, valid) across all attempts.
 
     Scoring (higher is better):
@@ -156,7 +167,6 @@ def _recognize_with_bedrock(image_bytes: bytes) -> tuple[list[list[int]], bool]:
     ``valid`` is True when the best grid has no duplicate digits and has at
     least 17 clues (the minimum for a uniquely-solvable Sudoku puzzle).
     """
-    client = boto3.client("bedrock-runtime", region_name="eu-west-2")
     best_grid: list[list[int]] | None = None
     best_score: int = -1
     best_has_dupe: bool = True
@@ -301,59 +311,6 @@ def _parse_grid(text: str) -> list[list[int]]:
         return grid_from_text
 
     raise ValueError("No JSON object found and no valid pipe-delimited scratchpad in model response.")
-
-
-def _parse_grid_zeroes(text: str) -> list[list[int]]:
-    """
-    Parse the model text response into a 9x9 list of ints.
-    Prioritizes extracting data from within <json> tags.
-    Falls back to finding the first {...} block if tags are missing.
-    Raises ValueError if no valid grid is found.
-    """
-    cleaned = text.strip()
-    json_string = None
-
-    # 1. Primary Strategy: Extract from <json> tags (Chain of Thought)
-    match = re.search(r'<json>\s*(.*?)\s*</json>', cleaned, re.DOTALL | re.IGNORECASE)
-    if match:
-        json_string = match.group(1).strip()
-    else:
-        # 2. Fallback Strategy: Strip markdown and find the first {...} object
-        if "```" in cleaned:
-            lines = cleaned.splitlines()
-            cleaned = "\n".join(
-                line for line in lines if not line.startswith("```")
-            ).strip()
-            
-        start = cleaned.find("{")
-        end = cleaned.rfind("}") + 1
-        if start != -1 and end > 0:
-            json_string = cleaned[start:end]
-
-    if not json_string:
-        raise ValueError(
-            f"No JSON object or <json> tags found in model response: {text[:200]!r}"
-        )
-
-    # 3. Parse the JSON string
-    try:
-        data = json.loads(json_string)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Extracted string is invalid JSON: {exc}\nString: {json_string[:100]}") from exc
-
-    # 4. Validate the 9x9 grid structure
-    grid = data.get("originalGrid")
-    if not isinstance(grid, list) or len(grid) != 9:
-        raise ValueError(f"'originalGrid' must be a 9-element list, got: {type(grid)}")
-        
-    for i, row in enumerate(grid):
-        if not isinstance(row, list) or len(row) != 9:
-            raise ValueError(f"Row {i} must be a 9-element list, got: {row!r}")
-        for j, val in enumerate(row):
-            if not isinstance(val, int) or not (0 <= val <= 9):
-                raise ValueError(f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}")
-
-    return grid
 
 
 # ---------------------------------------------------------------------------

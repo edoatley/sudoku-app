@@ -2,17 +2,21 @@
 Unit tests for handler.py — pure Python, no AWS calls required.
 
 Tests cover:
-  - _parse_grid: valid JSON, markdown fences, embedded JSON, error cases
-  - _downscale_image: resizes large images, leaves small images unchanged, handles corrupt bytes
-  - handler(): request validation (missing body, missing field, oversized payload)
+  - _parse_grid: valid JSON, markdown fences, embedded JSON, error cases, pipe fallback
+  - _downscale_image: resizes large images, leaves small images unchanged, handles corrupt bytes, RGBA
+  - _recognize_with_bedrock: model cascade, scoring, error handling (boto3 client mocked)
+  - _invoke_model: Bedrock Converse API call (boto3 client mocked)
+  - handler(): request validation, success path, 422 and 500 error paths
 """
 from __future__ import annotations
 
 import base64
 import io
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
+from botocore.exceptions import ClientError
 from PIL import Image
 
 import handler
@@ -93,6 +97,33 @@ class TestParseGrid:
         with pytest.raises(ValueError):
             handler._parse_grid("{not valid json}")
 
+    def test_scratchpad_pipe_fallback(self):
+        """When there is no JSON, the parser recovers the grid from pipe-delimited rows."""
+        rows = [
+            "| 5 | 3 | . | . | 7 | . | . | . | . |",
+            "| 6 | . | . | 1 | 9 | 5 | . | . | . |",
+            "| . | 9 | 8 | . | . | . | . | 6 | . |",
+            "| 8 | . | . | . | 6 | . | . | . | 3 |",
+            "| 4 | . | . | 8 | . | 3 | . | . | 1 |",
+            "| 7 | . | . | . | 2 | . | . | . | 6 |",
+            "| . | 6 | . | . | . | . | 2 | 8 | . |",
+            "| . | . | . | 4 | 1 | 9 | . | . | 5 |",
+            "| . | . | . | . | 8 | . | . | 7 | 9 |",
+        ]
+        text = "Here is my scratchpad:\n" + "\n".join(rows)
+        expected = [
+            [5, 3, 0, 0, 7, 0, 0, 0, 0],
+            [6, 0, 0, 1, 9, 5, 0, 0, 0],
+            [0, 9, 8, 0, 0, 0, 0, 6, 0],
+            [8, 0, 0, 0, 6, 0, 0, 0, 3],
+            [4, 0, 0, 8, 0, 3, 0, 0, 1],
+            [7, 0, 0, 0, 2, 0, 0, 0, 6],
+            [0, 6, 0, 0, 0, 0, 2, 8, 0],
+            [0, 0, 0, 4, 1, 9, 0, 0, 5],
+            [0, 0, 0, 0, 8, 0, 0, 7, 9],
+        ]
+        assert handler._parse_grid(text) == expected
+
 
 # ---------------------------------------------------------------------------
 # _downscale_image
@@ -152,6 +183,16 @@ class TestDownscaleImage:
         # After full desaturation (Color.enhance(0.0)) all channels are equal;
         # allow ±5 for JPEG rounding and contrast/sharpness post-processing.
         assert abs(px[0] - px[1]) <= 5 and abs(px[1] - px[2]) <= 5
+
+    def test_rgba_image_composited_onto_white(self):
+        """RGBA images (with transparency) should be composited onto white and output as JPEG."""
+        img = Image.new("RGBA", (100, 100), color=(0, 0, 255, 128))  # semi-transparent blue
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        result = handler._downscale_image(buf.getvalue())
+        out = Image.open(io.BytesIO(result))
+        assert out.format == "JPEG"
+        assert out.mode == "RGB"
 
 
 # ---------------------------------------------------------------------------
@@ -232,3 +273,163 @@ class TestHandlerRequestValidation:
         response = handler.handler({"body": json.dumps({"image": big})}, None)
         assert response["statusCode"] == 400
         assert "8 MB" in json.loads(response["body"])["error"]
+
+    def test_valid_image_returns_200(self):
+        """A valid image with a mocked Bedrock call returns 200 with originalGrid."""
+        grid = [[0] * 9 for _ in range(9)]
+        image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
+        with patch("handler.boto3") as mock_boto3, \
+             patch("handler._recognize_with_bedrock", return_value=(grid, True)):
+            mock_boto3.client.return_value = MagicMock()
+            response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["originalGrid"] == grid
+        assert body["validPuzzle"] is True
+
+    def test_recognize_raises_value_error_returns_422(self):
+        """When _recognize_with_bedrock raises ValueError, handler returns 422."""
+        image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
+        with patch("handler.boto3") as mock_boto3, \
+             patch("handler._recognize_with_bedrock", side_effect=ValueError("no grid found")):
+            mock_boto3.client.return_value = MagicMock()
+            response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
+        assert response["statusCode"] == 422
+        assert "no grid found" in json.loads(response["body"])["error"]
+
+    def test_recognize_raises_unexpected_exception_returns_500(self):
+        """When _recognize_with_bedrock raises an unexpected error, handler returns 500."""
+        image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
+        with patch("handler.boto3") as mock_boto3, \
+             patch("handler._recognize_with_bedrock", side_effect=RuntimeError("boom")):
+            mock_boto3.client.return_value = MagicMock()
+            response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
+        assert response["statusCode"] == 500
+
+
+# ---------------------------------------------------------------------------
+# _recognize_with_bedrock (boto3 client mocked)
+# ---------------------------------------------------------------------------
+
+def _make_mock_client(response_text: str) -> MagicMock:
+    """Return a mock boto3 bedrock-runtime client that returns the given text."""
+    client = MagicMock()
+    client.converse.return_value = {
+        "output": {"message": {"content": [{"text": response_text}]}}
+    }
+    return client
+
+
+def _grid_json(grid: list[list[int]]) -> str:
+    return json.dumps({"originalGrid": grid})
+
+
+# A clean grid with 25 clues and no duplicates
+_CLEAN_GRID = [
+    [5, 3, 0, 0, 7, 0, 0, 0, 0],
+    [6, 0, 0, 1, 9, 5, 0, 0, 0],
+    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+    [0, 0, 0, 0, 8, 0, 0, 7, 9],
+]
+
+# A grid with a row-duplicate (5 appears twice in row 0)
+_DUPE_GRID = [
+    [5, 5, 0, 0, 7, 0, 0, 0, 0],
+    [6, 0, 0, 1, 9, 4, 0, 0, 0],
+    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+    [0, 0, 0, 0, 8, 0, 0, 7, 9],
+]
+
+# A grid with only 3 clues (below _MIN_PLAUSIBLE_CLUES)
+_SPARSE_GRID = [[0] * 9 for _ in range(9)]
+_SPARSE_GRID[0][0] = 1
+_SPARSE_GRID[1][1] = 2
+_SPARSE_GRID[2][2] = 3
+
+
+class TestRecognizeWithBedrock:
+
+    def test_first_model_success_returns_clean_grid(self):
+        """A valid response from the first model returns (grid, True) immediately."""
+        client = _make_mock_client(_grid_json(_CLEAN_GRID))
+        grid, valid = handler._recognize_with_bedrock(client, b"fake-image")
+        assert grid == _CLEAN_GRID
+        assert valid is True
+        # Early-exit: converse called exactly once
+        assert client.converse.call_count == 1
+
+    def test_first_model_too_few_clues_falls_through_to_second(self):
+        """When the first model returns too few clues, the second model is tried."""
+        client = MagicMock()
+        client.converse.side_effect = [
+            {"output": {"message": {"content": [{"text": _grid_json(_SPARSE_GRID)}]}}},
+            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID)}]}}},
+        ]
+        grid, valid = handler._recognize_with_bedrock(client, b"fake-image")
+        assert grid == _CLEAN_GRID
+        assert valid is True
+        assert client.converse.call_count == 2
+
+    def test_first_model_has_duplicates_tries_second(self):
+        """When the first model returns a grid with duplicates, the second is tried."""
+        client = MagicMock()
+        client.converse.side_effect = [
+            {"output": {"message": {"content": [{"text": _grid_json(_DUPE_GRID)}]}}},
+            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID)}]}}},
+        ]
+        grid, valid = handler._recognize_with_bedrock(client, b"fake-image")
+        assert grid == _CLEAN_GRID
+        assert valid is True
+
+    def test_all_models_fail_raises_value_error(self):
+        """When all models raise ClientError, ValueError is raised."""
+        client = MagicMock()
+        error_response = {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}}
+        client.converse.side_effect = ClientError(error_response, "Converse")
+        with pytest.raises(ValueError, match="All models failed"):
+            handler._recognize_with_bedrock(client, b"fake-image")
+
+    def test_all_models_return_duplicates_returns_invalid(self):
+        """When every model returns a grid with duplicates, valid is False."""
+        client = _make_mock_client(_grid_json(_DUPE_GRID))
+        grid, valid = handler._recognize_with_bedrock(client, b"fake-image")
+        assert grid == _DUPE_GRID
+        assert valid is False
+
+
+# ---------------------------------------------------------------------------
+# _invoke_model (boto3 client mocked)
+# ---------------------------------------------------------------------------
+
+
+class TestInvokeModel:
+
+    def test_returns_parsed_grid(self):
+        """A valid Bedrock response is parsed into the expected grid."""
+        client = _make_mock_client(_grid_json(_CLEAN_GRID))
+        result = handler._invoke_model(client, "amazon.nova-pro-v1:0", b"fake-image")
+        assert result == _CLEAN_GRID
+
+    def test_passes_correct_model_id(self):
+        """The modelId passed to _invoke_model is forwarded to client.converse."""
+        model_id = "amazon.nova-lite-v1:0"
+        client = _make_mock_client(_grid_json(_CLEAN_GRID))
+        handler._invoke_model(client, model_id, b"fake-image")
+        call_kwargs = client.converse.call_args[1]
+        assert call_kwargs["modelId"] == model_id
+
+    def test_raises_on_invalid_response_text(self):
+        """When the model returns malformed text, ValueError is raised."""
+        client = _make_mock_client("This is not JSON at all")
+        with pytest.raises(ValueError):
+            handler._invoke_model(client, "amazon.nova-pro-v1:0", b"fake-image")

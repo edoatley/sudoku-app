@@ -35,6 +35,8 @@ PYEOF
 
 # ── 4. Invoke handler.py ──────────────────────────────────────────────────────
 echo "Calling handler..."
+export AWS_REGION_NAME="us-east-1"
+export AWS_PROFILE="sandbox"
 RESULT=$(cd "$SCRIPT_DIR" && "$VENV_DIR/bin/python" - "$TMP_PAYLOAD" <<'PYEOF'
 import json, sys, os
 sys.path.insert(0, os.getcwd())
