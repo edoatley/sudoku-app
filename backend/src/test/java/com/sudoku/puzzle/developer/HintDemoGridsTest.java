@@ -2,11 +2,13 @@ package com.sudoku.puzzle.developer;
 
 import com.sudoku.domain.Board;
 import com.sudoku.dto.ActionableCell;
+import com.sudoku.dto.CandidateElimination;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.puzzle.hint.FullHouseStrategy;
 import com.sudoku.puzzle.hint.HiddenSingleStrategy;
 import com.sudoku.puzzle.hint.NakedPairStrategy;
 import com.sudoku.puzzle.hint.NakedSingleStrategy;
+import com.sudoku.puzzle.hint.NakedTripleStrategy;
 import com.sudoku.puzzle.hint.PointingPairStrategy;
 import org.junit.jupiter.api.Test;
 
@@ -138,6 +140,36 @@ class HintDemoGridsTest {
         assertValidPartialSudoku(HintDemoGrids.forSlug("pointing-pair"));
     }
 
+    // ---- naked-triple ----
+
+    @Test
+    void nakedTriple_demoGrid_strategyFiresAfterAutocomplete() {
+        // Autocomplete includes PointingPair (rank 50) so its eliminations are applied first,
+        // ensuring PP is exhausted before NT is checked — matching DevResource behaviour.
+        Board board = autocompleteToBoard(
+                HintDemoGrids.forSlug("naked-triple"),
+                new FullHouseStrategy(), new NakedSingleStrategy(),
+                new NakedPairStrategy(), new HiddenSingleStrategy(),
+                new PointingPairStrategy());
+
+        // Verify PointingPair does not fire on the autocompleted board (it must be exhausted)
+        Optional<HintResponse> ppHint = new PointingPairStrategy().evaluate(board);
+        assertTrue(ppHint.isEmpty(),
+                "PointingPairStrategy must NOT fire on the autocompleted naked-triple demo grid " +
+                "(it would take priority over NakedTriple at runtime)");
+
+        Optional<HintResponse> hint = new NakedTripleStrategy().evaluate(board);
+
+        assertTrue(hint.isPresent(), "NakedTripleStrategy must fire after autocomplete of the naked-triple demo grid");
+        assertEquals("naked-triple", hint.get().markdownSlug());
+        assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Naked triple must produce candidate eliminations");
+    }
+
+    @Test
+    void nakedTriple_demoGrid_isValidSudoku() {
+        assertValidPartialSudoku(HintDemoGrids.forSlug("naked-triple"));
+    }
+
     // ---- slugs coverage ----
 
     @Test
@@ -163,29 +195,61 @@ class HintDemoGridsTest {
     }
 
     /**
-     * Simulates the DevResource autocomplete: repeatedly applies simpler strategies
-     * (filling solvedCells) until none fire.
+     * Simulates the DevResource autocomplete: applies simpler strategies (filling solvedCells
+     * AND applying eliminatedCandidates) on a persistent board until none fire.
+     * Returns the autocompleted grid as an immutable list (for grid-based assertions).
      */
     private List<List<Integer>> autocompleteSimpler(List<List<Integer>> grid,
             com.sudoku.puzzle.hint.HintStrategy... simpler) {
         int[][] work = to2dArray(grid);
+        autocompleteToBoard(grid, work, simpler);
+        return toImmutableList(work);
+    }
+
+    /**
+     * Like {@link #autocompleteSimpler} but returns the live Board so callers can
+     * evaluate further strategies against the fully-resolved candidate state.
+     */
+    private Board autocompleteToBoard(List<List<Integer>> grid,
+            com.sudoku.puzzle.hint.HintStrategy... simpler) {
+        int[][] work = to2dArray(grid);
+        return autocompleteToBoard(grid, work, simpler);
+    }
+
+    private Board autocompleteToBoard(List<List<Integer>> grid, int[][] work,
+            com.sudoku.puzzle.hint.HintStrategy... simpler) {
+        Board board = Board.fromGrid(toImmutableList(work));
+        board.calculateAllCandidates();
         boolean progress = true;
         while (progress) {
             progress = false;
-            Board board = Board.fromGrid(toImmutableList(work));
-            board.calculateAllCandidates();
             for (var strategy : simpler) {
                 Optional<HintResponse> hint = strategy.evaluate(board);
-                if (hint.isPresent() && hint.get().solvedCells() != null && !hint.get().solvedCells().isEmpty()) {
-                    for (ActionableCell cell : hint.get().solvedCells()) {
-                        work[cell.row()][cell.col()] = cell.value();
+                if (hint.isPresent()) {
+                    HintResponse h = hint.get();
+                    boolean changed = false;
+                    if (h.solvedCells() != null && !h.solvedCells().isEmpty()) {
+                        for (ActionableCell cell : h.solvedCells()) {
+                            work[cell.row()][cell.col()] = cell.value();
+                            board.getCell(cell.row(), cell.col()).setValue(cell.value());
+                            changed = true;
+                        }
+                        board.calculateAllCandidates();
                     }
-                    progress = true;
-                    break;
+                    if (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty()) {
+                        for (CandidateElimination elim : h.eliminatedCandidates()) {
+                            board.getCell(elim.row(), elim.col()).removeCandidate(elim.value());
+                            changed = true;
+                        }
+                    }
+                    if (changed) {
+                        progress = true;
+                        break;
+                    }
                 }
             }
         }
-        return toImmutableList(work);
+        return board;
     }
 
     /**

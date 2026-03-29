@@ -2,6 +2,7 @@ package com.sudoku.puzzle.developer;
 
 import com.sudoku.domain.Board;
 import com.sudoku.dto.ActionableCell;
+import com.sudoku.dto.CandidateElimination;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.puzzle.hint.HintStrategy;
@@ -67,7 +68,7 @@ public class DevResource {
         int targetRank = rankForSlug(technique);
         List<List<Integer>> readyGrid = autocompleteSimpler(baseGrid, targetRank);
 
-        PuzzleResponse puzzleResponse = new PuzzleResponse(readyGrid, "demo");
+        PuzzleResponse puzzleResponse = new PuzzleResponse(readyGrid, "demo", targetRank);
         return Response.ok(puzzleResponse).build();
     }
 
@@ -102,35 +103,53 @@ public class DevResource {
 
     /**
      * Applies all strategies with rank {@literal <} targetRank repeatedly until none fire,
-     * filling in any solved cells. This ensures the grid is ready for the target technique.
+     * filling in solved cells and applying candidate eliminations. This ensures the grid is
+     * ready for the target technique — simpler strategies (including elimination-only ones
+     * like PointingPair) are fully exhausted before the target technique is attempted.
      */
     private List<List<Integer>> autocompleteSimpler(List<List<Integer>> grid, int targetRank) {
-        // Work on a mutable copy
-        int[][] work = to2dArray(grid);
-
         List<HintStrategy> simpler = strategies.stream()
                 .filter(s -> s.getDifficultyRank() < targetRank)
                 .toList();
 
         if (simpler.isEmpty()) return grid;
 
+        // Build a persistent board so candidate eliminations survive across iterations
+        int[][] work = to2dArray(grid);
+        Board board = Board.fromGrid(toImmutableList(work));
+        board.calculateAllCandidates();
+
         boolean progress = true;
         while (progress) {
             progress = false;
-            List<List<Integer>> current = toImmutableList(work);
-            Board board = Board.fromGrid(current);
-            board.calculateAllCandidates();
-
             for (HintStrategy strategy : simpler) {
                 Optional<HintResponse> hint = strategy.evaluate(board);
                 if (hint.isPresent()) {
-                    List<ActionableCell> solved = hint.get().solvedCells();
-                    if (solved != null && !solved.isEmpty()) {
-                        for (ActionableCell cell : solved) {
+                    HintResponse h = hint.get();
+                    boolean changed = false;
+
+                    // Apply solved cells — update both the board and the work array
+                    if (h.solvedCells() != null && !h.solvedCells().isEmpty()) {
+                        for (ActionableCell cell : h.solvedCells()) {
                             work[cell.row()][cell.col()] = cell.value();
+                            board.getCell(cell.row(), cell.col()).setValue(cell.value());
+                            changed = true;
                         }
+                        // Recompute all candidates after placing new digits
+                        board.calculateAllCandidates();
+                    }
+
+                    // Apply candidate eliminations directly to the persistent board
+                    if (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty()) {
+                        for (CandidateElimination elim : h.eliminatedCandidates()) {
+                            board.getCell(elim.row(), elim.col()).removeCandidate(elim.value());
+                            changed = true;
+                        }
+                    }
+
+                    if (changed) {
                         progress = true;
-                        break; // restart from the beginning with fresh candidates
+                        break; // restart from the lowest-rank simpler strategy
                     }
                 }
             }

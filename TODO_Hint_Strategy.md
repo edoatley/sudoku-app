@@ -9,12 +9,12 @@
 | 30 | Naked Pair | Medium | `NakedPairStrategy.java` |
 | 40 | Hidden Single | Easy | `HiddenSingleStrategy.java` |
 | 50 | Pointing Pair | Medium | `PointingPairStrategy.java` |
+| 60 | Naked Triple | Medium | `NakedTripleStrategy.java` |
 
 ## Remaining Strategies
 
 | Rank | Strategy | Difficulty | Concept |
 |------|----------|------------|---------|
-| 60 | Naked Triple | Medium | Three cells in a unit share exactly the same three candidates |
 | 70 | Hidden Pair | Medium | Two candidates appear in only two cells in a unit; remove other candidates from those cells |
 | 80 | Hidden Triple | Hard | Three candidates restricted to exactly three cells in a unit |
 | 90 | X-Wing | Hard | Candidate restricted to two cells in two rows sharing the same two columns |
@@ -35,7 +35,7 @@ Every strategy requires **five changes**:
 3. **Demo grid JSON** — `backend/src/main/resources/developer/hint-demo-<slug>.json`
    - A puzzle where the target strategy fires **after** lower-rank strategies have autocompleted all cells they can
    - Format: `{ "slug": "<slug>", "description": "...", "grid": [[...9 rows...]] }`
-   - **Critical:** the grid must not be solvable by any lower-rank strategy after autocomplete — test this before committing
+   - The grid does **not** need to be free of lower-rank strategies — `minRank` suppresses them at hint time (see "Demo Grid and `minRank`" section below)
    - Add slug to `KNOWN_SLUGS` in `HintDemoGrids.java`
 4. **Demo grid contract tests** — add to `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java`
    - `<slug>_demoGrid_strategyFiresAfterAutocomplete()` — autocomplete with all lower strategies, then assert the target strategy fires and `markdownSlug` matches
@@ -46,11 +46,21 @@ Every strategy requires **five changes**:
    - Add `{ slug: '<slug>', label: '<Name> demo' }` to the `DEMO_TECHNIQUES` array
    - The new entry is automatically covered by the Playwright hint demo tests in `ui/tests/integration/hint-demos.spec.js` — add the new `{ slug, label, techniqueName }` entry to `HINT_DEMOS` there too
 
-### Demo Grid Pitfall
+### Demo Grid and `minRank`
 
-> **Lesson learned from Pointing Pair:** A grid that looks appropriate can be fully solved by simpler strategies, leaving nothing for the target strategy. Always verify by running the `HintDemoGridsTest` contract test before finalising the JSON. If the test fails, the grid needs to be harder (more cells left empty, fewer obvious singles).
+> **Lesson learned from Pointing Pair / Naked Triple:** Even after `DevResource` autocompletes simpler strategies, the grid sent to the UI only encodes filled cells — candidate eliminations applied during autocomplete are lost. When the user clicks Hint, the backend recalculates candidates from scratch, and simpler strategies (e.g. Pointing Pair) fire again instead of the target.
 
-To find a suitable grid: start from a puzzle rated at the target difficulty level (e.g. a "medium" puzzle for Naked Triple) and confirm with the contract test. The `GridDiagTest` temporary test pattern used during development — create it, run it, delete it — is a useful diagnostic tool.
+**The fix:** `DevResource.hintDemo` now includes `minRank` (the target strategy's difficulty rank) in the `PuzzleResponse`. The UI stores this and passes it as `minRank` in every `POST /puzzles/hint` request for that demo. The backend then skips all strategies below `minRank`, so the first hint click always fires the intended technique.
+
+**Consequence for demo grid design:** The demo grid no longer needs to be free of lower-rank strategies after autocomplete — `minRank` suppresses them at hint time. The grid just needs to produce a valid instance of the target strategy after the lower strategies have run (which `DevResource` still does for autocomplete).
+
+**Still required:** run the `HintDemoGridsTest` contract tests to confirm the target strategy fires after autocomplete. The `GridDiagTest` temporary test pattern used during development — create it, run it, delete it — is a useful diagnostic tool.
+
+**Wiring summary for `minRank`:**
+- `DevResource.hintDemo` → resolves `targetRank` via `rankForSlug`, includes it as `minRank` in `PuzzleResponse`
+- `useSudokuGame.loadDemoGame` → stores `data.minRank` in `hintMinRank` state (cleared to `null` on normal game start)
+- `sudokuApi.getHint(currentGrid, minRank)` → includes `minRank` in the request body when non-null
+- `BoardRequest.minRank` → optional field; `SudokuServiceImpl.getHint` skips strategies with `getDifficultyRank() < minRank`
 
 ---
 
@@ -324,7 +334,7 @@ Each row covers: strategy class + strategy test + demo JSON + HintDemoGridsTest 
 - [x] NakedPairStrategy
 - [x] HiddenSingleStrategy
 - [x] PointingPairStrategy
-- [ ] NakedTripleStrategy
+- [x] NakedTripleStrategy
 - [ ] HiddenPairStrategy
 - [ ] HiddenTripleStrategy
 - [ ] XWingStrategy

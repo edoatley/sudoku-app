@@ -69,16 +69,17 @@ export async function validatePuzzle(currentGrid) {
   });
 }
 
-export async function getHint(currentGrid) {
+export async function getHint(currentGrid, minRank = null) {
   if (MOCK_API) {
     await delay(400);
     return CANNED_HINT;
   }
 
+  const body = minRank != null ? { currentGrid, minRank } : { currentGrid };
   return apiFetch('getHint', `${API_URL}/puzzles/hint`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentGrid }),
+    body: JSON.stringify(body),
   });
 }
 

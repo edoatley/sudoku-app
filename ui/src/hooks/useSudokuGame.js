@@ -47,6 +47,7 @@ export function useSudokuGame(user) {
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
   const [gameId, setGameId] = useState(null);
+  const [hintMinRank, setHintMinRank] = useState(null);
   const prevUserIdRef = useRef(user?.username ?? null);
   const [isSyncing, setIsSyncing] = useState(false);
   const gameIdRef = useRef(null);
@@ -111,6 +112,7 @@ export function useSudokuGame(user) {
       setAutoNotesGrid(null);
       setAutoNotesActive(false);
       setHistory([]);
+      setHintMinRank(null);
       lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0);
       startTimer();
     } catch (err) {
@@ -320,7 +322,7 @@ export function useSudokuGame(user) {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const hint = await getHint(currentGrid);
+      const hint = await getHint(currentGrid, hintMinRank);
       setActiveHint(hint);
       setHintStage('nudge');
       setHighlightCells([]);
@@ -507,6 +509,7 @@ export function useSudokuGame(user) {
       setAutoNotesGrid(null);
       setAutoNotesActive(false);
       setHistory([]);
+      setHintMinRank(data.minRank ?? null);
       lsClear();
       startTimer();
     } catch (err) {
