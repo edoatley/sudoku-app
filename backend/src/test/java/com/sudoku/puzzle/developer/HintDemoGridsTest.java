@@ -4,8 +4,10 @@ import com.sudoku.domain.Board;
 import com.sudoku.dto.ActionableCell;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.puzzle.hint.FullHouseStrategy;
+import com.sudoku.puzzle.hint.HiddenSingleStrategy;
 import com.sudoku.puzzle.hint.NakedPairStrategy;
 import com.sudoku.puzzle.hint.NakedSingleStrategy;
+import com.sudoku.puzzle.hint.PointingPairStrategy;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -87,6 +89,53 @@ class HintDemoGridsTest {
     @Test
     void nakedPair_demoGrid_isValidSudoku() {
         assertValidPartialSudoku(HintDemoGrids.forSlug("naked-pair"));
+    }
+
+    // ---- hidden-single ----
+
+    @Test
+    void hiddenSingle_demoGrid_strategyFiresAfterAutocomplete() {
+        List<List<Integer>> autocompleted = autocompleteSimpler(
+                HintDemoGrids.forSlug("hidden-single"),
+                new FullHouseStrategy(), new NakedSingleStrategy());
+
+        Board board = Board.fromGrid(autocompleted);
+        board.calculateAllCandidates();
+
+        Optional<HintResponse> hint = new HiddenSingleStrategy().evaluate(board);
+
+        assertTrue(hint.isPresent(), "HiddenSingleStrategy must fire after autocomplete of the hidden-single demo grid");
+        assertEquals("hidden-single", hint.get().markdownSlug());
+        assertFalse(hint.get().solvedCells().isEmpty(), "Hidden single must produce a solved cell");
+    }
+
+    @Test
+    void hiddenSingle_demoGrid_isValidSudoku() {
+        assertValidPartialSudoku(HintDemoGrids.forSlug("hidden-single"));
+    }
+
+    // ---- pointing-pair ----
+
+    @Test
+    void pointingPair_demoGrid_strategyFiresAfterAutocomplete() {
+        List<List<Integer>> autocompleted = autocompleteSimpler(
+                HintDemoGrids.forSlug("pointing-pair"),
+                new FullHouseStrategy(), new NakedSingleStrategy(),
+                new NakedPairStrategy(), new HiddenSingleStrategy());
+
+        Board board = Board.fromGrid(autocompleted);
+        board.calculateAllCandidates();
+
+        Optional<HintResponse> hint = new PointingPairStrategy().evaluate(board);
+
+        assertTrue(hint.isPresent(), "PointingPairStrategy must fire after autocomplete of the pointing-pair demo grid");
+        assertEquals("pointing-pair", hint.get().markdownSlug());
+        assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Pointing pair must produce candidate eliminations");
+    }
+
+    @Test
+    void pointingPair_demoGrid_isValidSudoku() {
+        assertValidPartialSudoku(HintDemoGrids.forSlug("pointing-pair"));
     }
 
     // ---- slugs coverage ----
