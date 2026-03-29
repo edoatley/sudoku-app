@@ -26,6 +26,11 @@ output "subdomain_nameservers" {
   value       = local.is_default ? aws_route53_zone.sudoku[0].name_servers : []
 }
 
+output "route53_zone_id" {
+  description = "Route53 hosted zone ID for sudoku.edoatley.co.uk (read by rc-* workspaces via remote state)."
+  value       = local.is_default ? aws_route53_zone.sudoku[0].zone_id : null
+}
+
 output "lambda_function_name" {
   description = "Lambda function name."
   value       = aws_lambda_function.sudoku.function_name

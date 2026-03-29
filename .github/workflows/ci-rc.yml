@@ -126,7 +126,7 @@ jobs:
   deploy:
     name: Terraform Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     needs: [ci, integration, changes, build-backend, build-image-recognition]
     if: always() && !failure() && !cancelled()
     outputs:
@@ -207,7 +207,14 @@ jobs:
           -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
           -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
 
-      - name: Terraform apply
+      - name: Terraform apply (all resources except domain association)
+        working-directory: infra
+        run: |
+          terraform apply -auto-approve -input=false \
+            -exclude=aws_amplify_domain_association.beta \
+            tfplan
+
+      - name: Terraform apply (domain association — may take up to 40 min for ACM)
         working-directory: infra
         run: terraform apply -auto-approve -input=false tfplan
 
