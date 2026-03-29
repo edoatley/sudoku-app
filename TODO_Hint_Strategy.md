@@ -25,19 +25,32 @@
 
 ## How Each Strategy Is Wired Up
 
-Every strategy requires **four changes**:
+Every strategy requires **five changes**:
 
 1. **Strategy class** — `backend/src/main/java/com/sudoku/puzzle/hint/<Name>Strategy.java`
    - `@ApplicationScoped` (CDI auto-discovers it — no registration needed in `SudokuServiceImpl`)
    - Implements `HintStrategy`: `evaluate(Board)` + `getDifficultyRank()`
-2. **Test class** — `backend/src/test/java/com/sudoku/puzzle/hint/<Name>StrategyTest.java`
-   - Follow the pattern in `NakedPairStrategyTest` / `HiddenSingleStrategyTest`
+2. **Strategy test class** — `backend/src/test/java/com/sudoku/puzzle/hint/<Name>StrategyTest.java`
+   - Follow the pattern in `NakedPairStrategyTest` / `HiddenSingleStrategyTest` / `PointingPairStrategyTest`
 3. **Demo grid JSON** — `backend/src/main/resources/developer/hint-demo-<slug>.json`
-   - A puzzle where the target strategy fires first (after lower-rank strategies autocomplete cells)
+   - A puzzle where the target strategy fires **after** lower-rank strategies have autocompleted all cells they can
    - Format: `{ "slug": "<slug>", "description": "...", "grid": [[...9 rows...]] }`
+   - **Critical:** the grid must not be solvable by any lower-rank strategy after autocomplete — test this before committing
    - Add slug to `KNOWN_SLUGS` in `HintDemoGrids.java`
-4. **Developer menu entry** — `ui/src/components/Header.jsx`
+4. **Demo grid contract tests** — add to `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java`
+   - `<slug>_demoGrid_strategyFiresAfterAutocomplete()` — autocomplete with all lower strategies, then assert the target strategy fires and `markdownSlug` matches
+   - `<slug>_demoGrid_isValidSudoku()` — assert no duplicate digits in any row/column/block
+   - Follow the `nakedPair_*` / `pointingPair_*` patterns already in the file
+   - **These tests are the verification gate for the demo grid** — do not finalise the JSON until they pass
+5. **Developer menu entry** — `ui/src/components/Header.jsx`
    - Add `{ slug: '<slug>', label: '<Name> demo' }` to the `DEMO_TECHNIQUES` array
+   - The new entry is automatically covered by the Playwright hint demo tests in `ui/tests/integration/hint-demos.spec.js` — add the new `{ slug, label, techniqueName }` entry to `HINT_DEMOS` there too
+
+### Demo Grid Pitfall
+
+> **Lesson learned from Pointing Pair:** A grid that looks appropriate can be fully solved by simpler strategies, leaving nothing for the target strategy. Always verify by running the `HintDemoGridsTest` contract test before finalising the JSON. If the test fails, the grid needs to be harder (more cells left empty, fewer obvious singles).
+
+To find a suitable grid: start from a puzzle rated at the target difficulty level (e.g. a "medium" puzzle for Naked Triple) and confirm with the contract test. The `GridDiagTest` temporary test pattern used during development — create it, run it, delete it — is a useful diagnostic tool.
 
 ---
 
@@ -52,7 +65,9 @@ Every strategy requires **four changes**:
 
 **Files to modify:**
 - `backend/src/main/java/com/sudoku/puzzle/developer/HintDemoGrids.java` — add `"naked-triple"` to `KNOWN_SLUGS`
+- `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java` — add `nakedTriple_demoGrid_strategyFiresAfterAutocomplete()` and `nakedTriple_demoGrid_isValidSudoku()` (autocomplete with FullHouse + NakedSingle + HiddenSingle)
 - `ui/src/components/Header.jsx` — add `{ slug: 'naked-triple', label: 'Naked Triple demo' }`
+- `ui/tests/integration/hint-demos.spec.js` — add `{ slug: 'naked-triple', label: 'Naked Triple demo', techniqueName: 'Naked Triple' }` to `HINT_DEMOS`
 
 **Algorithm:**
 - For each unit (row 0–8, column 0–8, block 0–8):
@@ -89,7 +104,9 @@ Every strategy requires **four changes**:
 
 **Files to modify:**
 - `backend/src/main/java/com/sudoku/puzzle/developer/HintDemoGrids.java` — add `"hidden-pair"` to `KNOWN_SLUGS`
+- `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java` — add `hiddenPair_demoGrid_strategyFiresAfterAutocomplete()` and `hiddenPair_demoGrid_isValidSudoku()` (autocomplete with FullHouse + NakedSingle + NakedTriple + HiddenSingle)
 - `ui/src/components/Header.jsx` — add `{ slug: 'hidden-pair', label: 'Hidden Pair demo' }`
+- `ui/tests/integration/hint-demos.spec.js` — add `{ slug: 'hidden-pair', label: 'Hidden Pair demo', techniqueName: 'Hidden Pair' }` to `HINT_DEMOS`
 
 **Algorithm:**
 - For each unit (row, column, block):
@@ -127,7 +144,9 @@ Every strategy requires **four changes**:
 
 **Files to modify:**
 - `backend/src/main/java/com/sudoku/puzzle/developer/HintDemoGrids.java` — add `"hidden-triple"` to `KNOWN_SLUGS`
+- `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java` — add `hiddenTriple_demoGrid_strategyFiresAfterAutocomplete()` and `hiddenTriple_demoGrid_isValidSudoku()` (autocomplete with FullHouse + NakedSingle + NakedTriple + HiddenSingle + HiddenPair)
 - `ui/src/components/Header.jsx` — add `{ slug: 'hidden-triple', label: 'Hidden Triple demo' }`
+- `ui/tests/integration/hint-demos.spec.js` — add `{ slug: 'hidden-triple', label: 'Hidden Triple demo', techniqueName: 'Hidden Triple' }` to `HINT_DEMOS`
 
 **Algorithm:**
 - For each unit (row, column, block):
@@ -164,7 +183,9 @@ Every strategy requires **four changes**:
 
 **Files to modify:**
 - `backend/src/main/java/com/sudoku/puzzle/developer/HintDemoGrids.java` — add `"x-wing"` to `KNOWN_SLUGS`
+- `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java` — add `xWing_demoGrid_strategyFiresAfterAutocomplete()` and `xWing_demoGrid_isValidSudoku()` (autocomplete with all lower strategies)
 - `ui/src/components/Header.jsx` — add `{ slug: 'x-wing', label: 'X-Wing demo' }`
+- `ui/tests/integration/hint-demos.spec.js` — add `{ slug: 'x-wing', label: 'X-Wing demo', techniqueName: 'X-Wing' }` to `HINT_DEMOS`
 
 **Algorithm:**
 - For each digit 1–9:
@@ -202,7 +223,9 @@ Every strategy requires **four changes**:
 
 **Files to modify:**
 - `backend/src/main/java/com/sudoku/puzzle/developer/HintDemoGrids.java` — add `"swordfish"` to `KNOWN_SLUGS`
+- `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java` — add `swordfish_demoGrid_strategyFiresAfterAutocomplete()` and `swordfish_demoGrid_isValidSudoku()` (autocomplete with all lower strategies)
 - `ui/src/components/Header.jsx` — add `{ slug: 'swordfish', label: 'Swordfish demo' }`
+- `ui/tests/integration/hint-demos.spec.js` — add `{ slug: 'swordfish', label: 'Swordfish demo', techniqueName: 'Swordfish' }` to `HINT_DEMOS`
 
 **Algorithm:**
 - For each digit 1–9:
@@ -239,7 +262,9 @@ Every strategy requires **four changes**:
 
 **Files to modify:**
 - `backend/src/main/java/com/sudoku/puzzle/developer/HintDemoGrids.java` — add `"y-wing"` to `KNOWN_SLUGS`
+- `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java` — add `yWing_demoGrid_strategyFiresAfterAutocomplete()` and `yWing_demoGrid_isValidSudoku()` (autocomplete with all lower strategies)
 - `ui/src/components/Header.jsx` — add `{ slug: 'y-wing', label: 'Y-Wing demo' }`
+- `ui/tests/integration/hint-demos.spec.js` — add `{ slug: 'y-wing', label: 'Y-Wing demo', techniqueName: 'Y-Wing' }` to `HINT_DEMOS`
 
 **Algorithm:**
 - For each empty cell P (pivot) with exactly 2 candidates `{A, B}`:
@@ -284,20 +309,24 @@ Every strategy requires **four changes**:
 | Coordinate record | `backend/src/main/java/com/sudoku/dto/Coordinate.java` |
 | Best reference impl | `backend/src/main/java/com/sudoku/puzzle/hint/NakedPairStrategy.java` |
 | Demo grid registry | `backend/src/main/java/com/sudoku/puzzle/developer/HintDemoGrids.java` |
+| Demo grid contract tests | `backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java` |
 | Dev endpoint | `backend/src/main/java/com/sudoku/puzzle/developer/DevResource.java` |
 | Developer menu UI | `ui/src/components/Header.jsx` |
+| Hint demo Playwright tests | `ui/tests/integration/hint-demos.spec.js` |
 | Frontend technique docs | `ui/public/techniques/<slug>.md` |
 
 ## Implementation Checklist
 
-- [x] FullHouseStrategy + test + demo
-- [x] NakedSingleStrategy + test + demo
-- [x] NakedPairStrategy + test + demo
-- [x] HiddenSingleStrategy + test + demo
-- [x] PointingPairStrategy + test + demo
-- [ ] NakedTripleStrategy + test + demo
-- [ ] HiddenPairStrategy + test + demo
-- [ ] HiddenTripleStrategy + test + demo
-- [ ] XWingStrategy + test + demo
-- [ ] SwordfishStrategy + test + demo
-- [ ] YWingStrategy + test + demo
+Each row covers: strategy class + strategy test + demo JSON + HintDemoGridsTest contract tests + Header.jsx entry + hint-demos.spec.js entry.
+
+- [x] FullHouseStrategy
+- [x] NakedSingleStrategy
+- [x] NakedPairStrategy
+- [x] HiddenSingleStrategy
+- [x] PointingPairStrategy
+- [ ] NakedTripleStrategy
+- [ ] HiddenPairStrategy
+- [ ] HiddenTripleStrategy
+- [ ] XWingStrategy
+- [ ] SwordfishStrategy
+- [ ] YWingStrategy
