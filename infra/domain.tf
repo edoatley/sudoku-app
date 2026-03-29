@@ -39,11 +39,6 @@ resource "aws_amplify_domain_association" "production" {
     prefix      = "www"
   }
 
-  # ACM certificate provisioning can take up to 40 minutes on first apply.
-  timeouts {
-    create = "60m"
-    update = "60m"
-  }
 }
 
 # Beta domain association — rc-* workspaces only.
@@ -60,9 +55,4 @@ resource "aws_amplify_domain_association" "beta" {
     prefix      = ""
   }
 
-  # ACM certificate provisioning can take up to 40 minutes on first apply.
-  timeouts {
-    create = "60m"
-    update = "60m"
-  }
 }
