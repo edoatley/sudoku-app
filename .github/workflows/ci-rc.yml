@@ -132,6 +132,7 @@ jobs:
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+      amplify_default_url: ${{ steps.outputs.outputs.amplify_default_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
     steps:
@@ -216,6 +217,7 @@ jobs:
         run: |
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
+          echo "amplify_default_url=$(terraform output -raw amplify_default_url)" >> "$GITHUB_OUTPUT"
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
@@ -225,9 +227,10 @@ jobs:
       - name: Tighten CORS to exact Amplify URL
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
           API_ID: ${{ steps.outputs.outputs.api_id }}
         run: |
-          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
+          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}" "${AMPLIFY_DEFAULT_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
       - name: Update Cognito callback URLs
@@ -236,11 +239,13 @@ jobs:
         #         exact URLs — read the current list and add this branch's URL if missing.
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
           USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
           CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
           IS_RC: ${{ startsWith(steps.workspace.outputs.workspace, 'rc-') }}
         run: |
           BRANCH_URL="${AMPLIFY_URL}/"
+          DEFAULT_URL="${AMPLIFY_DEFAULT_URL}/"
           if [[ "${IS_RC}" == "true" ]]; then
             # rc-* branches share one Cognito pool — accumulate URLs so deploying one
             # branch does not break other active rc-* branches that are already registered.
@@ -252,10 +257,11 @@ jobs:
               --output json)
             mapfile -t CALLBACK_URLS < <(echo "${EXISTING}" | jq -r \
               --arg url "${BRANCH_URL}" \
-              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + ["http://localhost:5173/"] | unique | .[]')
+              --arg default_url "${DEFAULT_URL}" \
+              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + (if any(. == $default_url) then [] else [$default_url] end) | . + ["http://localhost:5173/"] | unique | .[]')
           else
             # Non-rc workspaces each own their own pool — just set the exact URLs.
-            CALLBACK_URLS=("${BRANCH_URL}" "http://localhost:5173/")
+            CALLBACK_URLS=("${BRANCH_URL}" "${DEFAULT_URL}" "http://localhost:5173/")
           fi
           aws cognito-idp update-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
@@ -404,7 +410,7 @@ jobs:
 
       - name: Wait for Amplify deployment to complete
         env:
-          APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+          APP_URL: ${{ needs.deploy.outputs.amplify_default_url }}
         run: |
           echo "Waiting for Amplify app to be reachable at ${APP_URL}"
           for i in $(seq 1 20); do
