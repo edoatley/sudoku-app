@@ -46,7 +46,7 @@ resource "aws_amplify_domain_association" "production" {
 # Only one RC branch holds this domain at a time (last writer wins).
 # Prerequisite: default workspace must have been applied first (zone must exist).
 resource "aws_amplify_domain_association" "beta" {
-  count       = local.is_rc && length(data.terraform_remote_state.default) > 0 && data.terraform_remote_state.default[0].outputs.route53_zone_id != null ? 1 : 0
+  count       = local.is_rc && try(data.terraform_remote_state.default[0].outputs.route53_zone_id, null) != null ? 1 : 0
   app_id      = aws_amplify_app.sudoku.id
   domain_name = "sudoku-beta.edoatley.co.uk"
 

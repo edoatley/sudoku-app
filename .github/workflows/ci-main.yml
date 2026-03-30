@@ -155,12 +155,25 @@ jobs:
           -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
           -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
 
+      - name: Terraform plan (all resources except domain association)
+        # -exclude cannot be combined with a saved plan file, so we create a
+        # separate plan for phase 1 that omits the slow domain association.
+        working-directory: infra
+        run: >-
+          terraform plan -out=tfplan-phase1
+          -input=false
+          -exclude=aws_amplify_domain_association.production
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "environment=prod"
+          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
+          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
+          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
+          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
+
       - name: Terraform apply (all resources except domain association)
         working-directory: infra
-        run: |
-          terraform apply -auto-approve -input=false \
-            -exclude=aws_amplify_domain_association.production \
-            tfplan
+        run: terraform apply -auto-approve -input=false tfplan-phase1
 
       - name: Print Route53 NS records
         # Print NS records immediately after the zone is created so they are
@@ -168,7 +181,7 @@ jobs:
         # Copy these into infra/scripts/delegate-dns.sh to complete DNS delegation.
         working-directory: infra
         run: |
-          if terraform output -raw subdomain_nameservers 2>/dev/null | grep -q .; then
+          if terraform output -json subdomain_nameservers | jq -e 'length > 0' > /dev/null 2>&1; then
             echo "========================================================"
             echo "  Route53 NS records for sudoku.edoatley.co.uk"
             echo "  Run infra/scripts/delegate-dns.sh with these values:"
@@ -177,7 +190,8 @@ jobs:
             echo "========================================================"
           fi
 
-      - name: Terraform apply (remaining resources including domain association)
+      - name: Terraform apply (domain association — may take up to 40 min for ACM)
+        # Phase 2: apply the original full plan which includes the domain association.
         working-directory: infra
         run: terraform apply -auto-approve -input=false tfplan
 
