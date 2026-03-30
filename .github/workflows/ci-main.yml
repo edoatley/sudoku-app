@@ -142,19 +142,6 @@ jobs:
         working-directory: infra
         run: terraform workspace select default
 
-      - name: Terraform plan
-        working-directory: infra
-        run: >-
-          terraform plan -out=tfplan
-          -input=false
-          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
-          -var "environment=prod"
-          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
-          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
-          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
-          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
-          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
-
       - name: Terraform plan (all resources except domain association)
         working-directory: infra
         run: >-
@@ -187,6 +174,20 @@ jobs:
             terraform output -json subdomain_nameservers | jq -r '.[]'
             echo "========================================================"
           fi
+
+      # Needs to run after phase 1 to avoid a stale plan
+      - name: Terraform plan
+        working-directory: infra
+        run: >-
+          terraform plan -out=tfplan
+          -input=false
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "environment=prod"
+          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
+          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
+          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
+          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
 
       - name: Terraform apply (domain association — may take up to 40 min for ACM)
         # Phase 2: apply the original full plan which includes the domain association.

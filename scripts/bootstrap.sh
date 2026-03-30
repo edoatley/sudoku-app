@@ -262,6 +262,7 @@ DEPLOY_POLICY=$(cat <<EOF
       "Sid": "Route53",
       "Effect": "Allow",
       "Action": [
+        "route53:GetChange",
         "route53:ListHostedZones",
         "route53:GetHostedZone",
         "route53:CreateHostedZone",
