@@ -166,21 +166,6 @@ jobs:
           WORKSPACE="${{ steps.workspace.outputs.workspace }}"
           terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
 
-      - name: Terraform plan
-        working-directory: infra
-        run: >-
-          terraform plan -out=tfplan
-          -input=false
-          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
-          -var "environment=${{ steps.workspace.outputs.environment }}"
-          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
-          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
-          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
-          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
-          -var "rc_cognito_web_client_id=${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}"
-          -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
-          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
-
       - name: Terraform plan (all resources except domain association)
         # -exclude cannot be combined with a saved plan file, so we create a
         # separate plan for phase 1 that omits the slow domain association.
@@ -202,6 +187,21 @@ jobs:
       - name: Terraform apply (all resources except domain association)
         working-directory: infra
         run: terraform apply -auto-approve -input=false tfplan-phase1
+
+      - name: Terraform plan
+        working-directory: infra
+        run: >-
+          terraform plan -out=tfplan
+          -input=false
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "environment=${{ steps.workspace.outputs.environment }}"
+          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
+          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
+          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
+          -var "rc_cognito_web_client_id=${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}"
+          -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
+          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
 
       - name: Terraform apply (domain association — may take up to 40 min for ACM)
         # Phase 2: apply the original full plan which includes the domain association.
