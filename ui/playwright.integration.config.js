@@ -16,6 +16,7 @@ export default defineConfig({
   // global setup seeds Amplify auth tokens into browser storage when running
   // against the real deployed app (SMOKE_ID_TOKEN present in CI)
   globalSetup: './tests/integration/auth-setup.js',
+  globalTimeout: 10000,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
