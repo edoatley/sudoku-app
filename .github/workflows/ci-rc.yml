@@ -214,7 +214,7 @@ jobs:
         run: >-
           terraform plan -out=tfplan-phase1
           -input=false
-          -exclude=aws_amplify_domain_association.beta
+          -var "exclude_amplify_beta_domain=true"
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "environment=${{ steps.workspace.outputs.environment }}"
           -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
@@ -281,7 +281,7 @@ jobs:
             mapfile -t CALLBACK_URLS < <(echo "${EXISTING}" | jq -r \
               --arg url "${BRANCH_URL}" \
               --arg default_url "${DEFAULT_URL}" \
-              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + (if any(. == $default_url) then [] else [$default_url] end) | . + ["http://localhost:5173/"] | unique | .[]')
+              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + (if any(. == $default_url) then [] else [$default_url] end) | . + ["https://sudoku-beta.edoatley.co.uk/"] | . + ["http://localhost:5173/"] | unique | .[]')
           else
             # Non-rc workspaces each own their own pool — just set the exact URLs.
             CALLBACK_URLS=("${BRANCH_URL}" "${DEFAULT_URL}" "http://localhost:5173/")
@@ -353,233 +353,17 @@ jobs:
 
   smoke-test:
     name: Smoke Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
     needs: deploy
     if: always() && needs.deploy.result == 'success'
-    outputs:
-      api_smoke_result: ${{ steps.api-smoke.outcome }}
-      playwright_result: ${{ steps.playwright.outcome }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          sparse-checkout: |
-            image_recognition/tests/fixtures
-            ui
-            .github
-
-      - name: API smoke tests
-        id: api-smoke
-        env:
-          API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
-        run: |
-          # Strip trailing slash to avoid double-slash URLs (API Gateway invoke URL ends with /)
-          API_BASE="${API_URL%/}"
-          echo "Testing API Gateway: ${API_BASE}"
-
-          # Warm up Lambda — retry /health until we get a 200 (handles cold starts)
-          echo "Waiting for Lambda to be ready..."
-          for i in $(seq 1 15); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${API_BASE}/api/v1/health")
-            [ "${STATUS}" = "200" ] && echo "Lambda ready (attempt ${i})" && break
-            echo "  attempt ${i}: got ${STATUS}, retrying in 5s..."
-            sleep 5
-          done
-
-          SUMMARY=""
-          FAILED=0
-
-          check() {
-            local label="$1" status="$2" expected="$3" extra="$4"
-            if [ "${status}" = "${expected}" ] && { [ -z "${extra}" ] || eval "${extra}"; }; then
-              SUMMARY="${SUMMARY}\n| ${label} | ✅ ${status} |"
-            else
-              SUMMARY="${SUMMARY}\n| ${label} | ❌ ${status} (expected ${expected}) |"
-              FAILED=1
-            fi
-          }
-
-          # /health
-          STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" "${API_BASE}/api/v1/health")
-          check "GET /api/v1/health" "${STATUS}" "200" "grep -q '\"status\"' /tmp/health.json"
-
-          # /puzzles/generate
-          STATUS=$(curl -s -o /tmp/generate.json -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate")
-          check "GET /api/v1/puzzles/generate" "${STATUS}" "200" "grep -q '\"originalGrid\"' /tmp/generate.json"
-
-          # /puzzles/generate?difficulty=hard
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
-          check "GET /api/v1/puzzles/generate?difficulty=hard" "${STATUS}" "200"
-
-          # POST /games without token — JWT authorizer must reject with 401
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/games" \
-            -H "Content-Type: application/json" -d '{"difficulty":"easy"}')
-          check "POST /api/v1/games (no token → 401)" "${STATUS}" "401"
-
-          # POST /puzzles/import without token — JWT authorizer must reject with 401
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/puzzles/import" \
-            -H "Content-Type: application/json" -d '{"image":"dGVzdA=="}')
-          check "POST /api/v1/puzzles/import (no token → 401)" "${STATUS}" "401"
-
-          {
-            echo "### API Smoke Tests"
-            echo ""
-            echo "| Endpoint | Result |"
-            echo "|----------|--------|"
-            printf "%b\n" "${SUMMARY}"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          [ "${FAILED}" = "0" ] || { echo "One or more API smoke tests failed"; exit 1; }
-
-      - name: Wait for Amplify deployment to complete
-        env:
-          APP_URL: ${{ needs.deploy.outputs.amplify_default_url }}
-        run: |
-          echo "Waiting for Amplify app to be reachable at ${APP_URL}"
-          for i in $(seq 1 20); do
-            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${APP_URL}" || echo "000")
-            echo "Attempt ${i}/20 → HTTP ${STATUS}"
-            [ "${STATUS}" = "200" ] && { echo "Amplify ready"; break; }
-            [ "${i}" = "20" ] && { echo "FAIL: Amplify not ready after 300s"; exit 1; }
-            sleep 15
-          done
-
-      - uses: ./.github/actions/configure-aws-oidc
-        with:
-          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-
-      - name: Acquire Cognito ID token for smoke test user
-        id: get-token
-        env:
-          USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
-          PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
-          WEB_CLIENT_NAME: "sudoku-web-rc"
-        run: |
-          # Resolve the web client ID by name — the value from Terraform output matches
-          # the RC_COGNITO_WEB_CLIENT_ID secret and gets masked by GitHub Actions.
-          # Using the web client (not smoke client) so token aud matches what Amplify expects.
-          CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
-            --user-pool-id "${USER_POOL_ID}" \
-            --query "UserPoolClients[?ClientName=='${WEB_CLIENT_NAME}'].ClientId | [0]" \
-            --output text)
-          if [[ -z "${CLIENT_ID}" || "${CLIENT_ID}" == "None" ]]; then
-            echo "::error::Could not resolve web client ID for pool ${USER_POOL_ID}"
-            exit 1
-          fi
-
-          # No client secret on the web client, so no SECRET_HASH needed.
-          AUTH_PARAMS=$(jq -n \
-            --arg u "${USERNAME}" \
-            --arg p "${PASSWORD}" \
-            '{"USERNAME": $u, "PASSWORD": $p}')
-          RESPONSE=$(aws cognito-idp initiate-auth \
-            --auth-flow USER_PASSWORD_AUTH \
-            --client-id "${CLIENT_ID}" \
-            --auth-parameters "${AUTH_PARAMS}" \
-            --output json)
-
-          ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
-          ACCESS_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.AccessToken')
-
-          # Mask both tokens so they never appear in logs
-          echo "::add-mask::${ID_TOKEN}"
-          echo "::add-mask::${ACCESS_TOKEN}"
-
-          echo "SMOKE_ID_TOKEN=${ID_TOKEN}"     >> "$GITHUB_ENV"
-          echo "SMOKE_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
-
-      - name: Image recognition smoke test
-        id: import-smoke
-        env:
-          API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
-          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
-        run: |
-          API_BASE="${API_URL%/}"
-          IMAGE_B64=$(base64 -w 0 image_recognition/tests/fixtures/CI_Puzzle.jpg)
-          BODY=$(jq -n --arg img "${IMAGE_B64}" '{"image": $img}')
-          STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
-            -X POST "${API_BASE}/api/v1/puzzles/import" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${SMOKE_ID_TOKEN}" \
-            -d "${BODY}")
-          echo "POST /api/v1/puzzles/import → HTTP ${STATUS}"
-          cat /tmp/import.json
-          if [ "${STATUS}" != "200" ]; then
-            echo "❌ Expected 200, got ${STATUS}"
-            exit 1
-          fi
-          ROWS=$(python3 -c "import json,sys; g=json.load(open('/tmp/import.json')).get('originalGrid',[]); print(len(g))")
-          if [ "${ROWS}" != "9" ]; then
-            echo "❌ Expected 9 rows in originalGrid, got ${ROWS}"
-            exit 1
-          fi
-          echo "✅ Image recognition smoke test passed (${ROWS} rows)"
-          {
-            echo "### Image Recognition Smoke Test"
-            echo ""
-            echo "| Endpoint | Result |"
-            echo "|----------|--------|"
-            echo "| POST /api/v1/puzzles/import | ✅ ${STATUS} — ${ROWS} rows |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - uses: ./.github/actions/setup-node
-        with:
-          install-playwright: "true"
-
-      - name: Run Playwright integration tests against Amplify
-        id: playwright
-        working-directory: ui
-        env:
-          CI: "true"
-          INTEGRATION_BASE_URL: ${{ needs.deploy.outputs.amplify_app_url }}
-          COGNITO_USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
-          SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
-        run: |
-          # Resolve web client ID by name — the Terraform output value matches the
-          # RC_COGNITO_WEB_CLIENT_ID secret and gets masked by GitHub Actions.
-          COGNITO_CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
-            --user-pool-id "${COGNITO_USER_POOL_ID}" \
-            --query "UserPoolClients[?ClientName=='sudoku-web-rc'].ClientId | [0]" \
-            --output text)
-          export COGNITO_CLIENT_ID
-          npx playwright test --config playwright.integration.config.js
-
-      - name: Upload Playwright integration report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: smoke-playwright-report
-          path: ui/playwright-report/
-          retention-days: 14
-
-      - name: Upload Playwright integration results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: smoke-integration-results
-          path: ui/test-results/integration-results.xml
-          retention-days: 14
-
-      - name: Smoke test summary
-        if: always()
-        env:
-          API_RESULT: ${{ steps.api-smoke.outcome }}
-          IMPORT_RESULT: ${{ steps.import-smoke.outcome }}
-          PLAYWRIGHT_RESULT: ${{ steps.playwright.outcome }}
-        run: |
-          icon() { case "$1" in success) echo "✅ passed";; failure) echo "❌ failed";; skipped) echo "⏭️ skipped";; *) echo "❓ $1";; esac; }
-          {
-            echo ""
-            echo "### Smoke Test Summary"
-            echo ""
-            echo "| Suite | Result |"
-            echo "|-------|--------|"
-            echo "| API smoke tests | $(icon "${API_RESULT}") |"
-            echo "| Image recognition import | $(icon "${IMPORT_RESULT}") |"
-            echo "| Playwright UI tests | $(icon "${PLAYWRIGHT_RESULT}") |"
-          } >> "$GITHUB_STEP_SUMMARY"
+    uses: ./.github/workflows/smoke-tests.yml
+    secrets: inherit
+    with:
+      api_gateway_url: ${{ needs.deploy.outputs.api_gateway_url }}
+      amplify_app_url: ${{ needs.deploy.outputs.amplify_app_url }}
+      amplify_default_url: ${{ needs.deploy.outputs.amplify_default_url }}
+      cognito_user_pool_id: ${{ needs.deploy.outputs.cognito_user_pool_id }}
+      cognito_client_id: ""
+      environment_type: rc
 
   notify:
     name: Notify
@@ -594,6 +378,8 @@ jobs:
           SMOKE_STATUS: ${{ needs.smoke-test.result }}
           API_URL: ${{ needs.deploy.outputs.api_gateway_url }}
           APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+          DEFAULT_URL: ${{ needs.deploy.outputs.amplify_default_url }}
+          USER_POOL_ID: ${{ needs.deploy.outputs.cognito_user_pool_id }}
         run: |
           if [ "${DEPLOY_STATUS}" = "success" ]; then
             echo "### Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
@@ -602,6 +388,18 @@ jobs:
             echo "|----------|-----|" >> "$GITHUB_STEP_SUMMARY"
             echo "| API Gateway | ${API_URL} |" >> "$GITHUB_STEP_SUMMARY"
             echo "| Amplify App | ${APP_URL} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "#### Re-run smoke tests manually" >> "$GITHUB_STEP_SUMMARY"
+            echo "Use these values in the [Smoke Tests](../actions/workflows/smoke-tests.yml) \`workflow_dispatch\`:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Input | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`api_gateway_url\` | \`${API_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`amplify_app_url\` | \`${APP_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`amplify_default_url\` | \`${DEFAULT_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`cognito_user_pool_id\` | \`${USER_POOL_ID}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`cognito_client_id\` | *(leave blank — resolved automatically)* |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`environment_type\` | \`rc\` |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "### Deployment failed (status: ${DEPLOY_STATUS})" >> "$GITHUB_STEP_SUMMARY"
             echo "Check the deploy job logs for details." >> "$GITHUB_STEP_SUMMARY"

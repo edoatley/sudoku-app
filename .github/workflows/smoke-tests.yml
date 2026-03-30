@@ -1,0 +1,312 @@
+name: Smoke Tests
+
+on:
+  workflow_call:
+    inputs:
+      api_gateway_url:
+        required: true
+        type: string
+      amplify_app_url:
+        required: true
+        type: string
+      amplify_default_url:
+        required: true
+        type: string
+      cognito_user_pool_id:
+        required: true
+        type: string
+      cognito_client_id:
+        description: "Cognito web client ID — used for main; RC resolves by name automatically"
+        required: false
+        type: string
+        default: ""
+      environment_type:
+        description: "main or rc — controls Lambda warm-up, image fixture, and Cognito client resolution"
+        required: true
+        type: string
+    secrets:
+      AWS_DEPLOY_ROLE_ARN:
+        required: true
+      SMOKE_TEST_USER_EMAIL:
+        required: true
+      SMOKE_TEST_USER_PASSWORD:
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      api_gateway_url:
+        description: "API Gateway invoke URL (with or without trailing slash)"
+        required: true
+        type: string
+      amplify_app_url:
+        description: "Amplify custom domain URL (e.g. https://main.d1abc.amplifyapp.com)"
+        required: true
+        type: string
+      amplify_default_url:
+        description: "Amplify default URL used to poll readiness"
+        required: true
+        type: string
+      cognito_user_pool_id:
+        description: "Cognito User Pool ID"
+        required: true
+        type: string
+      cognito_client_id:
+        description: "Cognito web client ID (leave blank for rc — resolved automatically by name)"
+        required: false
+        type: string
+        default: ""
+      environment_type:
+        description: "Environment type: main or rc"
+        required: true
+        type: choice
+        options:
+          - main
+          - rc
+        default: main
+
+# Reusable workflows do not inherit caller permissions — declare them explicitly.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  smoke-test:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      api_smoke_result: ${{ steps.api-smoke.outcome }}
+      playwright_result: ${{ steps.playwright.outcome }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            image_recognition/tests/fixtures
+            ui
+            .github
+
+      - name: Warm up Lambda (RC only — handles cold starts)
+        if: inputs.environment_type == 'rc'
+        env:
+          API_URL: ${{ inputs.api_gateway_url }}
+        run: |
+          API_BASE="${API_URL%/}"
+          echo "Waiting for Lambda to be ready..."
+          for i in $(seq 1 15); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${API_BASE}/api/v1/health")
+            [ "${STATUS}" = "200" ] && echo "Lambda ready (attempt ${i})" && break
+            echo "  attempt ${i}: got ${STATUS}, retrying in 5s..."
+            sleep 5
+          done
+
+      - name: API smoke tests
+        id: api-smoke
+        env:
+          API_URL: ${{ inputs.api_gateway_url }}
+        run: |
+          # Strip trailing slash to avoid double-slash URLs (API Gateway invoke URL ends with /)
+          API_BASE="${API_URL%/}"
+          echo "Testing API Gateway: ${API_BASE}"
+
+          SUMMARY=""
+          FAILED=0
+
+          check() {
+            local label="$1" status="$2" expected="$3" extra="$4"
+            if [ "${status}" = "${expected}" ] && { [ -z "${extra}" ] || eval "${extra}"; }; then
+              SUMMARY="${SUMMARY}\n| ${label} | ✅ ${status} |"
+            else
+              SUMMARY="${SUMMARY}\n| ${label} | ❌ ${status} (expected ${expected}) |"
+              FAILED=1
+            fi
+          }
+
+          # /health
+          STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" "${API_BASE}/api/v1/health")
+          check "GET /api/v1/health" "${STATUS}" "200" "grep -q '\"status\"' /tmp/health.json"
+
+          # /puzzles/generate
+          STATUS=$(curl -s -o /tmp/generate.json -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate")
+          check "GET /api/v1/puzzles/generate" "${STATUS}" "200" "grep -q '\"originalGrid\"' /tmp/generate.json"
+
+          # /puzzles/generate?difficulty=hard
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
+          check "GET /api/v1/puzzles/generate?difficulty=hard" "${STATUS}" "200"
+
+          # POST /games without token — JWT authorizer must reject with 401
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/games" \
+            -H "Content-Type: application/json" -d '{"difficulty":"easy"}')
+          check "POST /api/v1/games (no token → 401)" "${STATUS}" "401"
+
+          # POST /puzzles/import without token — JWT authorizer must reject with 401
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/puzzles/import" \
+            -H "Content-Type: application/json" -d '{"image":"dGVzdA=="}')
+          check "POST /api/v1/puzzles/import (no token → 401)" "${STATUS}" "401"
+
+          {
+            echo "### API Smoke Tests"
+            echo ""
+            echo "| Endpoint | Result |"
+            echo "|----------|--------|"
+            printf "%b\n" "${SUMMARY}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          [ "${FAILED}" = "0" ] || { echo "One or more API smoke tests failed"; exit 1; }
+
+      - name: Wait for Amplify deployment to complete
+        env:
+          APP_URL: ${{ inputs.amplify_default_url }}
+        run: |
+          echo "Waiting for Amplify app to be reachable at ${APP_URL}"
+          for i in $(seq 1 20); do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "${APP_URL}" || echo "000")
+            echo "Attempt ${i}/20 → HTTP ${STATUS}"
+            [ "${STATUS}" = "200" ] && { echo "Amplify ready"; break; }
+            [ "${i}" = "20" ] && { echo "FAIL: Amplify not ready after 300s"; exit 1; }
+            sleep 15
+          done
+
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Resolve Cognito web client ID
+        id: resolve-client
+        env:
+          USER_POOL_ID: ${{ inputs.cognito_user_pool_id }}
+          CLIENT_ID_INPUT: ${{ inputs.cognito_client_id }}
+          ENV_TYPE: ${{ inputs.environment_type }}
+        run: |
+          if [[ "${ENV_TYPE}" == "rc" ]]; then
+            # RC branches share one Cognito pool — resolve web client by name.
+            CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
+              --user-pool-id "${USER_POOL_ID}" \
+              --query "UserPoolClients[?ClientName=='sudoku-web-rc'].ClientId | [0]" \
+              --output text)
+            if [[ -z "${CLIENT_ID}" || "${CLIENT_ID}" == "None" ]]; then
+              echo "::error::Could not resolve web client ID for pool ${USER_POOL_ID}"
+              exit 1
+            fi
+          else
+            CLIENT_ID="${CLIENT_ID_INPUT}"
+          fi
+          echo "RESOLVED_CLIENT_ID=${CLIENT_ID}" >> "$GITHUB_ENV"
+
+      - name: Acquire Cognito ID token for smoke test user
+        id: get-token
+        env:
+          USER_POOL_ID: ${{ inputs.cognito_user_pool_id }}
+          USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
+          PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+        run: |
+          # The web client has no secret, so no SECRET_HASH is required.
+          AUTH_PARAMS=$(jq -n \
+            --arg u "${USERNAME}" \
+            --arg p "${PASSWORD}" \
+            '{"USERNAME": $u, "PASSWORD": $p}')
+          RESPONSE=$(aws cognito-idp initiate-auth \
+            --auth-flow USER_PASSWORD_AUTH \
+            --client-id "${RESOLVED_CLIENT_ID}" \
+            --auth-parameters "${AUTH_PARAMS}" \
+            --output json)
+
+          ID_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.IdToken')
+          ACCESS_TOKEN=$(echo "${RESPONSE}" | jq -r '.AuthenticationResult.AccessToken')
+
+          # Mask both tokens so they never appear in logs
+          echo "::add-mask::${ID_TOKEN}"
+          echo "::add-mask::${ACCESS_TOKEN}"
+
+          echo "SMOKE_ID_TOKEN=${ID_TOKEN}"         >> "$GITHUB_ENV"
+          echo "SMOKE_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
+
+      - name: Image recognition smoke test
+        id: import-smoke
+        env:
+          API_URL: ${{ inputs.api_gateway_url }}
+          ENV_TYPE: ${{ inputs.environment_type }}
+          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
+        run: |
+          API_BASE="${API_URL%/}"
+          if [[ "${ENV_TYPE}" == "rc" ]]; then
+            FIXTURE="image_recognition/tests/fixtures/CI_Puzzle.jpg"
+          else
+            FIXTURE="image_recognition/tests/fixtures/puzzle_1.jpeg"
+          fi
+          base64 -w 0 "${FIXTURE}" > /tmp/image_b64.txt
+          BODY=$(jq -n --rawfile img /tmp/image_b64.txt '{"image": ($img | rtrimstr("\n"))}')
+          STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
+            -X POST "${API_BASE}/api/v1/puzzles/import" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SMOKE_ID_TOKEN}" \
+            -d "${BODY}")
+          echo "POST /api/v1/puzzles/import → HTTP ${STATUS}"
+          cat /tmp/import.json
+          if [ "${STATUS}" != "200" ]; then
+            echo "❌ Expected 200, got ${STATUS}"
+            exit 1
+          fi
+          ROWS=$(python3 -c "import json,sys; g=json.load(open('/tmp/import.json')).get('originalGrid',[]); print(len(g))")
+          if [ "${ROWS}" != "9" ]; then
+            echo "❌ Expected 9 rows in originalGrid, got ${ROWS}"
+            exit 1
+          fi
+          echo "✅ Image recognition smoke test passed (${ROWS} rows)"
+          {
+            echo "### Image Recognition Smoke Test"
+            echo ""
+            echo "| Endpoint | Result |"
+            echo "|----------|--------|"
+            echo "| POST /api/v1/puzzles/import | ✅ ${STATUS} — ${ROWS} rows |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: ./.github/actions/setup-node
+        with:
+          install-playwright: "true"
+
+      - name: Run Playwright integration tests against Amplify
+        id: playwright
+        working-directory: ui
+        env:
+          CI: "true"
+          INTEGRATION_BASE_URL: ${{ inputs.amplify_app_url }}
+          COGNITO_USER_POOL_ID: ${{ inputs.cognito_user_pool_id }}
+          COGNITO_CLIENT_ID: ${{ env.RESOLVED_CLIENT_ID }}
+          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
+          SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
+        run: npx playwright test --config playwright.integration.config.js
+
+      - name: Upload Playwright integration report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-playwright-report
+          path: ui/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright integration results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-integration-results
+          path: ui/test-results/integration-results.xml
+          retention-days: 14
+
+      - name: Smoke test summary
+        if: always()
+        env:
+          API_RESULT: ${{ steps.api-smoke.outcome }}
+          IMPORT_RESULT: ${{ steps.import-smoke.outcome }}
+          PLAYWRIGHT_RESULT: ${{ steps.playwright.outcome }}
+        run: |
+          icon() { case "$1" in success) echo "✅ passed";; failure) echo "❌ failed";; skipped) echo "⏭️ skipped";; *) echo "❓ $1";; esac; }
+          {
+            echo ""
+            echo "### Smoke Test Summary"
+            echo ""
+            echo "| Suite | Result |"
+            echo "|-------|--------|"
+            echo "| API smoke tests | $(icon "${API_RESULT}") |"
+            echo "| Image recognition import | $(icon "${IMPORT_RESULT}") |"
+            echo "| Playwright UI tests | $(icon "${PLAYWRIGHT_RESULT}") |"
+          } >> "$GITHUB_STEP_SUMMARY"
