@@ -8,7 +8,12 @@ Terraform configuration for the Serverless Sudoku application. Target region: **
 
 ```mermaid
 flowchart LR
+    DNS53P["Route53\nedoatley.co.uk\n(default account)"]
+    DNS53S["Route53\nsudoku.edoatley.co.uk\n(sandbox account)"]
+    DNS53P -->|NS delegation| DNS53S
+
     GH[GitHub] -->|CI/CD| AMP[Amplify]
+    DNS53S -->|CNAME| AMP
     AMP -->|OAuth| COG[Cognito]
     AMP -->|API URL + JWT| APIGW[API Gateway v2]
     APIGW -->|JWT authorizer| COG
@@ -21,26 +26,46 @@ flowchart LR
     POL --> DDB
 ```
 
+### Custom Domains
+
+| URL | Branch | Workspace |
+|-----|--------|-----------|
+| `https://sudoku.edoatley.co.uk` | `main` | `default` |
+| `https://www.sudoku.edoatley.co.uk` | `main` | `default` |
+| `https://sudoku-beta.edoatley.co.uk` | current `rc-*` branch | `rc-*` |
+
+The `sudoku.edoatley.co.uk` Route53 zone lives in the **sandbox AWS account** (managed by Terraform). The parent zone `edoatley.co.uk` is in a **separate default AWS account** and delegates to it via NS records — see [DNS Delegation](#dns-delegation) below.
+
 ---
 
 ## File Structure
 
 | File | Purpose |
 |------|---------|
-| `terraform.tf` | Provider + S3/DynamoDB remote backend |
-| `main.tf` | Data sources and locals |
-| `variables.tf` | Input variables (including `google_client_id`, `google_client_secret`) |
-| `outputs.tf` | Exported values (API URL, Amplify URL, Lambda name/ARN, API ID, Cognito IDs) |
-| `lambda.tf` | S3 zip bucket, Lambda function, alias, and permission |
-| `api_gateway.tf` | HTTP API v2, JWT authorizer, protected routes, stage, and CloudWatch log group |
-| `cognito.tf` | User Pool, Google identity provider, hosted UI domain, app client |
+| `terraform.tf` | Provider + S3 remote backend |
+| `main.tf` | Data sources and locals (`is_default`, `is_rc`, `suffix`) |
+| `variables.tf` | Input variables |
+| `outputs.tf` | Exported values (URLs, IDs, NS records) |
+| `domain.tf` | Route53 hosted zone + Amplify domain associations |
+| `amplify.tf` | Amplify app and branch |
+| `api_gateway.tf` | HTTP API v2, JWT authorizer, routes, stage, CloudWatch log group |
+| `cognito.tf` | User Pool, Google IdP, hosted UI domain, app clients |
+| `cognito-rc-shared.tf` | Shared Cognito pool for all `rc-*` workspaces (applied in `rc-shared` workspace only) |
+| `lambda.tf` | S3 zip bucket, Lambda function, alias |
+| `iam.tf` | Lambda execution roles and DynamoDB policies |
 | `dynamodb.tf` | `SudokuGames` and `SudokuPlayers` tables |
-| `amplify.tf` | Amplify app and main branch |
-| `iam.tf` | Lambda execution role, DynamoDB policies for SudokuGames and SudokuPlayers |
+| `image_recognition_lambda.tf` | Image recognition Lambda (Bedrock-backed, container image) |
+| `scripts/delegate-dns.sh` | One-off script to create NS delegation in the parent AWS account |
 
 ---
 
 ## Resources
+
+### Route53 & Custom Domains
+
+A hosted zone for `sudoku.edoatley.co.uk` is created in the **default workspace only**. After the first apply, run `scripts/delegate-dns.sh` in the parent AWS account to complete the NS delegation.
+
+`aws_amplify_domain_association` manages the CNAME records and provisions the ACM certificate automatically — no separate `aws_acm_certificate` resource is needed. Certificate provisioning can take up to 40 minutes on first apply.
 
 ### API Gateway (HTTP API v2)
 
@@ -48,179 +73,143 @@ flowchart LR
 - Route: `$default` → catches all paths, proxied to the Lambda alias
 - Stage: `$default` with `auto_deploy = true`
 - Throttling: 25 req/s rate, 50 burst
-- Access logs: JSON format, 7-day retention in CloudWatch
+- Access logs: JSON format, 7-day retention (3 days on `rc-*`)
 
-**CORS:** Uses a two-step approach to avoid a circular dependency:
+**CORS:** Two-step approach to avoid a circular dependency:
 
-1. **Terraform-managed baseline** — `https://*.amplifyapp.com` wildcard plus `http://localhost:5173`. This is broad enough to work on first deploy when the exact Amplify URL is not yet known.
-2. **Post-apply tightening** — the deploy workflow calls `aws apigatewayv2 update-api` immediately after `terraform apply` to replace the wildcard with the exact Amplify URL (e.g. `https://main.abc123.amplifyapp.com`).
+1. **Terraform baseline** — `https://*.amplifyapp.com` wildcard plus `http://localhost:5173`
+2. **Post-apply tightening** — the deploy workflow calls `aws apigatewayv2 update-api` to replace the wildcard with both the custom domain URL and the raw Amplify URL
 
 `ignore_changes = [cors_configuration]` prevents Terraform from reverting the tightened CORS on subsequent applies.
 
-Allowed methods: `GET`, `POST`, `PATCH`, `OPTIONS`. Allowed headers: `Content-Type`, `Authorization`.
-
-**JWT Authorizer:** A Cognito JWT authorizer protects the `/games/*` and `/players/me` routes. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). HTTP API v2 uses most-specific-match routing, so explicit protected routes take priority.
+**JWT Authorizer:** Protects `/games/*`, `/players/me`, and `/puzzles/import`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`).
 
 ### Lambda
 
 - Runtime: `java21`, handler: `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest`
-- Architecture: `x86_64`
-- Memory: 512 MB, timeout: 5 s
+- Architecture: `x86_64`, memory: 512 MB, timeout: 8 s
 - SnapStart: enabled on published versions (reduces cold starts)
-- Concurrency: 10 reserved executions (cost guard)
-- Deployment: zip uploaded to S3 (`sudoku-lambda-zip-{account_id}`), 30-day lifecycle on old objects
+- Deployment: zip uploaded to S3 (`sudoku-lambda-zip-{account_id}`)
 - Alias `live` always points to the current published version
 
 ### DynamoDB
 
-**`SudokuGames`**
-- Partition key: `userId` (String), sort key: `gameId` (String)
-- Billing: `PAY_PER_REQUEST`
-- Point-in-time recovery: enabled on `default` workspace
+**`SudokuGames`** — partition key: `userId`, sort key: `gameId`, `PAY_PER_REQUEST`, PITR enabled on `default`
 
-**`SudokuPlayers`**
-- Partition key: `userId` (String)
-- Billing: `PAY_PER_REQUEST`
-- Point-in-time recovery: enabled on `default` workspace
+**`SudokuPlayers`** — partition key: `userId`, `PAY_PER_REQUEST`, PITR enabled on `default`
 
 ### Amplify
 
-- Source: GitHub repository (`edoatley/sudoku-app`), connected via classic OAuth token
+- Source: GitHub (`edoatley/sudoku-app`), connected via classic OAuth token
 - Build: `cd ui && npm ci && npm run build`, artifacts from `ui/dist`
-- Branch: `main` → `PRODUCTION` stage, auto-build on push
-- Environment variables set automatically:
+- Auto-build is **disabled** — CI triggers the build after `terraform apply` so environment variables are set before the React bundle is compiled
 
 | Variable | Source |
 |----------|--------|
-| `VITE_API_URL` | API Gateway invoke URL (Terraform output) |
-| `VITE_MOCK_API` | `false` |
-| `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID (Terraform output) |
-| `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID (Terraform output) |
-| `VITE_COGNITO_DOMAIN` | Cognito hosted UI domain (Terraform output) |
+| `VITE_API_URL` | API Gateway invoke URL |
+| `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID |
+| `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID |
+| `VITE_COGNITO_DOMAIN` | Cognito hosted UI domain |
+| `VITE_ENABLE_IMPORT` | `false` on `default`, `true` on `rc-*` |
+
+### Cognito
+
+- Social-only sign-in (Google OAuth 2.0)
+- **default workspace** owns its own User Pool (`sudoku-auth`)
+- **rc-* workspaces** share a single pool (`sudoku-rc`) managed by the `rc-shared` workspace — this avoids needing a new Google OAuth redirect URI per branch
+- Callback/logout URLs are set to a broad wildcard by Terraform, then tightened to exact URLs by the deploy workflow
 
 ### IAM
 
-- Role `SudokuLambdaExecRole`: assumed by `lambda.amazonaws.com`
-- Attached managed policy: `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
-- Policy `SudokuDynamoDBPolicy`: `GetItem`, `PutItem`, `UpdateItem` on `SudokuGames`
-- Policy `SudokuPlayersPolicy`: `GetItem`, `PutItem`, `UpdateItem` on `SudokuPlayers`
+- Role `SudokuLambdaExecRole`: CloudWatch Logs + DynamoDB access
+- Role `SudokuImageRecognitionExecRole`: CloudWatch Logs + Bedrock InvokeModel
 
 ### Tagging
 
-All resources receive default tags via the provider `default_tags` block:
+All resources receive default tags:
 
 | Tag | Value |
 |-----|-------|
 | `Project` | `Sudoku` |
 | `ManagedBy` | `Terraform` |
-| `Environment` | `prod` (default) |
+| `Environment` | `prod` (default workspace), workspace name (rc-*) |
 
 ---
 
-## Multi-environment isolation
+## Multi-environment Isolation
 
-The infrastructure uses **Terraform workspaces** to give each `rc-*` branch its own isolated AWS stack, while `main` continues using the `default` workspace with unchanged resource names.
+Terraform workspaces give each `rc-*` branch its own isolated AWS stack. The `default` workspace is production.
 
-### Workspace strategy
+### Workspace Strategy
 
-| Branch | Workspace | Resource suffix |
-|--------|-----------|-----------------|
-| `main` | `default` | _(none)_ |
-| `rc-infra-buildout` | `rc-infra-buildout` | `-rc-infra-buildout` |
-| `rc-some-feature` | `rc-some-feature` | `-rc-some-feature` |
+| Branch | Workspace | Resource suffix | Cognito pool | Domain |
+|--------|-----------|-----------------|--------------|--------|
+| `main` | `default` | _(none)_ | owns `sudoku-auth` | `sudoku.edoatley.co.uk` |
+| `rc-shared` | `rc-shared` | _(none)_ | creates shared `sudoku-rc` | _(none)_ |
+| `rc-*` | `rc-{branch}` | `-rc-{branch}` | reads shared `sudoku-rc` | `sudoku-beta.edoatley.co.uk` |
 
-### Resource naming
-
-All resource names are driven by a single `local.suffix` local in `main.tf`:
-
-```hcl
-locals {
-  is_default = terraform.workspace == "default"
-  suffix     = local.is_default ? "" : "-${terraform.workspace}"
-}
-```
-
-Example resources for workspace `rc-infra-buildout`:
-
-| Resource | Default name | rc-* name |
-|----------|--------------|-----------|
-| Lambda function | `sudoku` | `sudoku-rc-infra-buildout` |
-| DynamoDB table | `SudokuGames` | `SudokuGames-rc-infra-buildout` |
-| API Gateway | `sudoku` | `sudoku-rc-infra-buildout` |
-| IAM role | `SudokuLambdaExecRole` | `SudokuLambdaExecRole-rc-infra-buildout` |
-| Amplify app | `sudoku` | `sudoku-rc-infra-buildout` |
-
-### State file paths (S3 backend)
-
-Terraform automatically isolates state files per workspace:
-
-| Workspace | S3 key |
-|-----------|--------|
-| `default` | `sudoku/terraform.tfstate` |
-| `rc-infra-buildout` | `env:/rc-infra-buildout/sudoku/terraform.tfstate` |
-
-No backend configuration change is required — this is standard Terraform S3 backend behaviour.
-
-### S3 zip bucket sharing
-
-The Lambda deployment zip bucket (`sudoku-lambda-zip-{account_id}`) is **owned by the `default` workspace** and shared by all `rc-*` workspaces via a `data "aws_s3_bucket"` reference. Each workspace writes to its own prefixed S3 key:
-
-| Workspace | S3 key |
-|-----------|--------|
-| `default` | `default/function.zip` |
-| `rc-infra-buildout` | `rc-infra-buildout/function.zip` |
-
-### Cost saving on rc-* stacks
+### Cost Saving on rc-* Stacks
 
 | Feature | `default` | `rc-*` |
 |---------|-----------|--------|
 | DynamoDB PITR | enabled | disabled |
 | CloudWatch log retention | 7 days | 3 days |
-| Amplify auto-branch creation | enabled | disabled |
 | Amplify stage | `PRODUCTION` | `DEVELOPMENT` |
+| Custom domain | `sudoku.edoatley.co.uk` | `sudoku-beta.edoatley.co.uk` (last writer wins) |
 
-### Local operations for an rc-* workspace
+### State File Paths (S3 backend)
 
-```bash
-cd infra
+| Workspace | S3 key |
+|-----------|--------|
+| `default` | `sudoku/terraform.tfstate` |
+| `rc-shared` | `env:/rc-shared/sudoku/terraform.tfstate` |
+| `rc-my-feature` | `env:/rc-my-feature/sudoku/terraform.tfstate` |
 
-# Select (or create) a workspace
-terraform workspace select rc-my-feature || terraform workspace new rc-my-feature
+### S3 Zip Bucket Sharing
 
-# Plan and apply
-terraform plan  -var "github_token=<token>" -var "google_client_id=<id>" -var "google_client_secret=<secret>"
-terraform apply -var "github_token=<token>" -var "google_client_id=<id>" -var "google_client_secret=<secret>"
+The Lambda zip bucket (`sudoku-lambda-zip-{account_id}`) is owned by the `default` workspace. All `rc-*` workspaces reference it via a `data "aws_s3_bucket"` source and write to their own prefixed key:
 
-# Switch back to default (production)
-terraform workspace select default
-```
-
-### Tearing down an rc-* workspace
-
-Trigger the **Teardown** workflow manually via GitHub Actions, supplying the workspace name (e.g. `rc-infra-buildout`). The workflow will:
-
-1. Select the workspace
-2. Run `terraform destroy`
-3. Switch back to `default` and delete the workspace
-
-Or locally:
-
-```bash
-cd infra
-terraform workspace select rc-my-feature
-terraform destroy -var "github_token=<token>" -var "google_client_id=<id>" -var "google_client_secret=<secret>" -var "lambda_zip_path=/dev/null"
-terraform workspace select default
-terraform workspace delete rc-my-feature
-```
+| Workspace | S3 key |
+|-----------|--------|
+| `default` | `default/function.zip` |
+| `rc-my-feature` | `rc-my-feature/function.zip` |
 
 ---
 
-## Bootstrap (first-time setup)
+## DNS Delegation
 
-Before the first `terraform apply` the following resources must exist. Run the bootstrap script once with valid AWS credentials:
+The `sudoku.edoatley.co.uk` zone is managed in the sandbox account by Terraform. The parent zone `edoatley.co.uk` lives in a separate AWS account and must be configured once to delegate to it.
+
+**This is a one-time manual step** after the first `default` workspace apply:
+
+1. Get the NS records from the Terraform output (also printed by the deploy workflow):
+   ```bash
+   cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers
+   ```
+
+2. Run the delegation script in the **parent account** (default AWS profile):
+   ```bash
+   PARENT_ZONE_ID=Z0123456789ABCDEF \
+     bash infra/scripts/delegate-dns.sh ns1.example.com ns2.example.com ns3.example.com ns4.example.com
+   ```
+
+3. Verify propagation:
+   ```bash
+   dig NS sudoku.edoatley.co.uk
+   ```
+
+Once the NS delegation is in place, the ACM certificate will validate automatically (~5–10 minutes) and the custom domains will become live.
+
+> **Note for rc-* workspaces:** The `sudoku-beta.edoatley.co.uk` domain association is only created after the default workspace has been applied and the `route53_zone_id` output is present in remote state. Only one RC branch holds the beta domain at a time (last writer wins).
+
+---
+
+## Bootstrap (First-Time Setup)
+
+Run once with valid sandbox AWS credentials before the first `terraform apply`:
 
 ```bash
-bash scripts/bootstrap-oidc.sh
+AWS_PROFILE=sandbox bash scripts/bootstrap.sh
 ```
 
 This creates (idempotent — safe to re-run):
@@ -228,11 +217,13 @@ This creates (idempotent — safe to re-run):
 | Resource | Name |
 |----------|------|
 | S3 state bucket | `sudoku-tf-state` |
-| DynamoDB lock table | `sudoku-tf-locks` |
 | GitHub OIDC provider | `token.actions.githubusercontent.com` |
-| GitHub Actions deploy role | `sudoku-github-actions-deploy` |
+| GitHub Actions deploy role | `sudoku-github-actions-deploy` (inline policy: `SudokuDeployPolicy`) |
+| ECR repository | `sudoku-image-recognition` |
 
-After running, add the following GitHub Actions secrets:
+The deploy role policy covers: S3 (state + zip bucket), Lambda, API Gateway, Amplify, IAM (scoped to Sudoku roles/policies), ECR, Cognito, DynamoDB, CloudWatch Logs, and **Route53** (for the hosted zone and DNS records).
+
+After running, add these GitHub Actions secrets:
 
 | Secret | Value |
 |--------|-------|
@@ -240,66 +231,119 @@ After running, add the following GitHub Actions secrets:
 | `AMPLIFY_GITHUB_TOKEN` | GitHub classic OAuth token (repo scope) |
 | `GOOGLE_CLIENT_ID` | OAuth 2.0 Client ID from Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | OAuth 2.0 Client Secret from Google Cloud Console |
+| `SMOKE_TEST_USER_EMAIL` | Email for the smoke test Cognito user |
+| `SMOKE_TEST_USER_PASSWORD` | Password for the smoke test Cognito user |
+| `RC_COGNITO_WEB_CLIENT_ID` | Web client ID from the `rc-shared` workspace output |
+| `RC_COGNITO_SMOKE_CLIENT_ID` | Smoke client ID from the `rc-shared` workspace output |
 
-Also add the Cognito redirect URI in Google Cloud Console before deploying:
-- `https://sudoku-auth<suffix>.auth.eu-west-2.amazoncognito.com/oauth2/idpresponse`
+Add the Cognito redirect URI in Google Cloud Console:
+- `https://sudoku-auth.auth.eu-west-2.amazoncognito.com/oauth2/idpresponse`
+- `https://sudoku-auth-rc.auth.eu-west-2.amazoncognito.com/oauth2/idpresponse`
 
 Then initialise Terraform:
 
 ```bash
-cd infra
-terraform init
-```
-
-If the `SudokuGames` DynamoDB table already exists in the account, import it before applying:
-
-```bash
-terraform import aws_dynamodb_table.sudoku_games SudokuGames
+cd infra && AWS_PROFILE=sandbox terraform init
 ```
 
 ---
 
 ## Deployment
 
-Deployment is fully automated via GitHub Actions (`.github/workflows/deploy.yml`). It triggers on pushes to `main` or `rc-*` branches:
+### CI/CD Workflows
 
-1. **Build backend** — Maven packages `backend/target/function.zip`
-2. **Terraform deploy** — authenticates via OIDC, runs `init → plan → apply`
-3. **Tighten CORS** — calls `aws apigatewayv2 update-api` with the exact Amplify URL
-4. **Tighten Cognito callbacks** — calls `aws cognito-idp update-user-pool-client` to pin callback/logout URLs to the exact Amplify URL
-5. **Amplify build** — triggers and waits for the Amplify build to complete
-6. **Summary** — prints API Gateway and Amplify URLs to the workflow summary
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `ci-main.yml` | Push to `main` | Full deploy to `default` workspace (production) |
+| `ci-rc.yml` | Push to `rc-*` | Full deploy to a named workspace per branch |
+| `teardown.yml` | Manual | `terraform destroy` on the `default` workspace |
+| `teardown-rc.yml` | Manual | `terraform destroy` + workspace delete for a named `rc-*` workspace |
 
-A manual **Teardown** workflow (`.github/workflows/teardown.yml`) runs `terraform destroy`. It requires typing `DESTROY` as confirmation. Bootstrap resources are not destroyed.
+### Deploy Flow (both `ci-main.yml` and `ci-rc.yml`)
 
----
+```
+build backend zip
+        │
+        ▼
+  terraform init
+        │
+        ▼
+  terraform plan ──────────────────────────────────────────────────────┐
+        │                                                               │
+        ▼                                                               │
+  terraform plan (phase 1, -exclude domain association)                │
+        │                                                               │
+        ▼                                                               │
+  terraform apply (phase 1) ── [main only] print Route53 NS records    │
+        │                                                               │
+        ▼                                                               │
+  terraform apply (phase 2, full plan including domain association) ◄──┘
+        │
+        ▼
+  tighten CORS (custom domain + raw Amplify URL)
+        │
+        ▼
+  tighten Cognito callback URLs
+        │
+        ▼
+  trigger Amplify build + wait
+        │
+        ▼
+  smoke tests (API + Playwright)
+```
 
-## Local Operations
+The two-phase apply exists because `-exclude` cannot be combined with a saved plan file. Phase 1 creates everything except the `aws_amplify_domain_association` resource (which can take up to 40 minutes for ACM certificate provisioning). This ensures all other resources — and the Route53 NS records — are available immediately even if the domain association step is slow.
+
+### Local Deploy
+
+Use `scripts/deploy-local.sh` to mirror the CI deploy locally:
+
+```bash
+# Secrets are loaded from scripts/.env.local if present (see setup-local-secrets.sh)
+bash scripts/deploy-local.sh          # uses current git branch
+bash scripts/deploy-local.sh main     # force production workspace
+bash scripts/deploy-local.sh rc-foo   # force rc-foo workspace
+```
+
+The script handles workspace selection, S3 zip download fallback, two-phase apply, NS record printing, and CORS/Cognito tightening.
+
+### Tearing Down an rc-* Workspace
+
+Via GitHub Actions — trigger `teardown-rc.yml` and supply the workspace name.
+
+Locally:
 
 ```bash
 cd infra
-
-# Initialise (required once after clone or provider upgrade)
-terraform init
-
-# Preview changes
-terraform plan \
-  -var "github_token=<token>" \
-  -var "google_client_id=<id>" \
-  -var "google_client_secret=<secret>"
-
-# Apply
-terraform apply \
-  -var "github_token=<token>" \
-  -var "google_client_id=<id>" \
-  -var "google_client_secret=<secret>"
-
-# Destroy all Terraform-managed resources
-terraform destroy \
+AWS_PROFILE=sandbox terraform workspace select rc-my-feature
+AWS_PROFILE=sandbox terraform destroy \
   -var "github_token=<token>" \
   -var "google_client_id=<id>" \
   -var "google_client_secret=<secret>" \
   -var "lambda_zip_path=/dev/null"
+AWS_PROFILE=sandbox terraform workspace select default
+AWS_PROFILE=sandbox terraform workspace delete rc-my-feature
 ```
 
-> **Note:** `lambda_zip_path` defaults to `../backend/target/function.zip`. Build the backend first or override with `/dev/null` for destroy-only operations.
+---
+
+## Outputs
+
+| Output | Description | Workspaces |
+|--------|-------------|------------|
+| `amplify_app_url` | Primary app URL (custom domain when available) | all |
+| `amplify_default_url` | Raw Amplify URL — used for readiness probes | all |
+| `amplify_app_id` | Amplify app ID | all |
+| `api_gateway_url` | API Gateway invoke URL | all |
+| `api_gateway_api_id` | API Gateway ID (used to tighten CORS) | all |
+| `cognito_user_pool_id` | Cognito User Pool ID | all |
+| `cognito_client_id` | Cognito web app client ID | all |
+| `cognito_domain` | Cognito hosted UI domain | all |
+| `cognito_smoke_test_client_id` | Smoke test client ID | all |
+| `cognito_smoke_test_client_secret` | Smoke test client secret (sensitive) | all |
+| `subdomain_nameservers` | NS records for `sudoku.edoatley.co.uk` | `default` only |
+| `route53_zone_id` | Zone ID (read by rc-* workspaces via remote state) | `default` only |
+| `lambda_function_name` | Lambda function name | all |
+| `lambda_function_arn` | Lambda function ARN | all |
+| `image_recognition_lambda_function_name` | Image recognition Lambda name | all |
+| `image_recognition_ecr_repository_url` | ECR repository URL | all |

@@ -87,12 +87,13 @@ jobs:
   deploy:
     name: Terraform Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     needs: [ci, changes, build-backend, build-image-recognition]
     if: always() && !failure() && !cancelled()
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+      amplify_default_url: ${{ steps.outputs.outputs.amplify_default_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
       cognito_smoke_test_client_id: ${{ steps.outputs.outputs.cognito_smoke_test_client_id }}
@@ -154,7 +155,43 @@ jobs:
           -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
           -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
 
-      - name: Terraform apply
+      - name: Terraform plan (all resources except domain association)
+        # -exclude cannot be combined with a saved plan file, so we create a
+        # separate plan for phase 1 that omits the slow domain association.
+        working-directory: infra
+        run: >-
+          terraform plan -out=tfplan-phase1
+          -input=false
+          -exclude=aws_amplify_domain_association.production
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "environment=prod"
+          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
+          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
+          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
+          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
+
+      - name: Terraform apply (all resources except domain association)
+        working-directory: infra
+        run: terraform apply -auto-approve -input=false tfplan-phase1
+
+      - name: Print Route53 NS records
+        # Print NS records immediately after the zone is created so they are
+        # visible in the logs even if the domain association step times out.
+        # Copy these into infra/scripts/delegate-dns.sh to complete DNS delegation.
+        working-directory: infra
+        run: |
+          if terraform output -json subdomain_nameservers | jq -e 'length > 0' > /dev/null 2>&1; then
+            echo "========================================================"
+            echo "  Route53 NS records for sudoku.edoatley.co.uk"
+            echo "  Run infra/scripts/delegate-dns.sh with these values:"
+            echo "========================================================"
+            terraform output -json subdomain_nameservers | jq -r '.[]'
+            echo "========================================================"
+          fi
+
+      - name: Terraform apply (domain association — may take up to 40 min for ACM)
+        # Phase 2: apply the original full plan which includes the domain association.
         working-directory: infra
         run: terraform apply -auto-approve -input=false tfplan
 
@@ -164,6 +201,7 @@ jobs:
         run: |
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
+          echo "amplify_default_url=$(terraform output -raw amplify_default_url)" >> "$GITHUB_OUTPUT"
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
@@ -173,22 +211,24 @@ jobs:
       - name: Tighten CORS to exact Amplify URL
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
           API_ID: ${{ steps.outputs.outputs.api_id }}
         run: |
-          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
+          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}" "${AMPLIFY_DEFAULT_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
       - name: Tighten Cognito callback URLs to exact Amplify URL
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
           USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
           CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
         run: |
           aws cognito-idp update-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
             --client-id "${CLIENT_ID}" \
-            --callback-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
-            --logout-urls "${AMPLIFY_URL}/" "http://localhost:5173/" \
+            --callback-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "http://localhost:5173/" \
+            --logout-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "http://localhost:5173/" \
             --supported-identity-providers "Google" \
             --allowed-o-auth-flows "code" \
             --allowed-o-auth-scopes "openid" "email" "profile" \
@@ -296,7 +336,7 @@ jobs:
 
       - name: Wait for Amplify deployment to complete
         env:
-          APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+          APP_URL: ${{ needs.deploy.outputs.amplify_default_url }}
         run: |
           echo "Waiting for Amplify app to be reachable at ${APP_URL}"
           for i in $(seq 1 20); do
