@@ -20,6 +20,16 @@ set -euo pipefail
 
 SUBDOMAIN="sudoku.edoatley.co.uk"
 
+# ── Load secrets from .env.local if not already in environment ─────────────────
+ENV_FILE="$(dirname "$0")/.env.local"
+if [ -f "${ENV_FILE}" ]; then
+  # shellcheck source=/dev/null
+  set -o allexport; source "${ENV_FILE}"; set +o allexport
+else
+  echo "Hint: run 'bash scripts/setup-local-secrets.sh' once to avoid passing secrets on the command line."
+fi
+
+
 # ---- Resolve arguments -------------------------------------------------------
 # If the first arg looks like a hosted zone ID (starts with Z and is uppercase
 # alphanumeric), treat it as the zone ID; otherwise expect PARENT_ZONE_ID env var.

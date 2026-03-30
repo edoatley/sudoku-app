@@ -226,8 +226,8 @@ jobs:
           aws cognito-idp update-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
             --client-id "${CLIENT_ID}" \
-            --callback-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "http://localhost:5173/" \
-            --logout-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "http://localhost:5173/" \
+            --callback-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "https://sudoku.edoatley.co.uk/" "http://localhost:5173/" \
+            --logout-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "https://sudoku.edoatley.co.uk/" "http://localhost:5173/" \
             --supported-identity-providers "Google" \
             --allowed-o-auth-flows "code" \
             --allowed-o-auth-scopes "openid" "email" "profile" \
@@ -388,8 +388,8 @@ jobs:
           SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
         run: |
           API_BASE="${API_URL%/}"
-          IMAGE_B64=$(base64 -w 0 image_recognition/tests/fixtures/puzzle_1.jpeg)
-          BODY=$(jq -n --arg img "${IMAGE_B64}" '{"image": $img}')
+          base64 -w 0 image_recognition/tests/fixtures/puzzle_1.jpeg > /tmp/image_b64.txt
+          BODY=$(jq -n --rawfile img /tmp/image_b64.txt '{"image": ($img | rtrimstr("\n"))}')
           STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
             -X POST "${API_BASE}/api/v1/puzzles/import" \
             -H "Content-Type: application/json" \

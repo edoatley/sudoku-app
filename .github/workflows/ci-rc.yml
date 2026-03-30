@@ -281,7 +281,7 @@ jobs:
             mapfile -t CALLBACK_URLS < <(echo "${EXISTING}" | jq -r \
               --arg url "${BRANCH_URL}" \
               --arg default_url "${DEFAULT_URL}" \
-              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + (if any(. == $default_url) then [] else [$default_url] end) | . + ["http://localhost:5173/"] | unique | .[]')
+              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + (if any(. == $default_url) then [] else [$default_url] end) | . + ["https://sudoku-beta.edoatley.co.uk/"] | . + ["http://localhost:5173/"] | unique | .[]')
           else
             # Non-rc workspaces each own their own pool — just set the exact URLs.
             CALLBACK_URLS=("${BRANCH_URL}" "${DEFAULT_URL}" "http://localhost:5173/")
