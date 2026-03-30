@@ -214,7 +214,7 @@ jobs:
         run: >-
           terraform plan -out=tfplan-phase1
           -input=false
-          -exclude=aws_amplify_domain_association.beta
+          -var "exclude_amplify_beta_domain=true"
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "environment=${{ steps.workspace.outputs.environment }}"
           -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"

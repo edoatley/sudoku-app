@@ -271,7 +271,7 @@ build backend zip
   terraform plan ──────────────────────────────────────────────────────┐
         │                                                               │
         ▼                                                               │
-  terraform plan (phase 1, -exclude domain association)                │
+  terraform plan (phase 1, exclude domain association)                │
         │                                                               │
         ▼                                                               │
   terraform apply (phase 1) ── [main only] print Route53 NS records    │
@@ -292,7 +292,8 @@ build backend zip
   smoke tests (API + Playwright)
 ```
 
-The two-phase apply exists because `-exclude` cannot be combined with a saved plan file. Phase 1 creates everything except the `aws_amplify_domain_association` resource (which can take up to 40 minutes for ACM certificate provisioning). This ensures all other resources — and the Route53 NS records — are available immediately even if the domain association step is slow.
+Phase 1 creates everything except the `aws_amplify_domain_association` resource (which can take up to 40 minutes for ACM certificate provisioning). 
+This ensures all other resources — and the Route53 NS records — are available immediately even if the domain association step is slow.
 
 ### Local Deploy
 
