@@ -26,8 +26,8 @@ data "terraform_remote_state" "default" {
 # Amplify provisions the ACM certificate automatically.
 resource "aws_amplify_domain_association" "production" {
   # Only create if it's the default workspace AND we haven't explicitly excluded it
-  count       = local.is_default && !var.exclude_amplify_domain ? 1 : 0
-  
+  count = local.is_default && !var.exclude_amplify_domain ? 1 : 0
+
   app_id      = aws_amplify_app.sudoku.id
   domain_name = "sudoku.edoatley.co.uk"
 
