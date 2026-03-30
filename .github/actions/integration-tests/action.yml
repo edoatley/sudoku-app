@@ -17,8 +17,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v6
-
     - uses: ./.github/actions/setup-node
       with:
         install-playwright: "true"

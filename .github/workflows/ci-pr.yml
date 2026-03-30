@@ -146,6 +146,7 @@ jobs:
     timeout-minutes: 20
     needs: [ui, backend]
     steps:
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/integration-tests
         with:
           report-artifact-name: integration-playwright-report
