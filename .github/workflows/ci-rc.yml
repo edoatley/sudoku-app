@@ -126,12 +126,13 @@ jobs:
   deploy:
     name: Terraform Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     needs: [ci, integration, changes, build-backend, build-image-recognition]
     if: always() && !failure() && !cancelled()
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+      amplify_default_url: ${{ steps.outputs.outputs.amplify_default_url }}
       cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
       cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
     steps:
@@ -206,7 +207,30 @@ jobs:
           -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
           -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
 
-      - name: Terraform apply
+      - name: Terraform plan (all resources except domain association)
+        # -exclude cannot be combined with a saved plan file, so we create a
+        # separate plan for phase 1 that omits the slow domain association.
+        working-directory: infra
+        run: >-
+          terraform plan -out=tfplan-phase1
+          -input=false
+          -exclude=aws_amplify_domain_association.beta
+          -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
+          -var "environment=${{ steps.workspace.outputs.environment }}"
+          -var "google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}"
+          -var "google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          -var "smoke_test_user_email=${{ secrets.SMOKE_TEST_USER_EMAIL }}"
+          -var "smoke_test_user_password=${{ secrets.SMOKE_TEST_USER_PASSWORD }}"
+          -var "rc_cognito_web_client_id=${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}"
+          -var "rc_cognito_smoke_client_id=${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}"
+          -var "image_recognition_image_uri=${{ needs.build-image-recognition.outputs.image_uri }}"
+
+      - name: Terraform apply (all resources except domain association)
+        working-directory: infra
+        run: terraform apply -auto-approve -input=false tfplan-phase1
+
+      - name: Terraform apply (domain association — may take up to 40 min for ACM)
+        # Phase 2: apply the original full plan which includes the domain association.
         working-directory: infra
         run: terraform apply -auto-approve -input=false tfplan
 
@@ -216,6 +240,7 @@ jobs:
         run: |
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
+          echo "amplify_default_url=$(terraform output -raw amplify_default_url)" >> "$GITHUB_OUTPUT"
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
@@ -225,9 +250,10 @@ jobs:
       - name: Tighten CORS to exact Amplify URL
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
           API_ID: ${{ steps.outputs.outputs.api_id }}
         run: |
-          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}")
+          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}" "${AMPLIFY_DEFAULT_URL}")
           aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 
       - name: Update Cognito callback URLs
@@ -236,11 +262,13 @@ jobs:
         #         exact URLs — read the current list and add this branch's URL if missing.
         env:
           AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
+          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
           USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
           CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
           IS_RC: ${{ startsWith(steps.workspace.outputs.workspace, 'rc-') }}
         run: |
           BRANCH_URL="${AMPLIFY_URL}/"
+          DEFAULT_URL="${AMPLIFY_DEFAULT_URL}/"
           if [[ "${IS_RC}" == "true" ]]; then
             # rc-* branches share one Cognito pool — accumulate URLs so deploying one
             # branch does not break other active rc-* branches that are already registered.
@@ -252,10 +280,11 @@ jobs:
               --output json)
             mapfile -t CALLBACK_URLS < <(echo "${EXISTING}" | jq -r \
               --arg url "${BRANCH_URL}" \
-              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + ["http://localhost:5173/"] | unique | .[]')
+              --arg default_url "${DEFAULT_URL}" \
+              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + (if any(. == $default_url) then [] else [$default_url] end) | . + ["http://localhost:5173/"] | unique | .[]')
           else
             # Non-rc workspaces each own their own pool — just set the exact URLs.
-            CALLBACK_URLS=("${BRANCH_URL}" "http://localhost:5173/")
+            CALLBACK_URLS=("${BRANCH_URL}" "${DEFAULT_URL}" "http://localhost:5173/")
           fi
           aws cognito-idp update-user-pool-client \
             --user-pool-id "${USER_POOL_ID}" \
@@ -404,7 +433,7 @@ jobs:
 
       - name: Wait for Amplify deployment to complete
         env:
-          APP_URL: ${{ needs.deploy.outputs.amplify_app_url }}
+          APP_URL: ${{ needs.deploy.outputs.amplify_default_url }}
         run: |
           echo "Waiting for Amplify app to be reachable at ${APP_URL}"
           for i in $(seq 1 20); do

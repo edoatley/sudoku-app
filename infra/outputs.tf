@@ -9,8 +9,26 @@ output "api_gateway_api_id" {
 }
 
 output "amplify_app_url" {
-  description = "Amplify production branch URL."
+  description = "Primary URL for the Amplify app (custom domain when available)."
+  value = local.is_default ? "https://sudoku.edoatley.co.uk" : (
+    local.is_rc ? "https://sudoku-beta.edoatley.co.uk" :
+    "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain}"
+  )
+}
+
+output "amplify_default_url" {
+  description = "Raw Amplify branch URL (used for readiness probes before custom domain DNS propagates)."
   value       = "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain}"
+}
+
+output "subdomain_nameservers" {
+  description = "Name servers for the sudoku.edoatley.co.uk hosted zone. Copy these into infra/scripts/delegate-dns.sh."
+  value       = local.is_default ? aws_route53_zone.sudoku[0].name_servers : []
+}
+
+output "route53_zone_id" {
+  description = "Route53 hosted zone ID for sudoku.edoatley.co.uk (read by rc-* workspaces via remote state)."
+  value       = local.is_default ? aws_route53_zone.sudoku[0].zone_id : null
 }
 
 output "lambda_function_name" {
