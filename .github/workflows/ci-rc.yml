@@ -22,37 +22,10 @@ jobs:
     timeout-minutes: 20
     needs: ci
     steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/integration-tests
         with:
-          install-playwright: "true"
-      - name: Build and start services
-        run: docker compose -f docker-compose.test.yml up -d --build
-      - name: Wait for backend to be healthy
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/api/v1/puzzles/generate > /dev/null; then
-              echo "Backend is ready"
-              break
-            fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 3
-          done
-      - name: Run integration tests
-        working-directory: ui
-        run: npx playwright test --config playwright.integration.config.js
-        env:
-          CI: "true"
-      - name: Upload integration test report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: push-integration-playwright-report
-          path: ui/playwright-report/
-          retention-days: 7
-      - name: Tear down services
-        if: always()
-        run: docker compose -f docker-compose.test.yml down
+          report-artifact-name: push-integration-playwright-report
+          upload-results: "false"
 
   changes:
     name: Detect Changes
@@ -298,54 +271,11 @@ jobs:
             --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
 
       - name: Trigger Amplify build and wait
-        # Always build when frontend changed. Also build when there are no prior
-        # builds for this branch (first RC deployment) regardless of changed files.
-        working-directory: infra
-        env:
-          BRANCH: ${{ steps.workspace.outputs.branch }}
-          FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
-        run: |
-          APP_ID=$(terraform output -raw amplify_app_id)
-
-          # Check if this branch has ever had an Amplify build
-          PRIOR_BUILDS=$(aws amplify list-jobs \
-            --app-id "${APP_ID}" \
-            --branch-name "${BRANCH}" \
-            --query 'length(jobSummaries)' --output text 2>/dev/null || echo "0")
-
-          if [[ "${FRONTEND_CHANGED}" != "true" && "${PRIOR_BUILDS}" != "0" ]]; then
-            echo "No frontend changes and branch already has ${PRIOR_BUILDS} build(s) — skipping Amplify build."
-            exit 0
-          fi
-
-          if [[ "${PRIOR_BUILDS}" == "0" ]]; then
-            echo "First deployment for branch ${BRANCH} — triggering initial Amplify build."
-          else
-            echo "Frontend changed — triggering Amplify build for branch ${BRANCH}."
-          fi
-
-          JOB_ID=$(aws amplify start-job \
-            --app-id "${APP_ID}" \
-            --branch-name "${BRANCH}" \
-            --job-type RELEASE \
-            --query 'jobSummary.jobId' --output text)
-          echo "Amplify job ID: ${JOB_ID}"
-
-          # Wait up to 10 minutes for the build to complete
-          for i in $(seq 1 40); do
-            STATUS=$(aws amplify get-job \
-              --app-id "${APP_ID}" \
-              --branch-name "${BRANCH}" \
-              --job-id "${JOB_ID}" \
-              --query 'job.summary.status' --output text)
-            echo "Attempt ${i}/40 → ${STATUS}"
-            case "${STATUS}" in
-              SUCCEED) echo "Amplify build succeeded"; break ;;
-              FAILED|CANCELLED) echo "Amplify build ${STATUS}"; exit 1 ;;
-            esac
-            [ "${i}" = "40" ] && { echo "Amplify build timed out"; exit 1; }
-            sleep 15
-          done
+        uses: ./.github/actions/trigger-amplify-build
+        with:
+          branch: ${{ steps.workspace.outputs.branch }}
+          frontend-changed: ${{ needs.changes.outputs.frontend }}
+          is-rc: "true"
 
       - name: Print deployment URLs
         working-directory: infra

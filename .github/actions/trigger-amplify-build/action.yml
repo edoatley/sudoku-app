@@ -1,0 +1,69 @@
+name: Trigger Amplify Build and Wait
+description: Starts an Amplify RELEASE job and polls until it succeeds, fails, or times out
+
+inputs:
+  branch:
+    description: Amplify branch name to build
+    required: true
+  frontend-changed:
+    description: Whether UI files changed ("true" or "false")
+    required: true
+  is-rc:
+    description: When "true", also triggers a build on first deployment (no prior builds for this branch)
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Trigger Amplify build and wait
+      shell: bash
+      working-directory: infra
+      env:
+        BRANCH: ${{ inputs.branch }}
+        FRONTEND_CHANGED: ${{ inputs.frontend-changed }}
+        IS_RC: ${{ inputs.is-rc }}
+      run: |
+        APP_ID=$(terraform output -raw amplify_app_id)
+
+        if [[ "${IS_RC}" == "true" ]]; then
+          PRIOR_BUILDS=$(aws amplify list-jobs \
+            --app-id "${APP_ID}" \
+            --branch-name "${BRANCH}" \
+            --query 'length(jobSummaries)' --output text 2>/dev/null || echo "0")
+        else
+          PRIOR_BUILDS="1"
+        fi
+
+        if [[ "${FRONTEND_CHANGED}" != "true" && "${PRIOR_BUILDS}" != "0" ]]; then
+          echo "No frontend changes and branch already has ${PRIOR_BUILDS} build(s) — skipping Amplify build."
+          exit 0
+        fi
+
+        if [[ "${PRIOR_BUILDS}" == "0" ]]; then
+          echo "First deployment for branch ${BRANCH} — triggering initial Amplify build."
+        else
+          echo "Frontend changed — triggering Amplify build for branch ${BRANCH}."
+        fi
+
+        JOB_ID=$(aws amplify start-job \
+          --app-id "${APP_ID}" \
+          --branch-name "${BRANCH}" \
+          --job-type RELEASE \
+          --query 'jobSummary.jobId' --output text)
+        echo "Amplify job ID: ${JOB_ID}"
+
+        for i in $(seq 1 40); do
+          STATUS=$(aws amplify get-job \
+            --app-id "${APP_ID}" \
+            --branch-name "${BRANCH}" \
+            --job-id "${JOB_ID}" \
+            --query 'job.summary.status' --output text)
+          echo "Attempt ${i}/40 → ${STATUS}"
+          case "${STATUS}" in
+            SUCCEED) echo "Amplify build succeeded"; break ;;
+            FAILED|CANCELLED) echo "Amplify build ${STATUS}"; exit 1 ;;
+          esac
+          [ "${i}" = "40" ] && { echo "Amplify build timed out"; exit 1; }
+          sleep 15
+        done

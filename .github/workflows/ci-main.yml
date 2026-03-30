@@ -236,32 +236,11 @@ jobs:
 
       - name: Trigger Amplify build and wait
         if: needs.changes.outputs.frontend == 'true'
-        working-directory: infra
-        run: |
-          APP_ID=$(terraform output -raw amplify_app_id)
-          echo "Triggering Amplify build for branch main on app ${APP_ID}"
-          JOB_ID=$(aws amplify start-job \
-            --app-id "${APP_ID}" \
-            --branch-name "main" \
-            --job-type RELEASE \
-            --query 'jobSummary.jobId' --output text)
-          echo "Amplify job ID: ${JOB_ID}"
-
-          # Wait up to 10 minutes for the build to complete
-          for i in $(seq 1 40); do
-            STATUS=$(aws amplify get-job \
-              --app-id "${APP_ID}" \
-              --branch-name "main" \
-              --job-id "${JOB_ID}" \
-              --query 'job.summary.status' --output text)
-            echo "Attempt ${i}/40 → ${STATUS}"
-            case "${STATUS}" in
-              SUCCEED) echo "Amplify build succeeded"; break ;;
-              FAILED|CANCELLED) echo "Amplify build ${STATUS}"; exit 1 ;;
-            esac
-            [ "${i}" = "40" ] && { echo "Amplify build timed out"; exit 1; }
-            sleep 15
-          done
+        uses: ./.github/actions/trigger-amplify-build
+        with:
+          branch: main
+          frontend-changed: ${{ needs.changes.outputs.frontend }}
+          is-rc: "false"
 
       - name: Print deployment URLs
         working-directory: infra
