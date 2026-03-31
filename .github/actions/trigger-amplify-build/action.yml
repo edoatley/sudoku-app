@@ -1,3 +1,5 @@
+# DEPRECATED: Logic absorbed into scripts/post-deploy.sh.
+# This action is no longer called by ci-rc.yml or ci-main.yml.
 name: Trigger Amplify Build and Wait
 description: Starts an Amplify RELEASE job and polls until it succeeds, fails, or times out
 

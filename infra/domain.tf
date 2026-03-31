@@ -51,6 +51,11 @@ resource "aws_amplify_domain_association" "beta" {
   app_id      = aws_amplify_app.sudoku.id
   domain_name = "sudoku-beta.edoatley.co.uk"
 
+  # Do not block the apply waiting for ACM certificate verification — the
+  # Terraform provider's built-in waiter has a hard 15-minute timeout which
+  # is not enough for first-time provisioning. post-deploy.sh polls instead.
+  wait_for_verification = false
+
   sub_domain {
     branch_name = aws_amplify_branch.main.branch_name
     prefix      = ""

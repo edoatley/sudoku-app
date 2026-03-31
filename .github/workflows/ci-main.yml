@@ -202,45 +202,32 @@ jobs:
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
           echo "amplify_default_url=$(terraform output -raw amplify_default_url)" >> "$GITHUB_OUTPUT"
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
+          echo "amplify_app_id=$(terraform output -raw amplify_app_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
           # cognito_smoke_test_client_secret is sensitive — fetched directly in smoke-test job via AWS API
 
-      - name: Tighten CORS to exact Amplify URL
+      - name: Post-deploy configuration
         env:
-          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
-          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
-          API_ID: ${{ steps.outputs.outputs.api_id }}
+          AMPLIFY_URL:      ${{ steps.outputs.outputs.amplify_app_url }}
+          DEFAULT_URL:      ${{ steps.outputs.outputs.amplify_default_url }}
+          API_ID:           ${{ steps.outputs.outputs.api_id }}
+          APP_ID:           ${{ steps.outputs.outputs.amplify_app_id }}
+          USER_POOL_ID:     ${{ steps.outputs.outputs.cognito_user_pool_id }}
+          CLIENT_ID:        ${{ steps.outputs.outputs.cognito_client_id }}
+          FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
         run: |
-          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}" "${AMPLIFY_DEFAULT_URL}")
-          aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
-
-      - name: Tighten Cognito callback URLs to exact Amplify URL
-        env:
-          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
-          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
-          USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
-          CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
-        run: |
-          aws cognito-idp update-user-pool-client \
-            --user-pool-id "${USER_POOL_ID}" \
-            --client-id "${CLIENT_ID}" \
-            --callback-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "https://sudoku.edoatley.co.uk/" "http://localhost:5173/" \
-            --logout-urls "${AMPLIFY_URL}/" "${AMPLIFY_DEFAULT_URL}/" "https://sudoku.edoatley.co.uk/" "http://localhost:5173/" \
-            --supported-identity-providers "Google" \
-            --allowed-o-auth-flows "code" \
-            --allowed-o-auth-scopes "openid" "email" "profile" \
-            --allowed-o-auth-flows-user-pool-client \
-            --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
-
-      - name: Trigger Amplify build and wait
-        if: needs.changes.outputs.frontend == 'true'
-        uses: ./.github/actions/trigger-amplify-build
-        with:
-          branch: main
-          frontend-changed: ${{ needs.changes.outputs.frontend }}
-          is-rc: "false"
+          bash scripts/github/amplify-post-deploy.sh \
+            --mode prod \
+            --api-id           "${API_ID}" \
+            --app-id           "${APP_ID}" \
+            --amplify-url      "${AMPLIFY_URL}" \
+            --default-url      "${DEFAULT_URL}" \
+            --branch           main \
+            --user-pool-id     "${USER_POOL_ID}" \
+            --client-id        "${CLIENT_ID}" \
+            --frontend-changed "${FRONTEND_CHANGED}"
 
       - name: Print deployment URLs
         working-directory: infra

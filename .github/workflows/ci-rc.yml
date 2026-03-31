@@ -216,67 +216,33 @@ jobs:
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)" >> "$GITHUB_OUTPUT"
           echo "amplify_default_url=$(terraform output -raw amplify_default_url)" >> "$GITHUB_OUTPUT"
           echo "api_id=$(terraform output -raw api_gateway_api_id)" >> "$GITHUB_OUTPUT"
+          echo "amplify_app_id=$(terraform output -raw amplify_app_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
           # cognito_smoke_test_client_secret is sensitive — fetched directly in smoke-test job via AWS API
 
-      - name: Tighten CORS to exact Amplify URL
+      - name: Post-deploy configuration
         env:
-          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
-          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
-          API_ID: ${{ steps.outputs.outputs.api_id }}
+          AMPLIFY_URL:      ${{ steps.outputs.outputs.amplify_app_url }}
+          DEFAULT_URL:      ${{ steps.outputs.outputs.amplify_default_url }}
+          API_ID:           ${{ steps.outputs.outputs.api_id }}
+          APP_ID:           ${{ steps.outputs.outputs.amplify_app_id }}
+          USER_POOL_ID:     ${{ steps.outputs.outputs.cognito_user_pool_id }}
+          CLIENT_ID:        ${{ steps.outputs.outputs.cognito_client_id }}
+          BRANCH:           ${{ steps.workspace.outputs.branch }}
+          FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
         run: |
-          CORS_CONFIG=$(printf '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' "${AMPLIFY_URL}" "${AMPLIFY_DEFAULT_URL}")
-          aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
-
-      - name: Update Cognito callback URLs
-        # Non-rc: replace with exact Amplify URL (each workspace owns its own pool).
-        # rc-*:   Cognito does not support wildcard callback URLs, so we accumulate
-        #         exact URLs — read the current list and add this branch's URL if missing.
-        env:
-          AMPLIFY_URL: ${{ steps.outputs.outputs.amplify_app_url }}
-          AMPLIFY_DEFAULT_URL: ${{ steps.outputs.outputs.amplify_default_url }}
-          USER_POOL_ID: ${{ steps.outputs.outputs.cognito_user_pool_id }}
-          CLIENT_ID: ${{ steps.outputs.outputs.cognito_client_id }}
-          IS_RC: ${{ startsWith(steps.workspace.outputs.workspace, 'rc-') }}
-        run: |
-          BRANCH_URL="${AMPLIFY_URL}/"
-          DEFAULT_URL="${AMPLIFY_DEFAULT_URL}/"
-          if [[ "${IS_RC}" == "true" ]]; then
-            # rc-* branches share one Cognito pool — accumulate URLs so deploying one
-            # branch does not break other active rc-* branches that are already registered.
-            # Also strip any defunct wildcard entries Cognito silently rejects.
-            EXISTING=$(aws cognito-idp describe-user-pool-client \
-              --user-pool-id "${USER_POOL_ID}" \
-              --client-id "${CLIENT_ID}" \
-              --query 'UserPoolClient.CallbackURLs' \
-              --output json)
-            mapfile -t CALLBACK_URLS < <(echo "${EXISTING}" | jq -r \
-              --arg url "${BRANCH_URL}" \
-              --arg default_url "${DEFAULT_URL}" \
-              '[.[] | select(test("^https://[^*]"))] | . + (if any(. == $url) then [] else [$url] end) | . + (if any(. == $default_url) then [] else [$default_url] end) | . + ["https://sudoku-beta.edoatley.co.uk/"] | . + ["http://localhost:5173/"] | unique | .[]')
-          else
-            # Non-rc workspaces each own their own pool — just set the exact URLs.
-            CALLBACK_URLS=("${BRANCH_URL}" "${DEFAULT_URL}" "http://localhost:5173/")
-          fi
-          aws cognito-idp update-user-pool-client \
-            --user-pool-id "${USER_POOL_ID}" \
-            --client-id "${CLIENT_ID}" \
-            --callback-urls "${CALLBACK_URLS[@]}" \
-            --logout-urls "${CALLBACK_URLS[@]}" \
-            --supported-identity-providers "Google" \
-            --allowed-o-auth-flows "code" \
-            --allowed-o-auth-scopes "openid" "email" "profile" \
-            --allowed-o-auth-flows-user-pool-client \
-            --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
-
-      - name: Trigger Amplify build and wait
-        uses: ./.github/actions/trigger-amplify-build
-        with:
-          branch: ${{ steps.workspace.outputs.branch }}
-          frontend-changed: ${{ needs.changes.outputs.frontend }}
-          is-rc: "true"
+          bash scripts/github/amplify-post-deploy.sh \
+            --mode rc \
+            --api-id           "${API_ID}" \
+            --app-id           "${APP_ID}" \
+            --amplify-url      "${AMPLIFY_URL}" \
+            --default-url      "${DEFAULT_URL}" \
+            --branch           "${BRANCH}" \
+            --user-pool-id     "${USER_POOL_ID}" \
+            --client-id        "${CLIENT_ID}" \
+            --frontend-changed "${FRONTEND_CHANGED}"
 
       - name: Print deployment URLs
         working-directory: infra
