@@ -112,10 +112,13 @@ jobs:
           FAILED=0
 
           check() {
-            local label="$1" status="$2" expected="$3" extra="$4"
+            local label="$1" status="$2" expected="$3" extra="$4" body_file="${5:-}"
             if [ "${status}" = "${expected}" ] && { [ -z "${extra}" ] || eval "${extra}"; }; then
+              echo "✅ ${label} → ${status}"
               SUMMARY="${SUMMARY}\n| ${label} | ✅ ${status} |"
             else
+              echo "❌ ${label} → ${status} (expected ${expected})"
+              [ -n "${body_file}" ] && [ -f "${body_file}" ] && echo "   body: $(cat "${body_file}")"
               SUMMARY="${SUMMARY}\n| ${label} | ❌ ${status} (expected ${expected}) |"
               FAILED=1
             fi
@@ -123,25 +126,25 @@ jobs:
 
           # /health
           STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" "${API_BASE}/api/v1/health")
-          check "GET /api/v1/health" "${STATUS}" "200" "grep -q '\"status\"' /tmp/health.json"
+          check "GET /api/v1/health" "${STATUS}" "200" "grep -q '\"status\"' /tmp/health.json" /tmp/health.json
 
           # /puzzles/generate
           STATUS=$(curl -s -o /tmp/generate.json -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate")
-          check "GET /api/v1/puzzles/generate" "${STATUS}" "200" "grep -q '\"originalGrid\"' /tmp/generate.json"
+          check "GET /api/v1/puzzles/generate" "${STATUS}" "200" "grep -q '\"originalGrid\"' /tmp/generate.json" /tmp/generate.json
 
           # /puzzles/generate?difficulty=hard
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
-          check "GET /api/v1/puzzles/generate?difficulty=hard" "${STATUS}" "200"
+          STATUS=$(curl -s -o /tmp/generate_hard.json -w "%{http_code}" "${API_BASE}/api/v1/puzzles/generate?difficulty=hard")
+          check "GET /api/v1/puzzles/generate?difficulty=hard" "${STATUS}" "200" "" /tmp/generate_hard.json
 
           # POST /games without token — JWT authorizer must reject with 401
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/games" \
+          STATUS=$(curl -s -o /tmp/games_noauth.json -w "%{http_code}" -X POST "${API_BASE}/api/v1/games" \
             -H "Content-Type: application/json" -d '{"difficulty":"easy"}')
-          check "POST /api/v1/games (no token → 401)" "${STATUS}" "401"
+          check "POST /api/v1/games (no token → 401)" "${STATUS}" "401" "" /tmp/games_noauth.json
 
           # POST /puzzles/import without token — JWT authorizer must reject with 401
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_BASE}/api/v1/puzzles/import" \
+          STATUS=$(curl -s -o /tmp/import_noauth.json -w "%{http_code}" -X POST "${API_BASE}/api/v1/puzzles/import" \
             -H "Content-Type: application/json" -d '{"image":"dGVzdA=="}')
-          check "POST /api/v1/puzzles/import (no token → 401)" "${STATUS}" "401"
+          check "POST /api/v1/puzzles/import (no token → 401)" "${STATUS}" "401" "" /tmp/import_noauth.json
 
           {
             echo "### API Smoke Tests"
