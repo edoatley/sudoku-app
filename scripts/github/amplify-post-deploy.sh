@@ -133,6 +133,7 @@ if [[ "${MODE}" == "rc" ]]; then
   echo "========================================================"
   echo "  C) Waiting for domain association verification"
   echo "     Domain: sudoku-beta.edoatley.co.uk"
+  echo "     Zone:   sudoku-beta.edoatley.co.uk (sandbox account, default workspace)"
   echo "========================================================"
 
   DOMAIN_NAME="sudoku-beta.edoatley.co.uk"
@@ -148,7 +149,7 @@ if [[ "${MODE}" == "rc" ]]; then
       --output text 2>&1) || {
       EXIT_CODE=$?
       if echo "${DOMAIN_STATUS}" | grep -q "ResourceNotFoundException\|NotFoundException"; then
-        echo "  Domain association not yet created by Terraform — skipping wait."
+        echo "  Domain association not found (excluded via exclude_amplify_beta_domain=true) — skipping wait."
         break
       fi
       echo "  ERROR: aws amplify get-domain-association failed (exit ${EXIT_CODE}):" >&2

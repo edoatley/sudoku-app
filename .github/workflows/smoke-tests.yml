@@ -169,6 +169,20 @@ jobs:
             sleep 15
           done
 
+      - name: Wait for custom domain to resolve
+        if: inputs.amplify_app_url != inputs.amplify_default_url
+        env:
+          CUSTOM_URL: ${{ inputs.amplify_app_url }}
+        run: |
+          echo "Waiting for custom domain ${CUSTOM_URL} to resolve..."
+          for i in $(seq 1 20); do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "${CUSTOM_URL}" 2>/dev/null || echo "000")
+            echo "Attempt ${i}/20 → HTTP ${STATUS}"
+            [ "${STATUS}" = "200" ] && { echo "Custom domain ready"; break; }
+            [ "${i}" = "20" ] && { echo "FAIL: Custom domain not ready after 300s"; exit 1; }
+            sleep 15
+          done
+
       - uses: ./.github/actions/configure-aws-oidc
         with:
           role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}

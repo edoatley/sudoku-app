@@ -163,9 +163,20 @@ if [ "${WORKSPACE}" = "default" ]; then
     echo ""
     echo "========================================================"
     echo "  Route53 NS records for sudoku.edoatley.co.uk"
-    echo "  Run infra/scripts/delegate-dns.sh with these values:"
+    echo "  Run scripts/delegate-dns.sh with these values:"
     echo "========================================================"
     echo "${NS}" | jq -r '.[]'
+    echo "========================================================"
+  fi
+
+  BETA_NS=$(AWS_PROFILE=sandbox terraform output -json sudoku_beta_nameservers 2>/dev/null)
+  if echo "${BETA_NS}" | jq -e 'length > 0' > /dev/null 2>&1; then
+    echo ""
+    echo "========================================================"
+    echo "  Route53 NS records for sudoku-beta.edoatley.co.uk"
+    echo "  Update NS delegation in parent account with these:"
+    echo "========================================================"
+    echo "${BETA_NS}" | jq -r '.[]'
     echo "========================================================"
   fi
 fi

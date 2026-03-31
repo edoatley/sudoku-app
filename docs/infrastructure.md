@@ -6,7 +6,8 @@
 
 ## Resource Definitions
 
-- **File Structure:** Maintain a clean separation of concerns. Use `main.tf` (provider), `variables.tf` (inputs), `outputs.tf` (exports), `lambda.tf` (compute), `api_gateway.tf` (routing), `dynamodb.tf` (data), `amplify.tf` (frontend hosting), and `iam.tf` (roles and policies).
+- **File Structure:** Maintain a clean separation of concerns. Use `main.tf` (provider), `variables.tf` (inputs), `outputs.tf` (exports), `lambda.tf` (compute), `api_gateway.tf` (routing), `dynamodb.tf` (data), `amplify.tf` (frontend hosting), `iam.tf` (roles and policies), and `domain.tf` (Route53 zones + Amplify domain associations).
+- **DNS Zones:** Both `sudoku.edoatley.co.uk` (production) and `sudoku-beta.edoatley.co.uk` (RC/beta) hosted zones are created in the `default` workspace only and are permanent. RC workspaces read zone IDs from the default workspace's remote state (`route53_zone_id`, `route53_beta_zone_id`) — they never create or destroy zones. The parent zone `edoatley.co.uk` (separate AWS account) delegates to both via NS records. After any change to zone nameservers, update the NS delegation in the parent account manually.
 - **API Gateway:** Strictly use **API Gateway v2 (HTTP API)** for cost and performance efficiency. Do not use REST API v1.
 - **CORS:** Use the two-step pattern to achieve tight CORS without a circular dependency:
   1. **Terraform-managed baseline** — set `allow_origins` to `["https://*.amplifyapp.com", "http://localhost:5173"]` in the `cors_configuration` block. This wildcard is intentionally broad to avoid the circular dependency where Amplify needs the API Gateway URL before it exists and vice versa.

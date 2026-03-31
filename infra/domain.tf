@@ -8,9 +8,19 @@ resource "aws_route53_zone" "sudoku" {
   comment = "Delegated zone for the Sudoku Amplify app"
 }
 
-# RC workspaces read the zone ID from the default workspace's remote state
+# Route53 hosted zone for the beta subdomain.
+# Created once in the default workspace only — RC workspaces reuse it.
+# After apply, update the NS delegation in the parent account to point
+# sudoku-beta.edoatley.co.uk at the nameservers from the sudoku_beta_nameservers output.
+resource "aws_route53_zone" "sudoku_beta" {
+  count   = local.is_default ? 1 : 0
+  name    = "sudoku-beta.edoatley.co.uk"
+  comment = "Delegated zone for the Sudoku beta (RC) Amplify app"
+}
+
+# RC workspaces read both zone IDs from the default workspace's remote state
 # rather than doing a live lookup — avoids a ListHostedZones dependency on
-# the zone existing before this workspace is first applied.
+# the zones existing before this workspace is first applied.
 data "terraform_remote_state" "default" {
   count   = local.is_rc && !var.exclude_amplify_beta_domain ? 1 : 0
   backend = "s3"
@@ -47,7 +57,7 @@ resource "aws_amplify_domain_association" "production" {
 # Only one RC branch holds this domain at a time (last writer wins).
 # Prerequisite: default workspace must have been applied first (zone must exist).
 resource "aws_amplify_domain_association" "beta" {
-  count       = local.is_rc && try(data.terraform_remote_state.default[0].outputs.route53_zone_id, null) != null ? 1 : 0
+  count       = local.is_rc && try(data.terraform_remote_state.default[0].outputs.route53_beta_zone_id, null) != null ? 1 : 0
   app_id      = aws_amplify_app.sudoku.id
   domain_name = "sudoku-beta.edoatley.co.uk"
 
