@@ -20,16 +20,20 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    logger.addHandler(_handler)
 
 # ---------------------------------------------------------------------------
 # Model cascade — tried in order, first valid result wins.
 # ---------------------------------------------------------------------------
 _MODELS = [
     # "us.amazon.nova-lite-v1:0",                # Extremely fast/cheap
-    # "us.amazon.nova-pro-v1:0",                 # Highly capable vision
-    "nvidia.nemotron-nano-12b-v2", # The ultimate fallback
-    "mistral.magistral-small-2509", # The ultimate fallback
-    # "global.anthropic.claude-haiku-4-5-20251001-v1:0", # very pricey
+    "us.amazon.nova-pro-v1:0",                 # Highly capable vision
+    "nvidia.nemotron-nano-12b-v2", 
+    "mistral.magistral-small-2509", 
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0", # very pricey
 ]
 
 # Downscale to at most this many pixels on the longest edge before sending.
@@ -82,7 +86,7 @@ def handler(event: dict, context: object) -> dict:
     Successful response:
       {
         "statusCode": 200,
-        "body": "{\"originalGrid\": [[0,0,...], ...]}"
+        "body": "{\"originalGrid\": [[0,0,...], ...], \"validPuzzle\": true, \"modelName\": \"model-id\"}"
       }
 
     where ``originalGrid`` is a 9x9 list of ints (0 = empty cell).
@@ -99,6 +103,7 @@ def handler(event: dict, context: object) -> dict:
             return _error(400, "Request body must be JSON with an 'image' field.")
 
         image_bytes = base64.b64decode(image_b64)
+        logger.info("Received image recognition request: image_size=%d bytes", len(image_bytes))
 
         if len(image_bytes) > 8 * 1024 * 1024:
             return _error(400, "Image too large — maximum size is 8 MB.")
@@ -107,12 +112,12 @@ def handler(event: dict, context: object) -> dict:
         # image_bytes = _downscale_image(image_bytes) # Temporarily bypass to see if PIL is degrading the image too much
         
         client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
-        grid, valid = _recognize_with_bedrock(client, image_bytes)
+        grid, valid, model_name = _recognize_with_bedrock(client, image_bytes)
 
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"originalGrid": grid, "validPuzzle": valid}),
+            "body": json.dumps({"originalGrid": grid, "validPuzzle": valid, "modelName": model_name}),
         }
 
     except ValueError as exc:
@@ -127,12 +132,18 @@ def handler(event: dict, context: object) -> dict:
 # Bedrock orchestration
 # ---------------------------------------------------------------------------
 
-def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[list[int]], bool]:
-    """Try each model in _MODELS; return (best_grid, valid) across all attempts.
+def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[list[int]], bool, str]:
+    """Try each model in _MODELS; return (best_grid, valid, model_name).
 
     Scoring (higher is better):
       +2  no duplicate digits in any row/col/box
       +1  per 10 clues above the minimum threshold (rewards richer grids)
+
+    Whenever a model returns a valid result (no duplicates, ≥17 clues), the
+    next model in the list is also tried.  If the two grids differ, the next
+    model's result is used and the substitution is logged.  This cross-check
+    catches cases where a higher-ranked model made a subtle mis-read that a
+    lower-ranked model gets right.
 
     A grid with duplicates is still returned if it's the best we got — the
     duplicate check is a quality signal, not a hard rejection.  This avoids
@@ -146,10 +157,14 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
     best_score: int = -1
     best_has_dupe: bool = True
     best_clues: int = 0
+    best_model_name: str = ""
     last_error: Exception | None = None
 
-    for model_id in _MODELS:
+    model_index = 0
+    while model_index < len(_MODELS):
+        model_id = _MODELS[model_index]
         try:
+            logger.info("Trying model %s (index %d)", model_id, model_index)
             grid = _invoke_model(client, model_id, image_bytes)
             clues = sum(v != 0 for row in grid for v in row)
             if clues < _MIN_PLAUSIBLE_CLUES:
@@ -175,16 +190,53 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
                 best_grid = grid
                 best_has_dupe = has_dupe
                 best_clues = clues
-            # Stop early if we have a clean, high-quality result
-            if not has_dupe and clues >= 17:
-                break
+                best_model_name = model_id
+
+            # When a model returns a valid result, always cross-check with the next model
+            if not has_dupe and clues >= 17 and model_index + 1 < len(_MODELS):
+                next_model_id = _MODELS[model_index + 1]
+                logger.info(
+                    "Model %s produced acceptable result; cross-checking with next model %s",
+                    model_id, next_model_id,
+                )
+                try:
+                    next_grid = _invoke_model(client, next_model_id, image_bytes)
+                    if next_grid != grid:
+                        logger.info(
+                            "Next model %s produced a different grid; using its result instead of %s",
+                            next_model_id, model_id,
+                        )
+                        best_grid = next_grid
+                        best_model_name = next_model_id
+                        next_clues = sum(v != 0 for row in next_grid for v in row)
+                        best_has_dupe = _has_row_col_box_duplicate(next_grid)
+                        best_clues = next_clues
+                        best_score = (0 if best_has_dupe else 2) + (next_clues - _MIN_PLAUSIBLE_CLUES) // 10
+                    else:
+                        logger.info(
+                            "Next model %s confirmed result; keeping grid from %s",
+                            next_model_id, model_id,
+                        )
+                except (ValueError, ClientError) as exc:
+                    logger.warning(
+                        "Cross-check model %s failed: %s; keeping result from %s",
+                        next_model_id, exc, model_id,
+                    )
+                # Skip the next model in the main loop since we already tried it
+                model_index += 2
+                continue
+
+            model_index += 1
+
         except (ValueError, ClientError) as exc:
             logger.warning("Model %s failed: %s", model_id, exc)
             last_error = exc
+            model_index += 1
 
     if best_grid is not None:
         valid = not best_has_dupe and best_clues >= 17
-        return best_grid, valid
+        logger.info("Final result: model=%s valid=%s clues=%d", best_model_name, valid, best_clues)
+        return best_grid, valid, best_model_name
 
     raise ValueError(
         f"All models failed to extract a valid Sudoku grid. "

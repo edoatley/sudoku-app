@@ -2,9 +2,11 @@
 # test_puzzle.sh — encode puzzle_1.jpeg as base64 and call handler.py directly
 set -euo pipefail
 
+PUZZLE=${1:-"1"}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/.venv"
-FIXTURE="$SCRIPT_DIR/tests/fixtures/puzzle_1.jpeg"
+FIXTURE="$SCRIPT_DIR/tests/fixtures/puzzle_${PUZZLE}.jpeg"
 TMP_PAYLOAD=$(mktemp)
 
 cleanup() { rm -f "$TMP_PAYLOAD"; }
@@ -81,23 +83,18 @@ PYEOF
 actual_grid=$(echo "$RESULT" | jq -r '.body' | jq -c '.originalGrid')
 
 # 2. Use 'cat' with a here-doc, and format it compactly to match
-expected_grid=$(cat << 'EOF' | jq -c '.originalGrid'
-{
-  "originalGrid": [
-    [0, 0, 0, 0, 0, 0, 4, 0, 0],
-    [2, 0, 0, 1, 0, 0, 5, 9, 0],
-    [0, 0, 0, 7, 0, 3, 0, 0, 8],
-    [6, 9, 0, 0, 0, 0, 0, 0, 7],
-    [0, 8, 0, 0, 0, 0, 0, 6, 0],
-    [0, 1, 0, 0, 0, 0, 9, 3, 0],
-    [0, 0, 0, 5, 4, 0, 0, 0, 1],
-    [0, 0, 0, 0, 2, 9, 3, 0, 0],
-    [0, 0, 0, 0, 6, 0, 0, 0, 0]
-  ]
-}
-EOF
-)
+expected_grid_1=$(jq -c '.' <<< '[[0, 0, 0, 0, 0, 0, 4, 0, 0], [2, 0, 0, 1, 0, 0, 5, 9, 0], [0, 0, 0, 7, 0, 3, 0, 0, 8], [6, 9, 0, 0, 0, 0, 0, 0, 7], [0, 8, 0, 0, 0, 0, 0, 6, 0], [0, 1, 0, 0, 0, 0, 9, 3, 0], [0, 0, 0, 5, 4, 0, 0, 0, 1], [0, 0, 0, 0, 2, 9, 3, 0, 0], [0, 0, 0, 0, 6, 0, 0, 0, 0]]')
+expected_grid_2=$(jq -c '.' <<< '[[4, 0, 1, 0, 5, 0, 9, 0, 0], [3, 0, 0, 0, 6, 0, 7, 0, 4], [7, 9, 0, 8, 0, 0, 0, 1, 0], [1, 0, 3, 7, 0, 0, 0, 0, 6], [0, 8, 5, 0, 0, 4, 0, 0, 2], [0, 0, 0, 6, 0, 0, 0, 8, 1], [8, 3, 4, 0, 7, 2, 0, 0, 0], [0, 0, 7, 4, 8, 6, 2, 0, 0], [0, 2, 0, 0, 0, 1, 8, 4, 7]]')
+expected_grid_3=$(jq -c '.' <<< '[[0, 0, 0, 0, 0, 0, 1, 4, 5], [2, 0, 0, 4, 3, 0, 0, 0, 9], [7, 0, 0, 0, 0, 9, 0, 0, 0], [0, 0, 8, 0, 6, 0, 5, 0, 0], [0, 0, 0, 0, 5, 1, 0, 0, 0], [0, 0, 0, 9, 0, 0, 0, 0, 1], [8, 0, 0, 0, 0, 6, 3, 0, 0], [4, 0, 0, 0, 0, 0, 0, 0, 0], [0, 2, 1, 3, 4, 0, 8, 0, 7]]')
 
+expected_grid='[]'
+if [ $PUZZLE == "1" ]; then
+  expected_grid="${expected_grid_1}"
+elif [ $PUZZLE == "2" ]; then
+  expected_grid="${expected_grid_2}"
+elif [ $PUZZLE == "3" ]; then
+  expected_grid="${expected_grid_3}"
+fi
 # 3. Compare the two compact JSON strings
 # ... (Keep Step 1 and 2 where you extract actual_grid and expected_grid) ...
 

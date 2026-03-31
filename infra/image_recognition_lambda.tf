@@ -47,8 +47,11 @@ resource "aws_iam_policy" "image_recognition_bedrock" {
         Effect = "Allow"
         Action = ["bedrock:InvokeModel"]
         Resource = [
-          "arn:aws:bedrock:eu-west-2::foundation-model/amazon.nova-pro-v1:0",
-          "arn:aws:bedrock:eu-west-2::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+          "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:*::foundation-model/mistral.magistral-small-2509",
+          "arn:aws:bedrock:*::foundation-model/nvidia.nemotron-nano-12b-v2",
+          "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
         ]
       }
     ]
