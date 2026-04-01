@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, importPuzzle, createGameFromGrid, getDemoGrid } from '../api/sudokuApi.js';
+import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid } from '../api/sudokuApi.js';
 
 const LS_KEY_GAME_ID = 'sudoku_gameId';
 const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
@@ -126,6 +126,22 @@ export function useSudokuGame(user) {
 
   useEffect(() => {
     const controller = new AbortController();
+
+    const applyLoadedGame = (data, savedCandidates, savedElapsed) => {
+      setGameId(data.gameId);
+      setOriginalGrid(data.originalGrid);
+      setCurrentGrid(data.currentGrid.map((row) => [...row]));
+      setCandidateGrid(savedCandidates);
+      setDifficulty(data.difficulty);
+      setAutoNotesGrid(null);
+      setAutoNotesActive(false);
+      setHistory([]);
+      setElapsedSeconds(savedElapsed);
+      setTimerRunning(true);
+      timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+      setIsLoading(false);
+    };
+
     const savedGameId = localStorage.getItem(LS_KEY_GAME_ID);
     if (savedGameId) {
       setIsLoading(true);
@@ -137,21 +153,25 @@ export function useSudokuGame(user) {
           catch (_) { return emptyCandidate(); }
         })();
         const savedElapsed = parseInt(localStorage.getItem(LS_KEY_ELAPSED_SECONDS) || '0', 10);
-        setGameId(data.gameId);
-        setOriginalGrid(data.originalGrid);
-        setCurrentGrid(data.currentGrid.map((row) => [...row]));
-        setCandidateGrid(savedCandidates);
-        setDifficulty(data.difficulty);
-        setAutoNotesGrid(null);
-        setAutoNotesActive(false);
-        setHistory([]);
-        setElapsedSeconds(savedElapsed);
-        setTimerRunning(true);
-        timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
-        setIsLoading(false);
+        applyLoadedGame(data, savedCandidates, savedElapsed);
+        lsSave(data.gameId, data.currentGrid, savedCandidates, data.difficulty, savedElapsed);
       }).catch(() => {
         if (controller.signal.aborted) return;
         lsClear();
+        setIsLoading(false);
+      });
+    } else if (user) {
+      setIsLoading(true);
+      getCurrentGame().then((data) => {
+        if (controller.signal.aborted) return;
+        if (data) {
+          applyLoadedGame(data, emptyCandidate(), data.timeSpentSeconds ?? 0);
+          lsSave(data.gameId, data.currentGrid, emptyCandidate(), data.difficulty, data.timeSpentSeconds ?? 0);
+        } else {
+          setIsLoading(false);
+        }
+      }).catch(() => {
+        if (controller.signal.aborted) return;
         setIsLoading(false);
       });
     }

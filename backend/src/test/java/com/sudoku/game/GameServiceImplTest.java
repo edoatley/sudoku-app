@@ -124,4 +124,25 @@ class GameServiceImplTest {
 
         verify(gameRepository).update(eq(USER_ID), eq(gameId), eq(request));
     }
+    @Test
+    void findInProgress_whenFound_returnsGame() {
+        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, GRID, List.of(), 30, "IN_PROGRESS");
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
+
+        Optional<GameState> result = gameService.findInProgress(USER_ID);
+
+        assertTrue(result.isPresent());
+        assertEquals("IN_PROGRESS", result.get().status());
+        assertEquals("game-ip-1", result.get().gameId());
+    }
+
+    @Test
+    void findInProgress_whenNone_returnsEmpty() {
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.empty());
+
+        Optional<GameState> result = gameService.findInProgress(USER_ID);
+
+        assertTrue(result.isEmpty());
+    }
+
 }

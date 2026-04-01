@@ -14,6 +14,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.Optional;
 import jakarta.ws.rs.core.SecurityContext;
 
 import java.util.Map;
@@ -46,6 +47,15 @@ public class GameResource {
     }
 
     @GET
+    @Path("/current")
+    public Response getCurrentGame() {
+        String userId = securityContext.getUserPrincipal().getName();
+        Optional<GameState> game = gameService.findInProgress(userId);
+        return game.map(g -> Response.ok(g).build())
+                   .orElse(Response.noContent().build());
+    }
+
+        @GET
     @Path("/{gameId}")
     public GameState loadGame(@PathParam("gameId") String gameId) {
         String userId = securityContext.getUserPrincipal().getName();

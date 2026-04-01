@@ -9,6 +9,7 @@ vi.mock('../api/sudokuApi.js', () => ({
   createGame: vi.fn(),
   loadGame: vi.fn(),
   saveGame: vi.fn(),
+  getCurrentGame: vi.fn(),
   validatePuzzle: vi.fn(),
   getHint: vi.fn(),
   getCandidates: vi.fn(),
@@ -18,6 +19,7 @@ import {
   createGame,
   loadGame,
   saveGame,
+  getCurrentGame,
   validatePuzzle,
   getHint,
   getCandidates,
@@ -48,6 +50,7 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   createGame.mockResolvedValue(CANNED_GAME_STATE);
   loadGame.mockResolvedValue(CANNED_GAME_STATE);
+  getCurrentGame.mockResolvedValue(null);
   saveGame.mockResolvedValue(undefined);
   validatePuzzle.mockResolvedValue({ isValid: true, isSolved: false, errors: [] });
   getHint.mockResolvedValue({
@@ -88,6 +91,31 @@ describe('initialisation', () => {
     expect(createGame).not.toHaveBeenCalled();
     expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
     expect(result.current.gameId).toBe(CANNED_GAME_STATE.gameId);
+  });
+
+  it('loads in-progress game from server when authenticated user has no saved gameId', async () => {
+    getCurrentGame.mockResolvedValueOnce(CANNED_GAME_STATE);
+    const mockUser = { username: 'test-user' };
+    const { result } = await mountAndSettle(mockUser);
+    expect(getCurrentGame).toHaveBeenCalled();
+    expect(createGame).not.toHaveBeenCalled();
+    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    expect(result.current.gameId).toBe(CANNED_GAME_STATE.gameId);
+  });
+
+  it('shows empty board when authenticated user has no in-progress game on server', async () => {
+    getCurrentGame.mockResolvedValueOnce(null);
+    const mockUser = { username: 'test-user' };
+    const { result } = await mountAndSettle(mockUser);
+    expect(getCurrentGame).toHaveBeenCalled();
+    expect(createGame).not.toHaveBeenCalled();
+    expect(result.current.originalGrid).toBeNull();
+  });
+
+  it('shows empty board when not authenticated (no getCurrentGame call)', async () => {
+    const { result } = await mountAndSettle(null);
+    expect(getCurrentGame).not.toHaveBeenCalled();
+    expect(result.current.originalGrid).toBeNull();
   });
 
   it('shows empty board when saved gameId fails to load (no fallback new game)', async () => {

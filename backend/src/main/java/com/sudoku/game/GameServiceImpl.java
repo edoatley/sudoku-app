@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -70,6 +71,12 @@ public class GameServiceImpl implements GameService {
     public GameState loadGame(String userId, String gameId) {
         return gameRepository.findById(userId, gameId)
                 .orElseThrow(() -> new NotFoundException("Game not found: " + gameId));
+    }
+
+
+    @Override
+    public Optional<GameState> findInProgress(String userId) {
+        return gameRepository.findInProgress(userId);
     }
 
     @Override

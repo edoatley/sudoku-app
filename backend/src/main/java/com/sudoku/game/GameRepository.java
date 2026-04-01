@@ -11,5 +11,7 @@ public interface GameRepository {
 
     Optional<GameState> findById(String userId, String gameId);
 
+    Optional<GameState> findInProgress(String userId);
+
     void update(String userId, String gameId, GameUpdateRequest request);
 }

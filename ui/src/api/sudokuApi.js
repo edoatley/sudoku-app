@@ -118,6 +118,15 @@ export async function loadGame(gameId) {
   return apiFetch('loadGame', `${API_URL}/games/${gameId}`, {}, true);
 }
 
+export async function getCurrentGame() {
+  if (MOCK_API) {
+    await delay(200);
+    return null;
+  }
+
+  return apiFetch('getCurrentGame', `${API_URL}/games/current`, {}, true);
+}
+
 export async function saveGame(gameId, { currentGrid, candidates, timeSpentSeconds, isComplete = false }) {
   if (MOCK_API) {
     await delay(100);

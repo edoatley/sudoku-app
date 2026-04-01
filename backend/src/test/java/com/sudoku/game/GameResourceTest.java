@@ -200,4 +200,32 @@ class GameResourceTest {
         .then()
                 .statusCode(404);
     }
+    @Test
+    void getCurrentGame_whenInProgress_returns200WithGame() {
+        String gameId = "in-progress-id";
+        GameState inProgress = new GameState(USER_ID, gameId, "medium", GRID, GRID, emptyCandidates(), 45, "IN_PROGRESS");
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
+
+        given()
+        .when()
+                .get("/games/current")
+        .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("gameId", equalTo(gameId))
+                .body("status", equalTo("IN_PROGRESS"))
+                .body("timeSpentSeconds", equalTo(45));
+    }
+
+    @Test
+    void getCurrentGame_whenNone_returns204() {
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.empty());
+
+        given()
+        .when()
+                .get("/games/current")
+        .then()
+                .statusCode(204);
+    }
+
 }
