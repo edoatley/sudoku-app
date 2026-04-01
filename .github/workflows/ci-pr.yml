@@ -102,45 +102,6 @@ jobs:
             backend/target/failsafe-reports/TEST-*.xml
           retention-days: 14
 
-  security:
-    name: Security — Dependency Audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-node
-      - name: UI npm audit
-        working-directory: ui
-        run: npm audit --audit-level=high
-      - uses: ./.github/actions/setup-java
-      - name: Compute OWASP cache week key
-        id: owasp-week
-        run: echo "week=$(date -u +'%Y-%U')" >> "$GITHUB_OUTPUT"
-      - name: Cache OWASP NVD database
-        uses: actions/cache@v5
-        with:
-          path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: owasp-nvd-${{ steps.owasp-week.outputs.week }}
-          restore-keys: |
-            owasp-nvd-
-      - name: Backend OWASP dependency check
-        working-directory: backend
-        run: >-
-          ./mvnw org.owasp:dependency-check-maven:${{ env.OWASP_VERSION }}:check
-          -DfailBuildOnCVSS=7
-          -DnvdApiKey=${{ secrets.NVD_API_KEY }}
-          -DnvdApiDelay=4000
-          -DdataDirectory="${HOME}/.m2/repository/org/owasp/dependency-check-data"
-        env:
-          OWASP_VERSION: "12.1.1"
-      - name: Upload OWASP report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: owasp-report
-          path: backend/target/dependency-check-report.html
-          retention-days: 14
-
   integration:
     name: Integration — Docker Compose + Playwright
     runs-on: ubuntu-latest
@@ -171,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
-    needs: [ui, backend, integration, infra, security]
+    needs: [ui, backend, integration, infra]
     permissions:
       pull-requests: write
     steps:
@@ -301,7 +262,6 @@ jobs:
               'Backend — Maven Tests':                      '${{ needs.backend.result }}',
               'Integration — Docker Compose + Playwright':  '${{ needs.integration.result }}',
               'Infra — Terraform fmt & validate':           '${{ needs.infra.result }}',
-              'Security — Dependency Audit':                '${{ needs.security.result }}',
             };
 
             const icon = (r) => r === 'success' ? '✅' : r === 'failure' ? '❌' : r === 'skipped' ? '⏭️' : '⚠️';

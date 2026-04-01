@@ -158,7 +158,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       }).catch(() => {
         if (controller.signal.aborted) return;
         lsClear();
-        startNewGame(undefined, controller.signal);
+        setIsLoading(false);
       });
     } else if (user) {
       setIsLoading(true);

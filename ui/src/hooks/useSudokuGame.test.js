@@ -119,15 +119,15 @@ describe('initialisation', () => {
     expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
   });
 
-  it('auto-starts a new game when saved gameId fails to load', async () => {
+  it('shows empty board when saved gameId fails to load (no auto-start fallback)', async () => {
     localStorage.setItem('sudoku_gameId', 'stale-id');
     loadGame.mockRejectedValueOnce(new Error('404'));
     const { result } = await mountAndSettle();
     expect(loadGame).toHaveBeenCalledWith('stale-id');
-    expect(createGame).toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
-    // stale-id is cleared; new gameId saved by startNewGame
-    expect(localStorage.getItem('sudoku_gameId')).toBe(CANNED_GAME_STATE.gameId);
+    expect(createGame).not.toHaveBeenCalled();
+    expect(result.current.originalGrid).toBeNull();
+    expect(result.current.currentGrid).toBeNull();
+    expect(localStorage.getItem('sudoku_gameId')).toBeNull();
   });
 });
 
