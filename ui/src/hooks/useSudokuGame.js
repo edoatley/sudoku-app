@@ -158,7 +158,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       }).catch(() => {
         if (controller.signal.aborted) return;
         lsClear();
-        setIsLoading(false);
+        startNewGame(undefined, controller.signal);
       });
     } else if (user) {
       setIsLoading(true);
@@ -168,12 +168,14 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
           applyLoadedGame(data, emptyCandidate(), data.timeSpentSeconds ?? 0);
           lsSave(data.gameId, data.currentGrid, emptyCandidate(), data.difficulty, data.timeSpentSeconds ?? 0);
         } else {
-          setIsLoading(false);
+          startNewGame(undefined, controller.signal);
         }
       }).catch(() => {
         if (controller.signal.aborted) return;
-        setIsLoading(false);
+        startNewGame(undefined, controller.signal);
       });
+    } else {
+      startNewGame(undefined, controller.signal);
     }
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -75,12 +75,12 @@ afterEach(() => {
 // ─── Initialisation ───────────────────────────────────────────────────────────
 
 describe('initialisation', () => {
-  it('shows empty board on mount when no saved gameId exists', async () => {
+  it('auto-starts a new game on mount when no saved gameId exists', async () => {
     const { result } = await mountAndSettle();
-    expect(createGame).not.toHaveBeenCalled();
+    expect(createGame).toHaveBeenCalled();
     expect(loadGame).not.toHaveBeenCalled();
-    expect(result.current.originalGrid).toBeNull();
-    expect(result.current.currentGrid).toBeNull();
+    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    expect(result.current.currentGrid).not.toBeNull();
     expect(result.current.gameStatus).toBe('idle');
   });
 
@@ -103,30 +103,31 @@ describe('initialisation', () => {
     expect(result.current.gameId).toBe(CANNED_GAME_STATE.gameId);
   });
 
-  it('shows empty board when authenticated user has no in-progress game on server', async () => {
+  it('auto-starts a new game when authenticated user has no in-progress game on server', async () => {
     getCurrentGame.mockResolvedValueOnce(null);
     const mockUser = { username: 'test-user' };
     const { result } = await mountAndSettle(mockUser);
     expect(getCurrentGame).toHaveBeenCalled();
-    expect(createGame).not.toHaveBeenCalled();
-    expect(result.current.originalGrid).toBeNull();
+    expect(createGame).toHaveBeenCalled();
+    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
   });
 
-  it('shows empty board when not authenticated (no getCurrentGame call)', async () => {
+  it('auto-starts a new game when not authenticated (no getCurrentGame call)', async () => {
     const { result } = await mountAndSettle(null);
     expect(getCurrentGame).not.toHaveBeenCalled();
-    expect(result.current.originalGrid).toBeNull();
+    expect(createGame).toHaveBeenCalled();
+    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
   });
 
-  it('shows empty board when saved gameId fails to load (no fallback new game)', async () => {
+  it('auto-starts a new game when saved gameId fails to load', async () => {
     localStorage.setItem('sudoku_gameId', 'stale-id');
     loadGame.mockRejectedValueOnce(new Error('404'));
     const { result } = await mountAndSettle();
     expect(loadGame).toHaveBeenCalledWith('stale-id');
-    expect(createGame).not.toHaveBeenCalled();
-    expect(result.current.originalGrid).toBeNull();
-    expect(result.current.currentGrid).toBeNull();
-    expect(localStorage.getItem('sudoku_gameId')).toBeNull();
+    expect(createGame).toHaveBeenCalled();
+    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    // stale-id is cleared; new gameId saved by startNewGame
+    expect(localStorage.getItem('sudoku_gameId')).toBe(CANNED_GAME_STATE.gameId);
   });
 });
 
