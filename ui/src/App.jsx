@@ -13,6 +13,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { useSudokuGame } from './hooks/useSudokuGame.js';
+import { usePlayerProfile } from './hooks/usePlayerProfile.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import NumberPad from './components/NumberPad.jsx';
@@ -64,6 +65,8 @@ if (!MOCK_API && !SKIP_AUTH) {
 }
 
 function SudokuApp({ user, signOut }) {
+  const { avatar, setAvatar, history, recordGame } = usePlayerProfile();
+
   const [colorMode, setColorMode] = useState(
     () => localStorage.getItem('sudoku_colorMode') ?? 'light'
   );
@@ -126,7 +129,7 @@ function SudokuApp({ user, signOut }) {
     isPaused,
     pauseGame,
     resumeGame,
-  } = useSudokuGame(user);
+  } = useSudokuGame(user, { onGameComplete: recordGame });
 
   const completedNumbers = useMemo(() => {
     if (!currentGrid) return new Set();
@@ -149,6 +152,8 @@ function SudokuApp({ user, signOut }) {
     startNewGameFromImage(imageFile);
   };
 
+  const effectiveUser = user ?? (MOCK_API || SKIP_AUTH ? { username: 'Guest' } : null);
+
   return (
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
@@ -156,8 +161,11 @@ function SudokuApp({ user, signOut }) {
         elapsedSeconds={elapsedSeconds}
         timerRunning={timerRunning}
         gameStarted={!!currentGrid}
-        user={user}
+        user={effectiveUser}
         onSignOut={signOut}
+        avatar={avatar}
+        onAvatarChange={setAvatar}
+        history={history}
         isPaused={isPaused}
         onPause={pauseGame}
         onResume={resumeGame}

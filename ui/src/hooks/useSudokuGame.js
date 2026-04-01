@@ -25,7 +25,7 @@ function lsClear() {
 
 const emptyCandidate = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
 
-export function useSudokuGame(user) {
+export function useSudokuGame(user, { onGameComplete } = {}) {
   const [originalGrid, setOriginalGrid] = useState(null);
   const [currentGrid, setCurrentGrid] = useState(null);
   const [candidateGrid, setCandidateGrid] = useState(null);
@@ -503,6 +503,13 @@ export function useSudokuGame(user) {
   }, []);
 
   const finishGame = useCallback(() => {
+    const outcome = gameStatus === 'solved' ? 'won' : 'abandoned';
+    onGameComplete?.({
+      gameId: gameIdRef.current,
+      difficulty: difficultyRef.current,
+      outcome,
+      elapsedSeconds: outcome === 'won' ? elapsedSecondsRef.current : null,
+    });
     pauseTimer();
     lsClear();
     setGameId(null);
@@ -517,7 +524,7 @@ export function useSudokuGame(user) {
     setStatusMessage(null);
     setSelectedCell(null);
     setSelectedNumber(null);
-  }, [pauseTimer]);
+  }, [pauseTimer, gameStatus, onGameComplete]);
 
   const startNewGameFromImage = useCallback(async (imageFile) => {
     setIsLoading(true);
