@@ -1,0 +1,89 @@
+version: 2
+updates:
+  # UI Dependencies (npm)
+  - package-ecosystem: "npm"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      ui-npm-updates:
+        patterns:
+          - "*"
+
+  # Backend Dependencies (Maven)
+  - package-ecosystem: "maven"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      backend-maven-updates:
+        patterns:
+          - "*"
+
+  # Infrastructure (Terraform)
+  - package-ecosystem: "terraform"
+    directory: "/infra"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      infra-terraform-updates:
+        patterns:
+          - "*"
+
+  # CI/CD (GitHub Actions)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      actions-updates:
+        patterns:
+          - "*"
+
+  # Docker — backend Dockerfiles
+  - package-ecosystem: "docker"
+    directory: "/backend/src/main/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker-updates:
+        patterns:
+          - "*"
+
+  # Docker — backend test image
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker-updates:
+        patterns:
+          - "*"
+
+  # Docker — ui test image
+  - package-ecosystem: "docker"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker-updates:
+        patterns:
+          - "*"
+
+  # Docker — image recognition service
+  - package-ecosystem: "docker"
+    directory: "/image_recognition"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker-updates:
+        patterns:
+          - "*"

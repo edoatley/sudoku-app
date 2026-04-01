@@ -9,6 +9,7 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.util.Optional;
 
@@ -42,6 +43,16 @@ public class DynamoDbGameRepository implements GameRepository {
                 .sortValue(gameId)
                 .build());
         return Optional.ofNullable(item).map(GameItem::toGameState);
+    }
+
+    @Override
+    public Optional<GameState> findInProgress(String userId) {
+        return table.query(QueryConditional.keyEqualTo(Key.builder().partitionValue(userId).build()))
+                .items()
+                .stream()
+                .filter(item -> "IN_PROGRESS".equals(item.getStatus()))
+                .findFirst()
+                .map(GameItem::toGameState);
     }
 
     @Override

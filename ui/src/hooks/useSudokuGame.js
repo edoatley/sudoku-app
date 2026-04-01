@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, importPuzzle, createGameFromGrid, getDemoGrid } from '../api/sudokuApi.js';
+import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid } from '../api/sudokuApi.js';
 
 const LS_KEY_GAME_ID = 'sudoku_gameId';
 const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
@@ -25,7 +25,7 @@ function lsClear() {
 
 const emptyCandidate = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
 
-export function useSudokuGame(user) {
+export function useSudokuGame(user, { onGameComplete } = {}) {
   const [originalGrid, setOriginalGrid] = useState(null);
   const [currentGrid, setCurrentGrid] = useState(null);
   const [candidateGrid, setCandidateGrid] = useState(null);
@@ -126,6 +126,22 @@ export function useSudokuGame(user) {
 
   useEffect(() => {
     const controller = new AbortController();
+
+    const applyLoadedGame = (data, savedCandidates, savedElapsed) => {
+      setGameId(data.gameId);
+      setOriginalGrid(data.originalGrid);
+      setCurrentGrid(data.currentGrid.map((row) => [...row]));
+      setCandidateGrid(savedCandidates);
+      setDifficulty(data.difficulty);
+      setAutoNotesGrid(null);
+      setAutoNotesActive(false);
+      setHistory([]);
+      setElapsedSeconds(savedElapsed);
+      setTimerRunning(true);
+      timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+      setIsLoading(false);
+    };
+
     const savedGameId = localStorage.getItem(LS_KEY_GAME_ID);
     if (savedGameId) {
       setIsLoading(true);
@@ -137,21 +153,25 @@ export function useSudokuGame(user) {
           catch (_) { return emptyCandidate(); }
         })();
         const savedElapsed = parseInt(localStorage.getItem(LS_KEY_ELAPSED_SECONDS) || '0', 10);
-        setGameId(data.gameId);
-        setOriginalGrid(data.originalGrid);
-        setCurrentGrid(data.currentGrid.map((row) => [...row]));
-        setCandidateGrid(savedCandidates);
-        setDifficulty(data.difficulty);
-        setAutoNotesGrid(null);
-        setAutoNotesActive(false);
-        setHistory([]);
-        setElapsedSeconds(savedElapsed);
-        setTimerRunning(true);
-        timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
-        setIsLoading(false);
+        applyLoadedGame(data, savedCandidates, savedElapsed);
+        lsSave(data.gameId, data.currentGrid, savedCandidates, data.difficulty, savedElapsed);
       }).catch(() => {
         if (controller.signal.aborted) return;
         lsClear();
+        setIsLoading(false);
+      });
+    } else if (user) {
+      setIsLoading(true);
+      getCurrentGame().then((data) => {
+        if (controller.signal.aborted) return;
+        if (data) {
+          applyLoadedGame(data, emptyCandidate(), data.timeSpentSeconds ?? 0);
+          lsSave(data.gameId, data.currentGrid, emptyCandidate(), data.difficulty, data.timeSpentSeconds ?? 0);
+        } else {
+          startNewGame(undefined, controller.signal);
+        }
+      }).catch(() => {
+        if (controller.signal.aborted) return;
         startNewGame(undefined, controller.signal);
       });
     } else {
@@ -243,11 +263,38 @@ export function useSudokuGame(user) {
         }
         return next;
       });
+      setAutoNotesGrid((prev) => {
+        if (!prev) return prev;
+        const next = prev.map((r) => r.map((c) => [...c]));
+        next[row][col] = [];
+        return next;
+      });
       setErrorCells((prev) => {
         const next = new Set(prev);
         next.delete(`${row},${col}`);
         return next;
       });
+      const nextGrid = currentGridRef.current.map((r) => [...r]);
+      nextGrid[row][col] = number;
+      const allFilled = nextGrid.every((r) => r.every((v) => v !== 0));
+      if (allFilled) {
+        validatePuzzle(nextGrid).then((res) => {
+          if (!res.isValid) return;
+          pauseTimer();
+          setGameStatus('solved');
+          setStatusMessage(null);
+          setErrorCells(new Set());
+          if (gameIdRef.current) {
+            saveGame(gameIdRef.current, {
+              currentGrid: nextGrid,
+              candidates: candidateGridRef.current ?? [],
+              timeSpentSeconds: elapsedSecondsRef.current,
+              isComplete: true,
+            });
+          }
+        // eslint-disable-next-line no-unused-vars
+        }).catch((_) => { /* silent — user can still manually check */ });
+      }
     } else {
       const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
       setHistory((h) => [...h, { type: 'candidate', row, col, prevCandidates }]);
@@ -457,6 +504,30 @@ export function useSudokuGame(user) {
     setGameStatus('idle');
   }, []);
 
+  const finishGame = useCallback(() => {
+    const outcome = gameStatus === 'solved' ? 'won' : 'abandoned';
+    onGameComplete?.({
+      gameId: gameIdRef.current,
+      difficulty: difficultyRef.current,
+      outcome,
+      elapsedSeconds: outcome === 'won' ? elapsedSecondsRef.current : null,
+    });
+    pauseTimer();
+    lsClear();
+    setGameId(null);
+    setOriginalGrid(null);
+    setCurrentGrid(null);
+    setCandidateGrid(null);
+    setAutoNotesGrid(null);
+    setHistory([]);
+    setErrorCells(new Set());
+    setElapsedSeconds(0);
+    setGameStatus('idle');
+    setStatusMessage(null);
+    setSelectedCell(null);
+    setSelectedNumber(null);
+  }, [pauseTimer, gameStatus, onGameComplete]);
+
   const startNewGameFromImage = useCallback(async (imageFile) => {
     setIsLoading(true);
     setErrorCells(new Set());
@@ -527,7 +598,9 @@ export function useSudokuGame(user) {
   return {
     originalGrid,
     currentGrid,
-    candidateGrid: autoNotesActive ? autoNotesGrid : candidateGrid,
+    candidateGrid: autoNotesActive && autoNotesGrid && currentGrid
+      ? autoNotesGrid.map((row, r) => row.map((cell, c) => currentGrid[r][c] !== 0 ? [] : cell))
+      : candidateGrid,
     difficulty,
     gameId,
     isSyncing,
@@ -559,6 +632,7 @@ export function useSudokuGame(user) {
     dismissHint,
     toggleAutoNotes,
     clearStatus,
+    finishGame,
     elapsedSeconds,
     timerRunning,
     pauseTimer,

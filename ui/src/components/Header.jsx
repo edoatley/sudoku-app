@@ -11,7 +11,6 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
-import Snackbar from '@mui/material/Snackbar';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -24,6 +23,15 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
 import ImageIcon from '@mui/icons-material/Image';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import AvatarPickerDialog from './AvatarPickerDialog.jsx';
+import { AVATAR_ICONS } from '../utils/avatarIcons.js';
+import PuzzleHistoryDialog from './PuzzleHistoryDialog.jsx';
+import StatisticsDialog from './StatisticsDialog.jsx';
+
+const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
+const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 
 function formatTime(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -62,11 +70,18 @@ export default function Header({
   onNewGame,
   onImport,
   onDemoGame,
+  colorMode,
+  onToggleColorMode,
+  avatar,
+  onAvatarChange,
+  history,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [gameMenuAnchorEl, setGameMenuAnchorEl] = useState(null);
   const [devMenuAnchorEl, setDevMenuAnchorEl] = useState(null);
-  const [comingSoonOpen, setComingSoonOpen] = useState(false);
+  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [statsDialogOpen, setStatsDialogOpen] = useState(false);
 
   const handleAvatarClick = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -77,10 +92,8 @@ export default function Header({
   const handleDevMenuOpen = (e) => setDevMenuAnchorEl(e.currentTarget);
   const handleDevMenuClose = () => setDevMenuAnchorEl(null);
 
-  const handleComingSoon = () => {
-    handleMenuClose();
-    setComingSoonOpen(true);
-  };
+  const avatarIconEntry = AVATAR_ICONS.find((a) => a.name === avatar);
+  const AvatarIcon = avatarIconEntry?.Component ?? null;
 
   return (
     <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
@@ -184,7 +197,7 @@ export default function Header({
               </IconButton>
             )}
 
-            {user && (
+            {(user || MOCK_API || SKIP_AUTH) && (
               <>
                 <IconButton onClick={handleAvatarClick} size="small" aria-label="User menu">
                   <Avatar
@@ -196,7 +209,7 @@ export default function Header({
                       fontWeight: 'bold',
                     }}
                   >
-                    {getUserInitial(user)}
+                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user)}
                   </Avatar>
                 </IconButton>
                 <Menu
@@ -206,22 +219,39 @@ export default function Header({
                   transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                   anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                 >
-                  <MenuItem onClick={handleComingSoon}>
+                  <MenuItem onClick={() => { handleMenuClose(); setAvatarDialogOpen(true); }}>
                     <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Change Avatar</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={handleComingSoon}>
+                  <MenuItem onClick={() => { handleMenuClose(); setHistoryDialogOpen(true); }}>
                     <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Puzzle History</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={handleComingSoon}>
+                  <MenuItem onClick={() => { handleMenuClose(); setStatsDialogOpen(true); }}>
                     <ListItemIcon><BarChartIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Statistics</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuClose(); onSignOut(); }}>
-                    <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Sign Out</ListItemText>
+                  <Divider />
+                  <MenuItem onClick={onToggleColorMode}>
+                    <ListItemIcon>
+                      {colorMode === 'dark' ? <Brightness7Icon fontSize="small" /> : <Brightness4Icon fontSize="small" />}
+                    </ListItemIcon>
+                    <ListItemText>
+                      Dark Mode
+                      <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                        {colorMode === 'dark' ? 'On' : 'Off'}
+                      </Typography>
+                    </ListItemText>
                   </MenuItem>
+                  {onSignOut && (
+                    <>
+                      <Divider />
+                      <MenuItem onClick={() => { handleMenuClose(); onSignOut(); }}>
+                        <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+                        <ListItemText>Sign Out</ListItemText>
+                      </MenuItem>
+                    </>
+                  )}
                 </Menu>
               </>
             )}
@@ -229,12 +259,21 @@ export default function Header({
         )}
       </Toolbar>
 
-      <Snackbar
-        open={comingSoonOpen}
-        autoHideDuration={2500}
-        onClose={() => setComingSoonOpen(false)}
-        message="Coming soon"
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      <AvatarPickerDialog
+        open={avatarDialogOpen}
+        currentAvatar={avatar}
+        onSelect={(name) => { onAvatarChange?.(name); setAvatarDialogOpen(false); }}
+        onClose={() => setAvatarDialogOpen(false)}
+      />
+      <PuzzleHistoryDialog
+        open={historyDialogOpen}
+        history={history ?? []}
+        onClose={() => setHistoryDialogOpen(false)}
+      />
+      <StatisticsDialog
+        open={statsDialogOpen}
+        history={history ?? []}
+        onClose={() => setStatsDialogOpen(false)}
       />
     </AppBar>
   );

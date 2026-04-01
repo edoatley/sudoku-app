@@ -1,0 +1,28 @@
+name: Scheduled Security Audit
+
+on:
+  schedule:
+    # Runs every Monday at 2:00 AM UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # Allows you to trigger this manually via the GitHub UI
+
+jobs:
+  trivy-scan:
+    name: Full Repository Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          # Fails the workflow if CRITICAL or HIGH vulnerabilities are found
+          exit-code: '1'
+          # Only report vulnerabilities that actually have a published fix
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          format: 'table'

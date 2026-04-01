@@ -29,11 +29,9 @@ function makeGameState(puzzle) {
 }
 
 test('new-game — selecting Hard difficulty and starting a new game loads the puzzle', async ({ page }) => {
-  let callCount = 0;
   await page.route('**/games', (route) => {
     if (route.request().method() === 'POST') {
-      callCount += 1;
-      route.fulfill({ status: 201, json: makeGameState(callCount === 1 ? EASY_PUZZLE : HARD_PUZZLE) });
+      route.fulfill({ status: 201, json: makeGameState(HARD_PUZZLE) });
     } else {
       route.continue();
     }
@@ -47,14 +45,15 @@ test('new-game — selecting Hard difficulty and starting a new game loads the p
   });
 
   await page.goto('/');
-  await waitForGrid(page);
 
-  // Open new game modal and select Hard difficulty
+  // No grid on fresh visit — open hamburger menu to start a new game
+  await expect(page.getByTestId('cell-0-0')).not.toBeVisible();
+
   await page.getByRole('button', { name: 'Game menu' }).click();
   await page.getByRole('menuitem', { name: 'New Game' }).click();
   await page.getByRole('radio', { name: 'Hard' }).click();
   await page.getByRole('button', { name: 'Start' }).click();
 
-  // Grid should still be visible after reload
+  await waitForGrid(page);
   await expect(page.getByTestId('cell-0-0')).toBeVisible();
 });

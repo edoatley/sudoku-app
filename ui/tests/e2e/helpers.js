@@ -32,13 +32,22 @@ export const CANNED_GAME_STATE = {
 };
 
 /**
- * Mock all three /games endpoints.
- * POST /games      → 201 CANNED_GAME_STATE
- * GET  /games/:id  → 200 CANNED_GAME_STATE
+ * Mock all three /games endpoints and seed localStorage so the game loads on page.goto('/').
+ * Registers an initScript that sets sudoku_gameId before each navigation, so the app
+ * resumes the saved game via GET /games/:id rather than showing an empty board.
+ *
+ * POST /games      → 201 gameState  (for new-game flows)
+ * GET  /games/:id  → 200 gameState  (for resume / all other tests)
  * PATCH /games/:id → 200 (empty body)
  */
 export async function setupGameRoutes(page, overrides = {}) {
   const gameState = { ...CANNED_GAME_STATE, ...overrides };
+
+  // Seed the gameId into localStorage before each page load so the hook resumes it
+  await page.addInitScript((gameId) => {
+    localStorage.setItem('sudoku_gameId', gameId);
+  }, gameState.gameId);
+
   await page.route('**/games', (route) => {
     if (route.request().method() === 'POST') {
       route.fulfill({ status: 201, json: gameState });
