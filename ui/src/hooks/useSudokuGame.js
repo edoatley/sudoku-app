@@ -152,10 +152,8 @@ export function useSudokuGame(user) {
       }).catch(() => {
         if (controller.signal.aborted) return;
         lsClear();
-        startNewGame(undefined, controller.signal);
+        setIsLoading(false);
       });
-    } else {
-      startNewGame(undefined, controller.signal);
     }
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,11 +241,38 @@ export function useSudokuGame(user) {
         }
         return next;
       });
+      setAutoNotesGrid((prev) => {
+        if (!prev) return prev;
+        const next = prev.map((r) => r.map((c) => [...c]));
+        next[row][col] = [];
+        return next;
+      });
       setErrorCells((prev) => {
         const next = new Set(prev);
         next.delete(`${row},${col}`);
         return next;
       });
+      const nextGrid = currentGridRef.current.map((r) => [...r]);
+      nextGrid[row][col] = number;
+      const allFilled = nextGrid.every((r) => r.every((v) => v !== 0));
+      if (allFilled) {
+        validatePuzzle(nextGrid).then((res) => {
+          if (!res.isValid) return;
+          pauseTimer();
+          setGameStatus('solved');
+          setStatusMessage(null);
+          setErrorCells(new Set());
+          if (gameIdRef.current) {
+            saveGame(gameIdRef.current, {
+              currentGrid: nextGrid,
+              candidates: candidateGridRef.current ?? [],
+              timeSpentSeconds: elapsedSecondsRef.current,
+              isComplete: true,
+            });
+          }
+        // eslint-disable-next-line no-unused-vars
+        }).catch((_) => { /* silent — user can still manually check */ });
+      }
     } else {
       const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
       setHistory((h) => [...h, { type: 'candidate', row, col, prevCandidates }]);
@@ -457,6 +482,23 @@ export function useSudokuGame(user) {
     setGameStatus('idle');
   }, []);
 
+  const finishGame = useCallback(() => {
+    pauseTimer();
+    lsClear();
+    setGameId(null);
+    setOriginalGrid(null);
+    setCurrentGrid(null);
+    setCandidateGrid(null);
+    setAutoNotesGrid(null);
+    setHistory([]);
+    setErrorCells(new Set());
+    setElapsedSeconds(0);
+    setGameStatus('idle');
+    setStatusMessage(null);
+    setSelectedCell(null);
+    setSelectedNumber(null);
+  }, [pauseTimer]);
+
   const startNewGameFromImage = useCallback(async (imageFile) => {
     setIsLoading(true);
     setErrorCells(new Set());
@@ -527,7 +569,9 @@ export function useSudokuGame(user) {
   return {
     originalGrid,
     currentGrid,
-    candidateGrid: autoNotesActive ? autoNotesGrid : candidateGrid,
+    candidateGrid: autoNotesActive && autoNotesGrid && currentGrid
+      ? autoNotesGrid.map((row, r) => row.map((cell, c) => currentGrid[r][c] !== 0 ? [] : cell))
+      : candidateGrid,
     difficulty,
     gameId,
     isSyncing,
@@ -559,6 +603,7 @@ export function useSudokuGame(user) {
     dismissHint,
     toggleAutoNotes,
     clearStatus,
+    finishGame,
     elapsedSeconds,
     timerRunning,
     pauseTimer,

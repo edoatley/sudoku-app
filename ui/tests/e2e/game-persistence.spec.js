@@ -2,11 +2,13 @@
  * Game persistence e2e tests.
  *
  * Verifies that:
- *  - On load the UI calls POST /games and stores the returned gameId
+ *  - On first visit with no saved game, no grid is shown
+ *  - Starting a new game via menu calls POST /games and stores the returned gameId
  *  - Entering a cell value persists to localStorage immediately
  *  - Tab hide triggers an immediate PATCH /games/:id
- *  - Completing a puzzle triggers a PATCH with isComplete=true
+ *  - Completing a puzzle triggers a PATCH with isComplete=true (auto-detected)
  *  - On reload with a gameId in localStorage the UI calls GET /games/:id to resume
+ *  - On reload with an invalid/expired gameId, an empty board is shown (no fallback POST)
  */
 import { test, expect } from '@playwright/test';
 import { CANNED_GAME_STATE, CANNED_GAME_ID, waitForGrid } from './helpers.js';
@@ -25,7 +27,25 @@ const NEAR_COMPLETE_GRID = [
 ];
 
 test.describe('Game lifecycle — API calls', () => {
-  test('page load triggers POST /games and stores gameId in localStorage', async ({ page }) => {
+  test('first visit with no saved game shows empty board (no POST /games)', async ({ page }) => {
+    let postGamesCalled = false;
+
+    await page.route('**/games', (route) => {
+      if (route.request().method() === 'POST') {
+        postGamesCalled = true;
+        route.fulfill({ status: 201, json: CANNED_GAME_STATE });
+      } else {
+        route.continue();
+      }
+    });
+
+    await page.goto('/');
+    // Wait for the page to settle — loading spinner gone, no grid visible
+    await expect(page.locator('[data-testid="cell-0-0"]')).not.toBeVisible({ timeout: 3000 });
+    expect(postGamesCalled).toBe(false);
+  });
+
+  test('New Game menu triggers POST /games and stores gameId in localStorage', async ({ page }) => {
     let postGamesCalled = false;
 
     await page.route('**/games', (route) => {
@@ -43,10 +63,12 @@ test.describe('Game lifecycle — API calls', () => {
     });
 
     await page.goto('/');
+    await page.getByRole('button', { name: 'Game menu' }).click();
+    await page.getByRole('menuitem', { name: 'New Game' }).click();
+    await page.getByRole('button', { name: 'Start' }).click();
     await waitForGrid(page);
 
     expect(postGamesCalled).toBe(true);
-
     const storedId = await page.evaluate(() => localStorage.getItem('sudoku_gameId'));
     expect(storedId).toBe(CANNED_GAME_ID);
   });
@@ -61,6 +83,18 @@ test.describe('Game lifecycle — API calls', () => {
       route.request().method() === 'PATCH'
         ? route.fulfill({ status: 200, body: '' })
         : route.continue();
+    });
+
+    // Load game via saved gameId so grid appears immediately
+    await page.addInitScript((gameId) => {
+      localStorage.setItem('sudoku_gameId', gameId);
+    }, CANNED_GAME_ID);
+    await page.route(`**/games/${CANNED_GAME_ID}`, (route) => {
+      route.request().method() === 'GET'
+        ? route.fulfill({ status: 200, json: CANNED_GAME_STATE })
+        : route.request().method() === 'PATCH'
+          ? route.fulfill({ status: 200, body: '' })
+          : route.continue();
     });
 
     await page.goto('/');
@@ -81,13 +115,13 @@ test.describe('Game lifecycle — API calls', () => {
   test('tab becoming hidden fires PATCH /games/:id immediately', async ({ page }) => {
     const patchBodies = [];
 
-    await page.route('**/games', (route) => {
-      route.request().method() === 'POST'
-        ? route.fulfill({ status: 201, json: CANNED_GAME_STATE })
-        : route.continue();
-    });
-    await page.route('**/games/**', async (route) => {
-      if (route.request().method() === 'PATCH') {
+    await page.addInitScript((gameId) => {
+      localStorage.setItem('sudoku_gameId', gameId);
+    }, CANNED_GAME_ID);
+    await page.route(`**/games/${CANNED_GAME_ID}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        route.fulfill({ status: 200, json: CANNED_GAME_STATE });
+      } else if (route.request().method() === 'PATCH') {
         patchBodies.push(JSON.parse(route.request().postData() || '{}'));
         route.fulfill({ status: 200, body: '' });
       } else {
@@ -114,7 +148,7 @@ test.describe('Game lifecycle — API calls', () => {
     });
   });
 
-  test('completing a puzzle fires PATCH /games/:id with isComplete=true', async ({ page }) => {
+  test('filling the last cell auto-fires PATCH /games/:id with isComplete=true', async ({ page }) => {
     const patchBodies = [];
     const nearCompleteState = {
       ...CANNED_GAME_STATE,
@@ -122,13 +156,13 @@ test.describe('Game lifecycle — API calls', () => {
       currentGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
     };
 
-    await page.route('**/games', (route) => {
-      route.request().method() === 'POST'
-        ? route.fulfill({ status: 201, json: nearCompleteState })
-        : route.continue();
-    });
-    await page.route('**/games/**', async (route) => {
-      if (route.request().method() === 'PATCH') {
+    await page.addInitScript((gameId) => {
+      localStorage.setItem('sudoku_gameId', gameId);
+    }, CANNED_GAME_ID);
+    await page.route(`**/games/${CANNED_GAME_ID}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        route.fulfill({ status: 200, json: nearCompleteState });
+      } else if (route.request().method() === 'PATCH') {
         patchBodies.push(JSON.parse(route.request().postData() || '{}'));
         route.fulfill({ status: 200, body: '' });
       } else {
@@ -142,15 +176,14 @@ test.describe('Game lifecycle — API calls', () => {
     await page.goto('/');
     await waitForGrid(page);
 
-    // Fill the last cell and validate
+    // Fill the last cell — auto-completion fires without needing Check button
     await page.getByRole('button', { name: '9', exact: true }).click();
     await page.getByTestId('cell-8-8').click();
-    await page.getByRole('button', { name: 'Check' }).click();
 
-    // Wait for the completion PATCH
+    // Wait for the completion PATCH (auto-triggered by filling the last cell)
     await expect.poll(
       () => patchBodies.some((b) => b.isComplete === true),
-      { timeout: 3000 }
+      { timeout: 5000 }
     ).toBe(true);
   });
 });
@@ -191,7 +224,7 @@ test.describe('Game resume — localStorage', () => {
     expect(getGamesCalled).toBe(true);
   });
 
-  test('reload with invalid/expired gameId falls back to POST /games', async ({ page }) => {
+  test('reload with invalid/expired gameId shows empty board (no POST /games fallback)', async ({ page }) => {
     let postGamesCalled = false;
 
     await page.route('**/games', (route) => {
@@ -217,12 +250,14 @@ test.describe('Game resume — localStorage', () => {
     });
 
     await page.goto('/');
-    await waitForGrid(page);
 
-    expect(postGamesCalled).toBe(true);
+    // Wait for the failed GET to complete (spinner disappears, no grid appears)
+    await expect(page.locator('role=progressbar')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[data-testid="cell-0-0"]')).not.toBeVisible();
+    expect(postGamesCalled).toBe(false);
 
-    // localStorage should now hold the new gameId (not the stale one)
+    // localStorage gameId is cleared after the failed load
     const storedId = await page.evaluate(() => localStorage.getItem('sudoku_gameId'));
-    expect(storedId).toBe(CANNED_GAME_ID);
+    expect(storedId).toBeNull();
   });
 });

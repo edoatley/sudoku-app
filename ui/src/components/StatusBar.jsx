@@ -9,7 +9,7 @@ const SEVERITY = {
 };
 
 export default function StatusBar({ gameStatus, statusMessage, onClose }) {
-  const open = gameStatus !== 'idle' && gameStatus in SEVERITY;
+  const open = gameStatus !== 'idle' && gameStatus !== 'solved' && gameStatus in SEVERITY;
   const severity = SEVERITY[gameStatus] ?? 'info';
   const message = gameStatus === 'solved' ? 'Congratulations — puzzle solved!' : statusMessage;
 

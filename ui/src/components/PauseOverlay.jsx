@@ -6,6 +6,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 export default function PauseOverlay({ onResume }) {
   return (
     <Box
+      data-testid="pause-overlay"
       sx={{
         display: 'flex',
         flexDirection: 'column',

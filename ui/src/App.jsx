@@ -5,6 +5,12 @@ import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 
 import { useSudokuGame } from './hooks/useSudokuGame.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
@@ -94,6 +100,7 @@ function SudokuApp({ user, signOut }) {
     selectedCell,
     toggleAutoNotes,
     clearStatus,
+    finishGame,
     elapsedSeconds,
     timerRunning,
     isPaused,
@@ -205,6 +212,20 @@ function SudokuApp({ user, signOut }) {
         onConfirm={handleImportConfirm}
         onCancel={() => setImportModalOpen(false)}
       />
+
+      <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">
+        <DialogTitle>Congratulations!</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Puzzle solved in {Math.floor(elapsedSeconds / 60)}m {elapsedSeconds % 60}s
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={finishGame} data-testid="finish-button">
+            Finish
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ThemeProvider>
   );
 }

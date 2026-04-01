@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForGrid } from './helpers.js';
+import { CANNED_GAME_ID, waitForGrid } from './helpers.js';
 
 // Near-complete puzzle: only cell-8-8 is empty (should be 9)
 const NEAR_COMPLETE_GRID = [
@@ -15,7 +15,7 @@ const NEAR_COMPLETE_GRID = [
 ];
 
 const NEAR_COMPLETE_GAME_STATE = {
-  gameId: '123e4567-e89b-12d3-a456-426614174999',
+  gameId: CANNED_GAME_ID,
   difficulty: 'easy',
   originalGrid: NEAR_COMPLETE_GRID,
   currentGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
@@ -24,33 +24,25 @@ const NEAR_COMPLETE_GAME_STATE = {
   status: 'IN_PROGRESS',
 };
 
-const VALID_RESPONSE = {
-  isValid: true,
-  isSolved: false,
-  errors: [],
-};
-
 async function setupRoutes(page) {
-  await page.route('**/games', (route) => {
-    if (route.request().method() === 'POST') {
-      route.fulfill({ status: 201, json: NEAR_COMPLETE_GAME_STATE });
-    } else {
-      route.continue();
-    }
-  });
-  await page.route('**/games/**', (route) => {
-    if (route.request().method() === 'PATCH') {
+  await page.addInitScript((gameId) => {
+    localStorage.setItem('sudoku_gameId', gameId);
+  }, CANNED_GAME_ID);
+  await page.route(`**/games/${CANNED_GAME_ID}`, (route) => {
+    if (route.request().method() === 'GET') {
+      route.fulfill({ status: 200, json: NEAR_COMPLETE_GAME_STATE });
+    } else if (route.request().method() === 'PATCH') {
       route.fulfill({ status: 200, body: '' });
     } else {
       route.continue();
     }
   });
   await page.route('**/puzzles/validate', (route) =>
-    route.fulfill({ json: VALID_RESPONSE })
+    route.fulfill({ json: { isValid: true, isSolved: true, errors: [] } })
   );
 }
 
-test('solved state shows congratulations alert', async ({ page }) => {
+test('solved state shows congratulations dialog', async ({ page }) => {
   await setupRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
@@ -58,15 +50,13 @@ test('solved state shows congratulations alert', async ({ page }) => {
   await page.getByRole('button', { name: '9', exact: true }).click();
   await page.getByTestId('cell-8-8').click();
 
-  await page.getByRole('button', { name: 'Check' }).click();
-
-  const alert = page.getByTestId('status-alert');
-  await expect(alert).toBeVisible();
-  await expect(alert).toContainText('Congratulations — puzzle solved!');
-  await expect(alert).toHaveAttribute('class', /MuiAlert-colorSuccess/);
+  const dialog = page.getByTestId('congrats-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Congratulations');
+  await expect(dialog).toContainText(/\d+m \d+s/);
 });
 
-test('solved alert can be dismissed', async ({ page }) => {
+test('solved dialog disappears and clears grid after Finish', async ({ page }) => {
   await setupRoutes(page);
   await page.goto('/');
   await waitForGrid(page);
@@ -74,11 +64,10 @@ test('solved alert can be dismissed', async ({ page }) => {
   await page.getByRole('button', { name: '9', exact: true }).click();
   await page.getByTestId('cell-8-8').click();
 
-  await page.getByRole('button', { name: 'Check' }).click();
+  await expect(page.getByTestId('congrats-dialog')).toBeVisible();
 
-  const alert = page.getByTestId('status-alert');
-  await expect(alert).toBeVisible();
+  await page.getByTestId('finish-button').click();
 
-  await page.getByRole('button', { name: 'Close' }).click();
-  await expect(alert).not.toBeVisible();
+  await expect(page.getByTestId('congrats-dialog')).not.toBeVisible();
+  await expect(page.getByTestId('cell-0-0')).not.toBeVisible();
 });
