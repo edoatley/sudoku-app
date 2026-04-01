@@ -1,4 +1,4 @@
-import Collapse from '@mui/material/Collapse';
+import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
 const SEVERITY = {
@@ -14,10 +14,15 @@ export default function StatusBar({ gameStatus, statusMessage, onClose }) {
   const message = gameStatus === 'solved' ? 'Congratulations — puzzle solved!' : statusMessage;
 
   return (
-    <Collapse in={open}>
+    <Snackbar
+      open={open}
+      onClose={onClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      sx={{ bottom: { xs: 16, sm: 24 } }}
+    >
       <Alert data-testid="status-alert" severity={severity} onClose={onClose} sx={{ width: '100%' }}>
         {message}
       </Alert>
-    </Collapse>
+    </Snackbar>
   );
 }

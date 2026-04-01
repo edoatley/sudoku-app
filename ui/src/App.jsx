@@ -63,9 +63,29 @@ if (!MOCK_API && !SKIP_AUTH) {
   });
 }
 
-const muiTheme = createTheme();
-
 function SudokuApp({ user, signOut }) {
+  const [colorMode, setColorMode] = useState(
+    () => localStorage.getItem('sudoku_colorMode') ?? 'light'
+  );
+  const handleToggleColorMode = () => {
+    setColorMode((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('sudoku_colorMode', next);
+      return next;
+    });
+  };
+  const muiTheme = useMemo(
+    () => createTheme({
+      palette: {
+        mode: colorMode,
+        ...(colorMode === 'dark' && {
+          primary: { main: '#9c27b0' },
+        }),
+      },
+    }),
+    [colorMode]
+  );
+
   const [newGameModalOpen, setNewGameModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
 
@@ -144,16 +164,16 @@ function SudokuApp({ user, signOut }) {
         onNewGame={() => setNewGameModalOpen(true)}
         onImport={ENABLE_IMPORT ? () => setImportModalOpen(true) : null}
         onDemoGame={DEV_TOOLS ? loadDemoGame : null}
+        colorMode={colorMode}
+        onToggleColorMode={handleToggleColorMode}
       />
       <Container maxWidth="lg" disableGutters sx={{ px: { xs: 1, sm: 2, md: 3 }, py: { xs: 1, md: 2 } }}>
         <Stack spacing={{ xs: 1, md: 2 }} alignItems={{ xs: 'center', md: 'flex-start' }}>
-          <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
-
           {isLoading && !currentGrid ? (
             <CircularProgress />
           ) : isPaused ? (
             <PauseOverlay onResume={resumeGame} />
-          ) : (
+          ) : currentGrid ? (
             <Box sx={{
               display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
@@ -187,7 +207,7 @@ function SudokuApp({ user, signOut }) {
                 completedNumbers={completedNumbers}
               />
             </Box>
-          )}
+          ) : null}
           <HintDialog
             open={!!activeHint}
             hint={activeHint}
@@ -213,6 +233,8 @@ function SudokuApp({ user, signOut }) {
         onCancel={() => setImportModalOpen(false)}
       />
 
+      <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
+
       <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">
         <DialogTitle>Congratulations!</DialogTitle>
         <DialogContent>
@@ -234,6 +256,7 @@ function LoginLayout() {
   // When unauthenticated, Authenticator renders its own centered login form.
   // When authenticated, children are called with { user, signOut } and we render
   // SudokuApp at the top level — its own Header replaces the login chrome.
+  const muiTheme = createTheme({ palette: { mode: 'light' } });
   const authContent = (
     <Authenticator hideSignUp socialProviders={['google']}>
       {({ signOut, user }) => <SudokuApp user={user} signOut={signOut} />}

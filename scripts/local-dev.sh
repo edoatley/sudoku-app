@@ -62,7 +62,19 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# ── 1. LocalStack ─────────────────────────────────────────────────────────────
+# ── 1. Vite UI dev server — start immediately (no backend dependency) ─────────
+log "Starting Vite UI dev server (hot-reload enabled)..."
+(
+  cd "${REPO_ROOT}/ui"
+  export VITE_API_URL=http://localhost:8080/api/v1
+  export VITE_MOCK_API=false
+  export VITE_SKIP_AUTH=true
+  export VITE_DEV_TOOLS=true
+  npm run dev -- --port 5174
+) &
+UI_PID=$!
+
+# ── 2. LocalStack ─────────────────────────────────────────────────────────────
 log "Starting LocalStack (DynamoDB on port 4566)..."
 docker run -d --name "${LOCALSTACK_CONTAINER}" \
   -p 4566:4566 \
@@ -79,7 +91,7 @@ for i in $(seq 1 20); do
   sleep 2
 done
 
-# ── 2. Quarkus backend ────────────────────────────────────────────────────────
+# ── 3. Quarkus backend ────────────────────────────────────────────────────────
 # DevDatabaseInitializer creates the DynamoDB tables on first startup.
 log "Starting Quarkus backend (hot-reload enabled)..."
 (
@@ -101,18 +113,6 @@ for i in $(seq 1 40); do
   [[ $i -eq 40 ]] && die "Backend did not become ready in time"
   sleep 3
 done
-
-# ── 3. Vite UI dev server ─────────────────────────────────────────────────────
-log "Starting Vite UI dev server (hot-reload enabled)..."
-(
-  cd "${REPO_ROOT}/ui"
-  export VITE_API_URL=http://localhost:8080/api/v1
-  export VITE_MOCK_API=false
-  export VITE_SKIP_AUTH=true
-  export VITE_DEV_TOOLS=true
-  npm run dev -- --port 5174
-) &
-UI_PID=$!
 
 # ── Ready ─────────────────────────────────────────────────────────────────────
 echo ""

@@ -16,14 +16,14 @@ const fontSize = 'calc(var(--sudoku-cell-size, 44px) * 0.28)';
 function getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRegionHighlight, isGiven) {
   if (isError)           return 'error.light';
   if (isHighlight)       return 'warning.light';
-  if (isNumberHighlight) return '#4169E1';
-  if (isSelected)        return '#3A6BC4';
-  if (isRegionHighlight) return '#E8F4FD';
-  if (isGiven)           return 'grey.100';
+  if (isNumberHighlight) return 'primary.main';
+  if (isSelected)        return 'primary.dark';
+  if (isRegionHighlight) return 'action.hover';
+  if (isGiven)           return 'action.selected';
   return 'background.paper';
 }
 
-function CandidateDisplay({ candidates }) {
+function CandidateDisplay({ candidates, useWhite }) {
   return (
     <Box
       sx={{
@@ -43,7 +43,7 @@ function CandidateDisplay({ candidates }) {
             justifyContent: 'center',
             fontSize: 'calc(var(--sudoku-cell-size, 44px) * 0.22)',
             lineHeight: 1,
-            color: candidates.includes(n) ? 'primary.main' : 'transparent',
+            color: candidates.includes(n) ? (useWhite ? 'white' : 'text.primary') : 'transparent',
             fontWeight: 'bold',
           }}
         >
@@ -71,14 +71,14 @@ export default function SudokuCell({ row, col, value, isGiven, isError, isHighli
         bgcolor: bg,
         fontWeight: isGiven ? 'bold' : 'normal',
         fontSize: fontSize,
-        color: (isNumberHighlight || isSelected) && !isError && !isHighlight ? 'white' : 'inherit',
+        color: (isNumberHighlight || isSelected) && !isError && !isHighlight ? 'white' : 'text.primary',
         cursor: 'pointer',
         userSelect: 'none',
         '&:hover': { filter: 'brightness(0.92)' },
       }}
     >
       {hasCandidates ? (
-        <CandidateDisplay candidates={candidates} />
+        <CandidateDisplay candidates={candidates} useWhite={isNumberHighlight || isSelected} />
       ) : (
         displayValue
       )}

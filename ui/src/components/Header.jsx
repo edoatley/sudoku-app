@@ -24,6 +24,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
 import ImageIcon from '@mui/icons-material/Image';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 
 function formatTime(seconds) {
   const h = Math.floor(seconds / 3600);
@@ -62,6 +64,8 @@ export default function Header({
   onNewGame,
   onImport,
   onDemoGame,
+  colorMode,
+  onToggleColorMode,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [gameMenuAnchorEl, setGameMenuAnchorEl] = useState(null);
@@ -183,6 +187,15 @@ export default function Header({
                 {isPaused ? <PlayArrowIcon /> : <PauseIcon />}
               </IconButton>
             )}
+
+            <IconButton
+              onClick={onToggleColorMode}
+              sx={{ color: 'primary.contrastText' }}
+              size="small"
+              aria-label={colorMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {colorMode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
 
             {user && (
               <>
