@@ -1,0 +1,133 @@
+(.venv) ➜  image_recognition git:(rc-strategies) ✗ ./test_puzzle.sh
+Installing dependencies...
+
+[notice] A new release of pip available: 22.3 -> 26.0.1
+[notice] To update, run: pip install --upgrade pip
+Encoding /Users/edoatley/source/sudoku-app/image_recognition/tests/fixtures/puzzle_1.jpeg...
+Calling handler...
+INFO handler: Received image recognition request: image_size=139261 bytes
+INFO handler: Trying model us.amazon.nova-pro-v1:0 (index 0)
+WARNING handler: Model us.amazon.nova-pro-v1:0: grid has duplicate digits (score=0, clues=15) — keeping as candidate but trying next model
+INFO handler: Trying model nvidia.nemotron-nano-12b-v2 (index 1)
+WARNING handler: Model nvidia.nemotron-nano-12b-v2: grid has duplicate digits (score=1, clues=23) — keeping as candidate but trying next model
+INFO handler: Trying model mistral.magistral-small-2509 (index 2)
+INFO handler: Model mistral.magistral-small-2509 returned a clean grid (score=3, clues=23)
+INFO handler: Model mistral.magistral-small-2509 produced acceptable result; cross-checking with next model global.anthropic.claude-haiku-4-5-20251001-v1:0
+INFO handler: Next model global.anthropic.claude-haiku-4-5-20251001-v1:0 produced a different grid; using its result instead of mistral.magistral-small-2509
+INFO handler: Final result: model=global.anthropic.claude-haiku-4-5-20251001-v1:0 valid=True clues=23
+
+=== Raw response ===
+{
+  "statusCode": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"originalGrid\": [[0, 0, 0, 0, 0, 0, 4, 0, 0], [2, 0, 0, 1, 0, 0, 5, 9, 0], [0, 0, 0, 7, 0, 3, 0, 0, 8], [6, 9, 0, 0, 0, 0, 0, 0, 7], [0, 8, 0, 0, 0, 0, 0, 6, 0], [0, 1, 0, 0, 0, 0, 9, 3, 0], [0, 0, 0, 5, 4, 0, 0, 0, 1], [0, 0, 0, 0, 2, 9, 3, 0, 0], [0, 0, 0, 0, 6, 0, 0, 0, 0]], \"validPuzzle\": true, \"modelName\": \"global.anthropic.claude-haiku-4-5-20251001-v1:0\"}"
+}
+
+=== Parsed grid ===
+Status: 200 OK
+
+. . . . . . 4 . .
+2 . . 1 . . 5 9 .
+. . . 7 . 3 . . 8
+6 9 . . . . . . 7
+. 8 . . . . . 6 .
+. 1 . . . . 9 3 .
+. . . 5 4 . . . 1
+. . . . 2 9 3 . .
+. . . . 6 . . . .
+✅ SUCCESS: The extracted grid matches the expected grid perfectly!
+
+
+Installing dependencies...
+Encoding /Users/edoatley/source/sudoku-app/image_recognition/tests/fixtures/puzzle_2.jpeg...
+Calling handler...
+INFO handler: Trying model us.amazon.nova-pro-v1:0 (index 0)
+WARNING handler: Model us.amazon.nova-pro-v1:0 failed: Row 0 must be a 9-element list, got: '4|1|5|9|.|.|.|.|.'
+INFO handler: Trying model nvidia.nemotron-nano-12b-v2 (index 1)
+WARNING handler: Model nvidia.nemotron-nano-12b-v2: grid has duplicate digits (score=2, clues=38) — keeping as candidate but trying next model
+INFO handler: Trying model mistral.magistral-small-2509 (index 2)
+WARNING handler: Model mistral.magistral-small-2509: grid has duplicate digits (score=2, clues=37) — keeping as candidate but trying next model
+INFO handler: Trying model global.anthropic.claude-haiku-4-5-20251001-v1:0 (index 3)
+INFO handler: Model global.anthropic.claude-haiku-4-5-20251001-v1:0 returned a clean grid (score=4, clues=38)
+INFO handler: Final result: model=global.anthropic.claude-haiku-4-5-20251001-v1:0 valid=True clues=38
+
+=== Raw response ===
+{
+  "statusCode": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"originalGrid\": [[4, 0, 1, 0, 5, 0, 9, 0, 0], [3, 0, 0, 0, 6, 0, 7, 0, 4], [7, 9, 0, 8, 0, 0, 0, 1, 0], [1, 0, 3, 7, 0, 0, 0, 0, 6], [0, 8, 5, 0, 0, 4, 0, 0, 2], [0, 0, 0, 6, 0, 0, 0, 8, 1], [8, 3, 4, 0, 7, 2, 0, 0, 0], [0, 0, 7, 4, 8, 6, 2, 0, 0], [0, 2, 0, 0, 0, 1, 8, 4, 7]], \"validPuzzle\": true, \"modelName\": \"global.anthropic.claude-haiku-4-5-20251001-v1:0\"}"
+}
+
+=== Parsed grid ===
+Status: 200 OK
+
+4 . 1 . 5 . 9 . .
+3 . . . 6 . 7 . 4
+7 9 . 8 . . . 1 .
+1 . 3 7 . . . . 6
+. 8 5 . . 4 . . 2
+. . . 6 . . . 8 1
+8 3 4 . 7 2 . . .
+. . 7 4 8 6 2 . .
+. 2 . . . 1 8 4 7
+❌ FAILURE: The grids do not match.
+
+Expected: [[[92m0[0m,0,[92m0[0m,0,[92m0[0m,0,[92m4[0m,0,0],[[92m2[0m,0,0,[92m1[0m,[92m0[0m,0,[92m5[0m,[92m9[0m,[92m0[0m],[[92m0[0m,[92m0[0m,0,[92m7[0m,0,[92m3[0m,0,[92m0[0m,[92m8[0m],[[92m6[0m,[92m9[0m,[92m0[0m,[92m0[0m,0,0,0,0,[92m7[0m],[0,8,[92m0[0m,0,0,[92m0[0m,0,[92m6[0m,[92m0[0m],[0,[92m1[0m,0,[92m0[0m,0,0,[92m9[0m,[92m3[0m,[92m0[0m],[[92m0[0m,[92m0[0m,[92m0[0m,[92m5[0m,[92m4[0m,[92m0[0m,0,0,[92m1[0m],[0,0,[92m0[0m,[92m0[0m,[92m2[0m,[92m9[0m,[92m3[0m,0,0],[0,[92m0[0m,0,0,[92m6[0m,[92m0[0m,[92m0[0m,[92m0[0m,[92m0[0m]]
+Actual:   [[[91m4[0m,0,[91m1[0m,0,[91m5[0m,0,[91m9[0m,0,0],[[91m3[0m,0,0,[91m0[0m,[91m6[0m,0,[91m7[0m,[91m0[0m,[91m4[0m],[[91m7[0m,[91m9[0m,0,[91m8[0m,0,[91m0[0m,0,[91m1[0m,[91m0[0m],[[91m1[0m,[91m0[0m,[91m3[0m,[91m7[0m,0,0,0,0,[91m6[0m],[0,8,[91m5[0m,0,0,[91m4[0m,0,[91m0[0m,[91m2[0m],[0,[91m0[0m,0,[91m6[0m,0,0,[91m0[0m,[91m8[0m,[91m1[0m],[[91m8[0m,[91m3[0m,[91m4[0m,[91m0[0m,[91m7[0m,[91m2[0m,0,0,[91m0[0m],[0,0,[91m7[0m,[91m4[0m,[91m8[0m,[91m6[0m,[91m2[0m,0,0],[0,[91m2[0m,0,0,[91m0[0m,[91m1[0m,[91m8[0m,[91m4[0m,[91m7[0m]]
+
+.venv) ➜  image_recognition git:(rc-strategies) ✗ ./test_puzzle.sh 3     
+Installing dependencies...
+
+[notice] A new release of pip available: 22.3 -> 26.0.1
+[notice] To update, run: pip install --upgrade pip
+Encoding /Users/edoatley/source/sudoku-app/image_recognition/tests/fixtures/puzzle_3.jpeg...
+Calling handler...
+INFO handler: Received image recognition request: image_size=139315 bytes
+INFO handler: Trying model us.amazon.nova-pro-v1:0 (index 0)
+WARNING handler: Model us.amazon.nova-pro-v1:0 failed: Row 0 must be a 9-element list, got: '| 0 | 0 | 0 | 0 | 0 | 0 | 1 | 4 | 5 |'
+INFO handler: Trying model nvidia.nemotron-nano-12b-v2 (index 1)
+INFO handler: Model nvidia.nemotron-nano-12b-v2 returned a clean grid (score=3, clues=26)
+INFO handler: Model nvidia.nemotron-nano-12b-v2 produced acceptable result; cross-checking with next model mistral.magistral-small-2509
+INFO handler: Next model mistral.magistral-small-2509 produced a different grid; using its result instead of nvidia.nemotron-nano-12b-v2
+INFO handler: Trying model global.anthropic.claude-haiku-4-5-20251001-v1:0 (index 3)
+INFO handler: Model global.anthropic.claude-haiku-4-5-20251001-v1:0 returned a clean grid (score=3, clues=26)
+INFO handler: Final result: model=global.anthropic.claude-haiku-4-5-20251001-v1:0 valid=True clues=26
+
+=== Raw response ===
+{
+  "statusCode": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"originalGrid\": [[0, 0, 0, 0, 0, 0, 1, 4, 5], [2, 0, 0, 4, 3, 0, 0, 0, 9], [7, 0, 0, 0, 0, 9, 0, 0, 0], [0, 0, 8, 0, 6, 0, 5, 0, 0], [0, 0, 0, 0, 5, 1, 0, 0, 0], [0, 0, 0, 9, 0, 0, 0, 0, 1], [8, 0, 0, 0, 0, 6, 3, 0, 0], [4, 0, 0, 0, 0, 0, 0, 0, 0], [0, 2, 1, 3, 4, 0, 8, 0, 7]], \"validPuzzle\": true, \"modelName\": \"global.anthropic.claude-haiku-4-5-20251001-v1:0\"}"
+}
+
+=== Parsed grid ===
+Status: 200 OK
+
+. . . . . . 1 4 5
+2 . . 4 3 . . . 9
+7 . . . . 9 . . .
+. . 8 . 6 . 5 . .
+. . . . 5 1 . . .
+. . . 9 . . . . 1
+8 . . . . 6 3 . .
+4 . . . . . . . .
+. 2 1 3 4 . 8 . 7
+❌ FAILURE: The grids do not match.
+
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)

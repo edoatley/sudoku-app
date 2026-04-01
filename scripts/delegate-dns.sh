@@ -2,18 +2,22 @@
 # delegate-dns.sh
 #
 # Creates an NS delegation record in the edoatley.co.uk hosted zone
-# (default AWS account) pointing to the sudoku.edoatley.co.uk zone
-# managed in the sandbox account.
+# (default AWS account) pointing to a subdomain zone managed in the
+# sandbox account.
 #
-# Run this ONCE after `terraform apply` outputs the subdomain_nameservers.
+# Run this ONCE per subdomain after `terraform apply` outputs the nameservers.
 #
 # Usage:
-#   PARENT_ZONE_ID=Z0123456789ABCDEF ./delegate-dns.sh ns1 ns2 ns3 ns4
+#   PARENT_ZONE_ID=Z0123456789ABCDEF ./delegate-dns.sh [--subdomain <name>] ns1 ns2 ns3 ns4
 #
-# Or pass the zone ID as the first argument and nameservers as the remaining ones:
-#   ./delegate-dns.sh Z0123456789ABCDEF ns1 ns2 ns3 ns4
+# Options:
+#   --subdomain <name>   Subdomain to delegate (default: sudoku.edoatley.co.uk)
+#                        e.g. --subdomain sudoku-beta.edoatley.co.uk
 #
-# You can get the nameservers from Terraform:
+# Or pass the zone ID as the first argument:
+#   ./delegate-dns.sh Z0123456789ABCDEF [--subdomain <name>] ns1 ns2 ns3 ns4
+#
+# You can get the nameservers from Terraform (they are the same for all subdomains):
 #   cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 
 set -euo pipefail
@@ -33,9 +37,15 @@ fi
 # ---- Resolve arguments -------------------------------------------------------
 # If the first arg looks like a hosted zone ID (starts with Z and is uppercase
 # alphanumeric), treat it as the zone ID; otherwise expect PARENT_ZONE_ID env var.
-if [[ $# -ge 5 && "$1" =~ ^Z[A-Z0-9]+$ ]]; then
+if [[ $# -ge 1 && "$1" =~ ^Z[A-Z0-9]+$ ]]; then
   PARENT_ZONE_ID="$1"
   shift
+fi
+
+# Optional --subdomain flag overrides the default.
+if [[ $# -ge 2 && "$1" == "--subdomain" ]]; then
+  SUBDOMAIN="$2"
+  shift 2
 fi
 
 if [[ -z "${PARENT_ZONE_ID:-}" ]]; then
@@ -47,7 +57,7 @@ fi
 
 if [[ $# -ne 4 ]]; then
   echo "ERROR: Expected exactly 4 nameserver arguments, got $#."
-  echo "  Usage: ./delegate-dns.sh [ZONE_ID] ns1 ns2 ns3 ns4"
+  echo "  Usage: ./delegate-dns.sh [ZONE_ID] [--subdomain <name>] ns1 ns2 ns3 ns4"
   echo ""
   echo "  Get the nameservers from Terraform:"
   echo "    cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers"

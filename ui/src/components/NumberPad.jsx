@@ -28,12 +28,14 @@ const toolBtnSx = {
   '&.Mui-disabled': { borderColor: 'divider', color: 'action.disabled' },
 };
 
-function NumButton({ n, selectedNumber, onNumberSelect }) {
+function NumButton({ n, selectedNumber, onNumberSelect, completedNumbers }) {
   const active = selectedNumber === n;
+  const completed = completedNumbers?.has(n);
   return (
     <Button
       variant={active ? 'contained' : 'outlined'}
       onClick={() => onNumberSelect(active ? null : n)}
+      disabled={completed}
       sx={btnSx}
     >
       {n}
@@ -63,7 +65,7 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
   );
 }
 
-export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, autoNotesActive, onAutoNotes, isLoading }) {
+export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, autoNotesActive, onAutoNotes, isLoading, completedNumbers }) {
   return (
     <Stack spacing={1} alignItems="center">
       <ToggleButtonGroup
@@ -81,7 +83,7 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         {[[1, 2, 3], [4, 5, 6], [7, 8, 9]].map((row) => (
           <Box key={row[0]} sx={{ display: 'flex', gap: 0.5 }}>
             {row.map((n) => (
-              <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} />
+              <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} />
             ))}
           </Box>
         ))}

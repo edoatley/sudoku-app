@@ -10,10 +10,13 @@ Terraform configuration for the Serverless Sudoku application. Target region: **
 flowchart LR
     DNS53P["Route53\nedoatley.co.uk\n(default account)"]
     DNS53S["Route53\nsudoku.edoatley.co.uk\n(sandbox account)"]
+    DNS53B["Route53\nsudoku-beta.edoatley.co.uk\n(sandbox account)"]
     DNS53P -->|NS delegation| DNS53S
+    DNS53P -->|NS delegation| DNS53B
 
     GH[GitHub] -->|CI/CD| AMP[Amplify]
-    DNS53S -->|CNAME| AMP
+    DNS53S -->|alias| AMP
+    DNS53B -->|alias| AMP
     AMP -->|OAuth| COG[Cognito]
     AMP -->|API URL + JWT| APIGW[API Gateway v2]
     APIGW -->|JWT authorizer| COG
@@ -34,7 +37,7 @@ flowchart LR
 | `https://www.sudoku.edoatley.co.uk` | `main` | `default` |
 | `https://sudoku-beta.edoatley.co.uk` | current `rc-*` branch | `rc-*` |
 
-The `sudoku.edoatley.co.uk` Route53 zone lives in the **sandbox AWS account** (managed by Terraform). The parent zone `edoatley.co.uk` is in a **separate default AWS account** and delegates to it via NS records — see [DNS Delegation](#dns-delegation) below.
+Both `sudoku.edoatley.co.uk` and `sudoku-beta.edoatley.co.uk` Route53 zones live in the **sandbox AWS account** (managed by Terraform, `default` workspace only). The parent zone `edoatley.co.uk` is in a **separate default AWS account** and delegates to each via NS records — see [DNS Delegation](#dns-delegation) below.
 
 ---
 
@@ -63,9 +66,18 @@ The `sudoku.edoatley.co.uk` Route53 zone lives in the **sandbox AWS account** (m
 
 ### Route53 & Custom Domains
 
-A hosted zone for `sudoku.edoatley.co.uk` is created in the **default workspace only**. After the first apply, run `scripts/delegate-dns.sh` in the parent AWS account to complete the NS delegation.
+Two hosted zones are created in the **default workspace only**:
 
-`aws_amplify_domain_association` manages the CNAME records and provisions the ACM certificate automatically — no separate `aws_acm_certificate` resource is needed. Certificate provisioning can take up to 40 minutes on first apply.
+| Zone | Used by |
+|------|---------|
+| `sudoku.edoatley.co.uk` | `default` workspace (production) |
+| `sudoku-beta.edoatley.co.uk` | all `rc-*` workspaces (shared beta domain) |
+
+After the first apply, update the NS delegation in the parent account for both zones — the nameservers are printed by `deploy-local.sh` and available via `terraform output subdomain_nameservers` / `terraform output sudoku_beta_nameservers`.
+
+RC workspaces read the beta zone ID from the default workspace's remote state (`route53_beta_zone_id`) to create the `aws_amplify_domain_association.beta` resource.
+
+`aws_amplify_domain_association` manages the DNS records and provisions the ACM certificate automatically — no separate `aws_acm_certificate` resource is needed. Certificate provisioning can take up to 40 minutes on first apply. The `wait_for_verification = false` flag prevents Terraform from blocking; `amplify-post-deploy.sh` polls instead.
 
 ### API Gateway (HTTP API v2)
 
@@ -178,29 +190,38 @@ The Lambda zip bucket (`sudoku-lambda-zip-{account_id}`) is owned by the `defaul
 
 ## DNS Delegation
 
-The `sudoku.edoatley.co.uk` zone is managed in the sandbox account by Terraform. The parent zone `edoatley.co.uk` lives in a separate AWS account and must be configured once to delegate to it.
+Both hosted zones are managed in the sandbox account by Terraform (`default` workspace). The parent zone `edoatley.co.uk` lives in a separate AWS account and must be configured once to delegate to each.
 
 **This is a one-time manual step** after the first `default` workspace apply:
 
-1. Get the NS records from the Terraform output (also printed by the deploy workflow):
+1. Get the NS records from Terraform outputs:
    ```bash
-   cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers
+   cd infra
+   AWS_PROFILE=sandbox terraform output subdomain_nameservers       # sudoku.edoatley.co.uk
+   AWS_PROFILE=sandbox terraform output sudoku_beta_nameservers     # sudoku-beta.edoatley.co.uk
    ```
+   (`deploy-local.sh` prints both automatically after a default workspace apply.)
 
-2. Run the delegation script in the **parent account** (default AWS profile):
+2. In the **parent account** (default AWS profile), upsert NS records for each zone:
    ```bash
-   PARENT_ZONE_ID=Z0123456789ABCDEF \
-     bash infra/scripts/delegate-dns.sh ns1.example.com ns2.example.com ns3.example.com ns4.example.com
+   # sudoku.edoatley.co.uk — use nameservers from subdomain_nameservers output
+   aws route53 change-resource-record-sets --hosted-zone-id <PARENT_ZONE_ID> \
+     --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"sudoku.edoatley.co.uk.","Type":"NS","TTL":172800,"ResourceRecords":[{"Value":"ns-X.awsdns-Y.com."},...]}}]}'
+
+   # sudoku-beta.edoatley.co.uk — use nameservers from sudoku_beta_nameservers output
+   aws route53 change-resource-record-sets --hosted-zone-id <PARENT_ZONE_ID> \
+     --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"sudoku-beta.edoatley.co.uk.","Type":"NS","TTL":172800,"ResourceRecords":[{"Value":"ns-X.awsdns-Y.com."},...]}}]}'
    ```
 
 3. Verify propagation:
    ```bash
    dig NS sudoku.edoatley.co.uk
+   dig NS sudoku-beta.edoatley.co.uk
    ```
 
 Once the NS delegation is in place, the ACM certificate will validate automatically (~5–10 minutes) and the custom domains will become live.
 
-> **Note for rc-* workspaces:** The `sudoku-beta.edoatley.co.uk` domain association is only created after the default workspace has been applied and the `route53_zone_id` output is present in remote state. Only one RC branch holds the beta domain at a time (last writer wins).
+> **Note for rc-* workspaces:** The `sudoku-beta.edoatley.co.uk` domain association is only created after the default workspace has been applied and `route53_beta_zone_id` is present in remote state. Only one RC branch holds the beta domain at a time (last writer wins).
 
 ---
 
@@ -343,7 +364,9 @@ AWS_PROFILE=sandbox terraform workspace delete rc-my-feature
 | `cognito_smoke_test_client_id` | Smoke test client ID | all |
 | `cognito_smoke_test_client_secret` | Smoke test client secret (sensitive) | all |
 | `subdomain_nameservers` | NS records for `sudoku.edoatley.co.uk` | `default` only |
-| `route53_zone_id` | Zone ID (read by rc-* workspaces via remote state) | `default` only |
+| `route53_zone_id` | Zone ID for `sudoku.edoatley.co.uk` (read by rc-* workspaces via remote state) | `default` only |
+| `sudoku_beta_nameservers` | NS records for `sudoku-beta.edoatley.co.uk` | `default` only |
+| `route53_beta_zone_id` | Zone ID for `sudoku-beta.edoatley.co.uk` (read by rc-* workspaces via remote state) | `default` only |
 | `lambda_function_name` | Lambda function name | all |
 | `lambda_function_arn` | Lambda function ARN | all |
 | `image_recognition_lambda_function_name` | Image recognition Lambda name | all |

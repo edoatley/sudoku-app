@@ -31,6 +31,16 @@ output "route53_zone_id" {
   value       = local.is_default ? aws_route53_zone.sudoku[0].zone_id : null
 }
 
+output "sudoku_beta_nameservers" {
+  description = "Name servers for the sudoku-beta.edoatley.co.uk hosted zone. Use these to fix the NS delegation in the parent account."
+  value       = local.is_default ? aws_route53_zone.sudoku_beta[0].name_servers : []
+}
+
+output "route53_beta_zone_id" {
+  description = "Route53 hosted zone ID for sudoku-beta.edoatley.co.uk (read by rc-* workspaces via remote state)."
+  value       = local.is_default ? aws_route53_zone.sudoku_beta[0].zone_id : null
+}
+
 output "lambda_function_name" {
   description = "Lambda function name."
   value       = aws_lambda_function.sudoku.function_name

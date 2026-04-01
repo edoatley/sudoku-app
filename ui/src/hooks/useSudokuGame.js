@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, importPuzzle, createGameFromGrid } from '../api/sudokuApi.js';
+import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, importPuzzle, createGameFromGrid, getDemoGrid } from '../api/sudokuApi.js';
 
 const LS_KEY_GAME_ID = 'sudoku_gameId';
 const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
@@ -47,6 +47,7 @@ export function useSudokuGame(user) {
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
   const [gameId, setGameId] = useState(null);
+  const [hintMinRank, setHintMinRank] = useState(null);
   const prevUserIdRef = useRef(user?.username ?? null);
   const [isSyncing, setIsSyncing] = useState(false);
   const gameIdRef = useRef(null);
@@ -111,6 +112,7 @@ export function useSudokuGame(user) {
       setAutoNotesGrid(null);
       setAutoNotesActive(false);
       setHistory([]);
+      setHintMinRank(null);
       lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0);
       startTimer();
     } catch (err) {
@@ -320,7 +322,7 @@ export function useSudokuGame(user) {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const hint = await getHint(currentGrid);
+      const hint = await getHint(currentGrid, hintMinRank);
       setActiveHint(hint);
       setHintStage('nudge');
       setHighlightCells([]);
@@ -486,6 +488,38 @@ export function useSudokuGame(user) {
     }
   }, [startTimer]);
 
+  const loadDemoGame = useCallback(async (technique) => {
+    setIsLoading(true);
+    setErrorCells(new Set());
+    setActiveHint(null);
+    setHintStage('nudge');
+    setHighlightCells([]);
+    setStatusMessage(null);
+    setGameStatus('idle');
+    setSelectedCell(null);
+    setSelectedNumber(null);
+    try {
+      const data = await getDemoGrid(technique);
+      const emptyGrid = emptyCandidate();
+      // Demo games have no game ID — they are not saved to the backend
+      setGameId(null);
+      setOriginalGrid(data.originalGrid);
+      setCurrentGrid(data.originalGrid.map((row) => [...row]));
+      setCandidateGrid(emptyGrid);
+      setAutoNotesGrid(null);
+      setAutoNotesActive(false);
+      setHistory([]);
+      setHintMinRank(data.minRank ?? null);
+      lsClear();
+      startTimer();
+    } catch (err) {
+      setStatusMessage(`Failed to load demo: ${err.message}`);
+      setGameStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [startTimer]);
+
   const handleSetDifficulty = useCallback((diff) => {
     setDifficulty(diff);
   }, []);
@@ -514,6 +548,7 @@ export function useSudokuGame(user) {
     setDifficulty: handleSetDifficulty,
     startNewGame,
     startNewGameFromImage,
+    loadDemoGame,
     updateCell,
     clearCell,
     undoLastMove,

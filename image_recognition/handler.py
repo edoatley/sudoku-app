@@ -5,13 +5,12 @@ Accepts a base64-encoded image via API Gateway and returns a 9x9 Sudoku grid.
 Uses the Bedrock Converse API so the model receives a proper system prompt,
 which is essential for structured JSON output.
 
-Primary model:  Amazon Nova Pro  (on-demand, eu-west-2)
-Fallback model: Amazon Nova Lite (on-demand, eu-west-2)
 """
 from __future__ import annotations
 
 import base64
 import io
+import os
 import re
 import json
 import logging
@@ -21,14 +20,20 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    logger.addHandler(_handler)
 
 # ---------------------------------------------------------------------------
 # Model cascade — tried in order, first valid result wins.
-# Both are available on-demand in eu-west-2 with no extra form submission.
 # ---------------------------------------------------------------------------
 _MODELS = [
-    "amazon.nova-pro-v1:0",   # best accuracy; slightly more expensive
-    "amazon.nova-lite-v1:0",  # cheaper fallback
+    # "us.amazon.nova-lite-v1:0",                # Extremely fast/cheap
+    "us.amazon.nova-pro-v1:0",                 # Highly capable vision
+    "nvidia.nemotron-nano-12b-v2", 
+    "mistral.magistral-small-2509", 
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0", # very pricey
 ]
 
 # Downscale to at most this many pixels on the longest edge before sending.
@@ -40,32 +45,30 @@ _MAX_IMAGE_EDGE = 800
 _MIN_PLAUSIBLE_CLUES = 10
 
 # ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+_DEFAULT_REGION = "us-east-1"
+_AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
+
+# ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
+
 _SYSTEM_PROMPT = (
-    "You are a highly precise automated data extraction system. "
-    "Your only purpose is to read images of Sudoku grids and output strict, "
-    "perfectly formatted JSON. "
-    "You do not output markdown, greetings, or conversational text of any kind."
+    "You are a precise Sudoku digit extractor. You specialize in spatial mapping. "
+    "You count columns from left to right (1-9) and rows from top to bottom (1-9). "
+    "You never skip a cell, even if it is empty. You use visual anchors to stay aligned."
 )
 
 _USER_PROMPT = (
-    "Analyze the provided image of a Sudoku puzzle.\n\n"
-    "Instructions:\n"
-    "1. Focus only on the 9x9 grid. Ignore all UI chrome, shadows, watermarks, "
-    "and background objects.\n"
-    "2. You must first use a <scratchpad> to read the board systematically. "
-    "Go through the grid row by row (Row 1 to Row 9). For each row, write down "
-    "the 9 digits from left to right. Output 0 for empty cells.\n"
-    "3. Once you have transcribed all 9 rows, output the final result as a JSON object "
-    "inside <json> tags.\n\n"
-    "The JSON object must have a single key 'originalGrid' whose value is a 2D array "
-    "(a list of 9 lists, each containing 9 integers).\n\n"
-    "Example structure:\n"
-    "<scratchpad>\nRow 1: 5 3 0 0 7 0 0 0 0\n...\n</scratchpad>\n"
-    "<json>\n{\"originalGrid\": [[5,3,0...], ...]}\n</json>"
+    "Analyze the image of the Sudoku puzzle.\n\n"
+    "1. In <scratchpad>, transcribe the grid using a pipe-delimited table. Use '.' for empty cells.\n"
+    "   Example: | 5 | . | . | | . | 2 | . | | . | . | 8 |\n"
+    "2. Ensure every row has exactly 9 cells and the 3x3 blocks align vertically.\n"
+    "3. Output the final result as JSON in <json> tags with the key 'originalGrid'.\n\n"
+    "CRITICAL: You MUST wrap your final JSON in <json> and </json> tags. Do not use standard markdown code blocks. Output 0 for empty cells."
 )
-
 
 # ---------------------------------------------------------------------------
 # Lambda entry point
@@ -83,7 +86,7 @@ def handler(event: dict, context: object) -> dict:
     Successful response:
       {
         "statusCode": 200,
-        "body": "{\"originalGrid\": [[0,0,...], ...]}"
+        "body": "{\"originalGrid\": [[0,0,...], ...], \"validPuzzle\": true, \"modelName\": \"model-id\"}"
       }
 
     where ``originalGrid`` is a 9x9 list of ints (0 = empty cell).
@@ -100,18 +103,21 @@ def handler(event: dict, context: object) -> dict:
             return _error(400, "Request body must be JSON with an 'image' field.")
 
         image_bytes = base64.b64decode(image_b64)
+        logger.info("Received image recognition request: image_size=%d bytes", len(image_bytes))
 
         if len(image_bytes) > 8 * 1024 * 1024:
             return _error(400, "Image too large — maximum size is 8 MB.")
 
         # Downscale to reduce image-token cost; re-detect media type after
-        image_bytes = _downscale_image(image_bytes)
-        grid, valid = _recognize_with_bedrock(image_bytes)
+        # image_bytes = _downscale_image(image_bytes) # Temporarily bypass to see if PIL is degrading the image too much
+        
+        client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
+        grid, valid, model_name = _recognize_with_bedrock(client, image_bytes)
 
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"originalGrid": grid, "validPuzzle": valid}),
+            "body": json.dumps({"originalGrid": grid, "validPuzzle": valid, "modelName": model_name}),
         }
 
     except ValueError as exc:
@@ -126,12 +132,18 @@ def handler(event: dict, context: object) -> dict:
 # Bedrock orchestration
 # ---------------------------------------------------------------------------
 
-def _recognize_with_bedrock(image_bytes: bytes) -> tuple[list[list[int]], bool]:
-    """Try each model in _MODELS; return (best_grid, valid) across all attempts.
+def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[list[int]], bool, str]:
+    """Try each model in _MODELS; return (best_grid, valid, model_name).
 
     Scoring (higher is better):
       +2  no duplicate digits in any row/col/box
       +1  per 10 clues above the minimum threshold (rewards richer grids)
+
+    Whenever a model returns a valid result (no duplicates, ≥17 clues), the
+    next model in the list is also tried.  If the two grids differ, the next
+    model's result is used and the substitution is logged.  This cross-check
+    catches cases where a higher-ranked model made a subtle mis-read that a
+    lower-ranked model gets right.
 
     A grid with duplicates is still returned if it's the best we got — the
     duplicate check is a quality signal, not a hard rejection.  This avoids
@@ -141,15 +153,18 @@ def _recognize_with_bedrock(image_bytes: bytes) -> tuple[list[list[int]], bool]:
     ``valid`` is True when the best grid has no duplicate digits and has at
     least 17 clues (the minimum for a uniquely-solvable Sudoku puzzle).
     """
-    client = boto3.client("bedrock-runtime", region_name="eu-west-2")
     best_grid: list[list[int]] | None = None
     best_score: int = -1
     best_has_dupe: bool = True
     best_clues: int = 0
+    best_model_name: str = ""
     last_error: Exception | None = None
 
-    for model_id in _MODELS:
+    model_index = 0
+    while model_index < len(_MODELS):
+        model_id = _MODELS[model_index]
         try:
+            logger.info("Trying model %s (index %d)", model_id, model_index)
             grid = _invoke_model(client, model_id, image_bytes)
             clues = sum(v != 0 for row in grid for v in row)
             if clues < _MIN_PLAUSIBLE_CLUES:
@@ -175,16 +190,53 @@ def _recognize_with_bedrock(image_bytes: bytes) -> tuple[list[list[int]], bool]:
                 best_grid = grid
                 best_has_dupe = has_dupe
                 best_clues = clues
-            # Stop early if we have a clean, high-quality result
-            if not has_dupe and clues >= 17:
-                break
+                best_model_name = model_id
+
+            # When a model returns a valid result, always cross-check with the next model
+            if not has_dupe and clues >= 17 and model_index + 1 < len(_MODELS):
+                next_model_id = _MODELS[model_index + 1]
+                logger.info(
+                    "Model %s produced acceptable result; cross-checking with next model %s",
+                    model_id, next_model_id,
+                )
+                try:
+                    next_grid = _invoke_model(client, next_model_id, image_bytes)
+                    if next_grid != grid:
+                        logger.info(
+                            "Next model %s produced a different grid; using its result instead of %s",
+                            next_model_id, model_id,
+                        )
+                        best_grid = next_grid
+                        best_model_name = next_model_id
+                        next_clues = sum(v != 0 for row in next_grid for v in row)
+                        best_has_dupe = _has_row_col_box_duplicate(next_grid)
+                        best_clues = next_clues
+                        best_score = (0 if best_has_dupe else 2) + (next_clues - _MIN_PLAUSIBLE_CLUES) // 10
+                    else:
+                        logger.info(
+                            "Next model %s confirmed result; keeping grid from %s",
+                            next_model_id, model_id,
+                        )
+                except (ValueError, ClientError) as exc:
+                    logger.warning(
+                        "Cross-check model %s failed: %s; keeping result from %s",
+                        next_model_id, exc, model_id,
+                    )
+                # Skip the next model in the main loop since we already tried it
+                model_index += 2
+                continue
+
+            model_index += 1
+
         except (ValueError, ClientError) as exc:
             logger.warning("Model %s failed: %s", model_id, exc)
             last_error = exc
+            model_index += 1
 
     if best_grid is not None:
         valid = not best_has_dupe and best_clues >= 17
-        return best_grid, valid
+        logger.info("Final result: model=%s valid=%s clues=%d", best_model_name, valid, best_clues)
+        return best_grid, valid, best_model_name
 
     raise ValueError(
         f"All models failed to extract a valid Sudoku grid. "
@@ -231,58 +283,70 @@ def _invoke_model(
 # ---------------------------------------------------------------------------
 # Response parsing
 # ---------------------------------------------------------------------------
+# --- Enhanced Robust Parser ---
 
 def _parse_grid(text: str) -> list[list[int]]:
     """
-    Parse the model text response into a 9x9 list of ints.
-    Prioritizes extracting data from within <json> tags.
-    Falls back to finding the first {...} block if tags are missing.
-    Raises ValueError if no valid grid is found.
+    Enhanced parser that handles JSON and falls back to parsing
+    the pipe-delimited scratchpad if the JSON is malformed.
     """
     cleaned = text.strip()
-    json_string = None
 
-    # 1. Primary Strategy: Extract from <json> tags (Chain of Thought)
-    match = re.search(r'<json>\s*(.*?)\s*</json>', cleaned, re.DOTALL | re.IGNORECASE)
-    if match:
-        json_string = match.group(1).strip()
-    else:
-        # 2. Fallback Strategy: Strip markdown and find the first {...} object
-        if "```" in cleaned:
-            lines = cleaned.splitlines()
-            cleaned = "\n".join(
-                line for line in lines if not line.startswith("```")
-            ).strip()
-            
-        start = cleaned.find("{")
-        end = cleaned.rfind("}") + 1
-        if start != -1 and end > 0:
-            json_string = cleaned[start:end]
+    # 1. Try to find a JSON object — prefer <json> tags, fall back to first {...} block
+    json_match = re.search(r'<json>\s*(.*?)\s*</json>', cleaned, re.DOTALL | re.IGNORECASE)
+    if not json_match:
+        json_match = re.search(r'(\{.*\})', cleaned, re.DOTALL)
 
-    if not json_string:
-        raise ValueError(
-            f"No JSON object or <json> tags found in model response: {text[:200]!r}"
-        )
+    if json_match:
+        json_str = json_match.group(1).strip()
+        json_str = re.sub(r'//.*', '', json_str)  # remove JS-style comments
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Extracted string is invalid JSON: {exc}\nString: {json_str[:100]}") from exc
 
-    # 3. Parse the JSON string
-    try:
-        data = json.loads(json_string)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Extracted string is invalid JSON: {exc}\nString: {json_string[:100]}") from exc
-
-    # 4. Validate the 9x9 grid structure
-    grid = data.get("originalGrid")
-    if not isinstance(grid, list) or len(grid) != 9:
-        raise ValueError(f"'originalGrid' must be a 9-element list, got: {type(grid)}")
+        grid = data.get("originalGrid")
         
-    for i, row in enumerate(grid):
-        if not isinstance(row, list) or len(row) != 9:
-            raise ValueError(f"Row {i} must be a 9-element list, got: {row!r}")
-        for j, val in enumerate(row):
-            if not isinstance(val, int) or not (0 <= val <= 9):
-                raise ValueError(f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}")
+        # FIX: Better error logging so it prints the actual length, not just <class 'list'>
+        if not isinstance(grid, list) or len(grid) != 9:
+            actual_len = len(grid) if isinstance(grid, list) else 'N/A'
+            raise ValueError(f"'originalGrid' must be a 9-element list, got a {type(grid).__name__} of length {actual_len}")
 
-    return grid
+        for i, row in enumerate(grid):
+            if not isinstance(row, list) or len(row) != 9:
+                raise ValueError(f"Row {i} must be a 9-element list, got: {row!r}")
+            for j, val in enumerate(row):
+                if not isinstance(val, int) or not (0 <= val <= 9):
+                    raise ValueError(f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}")
+
+        return grid
+
+    # 2. Fallback: Parse the pipe-delimited scratchpad
+    grid_from_text = []
+    for line in cleaned.splitlines():
+        if '|' in line:
+            # FIX: Strip out "Row 1:" prefixes before splitting
+            if ':' in line:
+                line = line.split(':', 1)[-1]
+                
+            parts = [p.strip() for p in line.split('|')]
+            row_digits = []
+            for p in parts:
+                # Strip markdown bolding just in case (e.g., **5**)
+                p = re.sub(r'[*_]', '', p).strip()
+                if p.isdigit():
+                    row_digits.append(int(p))
+                elif p == '.' or p.lower() == 'empty':
+                    row_digits.append(0)
+            
+            if len(row_digits) == 9:
+                grid_from_text.append(row_digits)
+
+    if len(grid_from_text) == 9:
+        logger.info("Successfully recovered grid from scratchpad pipes.")
+        return grid_from_text
+
+    raise ValueError("No JSON object found and no valid pipe-delimited scratchpad in model response.")
 
 
 # ---------------------------------------------------------------------------
@@ -317,19 +381,21 @@ def _downscale_image(image_bytes: bytes) -> bytes:
             resample_filter = getattr(Image, "Resampling", Image).LANCZOS
             img = img.resize((new_w, new_h), resample_filter)
 
-        # Convert to RGB to strip alpha channels (PNG transparency) 
-        # and ensure it saves correctly as a JPEG
+        # Convert to RGB, compositing alpha onto white if present
         if img.mode != "RGB":
-            # If the image has an alpha channel, paste it onto a white background first
             if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
                 background = Image.new("RGB", img.size, (255, 255, 255))
-                background.paste(img, mask=img.convert('RGBA').split()[3]) # Use alpha channel as mask
+                background.paste(img, mask=img.convert('RGBA').split()[3])
                 img = background
             else:
                 img = img.convert("RGB")
 
+        # Desaturate to greyscale-normalised RGB — removes colour bias so the model
+        # focuses on digit shapes rather than ink/paper colour variation
+        from PIL import ImageEnhance
+        img = ImageEnhance.Color(img).enhance(0.0)
+
         buf = io.BytesIO()
-        # Save as standard JPEG. Quality 85 is an excellent balance of size vs. legibility
         img.save(buf, format="JPEG", quality=85)
         return buf.getvalue()
 

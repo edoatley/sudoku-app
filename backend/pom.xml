@@ -78,6 +78,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5-mockito</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
@@ -146,6 +151,14 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
+                            <!-- Exclude infrastructure glue tested by Docker Compose integration tests -->
+                            <excludes>
+                                <exclude>com/sudoku/game/DynamoDbGameRepository*.class</exclude>
+                                <exclude>com/sudoku/game/GameItem*.class</exclude>
+                                <exclude>com/sudoku/player/**</exclude>
+                                <exclude>com/sudoku/logging/**</exclude>
+                                <exclude>com/sudoku/cors/**</exclude>
+                            </excludes>
                             <rules>
                                 <rule>
                                     <element>BUNDLE</element>

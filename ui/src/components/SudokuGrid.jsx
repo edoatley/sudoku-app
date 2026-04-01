@@ -26,7 +26,16 @@ export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, e
   const highlightSet = new Set(highlightCells.map(({ row, col }) => `${row},${col}`));
 
   return (
-    <Box sx={{ display: 'inline-block', overflowX: 'auto' }}>
+    <Box sx={{
+      display: 'inline-block',
+      // On mobile: fill viewport width minus a small gutter (8px each side)
+      // On desktop (md+): fill height minus header (~56px) minus numberpad (~220px) minus gaps (~32px)
+      // Cap at 756px (≈ 20cm at 96dpi). The CSS min() picks the smaller of the two constraints.
+      '--sudoku-cell-size': {
+        xs: 'min(calc((100vw - 16px) / 9), 84px)',
+        md: 'min(calc((100vh - 308px) / 9), 84px)',
+      },
+    }}>
       {currentGrid.map((rowArr, row) => (
         <Box key={row} sx={{ display: 'flex' }}>
           {rowArr.map((value, col) => (

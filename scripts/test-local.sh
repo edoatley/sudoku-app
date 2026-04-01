@@ -308,6 +308,12 @@ else
   (cd "${REPO_ROOT}/ui" && CI=true npx playwright test --config playwright.integration.config.js)
   INT_RC=$?
 
+  if [[ $INT_RC -eq 0 ]]; then
+    echo "Running hint demo tests (VITE_DEV_TOOLS=true stack)..."
+    (cd "${REPO_ROOT}/ui" && CI=true npm run test:hint-demos)
+    INT_RC=$?
+  fi
+
   echo "Tearing down services..."
   docker compose -f "${REPO_ROOT}/docker-compose.test.yml" down
   COMPOSE_STARTED=false

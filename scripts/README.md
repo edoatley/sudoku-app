@@ -11,6 +11,30 @@ All scripts require:
 
 ---
 
+## local-dev.sh
+
+Starts the full local development stack with hot-reload for both backend and UI:
+
+- **LocalStack** (Docker) on port 4566 — provides DynamoDB Local
+- **Quarkus backend** (`mvn quarkus:dev`) on port 8080 — hot-reloads Java changes; `DevDatabaseInitializer` creates the DynamoDB tables automatically on first startup
+- **Vite UI dev server** (`npm run dev`) on port 5174 — hot-reloads JS/JSX changes
+
+Press **Ctrl-C** to cleanly shut down all three processes.
+
+```bash
+bash scripts/local-dev.sh
+```
+
+Once the stack is up, run the Playwright hint-demo integration tests against it in a separate terminal:
+
+```bash
+cd ui && npm run test:hint-demos
+```
+
+Prerequisites: `docker`, `java`, `node`, `npm`.
+
+---
+
 ## bootstrap.sh
 
 **Run once** before the first Terraform apply. Creates the AWS prerequisites that Terraform itself cannot manage (chicken-and-egg):

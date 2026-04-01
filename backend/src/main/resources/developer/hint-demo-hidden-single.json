@@ -1,0 +1,15 @@
+{
+  "slug": "hidden-single",
+  "description": "Medium puzzle. After FullHouse and NakedSingle cells are autocompleted, at least one digit is confined to exactly one cell within a unit. HiddenSingle fires first.",
+  "grid": [
+    [5, 0, 0, 0, 0, 7, 0, 0, 0],
+    [0, 0, 2, 0, 0, 0, 1, 0, 0],
+    [0, 6, 0, 0, 3, 0, 0, 7, 9],
+    [3, 0, 0, 0, 9, 0, 0, 0, 0],
+    [0, 0, 6, 0, 0, 0, 7, 0, 0],
+    [0, 0, 0, 0, 2, 0, 0, 0, 4],
+    [1, 4, 0, 0, 7, 0, 0, 6, 0],
+    [0, 0, 3, 0, 0, 0, 9, 0, 0],
+    [0, 0, 0, 2, 0, 0, 0, 0, 8]
+  ]
+}

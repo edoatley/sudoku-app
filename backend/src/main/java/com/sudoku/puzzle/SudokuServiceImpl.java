@@ -104,7 +104,9 @@ public class SudokuServiceImpl implements SudokuService {
     public Optional<HintResponse> getHint(BoardRequest request) {
         Board board = Board.fromGrid(request.currentGrid());
         board.calculateAllCandidates();
+        int minRank = request.minRank() != null ? request.minRank() : 0;
         for (HintStrategy strategy : strategies) {
+            if (strategy.getDifficultyRank() < minRank) continue;
             Optional<HintResponse> hint = strategy.evaluate(board);
             if (hint.isPresent()) return hint;
         }
