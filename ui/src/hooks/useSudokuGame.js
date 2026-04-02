@@ -152,7 +152,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
           // eslint-disable-next-line no-unused-vars
           catch (_) { return emptyCandidate(); }
         })();
-        const savedElapsed = parseInt(localStorage.getItem(LS_KEY_ELAPSED_SECONDS) || '0', 10);
+        const lsElapsed = parseInt(localStorage.getItem(LS_KEY_ELAPSED_SECONDS) || '0', 10);
+        const savedElapsed = Math.max(lsElapsed, data.timeSpentSeconds ?? 0);
         applyLoadedGame(data, savedCandidates, savedElapsed);
         lsSave(data.gameId, data.currentGrid, savedCandidates, data.difficulty, savedElapsed);
       }).catch(() => {
@@ -165,8 +166,11 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       getCurrentGame().then((data) => {
         if (controller.signal.aborted) return;
         if (data) {
-          applyLoadedGame(data, emptyCandidate(), data.timeSpentSeconds ?? 0);
-          lsSave(data.gameId, data.currentGrid, emptyCandidate(), data.difficulty, data.timeSpentSeconds ?? 0);
+          const restoredCandidates = Array.isArray(data.candidates) && data.candidates.length === 9
+            ? data.candidates
+            : emptyCandidate();
+          applyLoadedGame(data, restoredCandidates, data.timeSpentSeconds ?? 0);
+          lsSave(data.gameId, data.currentGrid, restoredCandidates, data.difficulty, data.timeSpentSeconds ?? 0);
         } else {
           startNewGame(undefined, controller.signal);
         }
@@ -194,6 +198,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     const grid = currentGridRef.current;
     const candidates = candidateGridRef.current;
     if (!gid || !grid) return;
+    // eslint-disable-next-line no-unused-vars
+    try { localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSecondsRef.current)); } catch (_) { /* storage full */ }
     setIsSyncing(true);
     saveGame(gid, { currentGrid: grid, candidates: candidates ?? [], timeSpentSeconds: elapsedSecondsRef.current })
       .finally(() => setIsSyncing(false));

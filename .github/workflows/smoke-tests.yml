@@ -215,7 +215,15 @@ jobs:
           COGNITO_CLIENT_ID: ${{ env.RESOLVED_CLIENT_ID }}
           SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
           SMOKE_ACCESS_TOKEN: ${{ env.SMOKE_ACCESS_TOKEN }}
-        run: npx playwright test --config playwright.integration.config.js
+          ENV_TYPE: ${{ inputs.environment_type }}
+        run: |
+          # hint-demos require VITE_DEV_TOOLS=true, which is only enabled for RC
+          # environments in Amplify — skip them when running against main/prod.
+          if [[ "${ENV_TYPE}" == "main" ]]; then
+            npx playwright test --config playwright.integration.config.js --ignore-glob '**/hint-demos.spec.js'
+          else
+            npx playwright test --config playwright.integration.config.js
+          fi
 
       - name: Upload Playwright integration report
         if: failure()
