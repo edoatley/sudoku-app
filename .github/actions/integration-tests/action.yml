@@ -1,5 +1,5 @@
 name: Integration Tests
-description: Runs Docker Compose + Playwright integration tests with Docker layer caching
+description: Runs integration tests using native quarkus:dev + npm dev servers (no Docker)
 
 inputs:
   report-artifact-name:
@@ -21,56 +21,74 @@ runs:
       with:
         install-playwright: "true"
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v4
+    - uses: ./.github/actions/setup-java
 
-    - name: Pre-build backend image with cache
-      uses: docker/build-push-action@v7
-      with:
-        context: backend
-        file: backend/Dockerfile.test
-        tags: sudoku-app-backend:latest
-        load: true
-        cache-from: type=gha,scope=integration-backend
-        cache-to: type=gha,mode=max,scope=integration-backend
+    - uses: ./.github/actions/create-localstack-dynamodb
 
-    - name: Pre-build UI image with cache
-      uses: docker/build-push-action@v7
-      with:
-        context: ui
-        file: ui/Dockerfile.test
-        tags: sudoku-app-ui:latest
-        load: true
-        build-args: |
-          VITE_API_URL=http://localhost:8080/api/v1
-          VITE_MOCK_API=false
-          VITE_SKIP_AUTH=true
-          VITE_DEV_TOOLS=true
-        cache-from: type=gha,scope=integration-ui
-        cache-to: type=gha,mode=max,scope=integration-ui
-
-    - name: Start services
+    - name: Start backend (quarkus:dev)
       shell: bash
-      run: docker compose -f docker-compose.test.yml up -d --no-build
+      working-directory: backend
+      env:
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        AWS_DEFAULT_REGION: us-east-1
+        CORS_ALLOWED_ORIGINS: http://localhost:5174
+      run: |
+        ./mvnw quarkus:dev \
+          -Dquarkus.http.host=0.0.0.0 \
+          -Ddebug=false \
+          -Dquarkus.console.color=false \
+          > /tmp/quarkus-dev.log 2>&1 &
+        echo "QUARKUS_PID=$!" >> "$GITHUB_ENV"
 
-    - name: Wait for backend to be healthy
+    - name: Wait for backend to be ready
       shell: bash
       run: |
-        for i in $(seq 1 30); do
-          if curl -sf http://localhost:8080/api/v1/puzzles/generate > /dev/null; then
-            echo "Backend is ready"
-            break
+        for i in $(seq 1 40); do
+          if curl -sf http://localhost:8080/api/v1/puzzles/generate > /dev/null 2>&1; then
+            echo "Backend ready after ${i} attempts"
+            exit 0
           fi
-          echo "Waiting for backend... ($i/30)"
+          echo "Waiting for backend... (${i}/40)"
           sleep 3
         done
+        echo "Backend failed to start — logs:"
+        cat /tmp/quarkus-dev.log
+        exit 1
+
+    - name: Start UI dev server
+      shell: bash
+      working-directory: ui
+      env:
+        VITE_API_URL: http://localhost:8080/api/v1
+        VITE_MOCK_API: "false"
+        VITE_SKIP_AUTH: "true"
+        VITE_DEV_TOOLS: "true"
+      run: |
+        npm run dev -- --port 5174 > /tmp/vite-dev.log 2>&1 &
+        echo "VITE_PID=$!" >> "$GITHUB_ENV"
+
+    - name: Wait for UI dev server to be ready
+      shell: bash
+      run: |
+        for i in $(seq 1 20); do
+          if curl -sf http://localhost:5174 > /dev/null 2>&1; then
+            echo "UI ready after ${i} attempts"
+            exit 0
+          fi
+          echo "Waiting for UI... (${i}/20)"
+          sleep 2
+        done
+        echo "UI failed to start — logs:"
+        cat /tmp/vite-dev.log
+        exit 1
 
     - name: Run integration tests
       shell: bash
       working-directory: ui
-      run: npx playwright test --config playwright.integration.config.js
       env:
         CI: "true"
+      run: npx playwright test --config playwright.integration.config.js
 
     - name: Upload integration test report
       if: failure()
@@ -118,7 +136,9 @@ runs:
           echo "| ${icon} Full-stack (Playwright) | ${tests} | ${passed} | ${failures} | ${errors} |"
         } >> "${GITHUB_STEP_SUMMARY}"
 
-    - name: Tear down services
+    - name: Stop background services
       if: always()
       shell: bash
-      run: docker compose -f docker-compose.test.yml down
+      run: |
+        [ -n "${QUARKUS_PID}" ] && kill "${QUARKUS_PID}" 2>/dev/null || true
+        [ -n "${VITE_PID}" ]    && kill "${VITE_PID}"    2>/dev/null || true

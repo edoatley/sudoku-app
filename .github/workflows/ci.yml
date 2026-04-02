@@ -1,14 +1,55 @@
-name: CI (PR)
+name: CI
 
 on:
+  push:
+    branches:
+      - "**"
+      - "!main"
+      - "!rc-*"
   pull_request:
     branches: ["**"]
 
 jobs:
-  ui:
-    name: UI — Lint, Unit Tests & E2E
+  detect-changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      is_dependabot: ${{ steps.meta.outputs.is_dependabot }}
+      npm_changed: ${{ steps.filter.outputs.npm }}
+      maven_changed: ${{ steps.filter.outputs.maven }}
+      terraform_changed: ${{ steps.filter.outputs.terraform }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set actor metadata
+        id: meta
+        run: |
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "is_dependabot=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_dependabot=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            npm:
+              - 'ui/**'
+            maven:
+              - 'backend/**'
+            terraform:
+              - 'infra/**'
+              - '.github/**'
+
+  ci-npm:
+    name: UI — Lint & Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: detect-changes
+    if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.npm_changed == 'true'
     defaults:
       run:
         working-directory: ui
@@ -54,10 +95,12 @@ jobs:
           path: ui/test-results/results.xml
           retention-days: 14
 
-  backend:
-    name: Backend — Maven Tests
+  ci-maven:
+    name: Backend — Unit Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    needs: detect-changes
+    if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.maven_changed == 'true'
     defaults:
       run:
         working-directory: backend
@@ -102,23 +145,12 @@ jobs:
             backend/target/failsafe-reports/TEST-*.xml
           retention-days: 14
 
-  integration:
-    name: Integration — Docker Compose + Playwright
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [ui, backend]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: ./.github/actions/integration-tests
-        with:
-          report-artifact-name: integration-playwright-report
-          upload-results: "true"
-          results-artifact-name: integration-results
-
-  infra:
+  ci-infra:
     name: Infra — Terraform fmt & validate
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: detect-changes
+    if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.terraform_changed == 'true'
     defaults:
       run:
         working-directory: infra
@@ -127,12 +159,44 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
       - uses: ./.github/actions/terraform-validate
 
+  integration:
+    name: Integration — Native Servers + Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [detect-changes, ci-npm, ci-maven]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.is_dependabot == 'false' &&
+      (needs.ci-npm.result == 'success' || needs.ci-npm.result == 'skipped') &&
+      (needs.ci-maven.result == 'success' || needs.ci-maven.result == 'skipped')
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - "4566:4566"
+        env:
+          SERVICES: dynamodb
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+        options: >-
+          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 15s
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/integration-tests
+        with:
+          report-artifact-name: integration-playwright-report
+          upload-results: "true"
+          results-artifact-name: integration-results
+
   report:
     name: PR Summary Comment
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: always()
-    needs: [ui, backend, integration, infra]
+    if: always() && github.event_name == 'pull_request'
+    needs: [ci-npm, ci-maven, integration, ci-infra]
     permissions:
       pull-requests: write
     steps:
@@ -220,7 +284,6 @@ jobs:
               return parts.join(', ');
             }
 
-            // --- Parse JaCoCo XML for backend line coverage ---
             function parseJaCoCo(dir) {
               const xmlPath = path.join(dir, 'jacoco.xml');
               if (!fs.existsSync(xmlPath)) return null;
@@ -233,7 +296,6 @@ jobs:
               return total > 0 ? ((covered / total) * 100).toFixed(1) : '0.0';
             }
 
-            // --- Parse Vitest coverage-summary.json ---
             function parseVitestCoverage(dir) {
               const summaryPath = path.join(dir, 'coverage-summary.json');
               if (!fs.existsSync(summaryPath)) return null;
@@ -258,21 +320,20 @@ jobs:
             const uiCov          = parseVitestCoverage('artifacts/ui-coverage');
 
             const jobResults = {
-              'UI — Lint, Unit Tests & E2E':               '${{ needs.ui.result }}',
-              'Backend — Maven Tests':                      '${{ needs.backend.result }}',
-              'Integration — Docker Compose + Playwright':  '${{ needs.integration.result }}',
-              'Infra — Terraform fmt & validate':           '${{ needs.infra.result }}',
+              'UI — Lint & Unit Tests':                     '${{ needs.ci-npm.result }}',
+              'Backend — Unit Tests':                       '${{ needs.ci-maven.result }}',
+              'Integration — Native Servers + Playwright':  '${{ needs.integration.result }}',
+              'Infra — Terraform fmt & validate':           '${{ needs.ci-infra.result }}',
             };
 
             const icon = (r) => r === 'success' ? '✅' : r === 'failure' ? '❌' : r === 'skipped' ? '⏭️' : '⚠️';
-            const allPassed = Object.values(jobResults).every(r => r === 'success');
+            const allPassed = Object.values(jobResults).every(r => r === 'success' || r === 'skipped');
             const overall = allPassed ? '✅ All checks passed' : '❌ Some checks failed';
 
             const jobRows = Object.entries(jobResults)
               .map(([name, result]) => `| ${icon(result)} | ${name} | \`${result}\` |`)
               .join('\n');
 
-            // Coverage column: show % or dash if not available
             const backendCovStr = backendCovPct  ? `${backendCovPct}% line` : '_n/a_';
             const uiCovStr      = uiCov?.lines   ? `${uiCov.lines}% line`  : '_n/a_';
 

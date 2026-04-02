@@ -13,6 +13,7 @@ dist-ssr
 *.local
 playwright-report
 test-results
+coverage
 tests/integration/auth-state.json
 
 # Editor directories and files
