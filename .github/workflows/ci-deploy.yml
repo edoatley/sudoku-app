@@ -153,19 +153,7 @@ jobs:
 
       - name: Resolve environment
         id: env
-        run: |
-          BRANCH="${GITHUB_REF#refs/heads/}"
-          if [ "${BRANCH}" = "main" ]; then
-            echo "workspace=default"     >> "$GITHUB_OUTPUT"
-            echo "environment=prod"      >> "$GITHUB_OUTPUT"
-            echo "is_main=true"          >> "$GITHUB_OUTPUT"
-          else
-            SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
-            echo "workspace=${SANITIZED}"   >> "$GITHUB_OUTPUT"
-            echo "environment=${SANITIZED}" >> "$GITHUB_OUTPUT"
-            echo "is_main=false"            >> "$GITHUB_OUTPUT"
-          fi
-          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+        run: bash scripts/github/resolve-environment.sh
 
       - uses: ./.github/actions/configure-aws-oidc
         with:
@@ -225,7 +213,6 @@ jobs:
           EOF
 
       - name: Terraform plan — phase 1 (exclude domain association)
-        working-directory: infra
         env:
           TF_VAR_github_token:             ${{ secrets.AMPLIFY_GITHUB_TOKEN }}
           TF_VAR_google_client_id:         ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -234,22 +221,12 @@ jobs:
           TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
           TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
         run: |
-          ENVIRONMENT="${{ steps.env.outputs.environment }}"
-          IS_MAIN="${{ steps.env.outputs.is_main }}"
-          RC_VARS="$( [ "${IS_MAIN}" = "false" ] && echo '-var-file=rc-override.tfvars' )"
-
-          if [ "${IS_MAIN}" = "true" ]; then
-            DOMAIN_EXCLUDE="-var=exclude_amplify_domain=true"
-          else
-            DOMAIN_EXCLUDE="-var=exclude_amplify_beta_domain=true"
-          fi
-
-          # shellcheck disable=SC2086
-          terraform plan -out=tfplan-phase1 \
-            -input=false \
-            ${DOMAIN_EXCLUDE} \
-            ${RC_VARS} \
-            -var "environment=${ENVIRONMENT}"
+          bash scripts/github/terraform-plan.sh \
+            --environment "${{ steps.env.outputs.environment }}" \
+            --is-main     "${{ steps.env.outputs.is_main }}" \
+            --phase       1 \
+            --out         tfplan-phase1 \
+            $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file infra/rc-override.tfvars' )
 
       - name: Terraform apply — phase 1
         working-directory: infra
@@ -269,7 +246,6 @@ jobs:
           fi
 
       - name: Terraform plan — phase 2 (full including domain)
-        working-directory: infra
         env:
           TF_VAR_github_token:             ${{ secrets.AMPLIFY_GITHUB_TOKEN }}
           TF_VAR_google_client_id:         ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -278,15 +254,12 @@ jobs:
           TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
           TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
         run: |
-          ENVIRONMENT="${{ steps.env.outputs.environment }}"
-          IS_MAIN="${{ steps.env.outputs.is_main }}"
-          RC_VARS="$( [ "${IS_MAIN}" = "false" ] && echo '-var-file=rc-override.tfvars' )"
-
-          # shellcheck disable=SC2086
-          terraform plan -out=tfplan \
-            -input=false \
-            ${RC_VARS} \
-            -var "environment=${ENVIRONMENT}"
+          bash scripts/github/terraform-plan.sh \
+            --environment "${{ steps.env.outputs.environment }}" \
+            --is-main     "${{ steps.env.outputs.is_main }}" \
+            --phase       2 \
+            --out         tfplan \
+            $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file infra/rc-override.tfvars' )
 
       - name: Terraform apply — phase 2 (domain association — may take up to 40 min for ACM)
         working-directory: infra
