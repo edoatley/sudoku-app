@@ -64,6 +64,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [gate-ui, gate-backend]
+    permissions:
+      contents: read
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -226,7 +228,7 @@ jobs:
             --is-main     "${{ steps.env.outputs.is_main }}" \
             --phase       1 \
             --out         tfplan-phase1 \
-            $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file infra/rc-override.tfvars' )
+            $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file rc-override.tfvars' )
 
       - name: Terraform apply — phase 1
         working-directory: infra
@@ -259,7 +261,7 @@ jobs:
             --is-main     "${{ steps.env.outputs.is_main }}" \
             --phase       2 \
             --out         tfplan \
-            $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file infra/rc-override.tfvars' )
+            $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file rc-override.tfvars' )
 
       - name: Terraform apply — phase 2 (domain association — may take up to 40 min for ACM)
         working-directory: infra
