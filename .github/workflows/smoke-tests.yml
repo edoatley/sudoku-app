@@ -252,11 +252,13 @@ jobs:
           fi
           base64 -w 0 "${FIXTURE}" > /tmp/image_b64.txt
           BODY=$(jq -n --rawfile img /tmp/image_b64.txt '{"image": ($img | rtrimstr("\n"))}')
+          # Write headers to a file — JWT tokens are too large to pass as shell arguments (ARG_MAX)
+          printf 'Authorization: Bearer %s\n' "${SMOKE_ID_TOKEN}" > /tmp/auth-header.txt
           STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
             -X POST "${API_BASE}/api/v1/puzzles/import" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${SMOKE_ID_TOKEN}" \
-            -d "${BODY}")
+            -H @/tmp/auth-header.txt \
+            --data-binary "${BODY}")
           echo "POST /api/v1/puzzles/import → HTTP ${STATUS}"
           cat /tmp/import.json
           if [ "${STATUS}" != "200" ]; then

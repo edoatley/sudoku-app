@@ -1,0 +1,412 @@
+name: CI + Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - "rc-*"
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+
+jobs:
+  gate-ui:
+    name: UI — Lint & Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-node
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+  gate-backend:
+    name: Backend — Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - "4566:4566"
+        env:
+          SERVICES: dynamodb
+          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
+        options: >-
+          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 15s
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/create-localstack-dynamodb
+      - name: Run unit, API and integration tests
+        run: ./mvnw verify -DskipITs=false
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [gate-ui, gate-backend]
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'openapi.yaml'
+            frontend:
+              - 'ui/**'
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [gate-ui, gate-backend, changes]
+    if: needs.changes.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/build-lambda-zip
+      - name: Upload Lambda zip artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: lambda-zip
+          path: backend/target/function.zip
+          retention-days: 1
+
+  build-image-recognition:
+    name: Build Image Recognition Lambda
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [gate-ui, gate-backend]
+    outputs:
+      image_uri: ${{ steps.push.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Log in to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image recognition image
+        id: push
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPO: sudoku-image-recognition
+          SHA: ${{ github.sha }}
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          if [ "${BRANCH}" = "main" ]; then
+            TAG_PREFIX="main"
+          else
+            TAG_PREFIX=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+          fi
+          IMAGE_URI="${REGISTRY}/${REPO}:${TAG_PREFIX}-sha-${SHA}"
+          docker build -t "${IMAGE_URI}" -t "${REGISTRY}/${REPO}:${TAG_PREFIX}-latest" image_recognition/
+          docker push "${IMAGE_URI}"
+          docker push "${REGISTRY}/${REPO}:${TAG_PREFIX}-latest"
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Terraform Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    needs: [gate-ui, gate-backend, changes, build-backend, build-image-recognition]
+    if: always() && !failure() && !cancelled()
+    outputs:
+      api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
+      amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
+      amplify_default_url: ${{ steps.outputs.outputs.amplify_default_url }}
+      cognito_user_pool_id: ${{ steps.outputs.outputs.cognito_user_pool_id }}
+      cognito_client_id: ${{ steps.outputs.outputs.cognito_client_id }}
+      is_main: ${{ steps.env.outputs.is_main }}
+      workspace: ${{ steps.env.outputs.workspace }}
+      branch: ${{ steps.env.outputs.branch }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve environment
+        id: env
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          if [ "${BRANCH}" = "main" ]; then
+            echo "workspace=default"     >> "$GITHUB_OUTPUT"
+            echo "environment=prod"      >> "$GITHUB_OUTPUT"
+            echo "is_main=true"          >> "$GITHUB_OUTPUT"
+          else
+            SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+            echo "workspace=${SANITIZED}"   >> "$GITHUB_OUTPUT"
+            echo "environment=${SANITIZED}" >> "$GITHUB_OUTPUT"
+            echo "is_main=false"            >> "$GITHUB_OUTPUT"
+          fi
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/configure-aws-oidc
+        with:
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Download freshly built Lambda zip
+        if: needs.changes.outputs.backend == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: lambda-zip
+          path: backend/target/
+
+      - name: Download current Lambda zip from S3 (no backend changes)
+        id: s3-download
+        if: needs.changes.outputs.backend != 'true'
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET="sudoku-lambda-zip-${ACCOUNT_ID}"
+          WORKSPACE="${{ steps.env.outputs.workspace }}"
+          mkdir -p backend/target
+          if aws s3 ls "s3://${BUCKET}/${WORKSPACE}/function.zip" > /dev/null 2>&1; then
+            echo "Downloading current zip from s3://${BUCKET}/${WORKSPACE}/function.zip"
+            aws s3 cp "s3://${BUCKET}/${WORKSPACE}/function.zip" backend/target/function.zip
+          else
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: ./.github/actions/setup-java
+        if: steps.s3-download.outputs.needs_build == 'true'
+
+      - name: Build Lambda zip (S3 fallback — no prior deployment found)
+        if: steps.s3-download.outputs.needs_build == 'true'
+        uses: ./.github/actions/build-lambda-zip
+
+      - uses: hashicorp/setup-terraform@v4
+
+      - name: Terraform init
+        working-directory: infra
+        run: terraform init
+
+      - name: Select or create Terraform workspace
+        working-directory: infra
+        run: |
+          WORKSPACE="${{ steps.env.outputs.workspace }}"
+          terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
+
+      - name: Write RC-specific Terraform var file
+        if: steps.env.outputs.is_main == 'false'
+        working-directory: infra
+        env:
+          RC_WEB_CLIENT_ID:   ${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}
+          RC_SMOKE_CLIENT_ID: ${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}
+        run: |
+          cat > rc-override.tfvars <<EOF
+          rc_cognito_web_client_id   = "${RC_WEB_CLIENT_ID}"
+          rc_cognito_smoke_client_id = "${RC_SMOKE_CLIENT_ID}"
+          EOF
+
+      - name: Terraform plan — phase 1 (exclude domain association)
+        working-directory: infra
+        env:
+          TF_VAR_github_token:             ${{ secrets.AMPLIFY_GITHUB_TOKEN }}
+          TF_VAR_google_client_id:         ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret:     ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TF_VAR_smoke_test_user_email:    ${{ secrets.SMOKE_TEST_USER_EMAIL }}
+          TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+          TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
+        run: |
+          ENVIRONMENT="${{ steps.env.outputs.environment }}"
+          IS_MAIN="${{ steps.env.outputs.is_main }}"
+          RC_VARS="$( [ "${IS_MAIN}" = "false" ] && echo '-var-file=rc-override.tfvars' )"
+
+          if [ "${IS_MAIN}" = "true" ]; then
+            DOMAIN_EXCLUDE="-var=exclude_amplify_domain=true"
+          else
+            DOMAIN_EXCLUDE="-var=exclude_amplify_beta_domain=true"
+          fi
+
+          # shellcheck disable=SC2086
+          terraform plan -out=tfplan-phase1 \
+            -input=false \
+            ${DOMAIN_EXCLUDE} \
+            ${RC_VARS} \
+            -var "environment=${ENVIRONMENT}"
+
+      - name: Terraform apply — phase 1
+        working-directory: infra
+        run: terraform apply -auto-approve -input=false tfplan-phase1
+
+      - name: Print Route53 NS records
+        if: steps.env.outputs.is_main == 'true'
+        working-directory: infra
+        run: |
+          if terraform output -json subdomain_nameservers | jq -e 'length > 0' > /dev/null 2>&1; then
+            echo "========================================================"
+            echo "  Route53 NS records for sudoku.edoatley.co.uk"
+            echo "  Run infra/scripts/delegate-dns.sh with these values:"
+            echo "========================================================"
+            terraform output -json subdomain_nameservers | jq -r '.[]'
+            echo "========================================================"
+          fi
+
+      - name: Terraform plan — phase 2 (full including domain)
+        working-directory: infra
+        env:
+          TF_VAR_github_token:             ${{ secrets.AMPLIFY_GITHUB_TOKEN }}
+          TF_VAR_google_client_id:         ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret:     ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TF_VAR_smoke_test_user_email:    ${{ secrets.SMOKE_TEST_USER_EMAIL }}
+          TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+          TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
+        run: |
+          ENVIRONMENT="${{ steps.env.outputs.environment }}"
+          IS_MAIN="${{ steps.env.outputs.is_main }}"
+          RC_VARS="$( [ "${IS_MAIN}" = "false" ] && echo '-var-file=rc-override.tfvars' )"
+
+          # shellcheck disable=SC2086
+          terraform plan -out=tfplan \
+            -input=false \
+            ${RC_VARS} \
+            -var "environment=${ENVIRONMENT}"
+
+      - name: Terraform apply — phase 2 (domain association — may take up to 40 min for ACM)
+        working-directory: infra
+        run: terraform apply -auto-approve -input=false tfplan
+
+      - name: Capture outputs
+        id: outputs
+        working-directory: infra
+        run: |
+          echo "api_gateway_url=$(terraform output -raw api_gateway_url)"             >> "$GITHUB_OUTPUT"
+          echo "amplify_app_url=$(terraform output -raw amplify_app_url)"             >> "$GITHUB_OUTPUT"
+          echo "amplify_default_url=$(terraform output -raw amplify_default_url)"     >> "$GITHUB_OUTPUT"
+          echo "api_id=$(terraform output -raw api_gateway_api_id)"                   >> "$GITHUB_OUTPUT"
+          echo "amplify_app_id=$(terraform output -raw amplify_app_id)"               >> "$GITHUB_OUTPUT"
+          echo "cognito_user_pool_id=$(terraform output -raw cognito_user_pool_id)"   >> "$GITHUB_OUTPUT"
+          echo "cognito_client_id=$(terraform output -raw cognito_client_id)"         >> "$GITHUB_OUTPUT"
+          echo "cognito_smoke_test_client_id=$(terraform output -raw cognito_smoke_test_client_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Post-deploy configuration
+        env:
+          AMPLIFY_URL:      ${{ steps.outputs.outputs.amplify_app_url }}
+          DEFAULT_URL:      ${{ steps.outputs.outputs.amplify_default_url }}
+          API_ID:           ${{ steps.outputs.outputs.api_id }}
+          APP_ID:           ${{ steps.outputs.outputs.amplify_app_id }}
+          USER_POOL_ID:     ${{ steps.outputs.outputs.cognito_user_pool_id }}
+          CLIENT_ID:        ${{ steps.outputs.outputs.cognito_client_id }}
+          BRANCH:           ${{ steps.env.outputs.branch }}
+          FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
+          IS_MAIN:          ${{ steps.env.outputs.is_main }}
+        run: |
+          MODE="$( [ "${IS_MAIN}" = "true" ] && echo prod || echo rc )"
+          bash scripts/github/amplify-post-deploy.sh \
+            --mode            "${MODE}" \
+            --api-id          "${API_ID}" \
+            --app-id          "${APP_ID}" \
+            --amplify-url     "${AMPLIFY_URL}" \
+            --default-url     "${DEFAULT_URL}" \
+            --branch          "${BRANCH}" \
+            --user-pool-id    "${USER_POOL_ID}" \
+            --client-id       "${CLIENT_ID}" \
+            --frontend-changed "${FRONTEND_CHANGED}"
+
+      - name: Print deployment URLs
+        working-directory: infra
+        run: terraform output
+
+  smoke-test:
+    name: Smoke Tests
+    needs: deploy
+    if: always() && needs.deploy.result == 'success'
+    uses: ./.github/workflows/smoke-tests.yml
+    secrets: inherit
+    with:
+      api_gateway_url: ${{ needs.deploy.outputs.api_gateway_url }}
+      amplify_app_url: ${{ needs.deploy.outputs.amplify_app_url }}
+      amplify_default_url: ${{ needs.deploy.outputs.amplify_default_url }}
+      cognito_user_pool_id: ${{ needs.deploy.outputs.cognito_user_pool_id }}
+      cognito_client_id: ${{ needs.deploy.outputs.is_main == 'true' && needs.deploy.outputs.cognito_client_id || '' }}
+      environment_type: ${{ needs.deploy.outputs.is_main == 'true' && 'main' || 'rc' }}
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy, smoke-test]
+    if: always()
+    steps:
+      - name: Deployment summary
+        env:
+          DEPLOY_STATUS: ${{ needs.deploy.result }}
+          SMOKE_STATUS:  ${{ needs.smoke-test.result }}
+          API_URL:       ${{ needs.deploy.outputs.api_gateway_url }}
+          APP_URL:       ${{ needs.deploy.outputs.amplify_app_url }}
+          DEFAULT_URL:   ${{ needs.deploy.outputs.amplify_default_url }}
+          USER_POOL_ID:  ${{ needs.deploy.outputs.cognito_user_pool_id }}
+          CLIENT_ID:     ${{ needs.deploy.outputs.cognito_client_id }}
+          IS_MAIN:       ${{ needs.deploy.outputs.is_main }}
+          ENV_TYPE:      ${{ needs.deploy.outputs.is_main == 'true' && 'main' || 'rc' }}
+        run: |
+          if [ "${DEPLOY_STATUS}" = "success" ]; then
+            echo "### Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Resource | URL |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|----------|-----|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| API Gateway | ${API_URL} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Amplify App | ${APP_URL} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "#### Re-run smoke tests manually" >> "$GITHUB_STEP_SUMMARY"
+            echo "Use these values in the [Smoke Tests](../actions/workflows/smoke-tests.yml) \`workflow_dispatch\`:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Input | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`api_gateway_url\` | \`${API_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`amplify_app_url\` | \`${APP_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`amplify_default_url\` | \`${DEFAULT_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| \`cognito_user_pool_id\` | \`${USER_POOL_ID}\` |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${IS_MAIN}" = "true" ]; then
+              echo "| \`cognito_client_id\` | \`${CLIENT_ID}\` |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| \`cognito_client_id\` | *(leave blank — resolved automatically)* |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "| \`environment_type\` | \`${ENV_TYPE}\` |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Deployment failed (status: ${DEPLOY_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check the deploy job logs for details." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${SMOKE_STATUS}" = "success" ]; then
+            echo "### Smoke tests passed ✅" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${SMOKE_STATUS}" = "skipped" ]; then
+            echo "### Smoke tests skipped ⏭️" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Smoke tests failed ❌ (status: ${SMOKE_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check the smoke-test job logs for details." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Delete lambda-zip artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+            --jq '.artifacts[] | select(.name == "lambda-zip") | .id' \
+            | xargs -I{} gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/{}
