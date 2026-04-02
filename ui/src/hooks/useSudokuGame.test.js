@@ -112,6 +112,43 @@ describe('initialisation', () => {
     expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
   });
 
+  it('restores candidates from backend on device-switch load', async () => {
+    const fakeCandidates = Array(9).fill(null).map(() =>
+      Array(9).fill(null).map(() => [1, 2])
+    );
+    getCurrentGame.mockResolvedValueOnce({
+      ...CANNED_GAME_STATE,
+      candidates: fakeCandidates,
+      timeSpentSeconds: 120,
+    });
+    const mockUser = { username: 'test-user' };
+    const { result } = await mountAndSettle(mockUser);
+    expect(result.current.candidateGrid[0][0]).toEqual([1, 2]);
+    expect(result.current.elapsedSeconds).toBe(120);
+  });
+
+  it('falls back to empty candidates when backend returns null candidates on device-switch', async () => {
+    getCurrentGame.mockResolvedValueOnce({
+      ...CANNED_GAME_STATE,
+      candidates: null,
+      timeSpentSeconds: 60,
+    });
+    const mockUser = { username: 'test-user' };
+    const { result } = await mountAndSettle(mockUser);
+    expect(result.current.candidateGrid[0][0]).toEqual([]);
+  });
+
+  it('uses backend timeSpentSeconds when greater than localStorage elapsed on same-device reload', async () => {
+    localStorage.setItem('sudoku_gameId', CANNED_GAME_STATE.gameId);
+    localStorage.setItem('sudoku_elapsedSeconds', '10');
+    loadGame.mockResolvedValueOnce({
+      ...CANNED_GAME_STATE,
+      timeSpentSeconds: 90,
+    });
+    const { result } = await mountAndSettle();
+    expect(result.current.elapsedSeconds).toBe(90);
+  });
+
   it('auto-starts a new game when not authenticated (no getCurrentGame call)', async () => {
     const { result } = await mountAndSettle(null);
     expect(getCurrentGame).not.toHaveBeenCalled();
