@@ -156,3 +156,26 @@ AWS_PROFILE=sandbox bash scripts/smoke-token-local.sh eu-west-2_71X75OgH8 user@e
 ```
 
 Prints truncated `IdToken` and `AccessToken` values on success (first 40 characters only, safe to share in logs).
+
+---
+
+## scripts/github/image-smoke-test.sh
+
+Posts a base64-encoded puzzle image to `/api/v1/puzzles/import` and asserts a 200 response with a 9-row grid. Used by the `smoke-tests.yml` workflow; also runnable locally against any deployed environment.
+
+```bash
+# 1. Acquire a token (see smoke-token-local.sh above, or use the full flow below)
+ID_TOKEN=$(AWS_PROFILE=sandbox aws cognito-idp initiate-auth \
+  --auth-flow USER_PASSWORD_AUTH \
+  --client-id <client-id> \
+  --auth-parameters USERNAME=<email>,PASSWORD=<password> \
+  --query 'AuthenticationResult.IdToken' --output text)
+
+# 2. Run the smoke test
+AWS_PROFILE=sandbox bash scripts/github/image-smoke-test.sh \
+  https://<api-id>.execute-api.eu-west-2.amazonaws.com \
+  image_recognition/tests/fixtures/puzzle_1.jpeg \
+  "${ID_TOKEN}"
+```
+
+The token can also be supplied via the `SMOKE_ID_TOKEN` environment variable instead of the third argument.
