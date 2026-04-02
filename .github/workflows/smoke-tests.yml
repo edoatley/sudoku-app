@@ -82,6 +82,7 @@ jobs:
         with:
           sparse-checkout: |
             image_recognition/tests/fixtures
+            scripts
             ui
             .github
 
