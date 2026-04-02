@@ -194,40 +194,12 @@ jobs:
           ENV_TYPE: ${{ inputs.environment_type }}
           SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
         run: |
-          API_BASE="${API_URL%/}"
           if [[ "${ENV_TYPE}" == "rc" ]]; then
             FIXTURE="image_recognition/tests/fixtures/CI_Puzzle.jpg"
           else
             FIXTURE="image_recognition/tests/fixtures/puzzle_1.jpeg"
           fi
-          base64 -w 0 "${FIXTURE}" > /tmp/image_b64.txt
-          BODY=$(jq -n --rawfile img /tmp/image_b64.txt '{"image": ($img | rtrimstr("\n"))}')
-          # Write headers to a file — JWT tokens are too large to pass as shell arguments (ARG_MAX)
-          printf 'Authorization: Bearer %s\n' "${SMOKE_ID_TOKEN}" > /tmp/auth-header.txt
-          STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
-            -X POST "${API_BASE}/api/v1/puzzles/import" \
-            -H "Content-Type: application/json" \
-            -H @/tmp/auth-header.txt \
-            --data-binary "${BODY}")
-          echo "POST /api/v1/puzzles/import → HTTP ${STATUS}"
-          cat /tmp/import.json
-          if [ "${STATUS}" != "200" ]; then
-            echo "❌ Expected 200, got ${STATUS}"
-            exit 1
-          fi
-          ROWS=$(python3 -c "import json,sys; g=json.load(open('/tmp/import.json')).get('originalGrid',[]); print(len(g))")
-          if [ "${ROWS}" != "9" ]; then
-            echo "❌ Expected 9 rows in originalGrid, got ${ROWS}"
-            exit 1
-          fi
-          echo "✅ Image recognition smoke test passed (${ROWS} rows)"
-          {
-            echo "### Image Recognition Smoke Test"
-            echo ""
-            echo "| Endpoint | Result |"
-            echo "|----------|--------|"
-            echo "| POST /api/v1/puzzles/import | ✅ ${STATUS} — ${ROWS} rows |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          bash scripts/github/image-smoke-test.sh "${API_URL}" "${FIXTURE}"
 
       - uses: ./.github/actions/setup-node
         with:
