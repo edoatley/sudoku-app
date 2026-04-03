@@ -155,7 +155,7 @@ else
 
   PLAYWRIGHT_CMD="npx playwright test --config playwright.integration.config.js"
   if [[ "${ENV_TYPE}" == "main" ]]; then
-    PLAYWRIGHT_CMD="${PLAYWRIGHT_CMD} --ignore-glob '**/hint-demos.spec.js'"
+    PLAYWRIGHT_CMD="${PLAYWRIGHT_CMD} --grep-invert 'hint demo'"
   fi
 
   INTEGRATION_BASE_URL="${AMPLIFY_APP_URL}" \
