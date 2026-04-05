@@ -368,6 +368,63 @@ describe('pause / resume', () => {
     act(() => result.current.resumeGame());
     expect(result.current.isPaused).toBe(false);
   });
+
+  it('timer actually advances after resumeGame', async () => {
+    const { result } = await mountAndWait();
+    act(() => result.current.pauseGame());
+    act(() => result.current.resumeGame());
+    const before = result.current.elapsedSeconds;
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(result.current.elapsedSeconds).toBe(before + 3);
+  });
+
+  it('startNewGame resets isPaused to false', async () => {
+    const { result } = await mountAndWait();
+    act(() => result.current.pauseGame());
+    expect(result.current.isPaused).toBe(true);
+    await act(async () => result.current.startNewGame('easy'));
+    expect(result.current.isPaused).toBe(false);
+  });
+
+  it('timer stops on tab hidden and restarts on tab visible', async () => {
+    const { result } = await mountAndWait();
+    const beforeHide = result.current.elapsedSeconds;
+
+    // Simulate tab hidden
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    act(() => { vi.advanceTimersByTime(5000); });
+    const afterHide = result.current.elapsedSeconds;
+    expect(afterHide).toBe(beforeHide); // timer should not advance while hidden
+
+    // Simulate tab visible again
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(result.current.elapsedSeconds).toBe(afterHide + 3); // timer should advance again
+  });
+
+  it('timer does NOT restart on tab visible when user explicitly paused', async () => {
+    const { result } = await mountAndWait();
+    act(() => result.current.pauseGame());
+
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    act(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    const snapshot = result.current.elapsedSeconds;
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(result.current.elapsedSeconds).toBe(snapshot); // still frozen
+    expect(result.current.isPaused).toBe(true); // still paused
+  });
 });
 
 // ─── Status ───────────────────────────────────────────────────────────────────

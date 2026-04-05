@@ -55,19 +55,25 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
   const elapsedSecondsRef = useRef(0);
   elapsedSecondsRef.current = elapsedSeconds;
 
+  const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
+  isPausedRef.current = isPaused;
+
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     setElapsedSeconds(0);
     setTimerRunning(true);
+    setIsPaused(false);
     timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
   }, []);
 
   const pauseTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setTimerRunning(false);
   }, []);
-
-  const [isPaused, setIsPaused] = useState(false);
 
   const pauseGame = useCallback(() => {
     pauseTimer();
@@ -75,6 +81,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
   }, [pauseTimer]);
 
   const resumeGame = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
     setIsPaused(false);
     setTimerRunning(true);
     timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
@@ -128,6 +135,11 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     const controller = new AbortController();
 
     const applyLoadedGame = (data, savedCandidates, savedElapsed) => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      setIsPaused(false);
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
@@ -215,6 +227,12 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       if (document.visibilityState === 'hidden') {
         syncToBackend();
         pauseTimer();
+      } else if (document.visibilityState === 'visible') {
+        if (gameActiveRef.current && !isPausedRef.current) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          setTimerRunning(true);
+          timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+        }
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -519,6 +537,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       elapsedSeconds: outcome === 'won' ? elapsedSecondsRef.current : null,
     });
     pauseTimer();
+    setIsPaused(false);
     lsClear();
     setGameId(null);
     setOriginalGrid(null);
