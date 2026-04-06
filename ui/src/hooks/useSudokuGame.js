@@ -201,6 +201,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
   currentGridRef.current = currentGrid;
   const candidateGridRef = useRef(null);
   candidateGridRef.current = candidateGrid;
+  const autoNotesGridRef = useRef(null);
+  autoNotesGridRef.current = autoNotesGrid;
 
   const difficultyRef = useRef(difficulty);
   difficultyRef.current = difficulty;
@@ -268,7 +270,9 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     if (originalGrid && originalGrid[row][col] !== 0) return;
     if (inputMode === 'normal') {
       const prevValue = currentGridRef.current?.[row][col] ?? 0;
-      setHistory((h) => [...h, { type: 'normal', row, col, prevValue }]);
+      const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
+      const prevAutoNotes = [...(autoNotesGridRef.current?.[row][col] ?? [])];
+      setHistory((h) => [...h, { type: 'normal', row, col, prevValue, prevCandidates, prevAutoNotes }]);
       setCurrentGrid((prev) => {
         const next = prev.map((r) => [...r]);
         next[row][col] = number;
@@ -483,7 +487,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         });
         setCandidateGrid((g) => {
           const ng = g.map((r) => r.map((c) => [...c]));
-          ng[entry.row][entry.col] = [];
+          ng[entry.row][entry.col] = entry.prevCandidates ?? [];
+          return ng;
+        });
+        setAutoNotesGrid((g) => {
+          if (!g) return g;
+          const ng = g.map((r) => r.map((c) => [...c]));
+          ng[entry.row][entry.col] = entry.prevAutoNotes ?? [];
           return ng;
         });
         setErrorCells(prev => {
