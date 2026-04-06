@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSudokuGame } from './useSudokuGame.js';
-import { CANNED_GAME_STATE } from '../mocks/cannedData.js';
+import { CANNED_GAME_STATE, CANNED_CANDIDATES } from '../mocks/cannedData.js';
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
@@ -501,5 +501,77 @@ describe('auto-completion', () => {
       expect.objectContaining({ isComplete: true })
     );
     expect(result.current.gameStatus).not.toBe('solved');
+  });
+});
+
+// ─── Populate user candidates from auto-notes ──────────────────────────────
+
+describe('populateUserCandidates', () => {
+  it('canPopulateCandidates is false before auto-notes are activated', async () => {
+    const { result } = await mountAndWait();
+    expect(result.current.canPopulateCandidates).toBe(false);
+  });
+
+  it('canPopulateCandidates becomes true after toggleAutoNotes fetches and activates', async () => {
+    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    const { result } = await mountAndWait();
+    await act(async () => result.current.toggleAutoNotes());
+    expect(result.current.canPopulateCandidates).toBe(true);
+  });
+
+  it('copies auto-notes candidates into candidateGrid for empty cells', async () => {
+    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    const { result } = await mountAndWait();
+    await act(async () => result.current.toggleAutoNotes());
+
+    act(() => result.current.populateUserCandidates());
+
+    // Row 0 col 2 is empty (0 in CANNED_GAME_STATE.currentGrid), expects [1,2,4,6]
+    expect(result.current.candidateGrid[0][2]).toEqual([1, 2, 4, 6]);
+  });
+
+  it('does not overwrite candidates for filled cells', async () => {
+    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    const { result } = await mountAndWait();
+    await act(async () => result.current.toggleAutoNotes());
+
+    act(() => result.current.populateUserCandidates());
+
+    // Row 0 col 0 is filled (5), should remain empty
+    expect(result.current.candidateGrid[0][0]).toEqual([]);
+  });
+
+  it('is undoable — undo restores the previous candidateGrid', async () => {
+    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    const { result } = await mountAndWait();
+    // Activate auto-notes (fetches candidates)
+    await act(async () => result.current.toggleAutoNotes());
+    // Populate user candidates from auto-notes
+    act(() => result.current.populateUserCandidates());
+    // Deactivate auto-notes so hook returns user candidateGrid
+    await act(async () => result.current.toggleAutoNotes());
+    expect(result.current.candidateGrid[0][2]).toEqual([1, 2, 4, 6]);
+    expect(result.current.canUndo).toBe(true);
+    // Undo the populate — should restore empty candidateGrid
+    act(() => result.current.undoLastMove());
+    expect(result.current.candidateGrid[0][2]).toEqual([]);
+  });
+
+  it('does nothing when auto-notes are not loaded', async () => {
+    const { result } = await mountAndWait();
+    // Do not call toggleAutoNotes — autoNotesGrid stays null
+    act(() => result.current.populateUserCandidates());
+    expect(result.current.candidateGrid[0][2]).toEqual([]);
+  });
+
+  it('persists populated candidates to localStorage', async () => {
+    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    const { result } = await mountAndWait();
+    await act(async () => result.current.toggleAutoNotes());
+
+    act(() => result.current.populateUserCandidates());
+
+    const stored = JSON.parse(localStorage.getItem('sudoku_candidateGrid'));
+    expect(stored[0][2]).toEqual([1, 2, 4, 6]);
   });
 });

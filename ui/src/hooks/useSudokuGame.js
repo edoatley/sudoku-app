@@ -25,6 +25,17 @@ function lsClear() {
 
 const emptyCandidate = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
 
+function getPeers(row, col) {
+  const set = new Set();
+  for (let c = 0; c < 9; c++) { if (c !== col) set.add(`${row},${c}`); }
+  for (let r = 0; r < 9; r++) { if (r !== row) set.add(`${r},${col}`); }
+  const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+  for (let r = br; r < br + 3; r++)
+    for (let c = bc; c < bc + 3; c++)
+      if (r !== row || c !== col) set.add(`${r},${c}`);
+  return [...set].map((k) => k.split(',').map(Number));
+}
+
 export function useSudokuGame(user, { onGameComplete } = {}) {
   const [originalGrid, setOriginalGrid] = useState(null);
   const [currentGrid, setCurrentGrid] = useState(null);
@@ -272,7 +283,16 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       const prevValue = currentGridRef.current?.[row][col] ?? 0;
       const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
       const prevAutoNotes = [...(autoNotesGridRef.current?.[row][col] ?? [])];
-      setHistory((h) => [...h, { type: 'normal', row, col, prevValue, prevCandidates, prevAutoNotes }]);
+      const peers = getPeers(row, col);
+      const prevPeerCandidates = {};
+      const prevPeerAutoNotes = {};
+      for (const [pr, pc] of peers) {
+        const pCands = candidateGridRef.current?.[pr][pc] ?? [];
+        if (pCands.includes(number)) prevPeerCandidates[`${pr},${pc}`] = [...pCands];
+        const pAuto = autoNotesGridRef.current?.[pr][pc] ?? [];
+        if (pAuto.includes(number)) prevPeerAutoNotes[`${pr},${pc}`] = [...pAuto];
+      }
+      setHistory((h) => [...h, { type: 'normal', row, col, prevValue, prevCandidates, prevAutoNotes, prevPeerCandidates, prevPeerAutoNotes }]);
       setCurrentGrid((prev) => {
         const next = prev.map((r) => [...r]);
         next[row][col] = number;
@@ -285,6 +305,10 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       setCandidateGrid((prev) => {
         const next = prev.map((r) => r.map((c) => [...c]));
         next[row][col] = [];
+        for (const [pr, pc] of peers) {
+          const idx = next[pr][pc].indexOf(number);
+          if (idx !== -1) next[pr][pc].splice(idx, 1);
+        }
         if (gameIdRef.current) {
           // eslint-disable-next-line no-unused-vars
           try { localStorage.setItem(LS_KEY_CANDIDATE_GRID, JSON.stringify(next)); } catch (_) { /* storage full */ }
@@ -295,6 +319,10 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         if (!prev) return prev;
         const next = prev.map((r) => r.map((c) => [...c]));
         next[row][col] = [];
+        for (const [pr, pc] of peers) {
+          const idx = next[pr][pc].indexOf(number);
+          if (idx !== -1) next[pr][pc].splice(idx, 1);
+        }
         return next;
       });
       setErrorCells((prev) => {
@@ -474,6 +502,25 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     setAutoNotesActive(true);
   }, [currentGrid, autoNotesActive, autoNotesGrid]);
 
+  const populateUserCandidates = useCallback(() => {
+    if (!autoNotesGrid || !currentGrid) return;
+    const snapshot = candidateGridRef.current.map((r) => r.map((c) => [...c]));
+    setHistory((h) => [...h, { type: 'populateCandidates', prevCandidateGrid: snapshot }]);
+    setCandidateGrid((prev) => {
+      const next = prev.map((r) => r.map((c) => [...c]));
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (currentGrid[r][c] === 0) next[r][c] = [...(autoNotesGrid[r][c] ?? [])];
+        }
+      }
+      if (gameIdRef.current) {
+        // eslint-disable-next-line no-unused-vars
+        try { localStorage.setItem(LS_KEY_CANDIDATE_GRID, JSON.stringify(next)); } catch (_) { /* storage full */ }
+      }
+      return next;
+    });
+  }, [autoNotesGrid, currentGrid]);
+
   const undoLastMove = useCallback(() => {
     setHistory((prev) => {
       if (prev.length === 0) return prev;
@@ -488,12 +535,24 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         setCandidateGrid((g) => {
           const ng = g.map((r) => r.map((c) => [...c]));
           ng[entry.row][entry.col] = entry.prevCandidates ?? [];
+          if (entry.prevPeerCandidates) {
+            for (const [key, cands] of Object.entries(entry.prevPeerCandidates)) {
+              const [pr, pc] = key.split(',').map(Number);
+              ng[pr][pc] = [...cands];
+            }
+          }
           return ng;
         });
         setAutoNotesGrid((g) => {
           if (!g) return g;
           const ng = g.map((r) => r.map((c) => [...c]));
           ng[entry.row][entry.col] = entry.prevAutoNotes ?? [];
+          if (entry.prevPeerAutoNotes) {
+            for (const [key, notes] of Object.entries(entry.prevPeerAutoNotes)) {
+              const [pr, pc] = key.split(',').map(Number);
+              ng[pr][pc] = [...notes];
+            }
+          }
           return ng;
         });
         setErrorCells(prev => {
@@ -501,6 +560,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
           next.delete(`${entry.row},${entry.col}`);
           return next;
         });
+      } else if (entry.type === 'populateCandidates') {
+        setCandidateGrid(() => entry.prevCandidateGrid.map((r) => r.map((c) => [...c])));
       } else {
         setCandidateGrid((g) => {
           const ng = g.map((r) => r.map((c) => [...c]));
@@ -666,6 +727,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     advanceHint,
     dismissHint,
     toggleAutoNotes,
+    populateUserCandidates,
+    canPopulateCandidates: autoNotesActive && !!autoNotesGrid,
     clearStatus,
     finishGame,
     elapsedSeconds,

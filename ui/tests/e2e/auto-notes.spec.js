@@ -47,3 +47,39 @@ test('auto-notes — clicking Auto-Notes again hides candidates', async ({ page 
   await page.getByRole('button', { name: 'Notes' }).click();
   await expect(page.getByTestId('cell-0-2')).not.toContainText('4');
 });
+
+test('populate — Populate button is disabled before auto-notes are activated', async ({ page }) => {
+  await setupRoutes(page);
+  await page.goto('/');
+  await waitForGrid(page);
+
+  await expect(page.getByRole('button', { name: 'Populate' })).toBeDisabled();
+});
+
+test('populate — Populate button is enabled after auto-notes are activated', async ({ page }) => {
+  await setupRoutes(page);
+  await page.goto('/');
+  await waitForGrid(page);
+
+  await page.getByRole('button', { name: 'Notes' }).click();
+  await expect(page.getByRole('button', { name: 'Populate' })).toBeEnabled();
+});
+
+test('populate — clicking Populate copies auto-notes into user candidate grid', async ({ page }) => {
+  await setupRoutes(page);
+  await page.goto('/');
+  await waitForGrid(page);
+
+  // Activate auto-notes (row 0 col 2 gets [1,2,4,6])
+  await page.getByRole('button', { name: 'Notes' }).click();
+  await expect(page.getByTestId('cell-0-2')).toContainText('4');
+
+  // Switch to user candidates view by toggling Notes off, then click Populate
+  await page.getByRole('button', { name: 'Populate' }).click();
+
+  // Toggle auto-notes off so we're viewing the user candidateGrid
+  await page.getByRole('button', { name: 'Notes' }).click();
+
+  // User candidates for row 0 col 2 should now show the populated value
+  await expect(page.getByTestId('cell-0-2')).toContainText('4');
+});

@@ -3,7 +3,7 @@
 FROM node:25-slim AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 COPY . .
 # Build-time vars injected via --build-arg in docker-compose.test.yml
 ARG VITE_API_URL=http://localhost:8080/api/v1
