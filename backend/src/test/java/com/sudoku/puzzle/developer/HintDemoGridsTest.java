@@ -11,6 +11,7 @@ import com.sudoku.puzzle.hint.NakedSingleStrategy;
 import com.sudoku.puzzle.hint.HiddenPairStrategy;
 import com.sudoku.puzzle.hint.HiddenTripleStrategy;
 import com.sudoku.puzzle.hint.NakedTripleStrategy;
+import com.sudoku.puzzle.hint.XWingStrategy;
 import com.sudoku.puzzle.hint.PointingPairStrategy;
 import org.junit.jupiter.api.Test;
 
@@ -215,6 +216,26 @@ class HintDemoGridsTest {
     @Test
     void hiddenTriple_demoGrid_isValidSudoku() {
         assertValidPartialSudoku(HintDemoGrids.forSlug("hidden-triple"));
+    }
+
+    // ---- x-wing ----
+
+    @Test
+    void xWing_demoGrid_strategyFires() {
+        // X-Wing fires on the raw grid before autocomplete. minRank=90 in the UI suppresses
+        // all simpler strategies so the first hint click always triggers X-Wing.
+        Board board = boardFor("x-wing");
+
+        Optional<HintResponse> hint = new XWingStrategy().evaluate(board);
+
+        assertTrue(hint.isPresent(), "XWingStrategy must fire on the x-wing demo grid");
+        assertEquals("x-wing", hint.get().markdownSlug());
+        assertFalse(hint.get().eliminatedCandidates().isEmpty(), "X-Wing must produce eliminations");
+    }
+
+    @Test
+    void xWing_demoGrid_isValidSudoku() {
+        assertValidPartialSudoku(HintDemoGrids.forSlug("x-wing"));
     }
 
     // ---- slugs coverage ----

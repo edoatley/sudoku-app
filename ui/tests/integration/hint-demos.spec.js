@@ -20,6 +20,7 @@ const HINT_DEMOS = [
   { slug: 'naked-triple',  label: 'Naked Triple demo',  techniqueName: 'Naked Triple' },
   { slug: 'hidden-pair',   label: 'Hidden Pair demo',   techniqueName: 'Hidden Pair' },
   { slug: 'hidden-triple', label: 'Hidden Triple demo', techniqueName: 'Hidden Triple' },
+  { slug: 'x-wing',        label: 'X-Wing demo',        techniqueName: 'X-Wing' },
 ];
 
 async function waitForGrid(page) {

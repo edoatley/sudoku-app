@@ -10,14 +10,14 @@
 | 40 | Hidden Single | Easy | `HiddenSingleStrategy.java` |
 | 50 | Pointing Pair | Medium | `PointingPairStrategy.java` |
 | 60 | Naked Triple | Medium | `NakedTripleStrategy.java` |
+| 70 | Hidden Pair | Medium | `HiddenPairStrategy.java` |
+| 80 | Hidden Triple | Hard | `HiddenTripleStrategy.java` |
+| 90 | X-Wing | Hard | `XWingStrategy.java` |
 
 ## Remaining Strategies
 
 | Rank | Strategy | Difficulty | Concept |
 |------|----------|------------|---------|
-| 70 | Hidden Pair | Medium | Two candidatReview @TOes appear in only two cells in a unit; remove other candidates from those cells |
-| 80 | Hidden Triple | Hard | Three candidates restricted to exactly three cells in a unit |
-| 90 | X-Wing | Hard | Candidate restricted to two cells in two rows sharing the same two columns |
 | 100 | Swordfish | Hard | X-Wing extended to three rows/columns |
 | 110 | Y-Wing | Hard | Three-cell chain with specific candidate relationships enabling eliminations |
 
@@ -342,6 +342,6 @@ Each row covers: strategy class + strategy test + demo JSON + HintDemoGridsTest 
 - [x] NakedTripleStrategy
 - [x] HiddenPairStrategy
 - [x] HiddenTripleStrategy
-- [ ] XWingStrategy
+- [x] XWingStrategy
 - [ ] SwordfishStrategy
 - [ ] YWingStrategy

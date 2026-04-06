@@ -57,6 +57,7 @@ const DEMO_TECHNIQUES = [
   { slug: 'naked-triple',  label: 'Naked Triple demo' },
   { slug: 'hidden-pair',   label: 'Hidden Pair demo' },
   { slug: 'hidden-triple', label: 'Hidden Triple demo' },
+  { slug: 'x-wing',        label: 'X-Wing demo' },
 ];
 
 export default function Header({
