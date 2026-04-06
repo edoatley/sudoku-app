@@ -15,7 +15,7 @@
 
 | Rank | Strategy | Difficulty | Concept |
 |------|----------|------------|---------|
-| 70 | Hidden Pair | Medium | Two candidates appear in only two cells in a unit; remove other candidates from those cells |
+| 70 | Hidden Pair | Medium | Two candidatReview @TOes appear in only two cells in a unit; remove other candidates from those cells |
 | 80 | Hidden Triple | Hard | Three candidates restricted to exactly three cells in a unit |
 | 90 | X-Wing | Hard | Candidate restricted to two cells in two rows sharing the same two columns |
 | 100 | Swordfish | Hard | X-Wing extended to three rows/columns |
@@ -335,7 +335,7 @@ Each row covers: strategy class + strategy test + demo JSON + HintDemoGridsTest 
 - [x] HiddenSingleStrategy
 - [x] PointingPairStrategy
 - [x] NakedTripleStrategy
-- [ ] HiddenPairStrategy
+- [x] HiddenPairStrategy
 - [ ] HiddenTripleStrategy
 - [ ] XWingStrategy
 - [ ] SwordfishStrategy

@@ -36,6 +36,7 @@ public final class HintDemoGrids {
             "hidden-single",
             "pointing-pair",
             "naked-triple",
+            "hidden-pair",
     };
 
     private static final Map<String, List<List<Integer>>> GRIDS;

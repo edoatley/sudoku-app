@@ -55,6 +55,7 @@ const DEMO_TECHNIQUES = [
   { slug: 'hidden-single', label: 'Hidden Single demo' },
   { slug: 'pointing-pair', label: 'Pointing Pair demo' },
   { slug: 'naked-triple',  label: 'Naked Triple demo' },
+  { slug: 'hidden-pair',   label: 'Hidden Pair demo' },
 ];
 
 export default function Header({

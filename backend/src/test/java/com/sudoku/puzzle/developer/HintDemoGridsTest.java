@@ -8,6 +8,7 @@ import com.sudoku.puzzle.hint.FullHouseStrategy;
 import com.sudoku.puzzle.hint.HiddenSingleStrategy;
 import com.sudoku.puzzle.hint.NakedPairStrategy;
 import com.sudoku.puzzle.hint.NakedSingleStrategy;
+import com.sudoku.puzzle.hint.HiddenPairStrategy;
 import com.sudoku.puzzle.hint.NakedTripleStrategy;
 import com.sudoku.puzzle.hint.PointingPairStrategy;
 import org.junit.jupiter.api.Test;
@@ -168,6 +169,28 @@ class HintDemoGridsTest {
     @Test
     void nakedTriple_demoGrid_isValidSudoku() {
         assertValidPartialSudoku(HintDemoGrids.forSlug("naked-triple"));
+    }
+
+    // ---- hidden-pair ----
+
+    @Test
+    void hiddenPair_demoGrid_strategyFiresAfterAutocomplete() {
+        Board board = autocompleteToBoard(
+                HintDemoGrids.forSlug("hidden-pair"),
+                new FullHouseStrategy(), new NakedSingleStrategy(),
+                new NakedPairStrategy(), new HiddenSingleStrategy(),
+                new PointingPairStrategy(), new NakedTripleStrategy());
+
+        Optional<HintResponse> hint = new HiddenPairStrategy().evaluate(board);
+
+        assertTrue(hint.isPresent(), "HiddenPairStrategy must fire after autocomplete of the hidden-pair demo grid");
+        assertEquals("hidden-pair", hint.get().markdownSlug());
+        assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Hidden pair must produce eliminations");
+    }
+
+    @Test
+    void hiddenPair_demoGrid_isValidSudoku() {
+        assertValidPartialSudoku(HintDemoGrids.forSlug("hidden-pair"));
     }
 
     // ---- slugs coverage ----
