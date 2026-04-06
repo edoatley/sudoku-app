@@ -54,6 +54,11 @@ Every strategy requires **five changes**:
 
 **Consequence for demo grid design:** The demo grid no longer needs to be free of lower-rank strategies after autocomplete — `minRank` suppresses them at hint time. The grid just needs to produce a valid instance of the target strategy after the lower strategies have run (which `DevResource` still does for autocomplete).
 
+**Demo grid sourcing strategy (preferred order):**
+1. **Use `minRank` freely** — any puzzle where the target strategy fires after autocomplete is valid, even if simpler strategies would also fire on the raw grid. `minRank` ensures the UI always triggers the intended technique. This is the preferred approach for harder strategies where finding a puzzle that *requires* the technique is difficult.
+2. **Find a puzzle that requires the technique** — if a good public example exists (e.g. from SudokuWiki or HoDoKu) where simpler strategies cannot make progress, prefer that as it makes the demo more authentic. Use `GridDiagTest` to verify.
+3. **Construct a minimal puzzle** — only if no suitable public example can be found.
+
 **Still required:** run the `HintDemoGridsTest` contract tests to confirm the target strategy fires after autocomplete. The `GridDiagTest` temporary test pattern used during development — create it, run it, delete it — is a useful diagnostic tool.
 
 **Wiring summary for `minRank`:**
@@ -336,7 +341,7 @@ Each row covers: strategy class + strategy test + demo JSON + HintDemoGridsTest 
 - [x] PointingPairStrategy
 - [x] NakedTripleStrategy
 - [x] HiddenPairStrategy
-- [ ] HiddenTripleStrategy
+- [x] HiddenTripleStrategy
 - [ ] XWingStrategy
 - [ ] SwordfishStrategy
 - [ ] YWingStrategy
