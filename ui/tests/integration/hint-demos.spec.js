@@ -39,7 +39,9 @@ async function loadHintDemo(page, label) {
 for (const { label, techniqueName } of HINT_DEMOS) {
   test(`hint demo — ${label} shows correct hint dialog`, async ({ page }) => {
     await page.goto('/');
-    await waitForGrid(page);
+    // Wait for the page to fully settle (either a grid appears or an error state —
+    // either way the header with the Game menu button will be present)
+    await expect(page.getByRole('button', { name: /game menu/i })).toBeVisible({ timeout: 15_000 });
 
     await loadHintDemo(page, label);
 
