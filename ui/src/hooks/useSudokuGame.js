@@ -435,7 +435,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid]);
+  }, [currentGrid, hintMinRank]);
 
   const advanceHint = useCallback(() => {
     if (!activeHint) return;

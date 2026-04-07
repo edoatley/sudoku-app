@@ -1,8 +1,8 @@
 {
   "slug": "hidden-pair",
-  "description": "After simpler strategies (FullHouse, NakedSingle, NakedPair, HiddenSingle, PointingPair, NakedTriple) are autocompleted, digits 4 and 8 are confined to exactly cells (0,8) and (5,8) in column 8. Those cells also contain other candidates that can be eliminated.",
+  "description": "Pre-baked grid: digits 4 and 8 are confined to exactly cells (0,8) and (5,8) in column 8. HiddenPair fires to eliminate other candidates from those cells.",
   "grid": [
-    [0, 2, 0, 0, 0, 0, 0, 0, 0],
+    [0, 2, 6, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 6, 0, 0, 0, 0, 3],
     [0, 7, 4, 0, 8, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 3, 0, 0, 2],

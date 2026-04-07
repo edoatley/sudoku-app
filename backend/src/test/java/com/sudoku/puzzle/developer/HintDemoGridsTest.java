@@ -1,23 +1,20 @@
 package com.sudoku.puzzle.developer;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.ActionableCell;
-import com.sudoku.dto.CandidateElimination;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.puzzle.hint.FullHouseStrategy;
+import com.sudoku.puzzle.hint.HiddenPairStrategy;
 import com.sudoku.puzzle.hint.HiddenSingleStrategy;
+import com.sudoku.puzzle.hint.HiddenTripleStrategy;
 import com.sudoku.puzzle.hint.NakedPairStrategy;
 import com.sudoku.puzzle.hint.NakedSingleStrategy;
-import com.sudoku.puzzle.hint.HiddenPairStrategy;
-import com.sudoku.puzzle.hint.HiddenTripleStrategy;
 import com.sudoku.puzzle.hint.NakedTripleStrategy;
-import com.sudoku.puzzle.hint.XWingStrategy;
-import com.sudoku.puzzle.hint.SwordfishStrategy;
-import com.sudoku.puzzle.hint.YWingStrategy;
 import com.sudoku.puzzle.hint.PointingPairStrategy;
+import com.sudoku.puzzle.hint.SwordfishStrategy;
+import com.sudoku.puzzle.hint.XWingStrategy;
+import com.sudoku.puzzle.hint.YWingStrategy;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,19 +73,12 @@ class HintDemoGridsTest {
     // ---- naked-pair ----
 
     @Test
-    void nakedPair_demoGrid_strategyFiresAfterAutocomplete() {
-        // The raw naked-pair grid requires FullHouse/NakedSingle autocomplete first
-        // (matching what DevResource does before serving the grid).
-        List<List<Integer>> autocompleted = autocompleteSimpler(
-                HintDemoGrids.forSlug("naked-pair"),
-                new FullHouseStrategy(), new NakedSingleStrategy());
-
-        Board board = Board.fromGrid(autocompleted);
-        board.calculateAllCandidates();
+    void nakedPair_demoGrid_strategyFiresOnRawGrid() {
+        Board board = boardFor("naked-pair");
 
         Optional<HintResponse> hint = new NakedPairStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "NakedPairStrategy must fire after autocomplete of the naked-pair demo grid");
+        assertTrue(hint.isPresent(), "NakedPairStrategy must fire on the raw naked-pair demo grid");
         assertEquals("naked-pair", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Naked pair must produce eliminations");
     }
@@ -101,17 +91,12 @@ class HintDemoGridsTest {
     // ---- hidden-single ----
 
     @Test
-    void hiddenSingle_demoGrid_strategyFiresAfterAutocomplete() {
-        List<List<Integer>> autocompleted = autocompleteSimpler(
-                HintDemoGrids.forSlug("hidden-single"),
-                new FullHouseStrategy(), new NakedSingleStrategy());
-
-        Board board = Board.fromGrid(autocompleted);
-        board.calculateAllCandidates();
+    void hiddenSingle_demoGrid_strategyFiresOnRawGrid() {
+        Board board = boardFor("hidden-single");
 
         Optional<HintResponse> hint = new HiddenSingleStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "HiddenSingleStrategy must fire after autocomplete of the hidden-single demo grid");
+        assertTrue(hint.isPresent(), "HiddenSingleStrategy must fire on the raw hidden-single demo grid");
         assertEquals("hidden-single", hint.get().markdownSlug());
         assertFalse(hint.get().solvedCells().isEmpty(), "Hidden single must produce a solved cell");
     }
@@ -124,18 +109,12 @@ class HintDemoGridsTest {
     // ---- pointing-pair ----
 
     @Test
-    void pointingPair_demoGrid_strategyFiresAfterAutocomplete() {
-        List<List<Integer>> autocompleted = autocompleteSimpler(
-                HintDemoGrids.forSlug("pointing-pair"),
-                new FullHouseStrategy(), new NakedSingleStrategy(),
-                new NakedPairStrategy(), new HiddenSingleStrategy());
-
-        Board board = Board.fromGrid(autocompleted);
-        board.calculateAllCandidates();
+    void pointingPair_demoGrid_strategyFiresOnRawGrid() {
+        Board board = boardFor("pointing-pair");
 
         Optional<HintResponse> hint = new PointingPairStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "PointingPairStrategy must fire after autocomplete of the pointing-pair demo grid");
+        assertTrue(hint.isPresent(), "PointingPairStrategy must fire on the raw pointing-pair demo grid");
         assertEquals("pointing-pair", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Pointing pair must produce candidate eliminations");
     }
@@ -148,24 +127,12 @@ class HintDemoGridsTest {
     // ---- naked-triple ----
 
     @Test
-    void nakedTriple_demoGrid_strategyFiresAfterAutocomplete() {
-        // Autocomplete includes PointingPair (rank 50) so its eliminations are applied first,
-        // ensuring PP is exhausted before NT is checked — matching DevResource behaviour.
-        Board board = autocompleteToBoard(
-                HintDemoGrids.forSlug("naked-triple"),
-                new FullHouseStrategy(), new NakedSingleStrategy(),
-                new NakedPairStrategy(), new HiddenSingleStrategy(),
-                new PointingPairStrategy());
-
-        // Verify PointingPair does not fire on the autocompleted board (it must be exhausted)
-        Optional<HintResponse> ppHint = new PointingPairStrategy().evaluate(board);
-        assertTrue(ppHint.isEmpty(),
-                "PointingPairStrategy must NOT fire on the autocompleted naked-triple demo grid " +
-                "(it would take priority over NakedTriple at runtime)");
+    void nakedTriple_demoGrid_strategyFiresOnRawGrid() {
+        Board board = boardFor("naked-triple");
 
         Optional<HintResponse> hint = new NakedTripleStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "NakedTripleStrategy must fire after autocomplete of the naked-triple demo grid");
+        assertTrue(hint.isPresent(), "NakedTripleStrategy must fire on the raw naked-triple demo grid");
         assertEquals("naked-triple", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Naked triple must produce candidate eliminations");
     }
@@ -178,16 +145,12 @@ class HintDemoGridsTest {
     // ---- hidden-pair ----
 
     @Test
-    void hiddenPair_demoGrid_strategyFiresAfterAutocomplete() {
-        Board board = autocompleteToBoard(
-                HintDemoGrids.forSlug("hidden-pair"),
-                new FullHouseStrategy(), new NakedSingleStrategy(),
-                new NakedPairStrategy(), new HiddenSingleStrategy(),
-                new PointingPairStrategy(), new NakedTripleStrategy());
+    void hiddenPair_demoGrid_strategyFiresOnRawGrid() {
+        Board board = boardFor("hidden-pair");
 
         Optional<HintResponse> hint = new HiddenPairStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "HiddenPairStrategy must fire after autocomplete of the hidden-pair demo grid");
+        assertTrue(hint.isPresent(), "HiddenPairStrategy must fire on the raw hidden-pair demo grid");
         assertEquals("hidden-pair", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Hidden pair must produce eliminations");
     }
@@ -200,17 +163,12 @@ class HintDemoGridsTest {
     // ---- hidden-triple ----
 
     @Test
-    void hiddenTriple_demoGrid_strategyFiresAfterAutocomplete() {
-        Board board = autocompleteToBoard(
-                HintDemoGrids.forSlug("hidden-triple"),
-                new FullHouseStrategy(), new NakedSingleStrategy(),
-                new NakedPairStrategy(), new HiddenSingleStrategy(),
-                new PointingPairStrategy(), new NakedTripleStrategy(),
-                new HiddenPairStrategy());
+    void hiddenTriple_demoGrid_strategyFiresOnRawGrid() {
+        Board board = boardFor("hidden-triple");
 
         Optional<HintResponse> hint = new HiddenTripleStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "HiddenTripleStrategy must fire after autocomplete of the hidden-triple demo grid");
+        assertTrue(hint.isPresent(), "HiddenTripleStrategy must fire on the raw hidden-triple demo grid");
         assertEquals("hidden-triple", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Hidden triple must produce eliminations");
     }
@@ -223,14 +181,14 @@ class HintDemoGridsTest {
     // ---- x-wing ----
 
     @Test
-    void xWing_demoGrid_strategyFires() {
-        // X-Wing fires on the raw grid before autocomplete. minRank=90 in the UI suppresses
-        // all simpler strategies so the first hint click always triggers X-Wing.
+    void xWing_demoGrid_strategyFiresOnRawGrid() {
         Board board = boardFor("x-wing");
+
+        assertFalse(hasNoEmptyCells(board), "X-Wing demo grid must have empty cells");
 
         Optional<HintResponse> hint = new XWingStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "XWingStrategy must fire on the x-wing demo grid");
+        assertTrue(hint.isPresent(), "XWingStrategy must fire on the raw x-wing demo grid");
         assertEquals("x-wing", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "X-Wing must produce eliminations");
     }
@@ -243,12 +201,14 @@ class HintDemoGridsTest {
     // ---- swordfish ----
 
     @Test
-    void swordfish_demoGrid_strategyFires() {
+    void swordfish_demoGrid_strategyFiresOnRawGrid() {
         Board board = boardFor("swordfish");
+
+        assertFalse(hasNoEmptyCells(board), "Swordfish demo grid must have empty cells");
 
         Optional<HintResponse> hint = new SwordfishStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "SwordfishStrategy must fire on the swordfish demo grid");
+        assertTrue(hint.isPresent(), "SwordfishStrategy must fire on the raw swordfish demo grid");
         assertEquals("swordfish", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Swordfish must produce eliminations");
     }
@@ -261,12 +221,14 @@ class HintDemoGridsTest {
     // ---- y-wing ----
 
     @Test
-    void yWing_demoGrid_strategyFires() {
+    void yWing_demoGrid_strategyFiresOnRawGrid() {
         Board board = boardFor("y-wing");
+
+        assertFalse(hasNoEmptyCells(board), "Y-Wing demo grid must have empty cells");
 
         Optional<HintResponse> hint = new YWingStrategy().evaluate(board);
 
-        assertTrue(hint.isPresent(), "YWingStrategy must fire on the y-wing demo grid");
+        assertTrue(hint.isPresent(), "YWingStrategy must fire on the raw y-wing demo grid");
         assertEquals("y-wing", hint.get().markdownSlug());
         assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Y-Wing must produce eliminations");
     }
@@ -301,64 +263,6 @@ class HintDemoGridsTest {
     }
 
     /**
-     * Simulates the DevResource autocomplete: applies simpler strategies (filling solvedCells
-     * AND applying eliminatedCandidates) on a persistent board until none fire.
-     * Returns the autocompleted grid as an immutable list (for grid-based assertions).
-     */
-    private List<List<Integer>> autocompleteSimpler(List<List<Integer>> grid,
-            com.sudoku.puzzle.hint.HintStrategy... simpler) {
-        int[][] work = to2dArray(grid);
-        autocompleteToBoard(grid, work, simpler);
-        return toImmutableList(work);
-    }
-
-    /**
-     * Like {@link #autocompleteSimpler} but returns the live Board so callers can
-     * evaluate further strategies against the fully-resolved candidate state.
-     */
-    private Board autocompleteToBoard(List<List<Integer>> grid,
-            com.sudoku.puzzle.hint.HintStrategy... simpler) {
-        int[][] work = to2dArray(grid);
-        return autocompleteToBoard(grid, work, simpler);
-    }
-
-    private Board autocompleteToBoard(List<List<Integer>> grid, int[][] work,
-            com.sudoku.puzzle.hint.HintStrategy... simpler) {
-        Board board = Board.fromGrid(toImmutableList(work));
-        board.calculateAllCandidates();
-        boolean progress = true;
-        while (progress) {
-            progress = false;
-            for (var strategy : simpler) {
-                Optional<HintResponse> hint = strategy.evaluate(board);
-                if (hint.isPresent()) {
-                    HintResponse h = hint.get();
-                    boolean changed = false;
-                    if (h.solvedCells() != null && !h.solvedCells().isEmpty()) {
-                        for (ActionableCell cell : h.solvedCells()) {
-                            work[cell.row()][cell.col()] = cell.value();
-                            board.getCell(cell.row(), cell.col()).setValue(cell.value());
-                            changed = true;
-                        }
-                        board.calculateAllCandidates();
-                    }
-                    if (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty()) {
-                        for (CandidateElimination elim : h.eliminatedCandidates()) {
-                            board.getCell(elim.row(), elim.col()).removeCandidate(elim.value());
-                            changed = true;
-                        }
-                    }
-                    if (changed) {
-                        progress = true;
-                        break;
-                    }
-                }
-            }
-        }
-        return board;
-    }
-
-    /**
      * Asserts the grid is a well-formed 9×9 board with no duplicate digits
      * in any row, column, or 3×3 block (ignoring empty cells).
      */
@@ -386,25 +290,13 @@ class HintDemoGridsTest {
         }
     }
 
-    private int[][] to2dArray(List<List<Integer>> grid) {
-        int[][] arr = new int[9][9];
+    private boolean hasNoEmptyCells(Board board) {
         for (int r = 0; r < 9; r++) {
-            for (int c = 0; c < 9; c++) {
-                arr[r][c] = grid.get(r).get(c);
+            for (com.sudoku.domain.Cell cell : board.getRow(r)) {
+                if (cell.isEmpty()) return false;
             }
         }
-        return arr;
+        return true;
     }
 
-    private List<List<Integer>> toImmutableList(int[][] arr) {
-        List<List<Integer>> result = new ArrayList<>(9);
-        for (int r = 0; r < 9; r++) {
-            List<Integer> row = new ArrayList<>(9);
-            for (int c = 0; c < 9; c++) {
-                row.add(arr[r][c]);
-            }
-            result.add(List.copyOf(row));
-        }
-        return List.copyOf(result);
-    }
 }

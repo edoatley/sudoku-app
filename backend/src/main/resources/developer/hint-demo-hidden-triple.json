@@ -1,6 +1,6 @@
 {
   "slug": "hidden-triple",
-  "description": "After simpler strategies (FullHouse, NakedSingle, NakedPair, HiddenSingle, PointingPair, NakedTriple, HiddenPair) are autocompleted, digits 2, 3 and 9 are confined to exactly three cells in row 0, forming a Hidden Triple with other candidates to eliminate.",
+  "description": "Pre-baked grid: digits 2, 3 and 9 are confined to exactly three cells in row 0, forming a Hidden Triple with other candidates to eliminate.",
   "grid": [
     [5, 0, 0, 6, 2, 0, 0, 3, 7],
     [0, 0, 4, 8, 9, 0, 0, 0, 0],

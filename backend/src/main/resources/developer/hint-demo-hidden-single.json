@@ -1,6 +1,6 @@
 {
   "slug": "hidden-single",
-  "description": "Medium puzzle. After FullHouse and NakedSingle cells are autocompleted, at least one digit is confined to exactly one cell within a unit. HiddenSingle fires first.",
+  "description": "Pre-baked grid: at least one digit is confined to exactly one cell within a unit. HiddenSingle fires first.",
   "grid": [
     [5, 0, 0, 0, 0, 7, 0, 0, 0],
     [0, 0, 2, 0, 0, 0, 1, 0, 0],
