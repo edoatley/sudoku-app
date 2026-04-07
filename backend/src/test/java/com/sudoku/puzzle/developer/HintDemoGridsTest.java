@@ -12,6 +12,8 @@ import com.sudoku.puzzle.hint.HiddenPairStrategy;
 import com.sudoku.puzzle.hint.HiddenTripleStrategy;
 import com.sudoku.puzzle.hint.NakedTripleStrategy;
 import com.sudoku.puzzle.hint.XWingStrategy;
+import com.sudoku.puzzle.hint.SwordfishStrategy;
+import com.sudoku.puzzle.hint.YWingStrategy;
 import com.sudoku.puzzle.hint.PointingPairStrategy;
 import org.junit.jupiter.api.Test;
 
@@ -236,6 +238,42 @@ class HintDemoGridsTest {
     @Test
     void xWing_demoGrid_isValidSudoku() {
         assertValidPartialSudoku(HintDemoGrids.forSlug("x-wing"));
+    }
+
+    // ---- swordfish ----
+
+    @Test
+    void swordfish_demoGrid_strategyFires() {
+        Board board = boardFor("swordfish");
+
+        Optional<HintResponse> hint = new SwordfishStrategy().evaluate(board);
+
+        assertTrue(hint.isPresent(), "SwordfishStrategy must fire on the swordfish demo grid");
+        assertEquals("swordfish", hint.get().markdownSlug());
+        assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Swordfish must produce eliminations");
+    }
+
+    @Test
+    void swordfish_demoGrid_isValidSudoku() {
+        assertValidPartialSudoku(HintDemoGrids.forSlug("swordfish"));
+    }
+
+    // ---- y-wing ----
+
+    @Test
+    void yWing_demoGrid_strategyFires() {
+        Board board = boardFor("y-wing");
+
+        Optional<HintResponse> hint = new YWingStrategy().evaluate(board);
+
+        assertTrue(hint.isPresent(), "YWingStrategy must fire on the y-wing demo grid");
+        assertEquals("y-wing", hint.get().markdownSlug());
+        assertFalse(hint.get().eliminatedCandidates().isEmpty(), "Y-Wing must produce eliminations");
+    }
+
+    @Test
+    void yWing_demoGrid_isValidSudoku() {
+        assertValidPartialSudoku(HintDemoGrids.forSlug("y-wing"));
     }
 
     // ---- slugs coverage ----

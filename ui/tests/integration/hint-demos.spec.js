@@ -21,6 +21,8 @@ const HINT_DEMOS = [
   { slug: 'hidden-pair',   label: 'Hidden Pair demo',   techniqueName: 'Hidden Pair' },
   { slug: 'hidden-triple', label: 'Hidden Triple demo', techniqueName: 'Hidden Triple' },
   { slug: 'x-wing',        label: 'X-Wing demo',        techniqueName: 'X-Wing' },
+  { slug: 'swordfish',     label: 'Swordfish demo',     techniqueName: 'Swordfish' },
+  { slug: 'y-wing',        label: 'Y-Wing demo',        techniqueName: 'Y-Wing' },
 ];
 
 async function waitForGrid(page) {

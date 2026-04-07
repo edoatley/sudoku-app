@@ -1,0 +1,15 @@
+{
+  "slug": "y-wing",
+  "description": "Pivot at (3,1) has candidates {2,4}. Pincer (4,1) has {1,2} and pincer (5,0) has {1,4} — both share candidate 1. Any cell that sees both pincers can have 1 eliminated.",
+  "grid": [
+    [9, 0, 0, 0, 0, 3, 0, 6, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 5],
+    [0, 7, 0, 2, 6, 0, 0, 0, 0],
+    [5, 0, 0, 0, 3, 1, 0, 7, 0],
+    [6, 0, 3, 0, 0, 0, 9, 0, 4],
+    [0, 8, 0, 9, 7, 0, 0, 0, 3],
+    [0, 0, 0, 0, 5, 7, 0, 9, 0],
+    [2, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 9, 0, 8, 0, 0, 0, 0, 7]
+  ]
+}

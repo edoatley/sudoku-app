@@ -13,13 +13,12 @@
 | 70 | Hidden Pair | Medium | `HiddenPairStrategy.java` |
 | 80 | Hidden Triple | Hard | `HiddenTripleStrategy.java` |
 | 90 | X-Wing | Hard | `XWingStrategy.java` |
+| 100 | Swordfish | Hard | `SwordfishStrategy.java` |
+| 110 | Y-Wing | Hard | `YWingStrategy.java` |
 
 ## Remaining Strategies
 
-| Rank | Strategy | Difficulty | Concept |
-|------|----------|------------|---------|
-| 100 | Swordfish | Hard | X-Wing extended to three rows/columns |
-| 110 | Y-Wing | Hard | Three-cell chain with specific candidate relationships enabling eliminations |
+None — all strategies implemented!
 
 ---
 
@@ -343,5 +342,5 @@ Each row covers: strategy class + strategy test + demo JSON + HintDemoGridsTest 
 - [x] HiddenPairStrategy
 - [x] HiddenTripleStrategy
 - [x] XWingStrategy
-- [ ] SwordfishStrategy
-- [ ] YWingStrategy
+- [x] SwordfishStrategy
+- [x] YWingStrategy
