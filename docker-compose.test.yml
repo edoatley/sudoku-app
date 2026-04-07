@@ -47,11 +47,11 @@ services:
       QUARKUS_DYNAMODB_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: "test"
       SUDOKU_API_LOGGING_ENABLED: "false"
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget -qO- http://localhost:8080/api/v1/puzzles/generate || exit 1"]
-      interval: 5s
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/puzzles/generate"]
+      interval: 10s
       timeout: 10s
-      retries: 12
-      start_period: 30s
+      retries: 18
+      start_period: 60s
     depends_on:
       dynamodb-setup:
         condition: service_completed_successfully

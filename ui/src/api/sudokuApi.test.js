@@ -161,6 +161,12 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
     await expect(generatePuzzle('easy')).rejects.toThrow('HTTP 404');
   });
 
+  it('throws ForbiddenError when the server returns 403', async () => {
+    fetchSpy.mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    const { generatePuzzle, ForbiddenError } = await import('./sudokuApi.js');
+    await expect(generatePuzzle('easy')).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
   it('returns null for 204 No Content responses', async () => {
     fetchSpy.mockResolvedValue(new Response(null, { status: 204 }));
     const { saveGame } = await import('./sudokuApi.js');

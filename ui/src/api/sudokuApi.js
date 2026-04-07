@@ -2,6 +2,7 @@ import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, 
 
 const API_URL = import.meta.env.VITE_API_URL;
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
+const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const LOG_API = import.meta.env.VITE_LOG_API === 'true';
 
 export class ForbiddenError extends Error {
@@ -29,7 +30,7 @@ async function apiFetch(label, url, options = {}, authenticated = false) {
   }
 
   const headers = { ...options.headers };
-  if (authenticated) {
+  if (authenticated && !SKIP_AUTH) {
     const token = await getIdToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }

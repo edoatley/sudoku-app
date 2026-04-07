@@ -22,13 +22,14 @@ resource "aws_amplify_app" "sudoku" {
           - ui/node_modules/**/*
   EOT
 
+  // TODO: remove VITE_ENABLE_IMPORT 
   environment_variables = {
     VITE_API_URL              = "${trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")}/api/v1"
     VITE_MOCK_API             = "false"
     VITE_COGNITO_USER_POOL_ID = local.cognito_user_pool_id
     VITE_COGNITO_CLIENT_ID    = local.cognito_web_client_id
     VITE_COGNITO_DOMAIN       = "${local.cognito_domain}.auth.eu-west-2.amazoncognito.com"
-    VITE_ENABLE_IMPORT        = local.is_default ? "false" : "true"
+    VITE_ENABLE_IMPORT        = "true"
     VITE_DEV_TOOLS            = local.is_default ? "false" : "true"
   }
 

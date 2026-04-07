@@ -5,15 +5,24 @@ import { CANNED_GAME_STATE, CANNED_CANDIDATES } from '../mocks/cannedData.js';
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
-vi.mock('../api/sudokuApi.js', () => ({
-  createGame: vi.fn(),
-  loadGame: vi.fn(),
-  saveGame: vi.fn(),
-  getCurrentGame: vi.fn(),
-  validatePuzzle: vi.fn(),
-  getHint: vi.fn(),
-  getCandidates: vi.fn(),
-}));
+vi.mock('../api/sudokuApi.js', () => {
+  class ForbiddenError extends Error {
+    constructor() { super('Access denied'); this.name = 'ForbiddenError'; }
+  }
+  return {
+    createGame: vi.fn(),
+    loadGame: vi.fn(),
+    saveGame: vi.fn(),
+    getCurrentGame: vi.fn(),
+    validatePuzzle: vi.fn(),
+    getHint: vi.fn(),
+    getCandidates: vi.fn(),
+    importPuzzle: vi.fn(),
+    createGameFromGrid: vi.fn(),
+    getDemoGrid: vi.fn(),
+    ForbiddenError,
+  };
+});
 
 import {
   createGame,
@@ -23,6 +32,7 @@ import {
   validatePuzzle,
   getHint,
   getCandidates,
+  ForbiddenError,
 } from '../api/sudokuApi.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -573,5 +583,41 @@ describe('populateUserCandidates', () => {
 
     const stored = JSON.parse(localStorage.getItem('sudoku_candidateGrid'));
     expect(stored[0][2]).toEqual([1, 2, 4, 6]);
+  });
+});
+
+// ─── Access control ───────────────────────────────────────────────────────────
+
+describe('access control — ForbiddenError handling', () => {
+  it('calls onForbidden when startNewGame receives a 403', async () => {
+    const onForbidden = vi.fn();
+    // Let the initial auto-start succeed, then return 403 on the explicit call
+    createGame.mockResolvedValueOnce(CANNED_GAME_STATE);
+    createGame.mockRejectedValueOnce(new ForbiddenError());
+    const { result } = renderHook(() => useSudokuGame(null, { onForbidden }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => result.current.startNewGame('easy'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(onForbidden).toHaveBeenCalled();
+    expect(result.current.statusMessage).toBeNull();
+    expect(result.current.gameStatus).not.toBe('error');
+  });
+
+  it('does not call onForbidden for non-403 errors', async () => {
+    const onForbidden = vi.fn();
+    // Let the initial auto-start succeed, then reject on the explicit call
+    createGame.mockResolvedValueOnce(CANNED_GAME_STATE);
+    createGame.mockRejectedValueOnce(new Error('HTTP 500'));
+    const { result } = renderHook(() => useSudokuGame(null, { onForbidden }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => result.current.startNewGame('easy'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(onForbidden).not.toHaveBeenCalled();
+    expect(result.current.statusMessage).toContain('Failed to load puzzle');
+    expect(result.current.gameStatus).toBe('error');
   });
 });
