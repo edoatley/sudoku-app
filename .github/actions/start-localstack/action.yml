@@ -1,0 +1,44 @@
+name: Start LocalStack
+description: Pulls (or loads from cache) the LocalStack Docker image and starts it with DynamoDB enabled
+
+inputs:
+  auth-token:
+    description: LocalStack auth token
+    required: true
+  image:
+    description: LocalStack Docker image to use
+    required: false
+    default: localstack/localstack:4
+
+runs:
+  using: composite
+  steps:
+    - name: Cache LocalStack image
+      uses: actions/cache@v4
+      with:
+        path: /tmp/localstack-image.tar
+        key: localstack-image-${{ inputs.image }}
+
+    - name: Load or pull LocalStack image
+      shell: bash
+      run: |
+        if [ -f /tmp/localstack-image.tar ]; then
+          docker load -i /tmp/localstack-image.tar
+        else
+          docker pull ${{ inputs.image }}
+          docker save ${{ inputs.image }} -o /tmp/localstack-image.tar
+        fi
+
+    - name: Start LocalStack
+      shell: bash
+      run: |
+        docker run -d \
+          --name localstack \
+          -p 4566:4566 \
+          -e SERVICES=dynamodb \
+          -e LOCALSTACK_AUTH_TOKEN=${{ inputs.auth-token }} \
+          ${{ inputs.image }}
+        for i in $(seq 1 24); do
+          curl -sf http://localhost:4566/_localstack/health && break
+          sleep 5
+        done

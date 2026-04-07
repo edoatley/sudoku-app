@@ -34,22 +34,11 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    services:
-      localstack:
-        image: localstack/localstack:latest
-        ports:
-          - "4566:4566"
-        env:
-          SERVICES: dynamodb
-          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
-        options: >-
-          --health-cmd "curl -sf http://localhost:4566/_localstack/health"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-          --health-start-period 15s
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/start-localstack
+        with:
+          auth-token: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/create-localstack-dynamodb
       - name: Run unit, API and integration tests
