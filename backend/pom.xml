@@ -92,12 +92,6 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>localstack</artifactId>
-            <version>1.21.4</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -158,6 +152,7 @@
                                 <exclude>com/sudoku/player/**</exclude>
                                 <exclude>com/sudoku/logging/**</exclude>
                                 <exclude>com/sudoku/cors/**</exclude>
+                                <exclude>com/sudoku/auth/DevUserFilter*.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>

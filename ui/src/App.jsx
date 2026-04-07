@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
@@ -66,6 +66,8 @@ if (!MOCK_API && !SKIP_AUTH) {
 
 function SudokuApp({ user, signOut }) {
   const { avatar, setAvatar, history, recordGame } = usePlayerProfile();
+  const [forbidden, setForbidden] = useState(false);
+  const handleForbidden = useCallback(() => setForbidden(true), []);
 
   const [colorMode, setColorMode] = useState(
     () => localStorage.getItem('sudoku_colorMode') ?? 'light'
@@ -122,6 +124,8 @@ function SudokuApp({ user, signOut }) {
     autoNotesActive,
     selectedCell,
     toggleAutoNotes,
+    populateUserCandidates,
+    canPopulateCandidates,
     clearStatus,
     finishGame,
     elapsedSeconds,
@@ -129,7 +133,7 @@ function SudokuApp({ user, signOut }) {
     isPaused,
     pauseGame,
     resumeGame,
-  } = useSudokuGame(user, { onGameComplete: recordGame });
+  } = useSudokuGame(user, { onGameComplete: recordGame, onForbidden: handleForbidden });
 
   const completedNumbers = useMemo(() => {
     if (!currentGrid) return new Set();
@@ -153,6 +157,23 @@ function SudokuApp({ user, signOut }) {
   };
 
   const effectiveUser = user ?? (MOCK_API || SKIP_AUTH ? { username: 'Guest' } : null);
+
+  if (forbidden) {
+    return (
+      <ThemeProvider theme={muiTheme}>
+        <CssBaseline />
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 3, p: 3 }}>
+          <Typography variant="h5">Access Denied</Typography>
+          <Typography color="text.secondary" align="center">
+            You are not authorised to use this application.
+          </Typography>
+          {signOut && (
+            <Button variant="contained" onClick={signOut}>Sign Out</Button>
+          )}
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={muiTheme}>
@@ -211,6 +232,8 @@ function SudokuApp({ user, signOut }) {
                 onHint={requestHint}
                 autoNotesActive={autoNotesActive}
                 onAutoNotes={toggleAutoNotes}
+                onPopulateCandidates={populateUserCandidates}
+                canPopulateCandidates={canPopulateCandidates}
                 isLoading={isLoading}
                 completedNumbers={completedNumbers}
               />

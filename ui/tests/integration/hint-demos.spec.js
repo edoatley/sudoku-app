@@ -18,6 +18,11 @@ const HINT_DEMOS = [
   { slug: 'hidden-single', label: 'Hidden Single demo', techniqueName: 'Hidden Single' },
   { slug: 'pointing-pair', label: 'Pointing Pair demo', techniqueName: 'Pointing Pair' },
   { slug: 'naked-triple',  label: 'Naked Triple demo',  techniqueName: 'Naked Triple' },
+  { slug: 'hidden-pair',   label: 'Hidden Pair demo',   techniqueName: 'Hidden Pair' },
+  { slug: 'hidden-triple', label: 'Hidden Triple demo', techniqueName: 'Hidden Triple' },
+  { slug: 'x-wing',        label: 'X-Wing demo',        techniqueName: 'X-Wing' },
+  { slug: 'swordfish',     label: 'Swordfish demo',     techniqueName: 'Swordfish' },
+  { slug: 'y-wing',        label: 'Y-Wing demo',        techniqueName: 'Y-Wing' },
 ];
 
 async function waitForGrid(page) {
@@ -34,7 +39,9 @@ async function loadHintDemo(page, label) {
 for (const { label, techniqueName } of HINT_DEMOS) {
   test(`hint demo — ${label} shows correct hint dialog`, async ({ page }) => {
     await page.goto('/');
-    await waitForGrid(page);
+    // Wait for the page to fully settle (either a grid appears or an error state —
+    // either way the header with the Game menu button will be present)
+    await expect(page.getByRole('button', { name: /game menu/i })).toBeVisible({ timeout: 15_000 });
 
     await loadHintDemo(page, label);
 

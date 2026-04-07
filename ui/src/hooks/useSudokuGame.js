@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid } from '../api/sudokuApi.js';
+import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid, ForbiddenError } from '../api/sudokuApi.js';
 
 const LS_KEY_GAME_ID = 'sudoku_gameId';
 const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
@@ -25,7 +25,18 @@ function lsClear() {
 
 const emptyCandidate = () => Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
 
-export function useSudokuGame(user, { onGameComplete } = {}) {
+function getPeers(row, col) {
+  const set = new Set();
+  for (let c = 0; c < 9; c++) { if (c !== col) set.add(`${row},${c}`); }
+  for (let r = 0; r < 9; r++) { if (r !== row) set.add(`${r},${col}`); }
+  const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+  for (let r = br; r < br + 3; r++)
+    for (let c = bc; c < bc + 3; c++)
+      if (r !== row || c !== col) set.add(`${r},${c}`);
+  return [...set].map((k) => k.split(',').map(Number));
+}
+
+export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   const [originalGrid, setOriginalGrid] = useState(null);
   const [currentGrid, setCurrentGrid] = useState(null);
   const [candidateGrid, setCandidateGrid] = useState(null);
@@ -124,12 +135,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       startTimer();
     } catch (err) {
       if (err.name === 'AbortError') return;
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Failed to load puzzle: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty, startTimer]);
+  }, [difficulty, startTimer, onForbidden]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -201,6 +213,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
   currentGridRef.current = currentGrid;
   const candidateGridRef = useRef(null);
   candidateGridRef.current = candidateGrid;
+  const autoNotesGridRef = useRef(null);
+  autoNotesGridRef.current = autoNotesGrid;
 
   const difficultyRef = useRef(difficulty);
   difficultyRef.current = difficulty;
@@ -268,7 +282,18 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     if (originalGrid && originalGrid[row][col] !== 0) return;
     if (inputMode === 'normal') {
       const prevValue = currentGridRef.current?.[row][col] ?? 0;
-      setHistory((h) => [...h, { type: 'normal', row, col, prevValue }]);
+      const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
+      const prevAutoNotes = [...(autoNotesGridRef.current?.[row][col] ?? [])];
+      const peers = getPeers(row, col);
+      const prevPeerCandidates = {};
+      const prevPeerAutoNotes = {};
+      for (const [pr, pc] of peers) {
+        const pCands = candidateGridRef.current?.[pr][pc] ?? [];
+        if (pCands.includes(number)) prevPeerCandidates[`${pr},${pc}`] = [...pCands];
+        const pAuto = autoNotesGridRef.current?.[pr][pc] ?? [];
+        if (pAuto.includes(number)) prevPeerAutoNotes[`${pr},${pc}`] = [...pAuto];
+      }
+      setHistory((h) => [...h, { type: 'normal', row, col, prevValue, prevCandidates, prevAutoNotes, prevPeerCandidates, prevPeerAutoNotes }]);
       setCurrentGrid((prev) => {
         const next = prev.map((r) => [...r]);
         next[row][col] = number;
@@ -281,6 +306,10 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       setCandidateGrid((prev) => {
         const next = prev.map((r) => r.map((c) => [...c]));
         next[row][col] = [];
+        for (const [pr, pc] of peers) {
+          const idx = next[pr][pc].indexOf(number);
+          if (idx !== -1) next[pr][pc].splice(idx, 1);
+        }
         if (gameIdRef.current) {
           // eslint-disable-next-line no-unused-vars
           try { localStorage.setItem(LS_KEY_CANDIDATE_GRID, JSON.stringify(next)); } catch (_) { /* storage full */ }
@@ -291,6 +320,10 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         if (!prev) return prev;
         const next = prev.map((r) => r.map((c) => [...c]));
         next[row][col] = [];
+        for (const [pr, pc] of peers) {
+          const idx = next[pr][pc].indexOf(number);
+          if (idx !== -1) next[pr][pc].splice(idx, 1);
+        }
         return next;
       });
       setErrorCells((prev) => {
@@ -382,12 +415,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         setErrorCells(new Set((result.errors ?? []).map((e) => `${e.row},${e.col}`)));
       }
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Validation failed: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, pauseTimer]);
+  }, [currentGrid, pauseTimer, onForbidden]);
 
   const requestHint = useCallback(async () => {
     if (!currentGrid) return;
@@ -398,12 +432,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       setHintStage('nudge');
       setHighlightCells([]);
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Hint failed: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid]);
+  }, [currentGrid, hintMinRank, onForbidden]);
 
   const advanceHint = useCallback(() => {
     if (!activeHint) return;
@@ -460,6 +495,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         const result = await getCandidates(currentGrid);
         setAutoNotesGrid(result.candidatesGrid);
       } catch (err) {
+        if (err instanceof ForbiddenError) { onForbidden?.(); return; }
         setStatusMessage(`Auto-notes failed: ${err.message}`);
         setGameStatus('error');
         return;
@@ -468,7 +504,26 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       }
     }
     setAutoNotesActive(true);
-  }, [currentGrid, autoNotesActive, autoNotesGrid]);
+  }, [currentGrid, autoNotesActive, autoNotesGrid, onForbidden]);
+
+  const populateUserCandidates = useCallback(() => {
+    if (!autoNotesGrid || !currentGrid) return;
+    const snapshot = candidateGridRef.current.map((r) => r.map((c) => [...c]));
+    setHistory((h) => [...h, { type: 'populateCandidates', prevCandidateGrid: snapshot }]);
+    setCandidateGrid((prev) => {
+      const next = prev.map((r) => r.map((c) => [...c]));
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (currentGrid[r][c] === 0) next[r][c] = [...(autoNotesGrid[r][c] ?? [])];
+        }
+      }
+      if (gameIdRef.current) {
+        // eslint-disable-next-line no-unused-vars
+        try { localStorage.setItem(LS_KEY_CANDIDATE_GRID, JSON.stringify(next)); } catch (_) { /* storage full */ }
+      }
+      return next;
+    });
+  }, [autoNotesGrid, currentGrid]);
 
   const undoLastMove = useCallback(() => {
     setHistory((prev) => {
@@ -483,7 +538,25 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         });
         setCandidateGrid((g) => {
           const ng = g.map((r) => r.map((c) => [...c]));
-          ng[entry.row][entry.col] = [];
+          ng[entry.row][entry.col] = entry.prevCandidates ?? [];
+          if (entry.prevPeerCandidates) {
+            for (const [key, cands] of Object.entries(entry.prevPeerCandidates)) {
+              const [pr, pc] = key.split(',').map(Number);
+              ng[pr][pc] = [...cands];
+            }
+          }
+          return ng;
+        });
+        setAutoNotesGrid((g) => {
+          if (!g) return g;
+          const ng = g.map((r) => r.map((c) => [...c]));
+          ng[entry.row][entry.col] = entry.prevAutoNotes ?? [];
+          if (entry.prevPeerAutoNotes) {
+            for (const [key, notes] of Object.entries(entry.prevPeerAutoNotes)) {
+              const [pr, pc] = key.split(',').map(Number);
+              ng[pr][pc] = [...notes];
+            }
+          }
           return ng;
         });
         setErrorCells(prev => {
@@ -491,6 +564,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
           next.delete(`${entry.row},${entry.col}`);
           return next;
         });
+      } else if (entry.type === 'populateCandidates') {
+        setCandidateGrid(() => entry.prevCandidateGrid.map((r) => r.map((c) => [...c])));
       } else {
         setCandidateGrid((g) => {
           const ng = g.map((r) => r.map((c) => [...c]));
@@ -577,12 +652,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0);
       startTimer();
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Failed to import puzzle: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [startTimer]);
+  }, [startTimer, onForbidden]);
 
   const loadDemoGame = useCallback(async (technique) => {
     setIsLoading(true);
@@ -609,12 +685,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       lsClear();
       startTimer();
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Failed to load demo: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [startTimer]);
+  }, [startTimer, onForbidden]);
 
   const handleSetDifficulty = useCallback((diff) => {
     setDifficulty(diff);
@@ -656,6 +733,8 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
     advanceHint,
     dismissHint,
     toggleAutoNotes,
+    populateUserCandidates,
+    canPopulateCandidates: autoNotesActive && !!autoNotesGrid,
     clearStatus,
     finishGame,
     elapsedSeconds,

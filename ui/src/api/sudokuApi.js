@@ -4,6 +4,13 @@ const API_URL = import.meta.env.VITE_API_URL;
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const LOG_API = import.meta.env.VITE_LOG_API === 'true';
 
+export class ForbiddenError extends Error {
+  constructor() {
+    super('Access denied');
+    this.name = 'ForbiddenError';
+  }
+}
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -33,6 +40,7 @@ async function apiFetch(label, url, options = {}, authenticated = false) {
       console.log('← error:', res.status);
       console.groupEnd();
     }
+    if (res.status === 403) throw new ForbiddenError();
     throw new Error(`HTTP ${res.status}`);
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') {

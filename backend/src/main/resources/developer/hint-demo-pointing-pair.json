@@ -1,6 +1,6 @@
 {
   "slug": "pointing-pair",
-  "description": "After FullHouse and NakedSingle cells are autocompleted, digit 7 in block 2 is confined to column 6 — a pointing pair that eliminates 7 from other cells in column 6 outside the block.",
+  "description": "Pre-baked grid: digit 7 in block 2 is confined to column 6 — a pointing pair that eliminates 7 from other cells in column 6 outside the block.",
   "grid": [
     [3, 0, 0, 8, 0, 0, 0, 0, 6],
     [0, 0, 0, 0, 7, 0, 0, 9, 0],
