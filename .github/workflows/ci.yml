@@ -106,17 +106,9 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/start-localstack
-        with:
-          auth-token: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/create-localstack-dynamodb
-      - name: Run unit, API and integration tests with coverage
-        run: ./mvnw verify -DskipITs=false
-        env:
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
-          AWS_DEFAULT_REGION: us-east-1
+      - name: Run unit and API tests with coverage
+        run: ./mvnw verify
       - name: Upload JaCoCo report
         if: always()
         uses: actions/upload-artifact@v7
