@@ -25,6 +25,7 @@ import ImageIcon from '@mui/icons-material/Image';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
+import Tooltip from '@mui/material/Tooltip';
 import AvatarPickerDialog from './AvatarPickerDialog.jsx';
 import { AVATAR_ICONS } from '../utils/avatarIcons.js';
 import PuzzleHistoryDialog from './PuzzleHistoryDialog.jsx';
@@ -204,6 +205,7 @@ export default function Header({
 
             {(user || MOCK_API || SKIP_AUTH) && (
               <>
+                <Tooltip title={!MOCK_API && !SKIP_AUTH ? (user?.signInDetails?.loginId ?? '') : ''} placement="bottom-end">
                 <IconButton onClick={handleAvatarClick} size="small" aria-label="User menu">
                   <Avatar
                     sx={{
@@ -217,6 +219,7 @@ export default function Header({
                     {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user)}
                   </Avatar>
                 </IconButton>
+                </Tooltip>
                 <Menu
                   anchorEl={anchorEl}
                   open={Boolean(anchorEl)}

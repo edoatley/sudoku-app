@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid } from '../api/sudokuApi.js';
+import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid, ForbiddenError } from '../api/sudokuApi.js';
 
 const LS_KEY_GAME_ID = 'sudoku_gameId';
 const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
@@ -36,7 +36,7 @@ function getPeers(row, col) {
   return [...set].map((k) => k.split(',').map(Number));
 }
 
-export function useSudokuGame(user, { onGameComplete } = {}) {
+export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   const [originalGrid, setOriginalGrid] = useState(null);
   const [currentGrid, setCurrentGrid] = useState(null);
   const [candidateGrid, setCandidateGrid] = useState(null);
@@ -135,12 +135,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       startTimer();
     } catch (err) {
       if (err.name === 'AbortError') return;
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Failed to load puzzle: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty, startTimer]);
+  }, [difficulty, startTimer, onForbidden]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -414,12 +415,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         setErrorCells(new Set((result.errors ?? []).map((e) => `${e.row},${e.col}`)));
       }
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Validation failed: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, pauseTimer]);
+  }, [currentGrid, pauseTimer, onForbidden]);
 
   const requestHint = useCallback(async () => {
     if (!currentGrid) return;
@@ -430,12 +432,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       setHintStage('nudge');
       setHighlightCells([]);
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Hint failed: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, hintMinRank]);
+  }, [currentGrid, hintMinRank, onForbidden]);
 
   const advanceHint = useCallback(() => {
     if (!activeHint) return;
@@ -492,6 +495,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
         const result = await getCandidates(currentGrid);
         setAutoNotesGrid(result.candidatesGrid);
       } catch (err) {
+        if (err instanceof ForbiddenError) { onForbidden?.(); return; }
         setStatusMessage(`Auto-notes failed: ${err.message}`);
         setGameStatus('error');
         return;
@@ -500,7 +504,7 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       }
     }
     setAutoNotesActive(true);
-  }, [currentGrid, autoNotesActive, autoNotesGrid]);
+  }, [currentGrid, autoNotesActive, autoNotesGrid, onForbidden]);
 
   const populateUserCandidates = useCallback(() => {
     if (!autoNotesGrid || !currentGrid) return;
@@ -648,12 +652,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0);
       startTimer();
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Failed to import puzzle: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [startTimer]);
+  }, [startTimer, onForbidden]);
 
   const loadDemoGame = useCallback(async (technique) => {
     setIsLoading(true);
@@ -680,12 +685,13 @@ export function useSudokuGame(user, { onGameComplete } = {}) {
       lsClear();
       startTimer();
     } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
       setStatusMessage(`Failed to load demo: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [startTimer]);
+  }, [startTimer, onForbidden]);
 
   const handleSetDifficulty = useCallback((diff) => {
     setDifficulty(diff);

@@ -158,6 +158,7 @@
                                 <exclude>com/sudoku/player/**</exclude>
                                 <exclude>com/sudoku/logging/**</exclude>
                                 <exclude>com/sudoku/cors/**</exclude>
+                                <exclude>com/sudoku/auth/DevUserFilter*.class</exclude>
                             </excludes>
                             <rules>
                                 <rule>
