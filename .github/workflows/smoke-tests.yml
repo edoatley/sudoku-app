@@ -187,6 +187,25 @@ jobs:
           echo "SMOKE_ID_TOKEN=${ID_TOKEN}"         >> "$GITHUB_ENV"
           echo "SMOKE_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
 
+      - name: Warm up image recognition Lambda (RC only — handles cold starts)
+        if: inputs.environment_type == 'rc'
+        env:
+          API_URL: ${{ inputs.api_gateway_url }}
+          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
+        run: |
+          API_BASE="${API_URL%/}"
+          # Send a minimal 1x1 white JPEG — just enough to wake the container.
+          # The Lambda will return 422 (too few clues) or 200; both mean it's alive.
+          TINY_B64="/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVIP/2Q=="
+          printf '{"image":"%s"}' "$TINY_B64" > /tmp/warmup_body.json
+          printf 'Authorization: Bearer %s\n' "${SMOKE_ID_TOKEN}" > /tmp/warmup_auth.txt
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 65 \
+            -X POST "${API_BASE}/api/v1/puzzles/import" \
+            -H "Content-Type: application/json" \
+            -H @/tmp/warmup_auth.txt \
+            --data-binary @/tmp/warmup_body.json || echo "000")
+          echo "Image recognition Lambda warm-up → HTTP ${STATUS}"
+
       - name: Image recognition smoke test
         id: import-smoke
         env:
