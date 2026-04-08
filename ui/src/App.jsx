@@ -65,7 +65,7 @@ if (!MOCK_API && !SKIP_AUTH) {
 }
 
 function SudokuApp({ user, signOut }) {
-  const { avatar, setAvatar, history, recordGame } = usePlayerProfile();
+  const { avatar, setAvatar, history, recordGame, playerProfile } = usePlayerProfile(user);
   const [forbidden, setForbidden] = useState(false);
   const handleForbidden = useCallback(() => setForbidden(true), []);
 
@@ -186,6 +186,7 @@ function SudokuApp({ user, signOut }) {
         onSignOut={signOut}
         avatar={avatar}
         onAvatarChange={setAvatar}
+        playerProfile={playerProfile}
         history={history}
         isPaused={isPaused}
         onPause={pauseGame}

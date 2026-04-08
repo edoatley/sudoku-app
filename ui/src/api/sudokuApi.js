@@ -180,6 +180,11 @@ export async function getDemoGrid(technique) {
   return apiFetch('getDemoGrid', `${API_URL}/dev/hint-demo?technique=${encodeURIComponent(technique)}`);
 }
 
+export async function getPlayerProfile() {
+  if (MOCK_API) return null;
+  return apiFetch('getPlayerProfile', `${API_URL}/players/me`, {}, true);
+}
+
 export async function createGameFromGrid(originalGrid) {
   if (MOCK_API) {
     await delay(300);

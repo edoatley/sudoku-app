@@ -43,9 +43,10 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function getUserInitial(user) {
-  const loginId = user?.signInDetails?.loginId ?? user?.username ?? '';
-  return loginId.charAt(0).toUpperCase() || '?';
+function getUserInitial(user, playerProfile) {
+  const id = playerProfile?.displayName ?? playerProfile?.email
+           ?? user?.signInDetails?.loginId ?? user?.username ?? '';
+  return id.charAt(0).toUpperCase() || '?';
 }
 
 const DEMO_TECHNIQUES = [
@@ -79,6 +80,7 @@ export default function Header({
   onToggleColorMode,
   avatar,
   onAvatarChange,
+  playerProfile,
   history,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -100,9 +102,11 @@ export default function Header({
   const avatarIconEntry = AVATAR_ICONS.find((a) => a.name === avatar);
   const AvatarIcon = avatarIconEntry?.Component ?? null;
 
-  const displayName = !MOCK_API && !SKIP_AUTH
-    ? (user?.signInDetails?.loginId ?? user?.username ?? null)
-    : (user?.username ?? 'Guest');
+  const displayName = playerProfile?.displayName
+    ?? playerProfile?.email
+    ?? (!MOCK_API && !SKIP_AUTH
+        ? (user?.signInDetails?.loginId ?? user?.username ?? null)
+        : (user?.username ?? 'Guest'));
 
   return (
     <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
@@ -241,7 +245,7 @@ export default function Header({
                       fontWeight: 'bold',
                     }}
                   >
-                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user)}
+                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user, playerProfile)}
                   </Avatar>
                   {displayName && (
                     <Typography
@@ -271,7 +275,7 @@ export default function Header({
                     <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', mb: 0.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
-                          {AvatarIcon ? <AvatarIcon sx={{ fontSize: 22 }} /> : getUserInitial(user)}
+                          {AvatarIcon ? <AvatarIcon sx={{ fontSize: 22 }} /> : getUserInitial(user, playerProfile)}
                         </Avatar>
                         <Box>
                           <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 180 }}>

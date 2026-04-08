@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { getPlayerProfile } from '../api/sudokuApi.js';
 
 const LS_KEY_AVATAR = 'sudoku_avatar';
 const LS_KEY_HISTORY = 'sudoku_gameHistory';
 
-export function usePlayerProfile() {
+export function usePlayerProfile(user) {
   const [avatar, setAvatarState] = useState(
     () => localStorage.getItem(LS_KEY_AVATAR) ?? 'Person'
   );
@@ -14,6 +15,12 @@ export function usePlayerProfile() {
       return [];
     }
   });
+  const [playerProfile, setPlayerProfile] = useState(null);
+
+  useEffect(() => {
+    if (!user) return;
+    getPlayerProfile().then(setPlayerProfile).catch(() => {});
+  }, [user]);
 
   const setAvatar = useCallback((iconName) => {
     localStorage.setItem(LS_KEY_AVATAR, iconName);
@@ -39,5 +46,5 @@ export function usePlayerProfile() {
     });
   }, []);
 
-  return { avatar, setAvatar, history, recordGame };
+  return { avatar, setAvatar, history, recordGame, playerProfile };
 }
