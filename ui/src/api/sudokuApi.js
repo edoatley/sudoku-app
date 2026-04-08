@@ -21,6 +21,12 @@ async function getIdToken() {
   return session.tokens?.idToken?.toString();
 }
 
+export async function getEmailFromSession() {
+  const { fetchAuthSession } = await import('aws-amplify/auth');
+  const session = await fetchAuthSession();
+  return session.tokens?.idToken?.payload?.email ?? null;
+}
+
 async function apiFetch(label, url, options = {}, authenticated = false) {
   if (LOG_API) {
     const body = options.body ? JSON.parse(options.body) : undefined;
@@ -178,6 +184,11 @@ export async function getDemoGrid(technique) {
   }
 
   return apiFetch('getDemoGrid', `${API_URL}/dev/hint-demo?technique=${encodeURIComponent(technique)}`);
+}
+
+export async function getPlayerProfile() {
+  if (MOCK_API) return null;
+  return apiFetch('getPlayerProfile', `${API_URL}/players/me`, {}, true);
 }
 
 export async function createGameFromGrid(originalGrid) {

@@ -289,6 +289,7 @@ else
     --build-arg VITE_API_URL=http://localhost:8080/api/v1 \
     --build-arg VITE_MOCK_API=false \
     --build-arg VITE_SKIP_AUTH=true \
+    --build-arg VITE_DEV_TOOLS=true \
     "${REPO_ROOT}/ui"
 
   echo "Starting services..."

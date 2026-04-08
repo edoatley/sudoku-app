@@ -14,7 +14,7 @@ runs:
   using: composite
   steps:
     - name: Cache LocalStack image
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: /tmp/localstack-image.tar
         key: localstack-image-${{ inputs.image }}

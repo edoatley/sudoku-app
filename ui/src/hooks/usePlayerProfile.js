@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { getPlayerProfile, getEmailFromSession, ForbiddenError } from '../api/sudokuApi.js';
 
 const LS_KEY_AVATAR = 'sudoku_avatar';
 const LS_KEY_HISTORY = 'sudoku_gameHistory';
 
-export function usePlayerProfile() {
+export function usePlayerProfile(user, { onForbidden } = {}) {
   const [avatar, setAvatarState] = useState(
     () => localStorage.getItem(LS_KEY_AVATAR) ?? 'Person'
   );
@@ -14,6 +15,23 @@ export function usePlayerProfile() {
       return [];
     }
   });
+  const [playerProfile, setPlayerProfile] = useState(null);
+  const [sessionEmail, setSessionEmail] = useState(null);
+
+  useEffect(() => {
+    if (!user) return;
+    getEmailFromSession().then(setSessionEmail).catch(() => null);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    getPlayerProfile().then(setPlayerProfile).catch(async (err) => {
+      if (err instanceof ForbiddenError) {
+        const email = await getEmailFromSession().catch(() => null);
+        onForbidden?.(email);
+      }
+    });
+  }, [user, onForbidden]);
 
   const setAvatar = useCallback((iconName) => {
     localStorage.setItem(LS_KEY_AVATAR, iconName);
@@ -39,5 +57,5 @@ export function usePlayerProfile() {
     });
   }, []);
 
-  return { avatar, setAvatar, history, recordGame };
+  return { avatar, setAvatar, history, recordGame, playerProfile, sessionEmail };
 }

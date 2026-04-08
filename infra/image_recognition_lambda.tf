@@ -74,7 +74,7 @@ resource "aws_lambda_function" "image_recognition" {
 
   architectures = ["x86_64"]
   memory_size   = 512
-  timeout       = 30 # Bedrock inference can take up to ~20 s for large images
+  timeout       = 60 # Bedrock inference can take ~20 s; cold start on a container image adds ~20 s on top
 
   tracing_config {
     mode = "PassThrough"

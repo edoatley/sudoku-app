@@ -25,7 +25,6 @@ import ImageIcon from '@mui/icons-material/Image';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
-import Tooltip from '@mui/material/Tooltip';
 import AvatarPickerDialog from './AvatarPickerDialog.jsx';
 import { AVATAR_ICONS } from '../utils/avatarIcons.js';
 import PuzzleHistoryDialog from './PuzzleHistoryDialog.jsx';
@@ -44,9 +43,11 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function getUserInitial(user) {
-  const loginId = user?.signInDetails?.loginId ?? user?.username ?? '';
-  return loginId.charAt(0).toUpperCase() || '?';
+function getUserInitial(user, playerProfile, sessionEmail) {
+  const id = playerProfile?.displayName ?? playerProfile?.email
+           ?? sessionEmail
+           ?? user?.signInDetails?.loginId ?? user?.username ?? '';
+  return id.charAt(0).toUpperCase() || '?';
 }
 
 const DEMO_TECHNIQUES = [
@@ -80,6 +81,8 @@ export default function Header({
   onToggleColorMode,
   avatar,
   onAvatarChange,
+  playerProfile,
+  sessionEmail,
   history,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -101,6 +104,13 @@ export default function Header({
   const avatarIconEntry = AVATAR_ICONS.find((a) => a.name === avatar);
   const AvatarIcon = avatarIconEntry?.Component ?? null;
 
+  const displayName = playerProfile?.displayName
+    ?? playerProfile?.email
+    ?? sessionEmail
+    ?? (!MOCK_API && !SKIP_AUTH
+        ? (user?.signInDetails?.loginId ?? user?.username ?? null)
+        : (user?.username ?? 'Guest'));
+
   return (
     <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
       <Toolbar sx={{ justifyContent: 'space-between' }}>
@@ -109,11 +119,24 @@ export default function Header({
             <>
               <IconButton
                 onClick={handleGameMenuOpen}
-                sx={{ color: 'primary.contrastText' }}
+                sx={{ color: 'primary.contrastText', borderRadius: 1 }}
                 size="small"
                 aria-label="Game menu"
               >
                 <MenuIcon />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'primary.contrastText',
+                    ml: 0.5,
+                    fontWeight: 600,
+                    display: { xs: 'none', sm: 'inline' },
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Game
+                </Typography>
               </IconButton>
               <Menu
                 anchorEl={gameMenuAnchorEl}
@@ -122,6 +145,11 @@ export default function Header({
                 transformOrigin={{ horizontal: 'left', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
               >
+                <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', mb: 0.5 }}>
+                  <Typography variant="overline" color="text.secondary" lineHeight={1.5}>
+                    Game
+                  </Typography>
+                </Box>
                 <MenuItem onClick={() => { handleGameMenuClose(); onNewGame?.(); }}>
                   <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
                   <ListItemText>New Game</ListItemText>
@@ -205,8 +233,12 @@ export default function Header({
 
             {(user || MOCK_API || SKIP_AUTH) && (
               <>
-                <Tooltip title={!MOCK_API && !SKIP_AUTH ? (user?.signInDetails?.loginId ?? '') : ''} placement="bottom-end">
-                <IconButton onClick={handleAvatarClick} size="small" aria-label="User menu">
+                <IconButton
+                  onClick={handleAvatarClick}
+                  size="small"
+                  aria-label="Account menu"
+                  sx={{ color: 'primary.contrastText', borderRadius: 1, gap: 0.5 }}
+                >
                   <Avatar
                     sx={{
                       bgcolor: 'primary.dark',
@@ -216,10 +248,25 @@ export default function Header({
                       fontWeight: 'bold',
                     }}
                   >
-                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user)}
+                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user, playerProfile, sessionEmail)}
                   </Avatar>
+                  {displayName && (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'primary.contrastText',
+                        fontWeight: 600,
+                        display: { xs: 'none', sm: 'inline' },
+                        maxWidth: 120,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {displayName}
+                    </Typography>
+                  )}
                 </IconButton>
-                </Tooltip>
                 <Menu
                   anchorEl={anchorEl}
                   open={Boolean(anchorEl)}
@@ -227,6 +274,21 @@ export default function Header({
                   transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                   anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                 >
+                  {displayName && (
+                    <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', mb: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+                          {AvatarIcon ? <AvatarIcon sx={{ fontSize: 22 }} /> : getUserInitial(user, playerProfile, sessionEmail)}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 180 }}>
+                            {displayName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">My Account</Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
                   <MenuItem onClick={() => { handleMenuClose(); setAvatarDialogOpen(true); }}>
                     <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Change Avatar</ListItemText>
