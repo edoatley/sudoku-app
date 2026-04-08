@@ -8,7 +8,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -30,9 +29,6 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
     @Inject
     SecurityIdentity identity;
 
-    @Inject
-    JsonWebToken jwt;
-
     @ConfigProperty(name = "app.allowed.emails")
     Optional<String> allowedEmailsRaw;
 
@@ -52,7 +48,8 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        String email = jwt.getClaim("email");
+        Object emailClaim = identity.getAttribute("email");
+        String email = emailClaim != null ? emailClaim.toString() : null;
 
         if (email == null || !allowed.contains(email)) {
             ctx.abortWith(

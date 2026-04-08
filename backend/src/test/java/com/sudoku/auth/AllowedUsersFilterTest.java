@@ -3,7 +3,6 @@ package com.sudoku.auth;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -18,23 +17,17 @@ class AllowedUsersFilterTest {
 
     private AllowedUsersFilter filter;
     private SecurityIdentity identity;
-    private JsonWebToken jwt;
     private ContainerRequestContext ctx;
 
     @BeforeEach
     void setUp() throws Exception {
         filter = new AllowedUsersFilter();
         identity = mock(SecurityIdentity.class);
-        jwt = mock(JsonWebToken.class);
         ctx = mock(ContainerRequestContext.class);
 
         Field identityField = AllowedUsersFilter.class.getDeclaredField("identity");
         identityField.setAccessible(true);
         identityField.set(filter, identity);
-
-        Field jwtField = AllowedUsersFilter.class.getDeclaredField("jwt");
-        jwtField.setAccessible(true);
-        jwtField.set(filter, jwt);
     }
 
     private void setAllowedEmails(String value) throws Exception {
@@ -47,7 +40,7 @@ class AllowedUsersFilterTest {
     void allowedEmail_passesThrough() throws Exception {
         setAllowedEmails("edoatley@gmail.com,hanoatley@gmail.com");
         when(identity.isAnonymous()).thenReturn(false);
-        when(jwt.getClaim("email")).thenReturn("edoatley@gmail.com");
+        when(identity.getAttribute("email")).thenReturn("edoatley@gmail.com");
 
         filter.filter(ctx);
 
@@ -58,7 +51,7 @@ class AllowedUsersFilterTest {
     void disallowedEmail_returns403() throws Exception {
         setAllowedEmails("edoatley@gmail.com,hanoatley@gmail.com");
         when(identity.isAnonymous()).thenReturn(false);
-        when(jwt.getClaim("email")).thenReturn("stranger@example.com");
+        when(identity.getAttribute("email")).thenReturn("stranger@example.com");
 
         filter.filter(ctx);
 
@@ -71,7 +64,7 @@ class AllowedUsersFilterTest {
     void missingEmailClaim_returns403() throws Exception {
         setAllowedEmails("edoatley@gmail.com");
         when(identity.isAnonymous()).thenReturn(false);
-        when(jwt.getClaim("email")).thenReturn(null);
+        when(identity.getAttribute("email")).thenReturn(null);
 
         filter.filter(ctx);
 
@@ -110,7 +103,7 @@ class AllowedUsersFilterTest {
     void whitespaceAroundEmails_isTrimmed() throws Exception {
         setAllowedEmails("  edoatley@gmail.com , hanoatley@gmail.com  ");
         when(identity.isAnonymous()).thenReturn(false);
-        when(jwt.getClaim("email")).thenReturn("hanoatley@gmail.com");
+        when(identity.getAttribute("email")).thenReturn("hanoatley@gmail.com");
 
         filter.filter(ctx);
 
