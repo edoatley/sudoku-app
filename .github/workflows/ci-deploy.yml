@@ -228,6 +228,37 @@ jobs:
             echo "========================================================"
           fi
 
+      - name: Re-home beta domain association to current RC app
+        if: steps.env.outputs.is_main == 'false'
+        working-directory: infra
+        run: |
+          BETA_DOMAIN="sudoku-beta.edoatley.co.uk"
+          CURRENT_APP_ID=$(terraform output -raw amplify_app_id)
+
+          # Find which Amplify app currently holds the beta domain (if any).
+          # list-apps does not include domain info, so scan each app individually.
+          ALL_APPS=$(aws amplify list-apps --query "apps[].appId" --output text)
+          OWNER_APP_ID=""
+          for APP in $ALL_APPS; do
+            ASSOC=$(aws amplify list-domain-associations --app-id "$APP" \
+              --query "domainAssociations[?domainName=='${BETA_DOMAIN}'].domainName" \
+              --output text 2>/dev/null || true)
+            if [ -n "$ASSOC" ] && [ "$ASSOC" != "None" ]; then
+              OWNER_APP_ID="$APP"
+              break
+            fi
+          done
+
+          if [ -z "$OWNER_APP_ID" ]; then
+            echo "Beta domain not currently associated with any app — nothing to do."
+          elif [ "$OWNER_APP_ID" = "$CURRENT_APP_ID" ]; then
+            echo "Beta domain already on current app (${CURRENT_APP_ID}) — importing into state if needed."
+            terraform import 'aws_amplify_domain_association.beta[0]' "${CURRENT_APP_ID}/${BETA_DOMAIN}" 2>/dev/null || true
+          else
+            echo "Beta domain is on app ${OWNER_APP_ID}; deleting association so current app (${CURRENT_APP_ID}) can claim it."
+            aws amplify delete-domain-association --app-id "$OWNER_APP_ID" --domain-name "$BETA_DOMAIN"
+          fi
+
       - name: Terraform plan — phase 2 (full including domain)
         env:
           TF_VAR_github_token:             ${{ secrets.AMPLIFY_GITHUB_TOKEN }}
