@@ -65,9 +65,10 @@ if (!MOCK_API && !SKIP_AUTH) {
 }
 
 function SudokuApp({ user, signOut }) {
-  const { avatar, setAvatar, history, recordGame, playerProfile } = usePlayerProfile(user);
   const [forbidden, setForbidden] = useState(false);
-  const handleForbidden = useCallback(() => setForbidden(true), []);
+  const [forbiddenEmail, setForbiddenEmail] = useState(null);
+  const handleForbidden = useCallback((email = null) => { setForbidden(true); setForbiddenEmail(email); }, []);
+  const { avatar, setAvatar, history, recordGame, playerProfile, sessionEmail } = usePlayerProfile(user, { onForbidden: handleForbidden });
 
   const [colorMode, setColorMode] = useState(
     () => localStorage.getItem('sudoku_colorMode') ?? 'light'
@@ -165,7 +166,9 @@ function SudokuApp({ user, signOut }) {
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 3, p: 3 }}>
           <Typography variant="h5">Access Denied</Typography>
           <Typography color="text.secondary" align="center">
-            You are not authorised to use this application.
+            {forbiddenEmail
+              ? <><strong>{forbiddenEmail}</strong> is not authorised to access this application.</>
+              : 'You are not authorised to use this application.'}
           </Typography>
           {signOut && (
             <Button variant="contained" onClick={signOut}>Sign Out</Button>
@@ -187,6 +190,7 @@ function SudokuApp({ user, signOut }) {
         avatar={avatar}
         onAvatarChange={setAvatar}
         playerProfile={playerProfile}
+        sessionEmail={sessionEmail}
         history={history}
         isPaused={isPaused}
         onPause={pauseGame}

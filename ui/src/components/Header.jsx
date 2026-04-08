@@ -43,8 +43,9 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function getUserInitial(user, playerProfile) {
+function getUserInitial(user, playerProfile, sessionEmail) {
   const id = playerProfile?.displayName ?? playerProfile?.email
+           ?? sessionEmail
            ?? user?.signInDetails?.loginId ?? user?.username ?? '';
   return id.charAt(0).toUpperCase() || '?';
 }
@@ -81,6 +82,7 @@ export default function Header({
   avatar,
   onAvatarChange,
   playerProfile,
+  sessionEmail,
   history,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -104,6 +106,7 @@ export default function Header({
 
   const displayName = playerProfile?.displayName
     ?? playerProfile?.email
+    ?? sessionEmail
     ?? (!MOCK_API && !SKIP_AUTH
         ? (user?.signInDetails?.loginId ?? user?.username ?? null)
         : (user?.username ?? 'Guest'));
@@ -245,7 +248,7 @@ export default function Header({
                       fontWeight: 'bold',
                     }}
                   >
-                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user, playerProfile)}
+                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user, playerProfile, sessionEmail)}
                   </Avatar>
                   {displayName && (
                     <Typography
@@ -275,7 +278,7 @@ export default function Header({
                     <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', mb: 0.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
-                          {AvatarIcon ? <AvatarIcon sx={{ fontSize: 22 }} /> : getUserInitial(user, playerProfile)}
+                          {AvatarIcon ? <AvatarIcon sx={{ fontSize: 22 }} /> : getUserInitial(user, playerProfile, sessionEmail)}
                         </Avatar>
                         <Box>
                           <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 180 }}>

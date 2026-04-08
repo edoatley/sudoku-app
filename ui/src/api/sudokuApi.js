@@ -21,6 +21,12 @@ async function getIdToken() {
   return session.tokens?.idToken?.toString();
 }
 
+export async function getEmailFromSession() {
+  const { fetchAuthSession } = await import('aws-amplify/auth');
+  const session = await fetchAuthSession();
+  return session.tokens?.idToken?.payload?.email ?? null;
+}
+
 async function apiFetch(label, url, options = {}, authenticated = false) {
   if (LOG_API) {
     const body = options.body ? JSON.parse(options.body) : undefined;
