@@ -1,0 +1,126 @@
+package com.sudoku.player;
+
+import io.quarkus.security.identity.SecurityIdentity;
+import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.lang.reflect.Field;
+import java.security.Principal;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+class PlayerResourceTest {
+
+    // A Principal that also implements JsonWebToken so we can test the cast path.
+    interface JwtPrincipal extends Principal, JsonWebToken {}
+
+    private PlayerResource resource;
+    private SecurityIdentity identity;
+    private PlayerService playerService;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        resource = new PlayerResource();
+        identity = mock(SecurityIdentity.class);
+        playerService = mock(PlayerService.class);
+
+        Field identityField = PlayerResource.class.getDeclaredField("identity");
+        identityField.setAccessible(true);
+        identityField.set(resource, identity);
+
+        Field serviceField = PlayerResource.class.getDeclaredField("playerService");
+        serviceField.setAccessible(true);
+        serviceField.set(resource, playerService);
+    }
+
+    /** Stub a JWT principal returning the given email and name claims. */
+    private JwtPrincipal stubJwtPrincipal(String email, String name) {
+        JwtPrincipal jwt = mock(JwtPrincipal.class);
+        when(jwt.getClaim("email")).thenReturn(email);
+        when(jwt.getClaim("name")).thenReturn(name);
+        when(jwt.getName()).thenReturn("user-sub-123");
+        when(identity.getPrincipal()).thenReturn(jwt);
+        return jwt;
+    }
+
+    @Test
+    void getMe_extractsEmailAndDisplayName_fromJwtClaims() throws Exception {
+        stubJwtPrincipal("user@example.com", "Alice Smith");
+        when(playerService.getOrCreateProfile(any(), any(), any()))
+                .thenReturn(new PlayerProfile("user-sub-123", "user@example.com", "Alice Smith", "now", "now"));
+
+        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
+        when(sc.getUserPrincipal()).thenReturn(mock(Principal.class));
+        when(sc.getUserPrincipal().getName()).thenReturn("user-sub-123");
+
+        resource.getMe(sc);
+
+        ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
+        verify(playerService).getOrCreateProfile(any(), emailCaptor.capture(), nameCaptor.capture());
+        assertEquals("user@example.com", emailCaptor.getValue());
+        assertEquals("Alice Smith", nameCaptor.getValue());
+    }
+
+    @Test
+    void getMe_fallsBackToGetAttribute_whenPrincipalIsNotJwt() throws Exception {
+        // Principal does not implement JsonWebToken
+        Principal plainPrincipal = mock(Principal.class);
+        when(plainPrincipal.getName()).thenReturn("user-sub-456");
+        when(identity.getPrincipal()).thenReturn(plainPrincipal);
+        when(identity.getAttribute("email")).thenReturn("fallback@example.com");
+        when(identity.getAttribute("name")).thenReturn("Bob Jones");
+        when(playerService.getOrCreateProfile(any(), any(), any()))
+                .thenReturn(new PlayerProfile("user-sub-456", "fallback@example.com", "Bob Jones", "now", "now"));
+
+        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
+        when(sc.getUserPrincipal()).thenReturn(plainPrincipal);
+
+        resource.getMe(sc);
+
+        ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
+        verify(playerService).getOrCreateProfile(any(), emailCaptor.capture(), nameCaptor.capture());
+        assertEquals("fallback@example.com", emailCaptor.getValue());
+        assertEquals("Bob Jones", nameCaptor.getValue());
+    }
+
+    @Test
+    void getMe_passesNulls_whenClaimsAbsent() throws Exception {
+        stubJwtPrincipal(null, null);
+        when(identity.getAttribute("email")).thenReturn(null);
+        when(identity.getAttribute("name")).thenReturn(null);
+        when(playerService.getOrCreateProfile(any(), any(), any()))
+                .thenReturn(new PlayerProfile("user-sub-123", "", "", "now", "now"));
+
+        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
+        when(sc.getUserPrincipal()).thenReturn(mock(Principal.class));
+        when(sc.getUserPrincipal().getName()).thenReturn("user-sub-123");
+
+        resource.getMe(sc);
+
+        verify(playerService).getOrCreateProfile(any(), isNull(), isNull());
+    }
+
+    @Test
+    void getMe_prefersJwtClaim_overGetAttribute() throws Exception {
+        // Both sources available — JWT claim should win
+        JwtPrincipal jwt = stubJwtPrincipal("jwt@example.com", "JWT Name");
+        when(identity.getAttribute("email")).thenReturn("attr@example.com");
+        when(identity.getAttribute("name")).thenReturn("Attr Name");
+        when(playerService.getOrCreateProfile(any(), any(), any()))
+                .thenReturn(new PlayerProfile("user-sub-123", "jwt@example.com", "JWT Name", "now", "now"));
+
+        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
+        when(sc.getUserPrincipal()).thenReturn(jwt);
+
+        resource.getMe(sc);
+
+        ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
+        verify(playerService).getOrCreateProfile(any(), emailCaptor.capture(), any());
+        assertEquals("jwt@example.com", emailCaptor.getValue());
+    }
+}
