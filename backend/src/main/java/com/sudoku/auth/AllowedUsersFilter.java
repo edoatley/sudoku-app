@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -48,8 +49,17 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        Object emailClaim = identity.getAttribute("email");
-        String email = emailClaim != null ? emailClaim.toString() : null;
+        // In Quarkus OIDC service mode the principal is an OidcJwtCallerPrincipal
+        // which implements JsonWebToken — cast to access claims directly.
+        String email = null;
+        if (identity.getPrincipal() instanceof JsonWebToken jwt) {
+            email = jwt.getClaim("email");
+        }
+        // Fallback: some Quarkus OIDC versions also expose claims via getAttribute
+        if (email == null) {
+            Object attr = identity.getAttribute("email");
+            if (attr != null) email = attr.toString();
+        }
 
         if (email == null || !allowed.contains(email)) {
             ctx.abortWith(
