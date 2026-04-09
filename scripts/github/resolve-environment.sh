@@ -28,9 +28,9 @@ if [ "${BRANCH}" = "main" ]; then
   IS_MAIN="true"
   AMPLIFY_BRANCH="main"
 else
-  SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
-  WORKSPACE="${SANITIZED}"
-  ENVIRONMENT="${SANITIZED}"
+  SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-')
+  WORKSPACE=$(echo "${SANITIZED}" | cut -c1-32)
+  ENVIRONMENT="${WORKSPACE}"
   IS_MAIN="false"
   AMPLIFY_BRANCH="${SANITIZED}"
 fi
