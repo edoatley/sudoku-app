@@ -300,7 +300,7 @@ jobs:
           APP_ID:           ${{ steps.outputs.outputs.amplify_app_id }}
           USER_POOL_ID:     ${{ steps.outputs.outputs.cognito_user_pool_id }}
           CLIENT_ID:        ${{ steps.outputs.outputs.cognito_client_id }}
-          BRANCH:           ${{ steps.env.outputs.branch }}
+          BRANCH:           ${{ steps.env.outputs.amplify_branch }}
           FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
           IS_MAIN:          ${{ steps.env.outputs.is_main }}
         run: |
