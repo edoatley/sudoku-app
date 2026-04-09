@@ -132,6 +132,36 @@ class TestParseGrid:
 
 
 # ---------------------------------------------------------------------------
+# _detect_image_format
+# ---------------------------------------------------------------------------
+
+
+def _make_png(width: int = 10, height: int = 10) -> bytes:
+    img = Image.new("RGB", (width, height), color=(0, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+class TestDetectImageFormat:
+
+    def test_jpeg_bytes_detected(self):
+        assert handler._detect_image_format(_make_jpeg(10, 10)) == "jpeg"
+
+    def test_png_bytes_detected(self):
+        assert handler._detect_image_format(_make_png()) == "png"
+
+    def test_unknown_bytes_default_to_jpeg(self):
+        assert handler._detect_image_format(b"\x00\x01\x02\x03") == "jpeg"
+
+    def test_gif_bytes_detected(self):
+        assert handler._detect_image_format(b"GIF89a\x00\x00") == "gif"
+
+    def test_webp_bytes_detected(self):
+        assert handler._detect_image_format(b"RIFF\x00\x00\x00\x00WEBP") == "webp"
+
+
+# ---------------------------------------------------------------------------
 # _downscale_image
 # ---------------------------------------------------------------------------
 
@@ -374,20 +404,6 @@ _SPARSE_GRID[0][0] = 1
 _SPARSE_GRID[1][1] = 2
 _SPARSE_GRID[2][2] = 3
 
-# A clean grid with 35 clues (score=4) — used to test cross-check preferring higher-scoring grids.
-# This is a valid partial Sudoku with no row/col/box duplicates.
-_RICHER_GRID = [
-    [5, 3, 4, 6, 7, 8, 9, 1, 2],
-    [6, 7, 2, 1, 9, 5, 3, 4, 8],
-    [1, 9, 8, 3, 4, 2, 5, 6, 7],
-    [8, 5, 9, 7, 6, 1, 4, 2, 3],
-    [4, 2, 6, 8, 5, 3, 7, 9, 1],
-    [7, 1, 3, 9, 2, 4, 8, 5, 6],
-    [9, 6, 1, 5, 3, 7, 2, 8, 4],
-    [2, 8, 7, 4, 1, 9, 6, 3, 5],
-    [3, 4, 5, 2, 8, 6, 1, 7, 9],
-]
-
 # An alternative clean grid (different from _CLEAN_GRID) with 25 clues and no duplicates
 _CLEAN_GRID_ALT = [
     [0, 0, 3, 0, 2, 0, 6, 0, 0],
@@ -460,3 +476,19 @@ class TestInvokeModel:
         client = _make_mock_client("This is not JSON at all")
         with pytest.raises(ValueError):
             handler._invoke_model(client, "amazon.nova-pro-v1:0", b"fake-image")
+
+    def test_jpeg_image_uses_jpeg_format(self):
+        """JPEG magic bytes result in format='jpeg' being sent to Bedrock."""
+        client = _make_mock_client(_grid_json(_CLEAN_GRID))
+        jpeg_bytes = _make_jpeg(10, 10)
+        handler._invoke_model(client, "amazon.nova-pro-v1:0", jpeg_bytes)
+        image_content = client.converse.call_args[1]["messages"][0]["content"][0]["image"]
+        assert image_content["format"] == "jpeg"
+
+    def test_png_image_uses_png_format(self):
+        """PNG magic bytes result in format='png' being sent to Bedrock."""
+        client = _make_mock_client(_grid_json(_CLEAN_GRID))
+        png_bytes = _make_png()
+        handler._invoke_model(client, "amazon.nova-pro-v1:0", png_bytes)
+        image_content = client.converse.call_args[1]["messages"][0]["content"][0]["image"]
+        assert image_content["format"] == "png"

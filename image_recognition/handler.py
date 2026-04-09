@@ -255,6 +255,19 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
     )
 
 
+def _detect_image_format(image_bytes: bytes) -> str:
+    """Detect image format from magic bytes. Returns a Bedrock-compatible format string."""
+    if image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+        return "png"
+    if image_bytes[:3] == b'\xff\xd8\xff':
+        return "jpeg"
+    if image_bytes[:6] in (b'GIF87a', b'GIF89a'):
+        return "gif"
+    if image_bytes[:4] == b'RIFF' and image_bytes[8:12] == b'WEBP':
+        return "webp"
+    return "jpeg"  # default fallback
+
+
 def _invoke_model(
     client: object,
     model_id: str,
@@ -267,6 +280,7 @@ def _invoke_model(
     system prompt for all model families, which is critical for reliable JSON
     output from Nova models.
     """
+    image_format = _detect_image_format(image_bytes)
     response = client.converse(
         modelId=model_id,
         system=[{"text": _SYSTEM_PROMPT}],
@@ -276,7 +290,7 @@ def _invoke_model(
                 "content": [
                     {
                         "image": {
-                            "format": "jpeg",
+                            "format": image_format,
                             "source": {"bytes": image_bytes},
                         }
                     },

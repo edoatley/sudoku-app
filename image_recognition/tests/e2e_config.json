@@ -20,6 +20,13 @@
       "min_clues": 17,
       "expected_empty_cells": [[0, 0]],
       "comment": "Screenshot from a Sudoku app — orange selected cell at [0][0] must be blank"
+    },
+    {
+      "name": "puzzle_4",
+      "file": "tests/fixtures/puzzle_4.png",
+      "min_clues": 17,
+      "expected_empty_cells": [[0, 0]],
+      "comment": "Screenshot from a Sudoku app — orange selected cell at [0][0] must be blank (previously returned 422 on sudoku-beta)"
     }
   ]
 }
