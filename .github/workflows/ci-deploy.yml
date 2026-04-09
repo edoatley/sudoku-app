@@ -203,6 +203,7 @@ jobs:
           TF_VAR_smoke_test_user_email:    ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
           TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
+          TF_VAR_git_branch:               ${{ steps.env.outputs.amplify_branch }}
         run: |
           bash scripts/github/terraform-plan.sh \
             --environment "${{ steps.env.outputs.environment }}" \
@@ -267,6 +268,7 @@ jobs:
           TF_VAR_smoke_test_user_email:    ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
           TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
+          TF_VAR_git_branch:               ${{ steps.env.outputs.amplify_branch }}
         run: |
           bash scripts/github/terraform-plan.sh \
             --environment "${{ steps.env.outputs.environment }}" \
@@ -300,7 +302,7 @@ jobs:
           APP_ID:           ${{ steps.outputs.outputs.amplify_app_id }}
           USER_POOL_ID:     ${{ steps.outputs.outputs.cognito_user_pool_id }}
           CLIENT_ID:        ${{ steps.outputs.outputs.cognito_client_id }}
-          BRANCH:           ${{ steps.env.outputs.branch }}
+          BRANCH:           ${{ steps.env.outputs.amplify_branch }}
           FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
           IS_MAIN:          ${{ steps.env.outputs.is_main }}
         run: |

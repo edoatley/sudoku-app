@@ -11,7 +11,7 @@ const cellSize = {
 };
 
 // Font scales proportionally: ~26% of cell size, clamped to readable range
-const fontSize = 'calc(var(--sudoku-cell-size, 44px) * 0.28)';
+const fontSize = 'calc(var(--sudoku-cell-size, 44px) * 0.58)';
 
 function getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRegionHighlight, isGiven) {
   if (isError)           return 'error.light';

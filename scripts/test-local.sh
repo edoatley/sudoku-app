@@ -340,7 +340,7 @@ else
     cd "${REPO_ROOT}/infra"
     export AWS_PROFILE=sandbox
     terraform fmt -check -recursive
-    terraform init -backend=false -input=false -no-color
+    terraform init -upgrade -backend=false -input=false -no-color
     terraform validate
   )
   record "$SUITE" $? $t

@@ -82,6 +82,12 @@ variable "image_recognition_image_uri" {
   default     = ""
 }
 
+variable "git_branch" {
+  description = "The actual git branch name that Amplify should check out. For rc-* workspaces this may differ from the workspace name due to the 32-char workspace limit."
+  type        = string
+  default     = ""
+}
+
 variable "exclude_amplify_domain" {
   description = "Set to true to skip provisioning the production domain association"
   type        = bool

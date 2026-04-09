@@ -64,8 +64,8 @@ test.describe('Hint', () => {
   });
 });
 
-test.describe('Auto-notes (candidates)', () => {
-  test('clicking Auto-Notes shows candidates in empty cells', async ({ page }) => {
+test.describe('Fill candidates', () => {
+  test('clicking Fill shows candidates in empty cells', async ({ page }) => {
     // Intercept the candidates API call to verify it is made
     const candidatesResponse = page.waitForResponse(
       (res) => res.url().includes('/puzzles/candidates') && res.status() === 200,
@@ -75,12 +75,12 @@ test.describe('Auto-notes (candidates)', () => {
     await page.goto('/');
     await waitForGrid(page);
 
-    await page.getByRole('button', { name: /^notes$/i }).click();
+    await page.getByRole('button', { name: /^fill$/i }).click();
 
     // Verify the candidates endpoint was called successfully
     await candidatesResponse;
 
-    // After auto-notes activates, at least one empty cell should contain a 3×3 grid
+    // After Fill, at least one empty cell should contain a 3×3 grid
     // of candidate numbers (9 child boxes inside the cell)
     await expect(async () => {
       const cells = await page.locator('[data-testid^="cell-"]').all();

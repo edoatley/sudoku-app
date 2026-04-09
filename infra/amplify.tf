@@ -42,7 +42,7 @@ resource "aws_amplify_app" "sudoku" {
 
 resource "aws_amplify_branch" "main" {
   app_id      = aws_amplify_app.sudoku.id
-  branch_name = local.is_default ? "main" : terraform.workspace
+  branch_name = local.is_default ? "main" : (var.git_branch != "" ? var.git_branch : terraform.workspace)
   stage       = local.is_default ? "PRODUCTION" : "DEVELOPMENT"
 
   # Auto-build is disabled so that the CI workflow can trigger the build

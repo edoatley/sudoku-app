@@ -225,6 +225,25 @@ else
   echo "  Frontend changed — triggering build for branch '${BRANCH}'."
 fi
 
+# Amplify branch registration can lag behind terraform apply — wait until it is visible
+echo "  Waiting for Amplify branch '${BRANCH}' to be available..."
+for i in $(seq 1 12); do
+  BRANCH_STATUS=$(aws amplify get-branch \
+    --app-id "${APP_ID}" \
+    --branch-name "${BRANCH}" \
+    --query 'branch.branchName' --output text 2>/dev/null || true)
+  if [[ "${BRANCH_STATUS}" == "${BRANCH}" ]]; then
+    echo "  Branch is available."
+    break
+  fi
+  echo "  Attempt ${i}/12 — branch not yet visible, retrying in 10s..."
+  sleep 10
+  if [[ "${i}" == "12" ]]; then
+    echo "  ERROR: Amplify branch '${BRANCH}' never became available after 2 minutes." >&2
+    exit 1
+  fi
+done
+
 JOB_ID=$(aws amplify start-job \
   --app-id "${APP_ID}" \
   --branch-name "${BRANCH}" \
