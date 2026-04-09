@@ -29,11 +29,7 @@ if not logger.handlers:
 # Model cascade — tried in order, first valid result wins.
 # ---------------------------------------------------------------------------
 _MODELS = [
-    # "us.amazon.nova-lite-v1:0",                # Extremely fast/cheap
-    "us.amazon.nova-pro-v1:0",                 # Highly capable vision
-    "nvidia.nemotron-nano-12b-v2", 
-    "mistral.magistral-small-2509", 
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0", # very pricey
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
 ]
 
 # Downscale to at most this many pixels on the longest edge before sending.
