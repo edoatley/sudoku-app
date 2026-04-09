@@ -10,8 +10,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import UndoIcon from '@mui/icons-material/Undo';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import NoteAddIcon from '@mui/icons-material/NoteAdd';
+import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 
 const btnSx = { minWidth: { xs: 36, sm: 48 }, height: { xs: 36, sm: 48 }, p: 0 };
 
@@ -66,7 +65,7 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
   );
 }
 
-export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, autoNotesActive, onAutoNotes, onPopulateCandidates, canPopulateCandidates, isLoading, completedNumbers }) {
+export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, completedNumbers }) {
   return (
     <Stack spacing={1} alignItems="center">
       <ToggleButtonGroup
@@ -97,8 +96,7 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         <Divider orientation="vertical" flexItem />
         <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon fontSize="small" />} onClick={onValidate} disabled={isLoading} />
         <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon fontSize="small" />} onClick={onHint} disabled={isLoading} />
-        <ToolButton label="Notes" tooltip="Toggle auto-notes" icon={<EditNoteIcon fontSize="small" />} onClick={onAutoNotes} disabled={isLoading} active={autoNotesActive} />
-        <ToolButton label="Populate" tooltip="Copy auto-notes into your candidate grid" icon={<NoteAddIcon fontSize="small" />} onClick={onPopulateCandidates} disabled={!canPopulateCandidates || isLoading} />
+        <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon fontSize="small" />} onClick={onFillCandidates} disabled={isLoading} />
       </Box>
     </Stack>
   );

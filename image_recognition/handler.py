@@ -114,6 +114,13 @@ def handler(event: dict, context: object) -> dict:
         client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
         grid, valid, model_name = _recognize_with_bedrock(client, image_bytes)
 
+        if not valid:
+            logger.warning(
+                "Best grid from model %s is invalid (has duplicates or too few clues) — returning 422",
+                model_name,
+            )
+            return _error(422, "Could not extract a valid Sudoku grid from the image. Please try a clearer photo.")
+
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
@@ -202,16 +209,24 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
                 try:
                     next_grid = _invoke_model(client, next_model_id, image_bytes)
                     if next_grid != grid:
-                        logger.info(
-                            "Next model %s produced a different grid; using its result instead of %s",
-                            next_model_id, model_id,
-                        )
-                        best_grid = next_grid
-                        best_model_name = next_model_id
                         next_clues = sum(v != 0 for row in next_grid for v in row)
-                        best_has_dupe = _has_row_col_box_duplicate(next_grid)
-                        best_clues = next_clues
-                        best_score = (0 if best_has_dupe else 2) + (next_clues - _MIN_PLAUSIBLE_CLUES) // 10
+                        next_has_dupe = _has_row_col_box_duplicate(next_grid)
+                        next_score = (0 if next_has_dupe else 2) + (next_clues - _MIN_PLAUSIBLE_CLUES) // 10
+                        if next_score > best_score:
+                            logger.info(
+                                "Next model %s produced a different grid with higher score (%d > %d); using its result instead of %s",
+                                next_model_id, next_score, best_score, model_id,
+                            )
+                            best_grid = next_grid
+                            best_model_name = next_model_id
+                            best_has_dupe = next_has_dupe
+                            best_clues = next_clues
+                            best_score = next_score
+                        else:
+                            logger.info(
+                                "Next model %s produced a different grid but lower/equal score (%d <= %d); keeping result from %s",
+                                next_model_id, next_score, best_score, model_id,
+                            )
                     else:
                         logger.info(
                             "Next model %s confirmed result; keeping grid from %s",
@@ -316,6 +331,9 @@ def _parse_grid(text: str) -> list[list[int]]:
             if not isinstance(row, list) or len(row) != 9:
                 raise ValueError(f"Row {i} must be a 9-element list, got: {row!r}")
             for j, val in enumerate(row):
+                if isinstance(val, str) and val.isdigit():
+                    val = int(val)
+                    grid[i][j] = val
                 if not isinstance(val, int) or not (0 <= val <= 9):
                     raise ValueError(f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}")
 

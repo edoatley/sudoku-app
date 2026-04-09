@@ -87,9 +87,15 @@ class TestParseGrid:
         with pytest.raises(ValueError, match=r"Cell \[0\]\[0\]"):
             handler._parse_grid(json.dumps({"originalGrid": grid}))
 
-    def test_raises_if_cell_value_is_string(self):
+    def test_coerces_string_digit_to_int(self):
         grid = [[0] * 9 for _ in range(9)]
         grid[2][2] = "5"
+        result = handler._parse_grid(json.dumps({"originalGrid": grid}))
+        assert result[2][2] == 5
+
+    def test_raises_if_cell_value_is_non_numeric_string(self):
+        grid = [[0] * 9 for _ in range(9)]
+        grid[2][2] = "X"
         with pytest.raises(ValueError, match=r"Cell \[2\]\[2\]"):
             handler._parse_grid(json.dumps({"originalGrid": grid}))
 
@@ -288,6 +294,17 @@ class TestHandlerRequestValidation:
         assert body["validPuzzle"] is True
         assert body["modelName"] == "us.amazon.nova-pro-v1:0"
 
+    def test_invalid_grid_returns_422(self):
+        """When _recognize_with_bedrock returns valid=False, handler returns 422."""
+        grid = [[0] * 9 for _ in range(9)]
+        image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
+        with patch("handler.boto3") as mock_boto3, \
+             patch("handler._recognize_with_bedrock", return_value=(grid, False, "mistral.magistral-small-2509")):
+            mock_boto3.client.return_value = MagicMock()
+            response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
+        assert response["statusCode"] == 422
+        assert "valid Sudoku grid" in json.loads(response["body"])["error"]
+
     def test_recognize_raises_value_error_returns_422(self):
         """When _recognize_with_bedrock raises ValueError, handler returns 422."""
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
@@ -356,6 +373,20 @@ _SPARSE_GRID = [[0] * 9 for _ in range(9)]
 _SPARSE_GRID[0][0] = 1
 _SPARSE_GRID[1][1] = 2
 _SPARSE_GRID[2][2] = 3
+
+# A clean grid with 35 clues (score=4) — used to test cross-check preferring higher-scoring grids.
+# This is a valid partial Sudoku with no row/col/box duplicates.
+_RICHER_GRID = [
+    [5, 3, 4, 6, 7, 8, 9, 1, 2],
+    [6, 7, 2, 1, 9, 5, 3, 4, 8],
+    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+    [3, 4, 5, 2, 8, 6, 1, 7, 9],
+]
 
 # An alternative clean grid (different from _CLEAN_GRID) with 25 clues and no duplicates
 _CLEAN_GRID_ALT = [
@@ -429,18 +460,35 @@ class TestRecognizeWithBedrock:
         assert grid == _DUPE_GRID
         assert valid is False
 
-    def test_valid_result_cross_check_differs_uses_next(self):
-        """Any valid result triggers next-model cross-check; if grids differ the next model's result is used."""
+    def test_valid_result_cross_check_differs_keeps_current_when_equal_score(self):
+        """Cross-check finds a different but equal-score grid — current model's result is kept."""
         error_response = {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}}
         client = MagicMock()
         client.converse.side_effect = [
             ClientError(error_response, "Converse"),        # rank-1 fails
             {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID)}]}}},      # rank-2: valid
-            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID_ALT)}]}}},  # cross-check differs
+            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID_ALT)}]}}},  # cross-check: different but equal score
         ]
         with patch.object(handler, "_MODELS", handler._MODELS[:3]):
             grid, valid, model_name = handler._recognize_with_bedrock(client, b"fake-image")
-        assert grid == _CLEAN_GRID_ALT
+        # Both grids are clean with same clue count — equal score, so current is kept
+        assert grid == _CLEAN_GRID
+        assert valid is True
+        assert model_name == handler._MODELS[1]
+
+    def test_valid_result_cross_check_differs_uses_next_when_higher_score(self):
+        """Cross-check finds a different grid with higher score (more clues) — next model's result is used."""
+        # _CLEAN_GRID has 25 clues → score=3; _RICHER_GRID has 81 clues → score=9. Higher wins.
+        error_response = {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}}
+        client = MagicMock()
+        client.converse.side_effect = [
+            ClientError(error_response, "Converse"),        # rank-1 fails
+            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID)}]}}},        # rank-2: valid
+            {"output": {"message": {"content": [{"text": _grid_json(_RICHER_GRID)}]}}},        # cross-check: higher score
+        ]
+        with patch.object(handler, "_MODELS", handler._MODELS[:3]):
+            grid, valid, model_name = handler._recognize_with_bedrock(client, b"fake-image")
+        assert grid == _RICHER_GRID
         assert valid is True
         assert model_name == handler._MODELS[2]
 
@@ -456,6 +504,21 @@ class TestRecognizeWithBedrock:
         with patch.object(handler, "_MODELS", handler._MODELS[:3]):
             grid, valid, model_name = handler._recognize_with_bedrock(client, b"fake-image")
         assert grid == _CLEAN_GRID
+        assert model_name == handler._MODELS[1]
+
+    def test_valid_result_cross_check_differs_invalid_keeps_current(self):
+        """Cross-check returns an invalid (duplicate) grid — original valid result is kept."""
+        error_response = {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}}
+        client = MagicMock()
+        client.converse.side_effect = [
+            ClientError(error_response, "Converse"),        # rank-1 fails
+            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID)}]}}},   # rank-2: valid
+            {"output": {"message": {"content": [{"text": _grid_json(_DUPE_GRID)}]}}},    # cross-check: invalid (dupes)
+        ]
+        with patch.object(handler, "_MODELS", handler._MODELS[:3]):
+            grid, valid, model_name = handler._recognize_with_bedrock(client, b"fake-image")
+        assert grid == _CLEAN_GRID
+        assert valid is True
         assert model_name == handler._MODELS[1]
 
     def test_cross_check_not_triggered_for_dupe_result(self):
@@ -503,18 +566,18 @@ class TestRecognizeWithBedrock:
         # Only 2 converse calls — no cross-check possible
         assert client.converse.call_count == 2
 
-    def test_first_model_valid_cross_checks_second(self):
-        """Rank-1 valid result triggers cross-check with rank-2."""
+    def test_first_model_valid_cross_checks_second_keeps_current_when_equal_score(self):
+        """Rank-1 valid result triggers cross-check with rank-2; equal-score different grid keeps rank-1."""
         client = MagicMock()
         client.converse.side_effect = [
             {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID)}]}}},      # rank-1: valid
-            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID_ALT)}]}}},  # cross-check differs
+            {"output": {"message": {"content": [{"text": _grid_json(_CLEAN_GRID_ALT)}]}}},  # cross-check: equal score
         ]
         with patch.object(handler, "_MODELS", handler._MODELS[:2]):
             grid, valid, model_name = handler._recognize_with_bedrock(client, b"fake-image")
-        assert grid == _CLEAN_GRID_ALT
+        assert grid == _CLEAN_GRID
         assert valid is True
-        assert model_name == handler._MODELS[1]
+        assert model_name == handler._MODELS[0]
 
 
 # ---------------------------------------------------------------------------

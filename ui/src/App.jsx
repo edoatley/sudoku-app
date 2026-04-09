@@ -122,11 +122,8 @@ function SudokuApp({ user, signOut }) {
     requestHint,
     advanceHint,
     dismissHint,
-    autoNotesActive,
     selectedCell,
-    toggleAutoNotes,
-    populateUserCandidates,
-    canPopulateCandidates,
+    fillCandidates,
     clearStatus,
     finishGame,
     elapsedSeconds,
@@ -235,10 +232,7 @@ function SudokuApp({ user, signOut }) {
                 canUndo={canUndo}
                 onValidate={requestValidation}
                 onHint={requestHint}
-                autoNotesActive={autoNotesActive}
-                onAutoNotes={toggleAutoNotes}
-                onPopulateCandidates={populateUserCandidates}
-                canPopulateCandidates={canPopulateCandidates}
+                onFillCandidates={fillCandidates}
                 isLoading={isLoading}
                 completedNumbers={completedNumbers}
               />
