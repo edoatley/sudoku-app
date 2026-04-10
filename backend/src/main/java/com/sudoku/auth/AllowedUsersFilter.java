@@ -30,24 +30,27 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
     @Inject
     SecurityIdentity identity;
 
-    @ConfigProperty(name = "app.allowed.emails")
-    Optional<String> allowedEmailsRaw;
+    // set of the email addresses configured to use the application
+    private final Set<String> allowedEmails;
+
+    @Inject
+    public AllowedUsersFilter(@ConfigProperty(name = "app.allowed.emails") Optional<String> allowedEmailsRaw) {
+        this.allowedEmails = allowedEmailsRaw.orElse("").isEmpty() ? Set.of() :
+                Arrays.stream(allowedEmailsRaw.get().split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toUnmodifiableSet());
+    }
 
     @Override
     public void filter(ContainerRequestContext ctx) {
-        String raw = allowedEmailsRaw.orElse("");
-        if (raw.isBlank()) {
+        if (allowedEmails.isEmpty()) {
             return; // allowlist disabled (dev/test)
         }
 
         if (identity.isAnonymous()) {
             return; // no principal — public route or dev filter not yet run
         }
-
-        Set<String> allowed = Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
 
         // In Quarkus OIDC service mode the principal is an OidcJwtCallerPrincipal
         // which implements JsonWebToken — cast to access claims directly.
@@ -61,7 +64,7 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
             if (attr != null) email = attr.toString();
         }
 
-        if (email == null || !allowed.contains(email)) {
+        if (email == null || !allowedEmails.contains(email)) {
             ctx.abortWith(
                 Response.status(Response.Status.FORBIDDEN)
                     .type(MediaType.APPLICATION_JSON)
