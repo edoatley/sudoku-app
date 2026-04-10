@@ -22,7 +22,7 @@ resource "aws_route53_zone" "sudoku_beta" {
 # rather than doing a live lookup — avoids a ListHostedZones dependency on
 # the zones existing before this workspace is first applied.
 data "terraform_remote_state" "default" {
-  count   = local.is_rc && !var.exclude_amplify_beta_domain ? 1 : 0
+  count   = local.is_rc ? 1 : 0
   backend = "s3"
   config = {
     bucket = "sudoku-tf-state"
@@ -33,13 +33,15 @@ data "terraform_remote_state" "default" {
 
 # Production domain association — default workspace only.
 # Maps sudoku.edoatley.co.uk and www.sudoku.edoatley.co.uk → main branch.
-# Amplify provisions the ACM certificate automatically.
+# Amplify provisions the ACM certificate automatically. wait_for_verification=false
+# avoids blocking the apply on ACM validation (can take up to 40 min on first deploy).
 resource "aws_amplify_domain_association" "production" {
-  # Only create if it's the default workspace AND we haven't explicitly excluded it
-  count = local.is_default && !var.exclude_amplify_domain ? 1 : 0
+  count = local.is_default ? 1 : 0
 
   app_id      = aws_amplify_app.sudoku.id
   domain_name = "sudoku.edoatley.co.uk"
+
+  wait_for_verification = false
 
   sub_domain {
     branch_name = aws_amplify_branch.main.branch_name
@@ -57,7 +59,7 @@ resource "aws_amplify_domain_association" "production" {
 # Only one RC branch holds this domain at a time (last writer wins).
 # Prerequisite: default workspace must have been applied first (zone must exist).
 resource "aws_amplify_domain_association" "beta" {
-  count       = local.is_rc && try(data.terraform_remote_state.default[0].outputs.route53_beta_zone_id, null) != null ? 1 : 0
+  count       = local.is_rc && try(data.terraform_remote_state.default[0].outputs.route53_beta_zone_id, "") != "" ? 1 : 0
   app_id      = aws_amplify_app.sudoku.id
   domain_name = "sudoku-beta.edoatley.co.uk"
 

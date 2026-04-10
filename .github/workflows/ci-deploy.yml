@@ -179,9 +179,7 @@ jobs:
 
       - name: Select or create Terraform workspace
         working-directory: infra
-        run: |
-          WORKSPACE="${{ steps.env.outputs.workspace }}"
-          terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
+        run: terraform workspace select -or-create "${{ steps.env.outputs.workspace }}"
 
       - name: Write RC-specific Terraform var file
         if: steps.env.outputs.is_main == 'false'
