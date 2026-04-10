@@ -149,7 +149,7 @@ if [[ "${MODE}" == "rc" ]]; then
       --output text 2>&1) || {
       EXIT_CODE=$?
       if echo "${DOMAIN_STATUS}" | grep -q "ResourceNotFoundException\|NotFoundException"; then
-        echo "  Domain association not found (excluded via exclude_amplify_beta_domain=true) — skipping wait."
+        echo "  Domain association not found — skipping wait."
         break
       fi
       echo "  ERROR: aws amplify get-domain-association failed (exit ${EXIT_CODE}):" >&2

@@ -25,20 +25,16 @@ class AllowedUsersFilterTest {
     private ContainerRequestContext ctx;
 
     @BeforeEach
-    void setUp() throws Exception {
-        filter = new AllowedUsersFilter();
+    void setUp() {
         identity = mock(SecurityIdentity.class);
         ctx = mock(ContainerRequestContext.class);
-
-        Field identityField = AllowedUsersFilter.class.getDeclaredField("identity");
-        identityField.setAccessible(true);
-        identityField.set(filter, identity);
     }
 
     private void setAllowedEmails(String value) throws Exception {
-        Field field = AllowedUsersFilter.class.getDeclaredField("allowedEmailsRaw");
-        field.setAccessible(true);
-        field.set(filter, Optional.ofNullable(value));
+        filter = new AllowedUsersFilter(Optional.ofNullable(value));
+        Field identityField = AllowedUsersFilter.class.getDeclaredField("identity");
+        identityField.setAccessible(true);
+        identityField.set(filter, identity);
     }
 
     /** Stub identity with a JWT principal returning the given email from getClaim. */

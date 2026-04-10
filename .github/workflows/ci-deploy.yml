@@ -179,9 +179,7 @@ jobs:
 
       - name: Select or create Terraform workspace
         working-directory: infra
-        run: |
-          WORKSPACE="${{ steps.env.outputs.workspace }}"
-          terraform workspace select "${WORKSPACE}" || terraform workspace new "${WORKSPACE}"
+        run: terraform workspace select -or-create "${{ steps.env.outputs.workspace }}"
 
       - name: Write RC-specific Terraform var file
         if: steps.env.outputs.is_main == 'false'
@@ -195,7 +193,11 @@ jobs:
           rc_cognito_smoke_client_id = "${RC_SMOKE_CLIENT_ID}"
           EOF
 
-      - name: Terraform plan — phase 1 (exclude domain association)
+      - name: Release beta domain from previous RC app
+        if: steps.env.outputs.is_main == 'false'
+        run: bash scripts/github/amplify-pre-deploy.sh
+
+      - name: Terraform plan
         env:
           TF_VAR_github_token:             ${{ secrets.AMPLIFY_GITHUB_TOKEN }}
           TF_VAR_google_client_id:         ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -208,13 +210,12 @@ jobs:
           bash scripts/github/terraform-plan.sh \
             --environment "${{ steps.env.outputs.environment }}" \
             --is-main     "${{ steps.env.outputs.is_main }}" \
-            --phase       1 \
-            --out         tfplan-phase1 \
+            --out         tfplan \
             $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file rc-override.tfvars' )
 
-      - name: Terraform apply — phase 1
+      - name: Terraform apply
         working-directory: infra
-        run: terraform apply -auto-approve -input=false tfplan-phase1
+        run: terraform apply -auto-approve -input=false tfplan
 
       - name: Print Route53 NS records
         if: steps.env.outputs.is_main == 'true'
@@ -228,58 +229,6 @@ jobs:
             terraform output -json subdomain_nameservers | jq -r '.[]'
             echo "========================================================"
           fi
-
-      - name: Re-home beta domain association to current RC app
-        if: steps.env.outputs.is_main == 'false'
-        working-directory: infra
-        run: |
-          BETA_DOMAIN="sudoku-beta.edoatley.co.uk"
-          CURRENT_APP_ID=$(terraform output -raw amplify_app_id)
-
-          # Find which Amplify app currently holds the beta domain (if any).
-          # list-apps does not include domain info, so scan each app individually.
-          ALL_APPS=$(aws amplify list-apps --query "apps[].appId" --output text)
-          OWNER_APP_ID=""
-          for APP in $ALL_APPS; do
-            ASSOC=$(aws amplify list-domain-associations --app-id "$APP" \
-              --query "domainAssociations[?domainName=='${BETA_DOMAIN}'].domainName" \
-              --output text 2>/dev/null || true)
-            if [ -n "$ASSOC" ] && [ "$ASSOC" != "None" ]; then
-              OWNER_APP_ID="$APP"
-              break
-            fi
-          done
-
-          if [ -z "$OWNER_APP_ID" ]; then
-            echo "Beta domain not currently associated with any app — nothing to do."
-          elif [ "$OWNER_APP_ID" = "$CURRENT_APP_ID" ]; then
-            echo "Beta domain already on current app (${CURRENT_APP_ID}) — importing into state if needed."
-            terraform import 'aws_amplify_domain_association.beta[0]' "${CURRENT_APP_ID}/${BETA_DOMAIN}" 2>/dev/null || true
-          else
-            echo "Beta domain is on app ${OWNER_APP_ID}; deleting association so current app (${CURRENT_APP_ID}) can claim it."
-            aws amplify delete-domain-association --app-id "$OWNER_APP_ID" --domain-name "$BETA_DOMAIN"
-          fi
-
-      - name: Terraform plan — phase 2 (full including domain)
-        env:
-          TF_VAR_github_token:             ${{ secrets.AMPLIFY_GITHUB_TOKEN }}
-          TF_VAR_google_client_id:         ${{ secrets.GOOGLE_CLIENT_ID }}
-          TF_VAR_google_client_secret:     ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          TF_VAR_smoke_test_user_email:    ${{ secrets.SMOKE_TEST_USER_EMAIL }}
-          TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
-          TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
-          TF_VAR_git_branch:               ${{ steps.env.outputs.amplify_branch }}
-        run: |
-          bash scripts/github/terraform-plan.sh \
-            --environment "${{ steps.env.outputs.environment }}" \
-            --is-main     "${{ steps.env.outputs.is_main }}" \
-            --phase       2 \
-            --out         tfplan \
-            $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file rc-override.tfvars' )
-
-      - name: Terraform apply — phase 2 (domain association — may take up to 40 min for ACM)
-        working-directory: infra
-        run: terraform apply -auto-approve -input=false tfplan
 
       - name: Capture outputs
         id: outputs

@@ -87,15 +87,3 @@ variable "git_branch" {
   type        = string
   default     = ""
 }
-
-variable "exclude_amplify_domain" {
-  description = "Set to true to skip provisioning the production domain association"
-  type        = bool
-  default     = false
-}
-
-variable "exclude_amplify_beta_domain" {
-  description = "Set to true to skip provisioning the beta domain association"
-  type        = bool
-  default     = false
-}
