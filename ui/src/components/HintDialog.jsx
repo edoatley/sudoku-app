@@ -16,7 +16,7 @@ function stageText(hint, stage) {
   return hint.reveal;
 }
 
-export default function HintDialog({ open, hint, stage, onAdvance, onDismiss }) {
+export default function HintDialog({ open, hint, stage, onAdvance, onDismiss, onAlternateHint }) {
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
   return (
@@ -33,6 +33,9 @@ export default function HintDialog({ open, hint, stage, onAdvance, onDismiss }) 
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTutorialOpen(true)}>Read Tutorial</Button>
+          {stage === 'nudge' && onAlternateHint && (
+            <Button onClick={onAlternateHint}>Try Different Hint</Button>
+          )}
           {stage === 'nudge' && (
             <Button variant="contained" onClick={onAdvance}>Next Hint</Button>
           )}

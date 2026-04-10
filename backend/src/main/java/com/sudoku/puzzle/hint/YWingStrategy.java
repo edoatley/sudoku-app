@@ -88,6 +88,7 @@ public class YWingStrategy implements HintStrategy {
                             "Y-Wing",
                             "y-wing",
                             "hard",
+                            getDifficultyRank(),
                             "A pivot cell with two candidates sees two pincers that together force an elimination.",
                             "Pivot (" + pivot.row() + "," + pivot.col() + ") has {" + a + "," + b + "}; "
                                     + "pincers (" + p1.row() + "," + p1.col() + ") with " + p1.candidates()

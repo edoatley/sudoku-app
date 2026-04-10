@@ -89,6 +89,7 @@ public class NakedTripleStrategy implements HintStrategy {
                             "Naked Triple",
                             "naked-triple",
                             "medium",
+                            getDifficultyRank(),
                             "Three cells in a unit collectively contain only three candidates.",
                             focus,
                             reveal,

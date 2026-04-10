@@ -6,6 +6,7 @@ public record HintResponse(
         String techniqueName,
         String markdownSlug,
         String difficulty,
+        int strategyRank,
         String nudge,
         String focus,
         String reveal,

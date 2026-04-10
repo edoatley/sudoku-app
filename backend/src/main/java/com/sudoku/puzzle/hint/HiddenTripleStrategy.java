@@ -72,6 +72,7 @@ public class HiddenTripleStrategy implements HintStrategy {
                             "Hidden Triple",
                             "hidden-triple",
                             "hard",
+                            getDifficultyRank(),
                             "Three digits are collectively confined to exactly three cells within a unit.",
                             unitType + " " + unitIndex + ": digits " + d1 + ", " + d2 + " and " + d3
                                     + " are confined to cells " + focusCells + ".",

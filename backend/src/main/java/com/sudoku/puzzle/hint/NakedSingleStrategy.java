@@ -29,6 +29,7 @@ public class NakedSingleStrategy implements HintStrategy {
                             "Naked Single",
                             "naked-single",
                             "easy",
+                            getDifficultyRank(),
                             "A cell has been reduced to exactly one possible candidate.",
                             "Cell (" + r + ", " + c + ") has had every other digit eliminated.",
                             "Cell (" + r + ", " + c + ") must be " + digit + ".",

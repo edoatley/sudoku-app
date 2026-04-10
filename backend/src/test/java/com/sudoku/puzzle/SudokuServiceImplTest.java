@@ -209,6 +209,45 @@ class SudokuServiceImplTest {
         assertTrue(hint.isEmpty());
     }
 
+    @Test
+    void getHint_skipsHintWithNoActionableOutcome() {
+        // A strategy that returns a hint with no eliminations and no solvedCells
+        com.sudoku.puzzle.hint.HintStrategy uselessStrategy = new com.sudoku.puzzle.hint.HintStrategy() {
+            public int getDifficultyRank() { return 10; }
+            public Optional<HintResponse> evaluate(com.sudoku.domain.Board board) {
+                return Optional.of(new HintResponse(
+                        "Useless", "useless", "easy", 10,
+                        "nudge", "focus", "reveal",
+                        List.of(), List.of(), List.of()
+                ));
+            }
+        };
+        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+                uselessStrategy,
+                new NakedSingleStrategy()
+        ));
+        Optional<HintResponse> hint = fullService.getHint(new BoardRequest(EASY_GRID));
+
+        assertTrue(hint.isPresent());
+        assertEquals("Naked Single", hint.get().techniqueName(), "Should skip useless hint and return Naked Single");
+    }
+
+    @Test
+    void getHint_withExcludedRanks_skipsMatchingStrategy() {
+        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+                new NakedSingleStrategy(),   // rank 20
+                new NakedPairStrategy()      // rank 30
+        ));
+        // Exclude Naked Single (rank 20); board has a naked single so without exclusion it would be first
+        Optional<HintResponse> hint = fullService.getHint(
+                new BoardRequest(EASY_GRID, null, List.of(20)));
+
+        // With rank 20 excluded, it should fall through to NakedPair (rank 30) or return empty
+        // The important assertion: the returned hint must NOT be Naked Single
+        hint.ifPresent(h -> assertNotEquals("Naked Single", h.techniqueName(),
+                "Naked Single should have been excluded"));
+    }
+
     // ---- helpers ----
 
     private List<List<Integer>> mutableCopy(List<List<Integer>> original) {

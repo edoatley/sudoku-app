@@ -137,6 +137,38 @@ class PuzzleResourceTest {
     }
 
     @Test
+    void hint_partialBoard_returnsStrategyRank() {
+        given()
+            .contentType(ContentType.JSON)
+            .body(new BoardRequestBody(EASY_GRID))
+            .when().post("/puzzles/hint")
+            .then()
+                .statusCode(200)
+                .body("strategyRank", greaterThan(0));
+    }
+
+    @Test
+    void hint_withExcludedNakedSingleRank_returnsDifferentTechnique() {
+        // First, get the hint without exclusion to confirm it's Naked Single (rank 20)
+        String firstTechnique = given()
+            .contentType(ContentType.JSON)
+            .body(new BoardRequestBody(EASY_GRID))
+            .when().post("/puzzles/hint")
+            .then()
+                .statusCode(200)
+                .extract().path("techniqueName");
+
+        // Now exclude rank 20 (Naked Single) and verify we get a different technique
+        given()
+            .contentType(ContentType.JSON)
+            .body(new BoardRequestBodyWithExclusions(EASY_GRID, List.of(20)))
+            .when().post("/puzzles/hint")
+            .then()
+                .statusCode(200)
+                .body("techniqueName", not(equalTo(firstTechnique)));
+    }
+
+    @Test
     void hint_solvedBoard_returns404() {
         given()
             .contentType(ContentType.JSON)
@@ -185,4 +217,6 @@ class PuzzleResourceTest {
 
     // Simple wrapper so Jackson can serialize the request body
     record BoardRequestBody(List<List<Integer>> currentGrid) {}
+
+    record BoardRequestBodyWithExclusions(List<List<Integer>> currentGrid, List<Integer> excludedRanks) {}
 }

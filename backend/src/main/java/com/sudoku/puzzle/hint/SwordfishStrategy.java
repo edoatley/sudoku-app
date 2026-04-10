@@ -89,6 +89,7 @@ public class SwordfishStrategy implements HintStrategy {
                             "Swordfish",
                             "swordfish",
                             "hard",
+                            getDifficultyRank(),
                             "A digit appears in 2–3 cells across three rows, and those cells span exactly three columns.",
                             "Digit " + digit + " in rows " + r1 + ", " + r2 + " and " + r3
                                     + " is confined to columns " + c1 + ", " + c2 + " and " + c3 + ".",
@@ -160,6 +161,7 @@ public class SwordfishStrategy implements HintStrategy {
                             "Swordfish",
                             "swordfish",
                             "hard",
+                            getDifficultyRank(),
                             "A digit appears in 2–3 cells across three columns, and those cells span exactly three rows.",
                             "Digit " + digit + " in columns " + c1 + ", " + c2 + " and " + c3
                                     + " is confined to rows " + r1 + ", " + r2 + " and " + r3 + ".",

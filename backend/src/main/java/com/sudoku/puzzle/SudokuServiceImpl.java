@@ -105,10 +105,17 @@ public class SudokuServiceImpl implements SudokuService {
         Board board = Board.fromGrid(request.currentGrid());
         board.calculateAllCandidates();
         int minRank = request.minRank() != null ? request.minRank() : 0;
+        List<Integer> excluded = request.excludedRanks() != null ? request.excludedRanks() : List.of();
         for (HintStrategy strategy : strategies) {
             if (strategy.getDifficultyRank() < minRank) continue;
+            if (excluded.contains(strategy.getDifficultyRank())) continue;
             Optional<HintResponse> hint = strategy.evaluate(board);
-            if (hint.isPresent()) return hint;
+            if (hint.isPresent()) {
+                HintResponse h = hint.get();
+                boolean hasAction = (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty())
+                        || (h.solvedCells() != null && !h.solvedCells().isEmpty());
+                if (hasAction) return hint;
+            }
         }
         return Optional.empty();
     }

@@ -65,6 +65,7 @@ beforeEach(() => {
   validatePuzzle.mockResolvedValue({ isValid: true, isSolved: false, errors: [] });
   getHint.mockResolvedValue({
     techniqueName: 'Naked Single',
+    strategyRank: 20,
     nudge: 'There is a naked single on the board.',
     focus: 'Look at cell (0,2).',
     reveal: 'Cell (0,2) = 4.',
@@ -359,6 +360,90 @@ describe('requestHint / advanceHint / dismissHint', () => {
     act(() => result.current.dismissHint());
     expect(result.current.activeHint).toBeNull();
     expect(result.current.hintStage).toBe('nudge');
+  });
+});
+
+// ─── Hint counting and deduplication ──────────────────────────────────────────
+
+describe('hintsUsed and excludedHintRanks', () => {
+  it('hintsUsed starts at 0', async () => {
+    const { result } = await mountAndWait();
+    expect(result.current.hintsUsed).toBe(0);
+  });
+
+  it('requestHint increments hintsUsed', async () => {
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint());
+    expect(result.current.hintsUsed).toBe(1);
+  });
+
+  it('two requestHint calls increment hintsUsed to 2', async () => {
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint());
+    await act(async () => result.current.requestHint());
+    expect(result.current.hintsUsed).toBe(2);
+  });
+
+  it('requestHint passes excludedHintRanks on the second call', async () => {
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint()); // first call
+    await act(async () => result.current.requestHint()); // second call
+    // Second call should include rank 20 (from first hint) in excludedRanks
+    expect(getHint).toHaveBeenLastCalledWith(
+      expect.anything(),
+      null,
+      expect.arrayContaining([20])
+    );
+  });
+
+  it('requestAlternateHint does NOT increment hintsUsed', async () => {
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint());
+    expect(result.current.hintsUsed).toBe(1);
+    await act(async () => result.current.requestAlternateHint());
+    expect(result.current.hintsUsed).toBe(1);
+  });
+
+  it('requestAlternateHint passes excludedHintRanks accumulated so far', async () => {
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint()); // excludes rank 20
+    getHint.mockResolvedValueOnce({
+      techniqueName: 'Hidden Single',
+      strategyRank: 40,
+      nudge: 'nudge',
+      focus: 'focus',
+      reveal: 'reveal',
+      highlightCells: [],
+      eliminatedCandidates: [],
+      solvedCells: [{ row: 1, col: 1, value: 3 }],
+    });
+    await act(async () => result.current.requestAlternateHint());
+    expect(getHint).toHaveBeenLastCalledWith(
+      expect.anything(),
+      null,
+      expect.arrayContaining([20])
+    );
+  });
+
+  it('hintsUsed resets to 0 on startNewGame', async () => {
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint());
+    expect(result.current.hintsUsed).toBe(1);
+    await act(async () => result.current.startNewGame('easy'));
+    expect(result.current.hintsUsed).toBe(0);
+  });
+
+  it('finishGame passes hintsUsed to onGameComplete callback', async () => {
+    const onGameComplete = vi.fn();
+    const hook = renderHook(() => useSudokuGame(null, { onGameComplete }));
+    await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+    await act(async () => hook.result.current.startNewGame('easy'));
+    await waitFor(() => expect(hook.result.current.originalGrid).not.toBeNull());
+    await act(async () => hook.result.current.requestHint());
+    act(() => hook.result.current.finishGame());
+    expect(onGameComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ hintsUsed: 1 })
+    );
   });
 });
 

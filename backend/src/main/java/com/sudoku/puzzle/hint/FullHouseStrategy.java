@@ -68,6 +68,7 @@ public class FullHouseStrategy implements HintStrategy {
                 "Full House",
                 "full-house",
                 "easy",
+                getDifficultyRank(),
                 "One unit has only a single empty cell remaining.",
                 unitType + " " + unitNumber + " has 8 of 9 cells filled.",
                 "Cell (" + r + ", " + c + ") must be " + missingDigit + ".",

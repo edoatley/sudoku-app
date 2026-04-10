@@ -71,6 +71,7 @@ public class XWingStrategy implements HintStrategy {
                         "X-Wing",
                         "x-wing",
                         "hard",
+                        getDifficultyRank(),
                         "A digit appears in exactly two cells in each of two rows, and those cells share the same two columns.",
                         "Digit " + digit + " in rows " + r1 + " and " + r2
                                 + " is confined to columns " + c1 + " and " + c2 + ".",
@@ -125,6 +126,7 @@ public class XWingStrategy implements HintStrategy {
                         "X-Wing",
                         "x-wing",
                         "hard",
+                        getDifficultyRank(),
                         "A digit appears in exactly two cells in each of two columns, and those cells share the same two rows.",
                         "Digit " + digit + " in columns " + c1 + " and " + c2
                                 + " is confined to rows " + r1 + " and " + r2 + ".",

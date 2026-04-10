@@ -79,6 +79,7 @@ public class NakedPairStrategy implements HintStrategy {
                         "Naked Pair",
                         "naked-pair",
                         "medium",
+                        getDifficultyRank(),
                         "Two cells in the same unit share exactly the same two candidates.",
                         "Cells (" + rA + "," + cA + ") and (" + rB + "," + cB + ") both have only " + d1 + " and " + d2 + ".",
                         d1 + " and " + d2 + " can be eliminated from all other cells in the unit.",

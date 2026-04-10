@@ -47,6 +47,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   const timerRef = useRef(null);
   const [gameId, setGameId] = useState(null);
   const [hintMinRank, setHintMinRank] = useState(null);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [excludedHintRanks, setExcludedHintRanks] = useState([]);
   const prevUserIdRef = useRef(user?.username ?? null);
   const [isSyncing, setIsSyncing] = useState(false);
   const gameIdRef = useRef(null);
@@ -117,6 +119,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCandidateGrid(emptyGrid);
       setHistory([]);
       setHintMinRank(null);
+      setHintsUsed(0);
+      setExcludedHintRanks([]);
       lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0);
       startTimer();
     } catch (err) {
@@ -384,7 +388,18 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const hint = await getHint(currentGrid, hintMinRank);
+      const hint = await getHint(currentGrid, hintMinRank, excludedHintRanks);
+      if (!hint) {
+        setExcludedHintRanks([]);
+        setStatusMessage('No more hints available.');
+        return;
+      }
+      setHintsUsed((n) => n + 1);
+      if (hint.strategyRank != null) {
+        setExcludedHintRanks((prev) =>
+          prev.includes(hint.strategyRank) ? prev : [...prev, hint.strategyRank]
+        );
+      }
       setActiveHint(hint);
       setHintStage('nudge');
       setHighlightCells([]);
@@ -395,7 +410,34 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, hintMinRank, onForbidden]);
+  }, [currentGrid, hintMinRank, excludedHintRanks, onForbidden]);
+
+  const requestAlternateHint = useCallback(async () => {
+    if (!currentGrid) return;
+    setIsLoading(true);
+    try {
+      const hint = await getHint(currentGrid, hintMinRank, excludedHintRanks);
+      if (!hint) {
+        setExcludedHintRanks([]);
+        setStatusMessage('No more alternate hints. Starting over from the easiest.');
+        return;
+      }
+      if (hint.strategyRank != null) {
+        setExcludedHintRanks((prev) =>
+          prev.includes(hint.strategyRank) ? prev : [...prev, hint.strategyRank]
+        );
+      }
+      setActiveHint(hint);
+      setHintStage('nudge');
+      setHighlightCells([]);
+    } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
+      setStatusMessage(`Hint failed: ${err.message}`);
+      setGameStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentGrid, hintMinRank, excludedHintRanks, onForbidden]);
 
   const advanceHint = useCallback(() => {
     if (!activeHint) return;
@@ -533,6 +575,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       difficulty: difficultyRef.current,
       outcome,
       elapsedSeconds: outcome === 'won' ? elapsedSecondsRef.current : null,
+      hintsUsed,
     });
     pauseTimer();
     setIsPaused(false);
@@ -548,7 +591,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     setStatusMessage(null);
     setSelectedCell(null);
     setSelectedNumber(null);
-  }, [pauseTimer, gameStatus, onGameComplete]);
+  }, [pauseTimer, gameStatus, onGameComplete, hintsUsed]);
 
   const startNewGameFromImage = useCallback(async (imageFile) => {
     setIsLoading(true);
@@ -569,6 +612,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
       setCandidateGrid(emptyGrid);
       setHistory([]);
+      setHintsUsed(0);
+      setExcludedHintRanks([]);
       lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0);
       startTimer();
     } catch (err) {
@@ -600,6 +645,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCandidateGrid(emptyGrid);
       setHistory([]);
       setHintMinRank(data.minRank ?? null);
+      setHintsUsed(0);
+      setExcludedHintRanks([]);
       lsClear();
       startTimer();
     } catch (err) {
@@ -644,7 +691,9 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     undoLastMove,
     canUndo: history.length > 0,
     requestValidation,
+    hintsUsed,
     requestHint,
+    requestAlternateHint,
     advanceHint,
     dismissHint,
     fillCandidates,

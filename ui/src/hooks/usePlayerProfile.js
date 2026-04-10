@@ -38,13 +38,14 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
     setAvatarState(iconName);
   }, []);
 
-  const recordGame = useCallback(({ gameId, difficulty, outcome, elapsedSeconds }) => {
+  const recordGame = useCallback(({ gameId, difficulty, outcome, elapsedSeconds, hintsUsed }) => {
     if (!gameId) return;
     const entry = {
       id: gameId,
       difficulty,
       outcome,
       elapsedSeconds,
+      hintsUsed: hintsUsed ?? 0,
       completedAt: new Date().toISOString(),
     };
     setHistory((prev) => {

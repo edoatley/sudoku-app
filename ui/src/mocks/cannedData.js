@@ -59,6 +59,7 @@ export const CANNED_HINT = {
   techniqueName: "Naked Single",
   markdownSlug: "naked-single",
   difficulty: "easy",
+  strategyRank: 20,
   nudge: "There is a Naked Single hiding somewhere on the board.",
   focus: "Look closely at cell (0, 2) — its row, column, and box together eliminate 8 numbers.",
   reveal: "Cell (0, 2) can only be 4. All other numbers appear in its row, column, or 3×3 block.",

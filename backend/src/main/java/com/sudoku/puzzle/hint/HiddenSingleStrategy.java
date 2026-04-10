@@ -58,6 +58,7 @@ public class HiddenSingleStrategy implements HintStrategy {
                         "Hidden Single",
                         "hidden-single",
                         "easy",
+                        getDifficultyRank(),
                         "A digit appears as a candidate in exactly one cell within a unit.",
                         unitType + " " + unitNumber + " has digit " + digit + " as a candidate in only one cell.",
                         "Cell (" + r + ", " + c + ") must be " + digit + ".",

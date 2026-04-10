@@ -87,6 +87,7 @@ public class PointingPairStrategy implements HintStrategy {
                 "Pointing Pair",
                 "pointing-pair",
                 "medium",
+                getDifficultyRank(),
                 "Within a block, all candidates for a digit are confined to one row or column.",
                 "Block " + blockIndex + ": digit " + digit + " is confined to " + lineDescription + ".",
                 "Digit " + digit + " can be removed from the rest of " + lineDescription + " outside block " + blockIndex + ".",

@@ -75,6 +75,7 @@ public class HiddenPairStrategy implements HintStrategy {
                         "Hidden Pair",
                         "hidden-pair",
                         "medium",
+                        getDifficultyRank(),
                         "Two digits appear as candidates in exactly the same two cells within a unit.",
                         unitType + " " + unitIndex + ": digits " + d1 + " and " + d2
                                 + " are confined to cells (" + rA + "," + cA + ") and (" + rB + "," + cB + ").",

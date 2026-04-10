@@ -119,7 +119,9 @@ function SudokuApp({ user, signOut }) {
     undoLastMove,
     canUndo,
     requestValidation,
+    hintsUsed,
     requestHint,
+    requestAlternateHint,
     advanceHint,
     dismissHint,
     selectedCell,
@@ -244,6 +246,7 @@ function SudokuApp({ user, signOut }) {
             stage={hintStage}
             onAdvance={advanceHint}
             onDismiss={dismissHint}
+            onAlternateHint={requestAlternateHint}
           />
         </Stack>
       </Container>
@@ -271,6 +274,11 @@ function SudokuApp({ user, signOut }) {
           <Typography>
             Puzzle solved in {Math.floor(elapsedSeconds / 60)}m {elapsedSeconds % 60}s
           </Typography>
+          {hintsUsed > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Hints used: {hintsUsed}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button variant="contained" onClick={finishGame} data-testid="finish-button">
