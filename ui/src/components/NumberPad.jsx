@@ -28,9 +28,9 @@ const toolBtnSx = {
   '&.Mui-disabled': { borderColor: 'divider', color: 'action.disabled' },
 };
 
-function NumButton({ n, selectedNumber, onNumberSelect, completedNumbers }) {
+function NumButton({ n, selectedNumber, onNumberSelect, completedNumbers, inputMode }) {
   const active = selectedNumber === n;
-  const completed = completedNumbers?.has(n);
+  const completed = inputMode === 'normal' && completedNumbers?.has(n);
   return (
     <Button
       variant={active ? 'contained' : 'outlined'}
@@ -83,7 +83,7 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         {[[1, 2, 3], [4, 5, 6], [7, 8, 9]].map((row) => (
           <Box key={row[0]} sx={{ display: 'flex', gap: 0.5 }}>
             {row.map((n) => (
-              <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} />
+              <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
             ))}
           </Box>
         ))}
