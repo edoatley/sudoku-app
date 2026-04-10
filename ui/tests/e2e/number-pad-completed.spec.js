@@ -1,0 +1,85 @@
+import { test, expect } from '@playwright/test';
+import { setupGameRoutes, waitForGrid, CANNED_GAME_ID, EASY_PUZZLE } from './helpers.js';
+
+// Grid where digit 9 appears exactly 9 times (all placed).
+// Original puzzle has 9s at: [1][4], [2][1], [7][5], [8][8]
+// We add 5 more in empty cells:  [0][6], [3][7], [4][6], [5][6], [6][8]
+const GRID_WITH_ALL_NINES = EASY_PUZZLE.originalGrid.map((r) => [...r]);
+GRID_WITH_ALL_NINES[0][6] = 9;
+GRID_WITH_ALL_NINES[3][7] = 9;
+GRID_WITH_ALL_NINES[4][6] = 9;
+GRID_WITH_ALL_NINES[5][6] = 9;
+GRID_WITH_ALL_NINES[6][8] = 9;
+
+// A candidate grid that still has a 9 candidate in cell [0][2]
+const CANDIDATES_WITH_NINE = Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
+CANDIDATES_WITH_NINE[0][2] = [9];
+
+test('number pad — completed digit is disabled in normal mode', async ({ page }) => {
+  await setupGameRoutes(page, {
+    currentGrid: GRID_WITH_ALL_NINES,
+    candidates: CANDIDATES_WITH_NINE,
+  });
+  await page.goto('/');
+  await waitForGrid(page);
+
+  // Normal mode is the default; 9 appears 9 times so the button should be disabled
+  const nineButton = page.getByRole('button', { name: '9', exact: true });
+  await expect(nineButton).toBeDisabled();
+});
+
+test('number pad — completed digit is enabled in candidate mode', async ({ page }) => {
+  await setupGameRoutes(page, {
+    currentGrid: GRID_WITH_ALL_NINES,
+    candidates: CANDIDATES_WITH_NINE,
+  });
+  await page.goto('/');
+  await waitForGrid(page);
+
+  // Switch to candidate mode — all buttons must be enabled regardless of counts
+  await page.getByRole('button', { name: 'Candidate' }).click();
+
+  const nineButton = page.getByRole('button', { name: '9', exact: true });
+  await expect(nineButton).toBeEnabled();
+});
+
+test('number pad — candidate mode allows removing a lingering candidate of a completed digit', async ({ page }) => {
+  await setupGameRoutes(page, {
+    currentGrid: GRID_WITH_ALL_NINES,
+    candidates: CANDIDATES_WITH_NINE,
+  });
+  // Candidates are loaded from localStorage, not the API response — seed it explicitly
+  await page.addInitScript((candidates) => {
+    localStorage.setItem('sudoku_candidateGrid', JSON.stringify(candidates));
+  }, CANDIDATES_WITH_NINE);
+  await page.goto('/');
+  await waitForGrid(page);
+
+  // cell-0-2 has a 9 candidate; in normal mode the 9 button is disabled
+  // Switch to candidate mode so we can click 9
+  await page.getByRole('button', { name: 'Candidate' }).click();
+
+  // Select cell first, then press 9 — this toggles the existing candidate off
+  await page.getByTestId('cell-0-2').click();
+  await page.getByRole('button', { name: '9', exact: true }).click();
+
+  // Once the only candidate is removed the cell reverts to empty (no CandidateDisplay)
+  await expect(page.getByTestId('cell-0-2')).toHaveText('');
+});
+
+test('number pad — switching back to normal mode re-disables the completed digit', async ({ page }) => {
+  await setupGameRoutes(page, {
+    currentGrid: GRID_WITH_ALL_NINES,
+    candidates: CANDIDATES_WITH_NINE,
+  });
+  await page.goto('/');
+  await waitForGrid(page);
+
+  // Go to candidate mode — 9 is enabled
+  await page.getByRole('button', { name: 'Candidate' }).click();
+  await expect(page.getByRole('button', { name: '9', exact: true })).toBeEnabled();
+
+  // Switch back to normal mode — 9 should be disabled again
+  await page.getByRole('button', { name: 'Normal' }).click();
+  await expect(page.getByRole('button', { name: '9', exact: true })).toBeDisabled();
+});
