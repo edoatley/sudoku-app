@@ -4,6 +4,17 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Mutable model of a single cell in a 9×9 Sudoku board.
+ *
+ * <p>A cell holds its fixed position ({@code row}, {@code col}), its current digit
+ * ({@code 0} meaning empty), and the set of pencil-mark candidates still valid for
+ * that position. Candidates are cleared automatically when a value is placed via
+ * {@link #setValue}, keeping the two pieces of state consistent.
+ *
+ * <p>This is an internal domain object used by {@link Board} and the hint/solve
+ * strategies; it is never serialised directly to JSON.
+ */
 public final class Cell {
 
     private final int row;

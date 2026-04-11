@@ -7,6 +7,19 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+/**
+ * Immutable-structure, mutable-state representation of a 9×9 Sudoku board.
+ *
+ * <p>The grid is built once via {@link #fromGrid(List)} and the 81 {@link Cell} objects
+ * it owns are mutated in-place by solving and hint strategies. The class exposes
+ * structured views of the grid — individual cells, full rows, columns, and the nine
+ * 3×3 blocks — that are used by constraint-propagation and pattern-detection logic.
+ *
+ * <p>Candidate management is also centralised here: {@link #calculateAllCandidates()}
+ * populates every empty cell's pencil marks by eliminating digits already present in
+ * the same row, column, and block, and {@link #toCandidatesGrid()} serialises those
+ * marks into the nested-list format expected by {@link com.sudoku.dto.CandidatesResponse}.
+ */
 public final class Board {
 
     private final Cell[][] cells;
