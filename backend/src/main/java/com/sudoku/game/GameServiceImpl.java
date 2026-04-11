@@ -39,7 +39,8 @@ public class GameServiceImpl implements GameService {
                 puzzle.originalGrid().stream().map(row -> row.stream().collect(Collectors.toList())).collect(Collectors.toList()),
                 emptyCandidates,
                 0,
-                "IN_PROGRESS"
+                "IN_PROGRESS",
+                0
         );
         gameRepository.save(gameState);
         return gameState;
@@ -61,7 +62,8 @@ public class GameServiceImpl implements GameService {
                 originalGrid.stream().map(row -> row.stream().collect(Collectors.toList())).collect(Collectors.toList()),
                 emptyCandidates,
                 0,
-                "IN_PROGRESS"
+                "IN_PROGRESS",
+                0
         );
         gameRepository.save(gameState);
         return gameState;

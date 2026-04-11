@@ -11,6 +11,7 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
+import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -68,6 +69,7 @@ export default function Header({
   elapsedSeconds,
   timerRunning,
   gameStarted,
+  hintsUsed,
   user,
   onSignOut,
   onPause,
@@ -216,6 +218,19 @@ export default function Header({
                   fontSize: '1rem',
                   fontWeight: 'bold',
                   px: 1,
+                }}
+              />
+            )}
+            {gameStarted && hintsUsed > 0 && (
+              <Chip
+                icon={<LightbulbOutlinedIcon />}
+                label={hintsUsed}
+                variant="outlined"
+                size="small"
+                sx={{
+                  color: 'primary.contrastText',
+                  borderColor: 'rgba(255,255,255,0.5)',
+                  '& .MuiChip-icon': { color: 'primary.contrastText' },
                 }}
               />
             )}

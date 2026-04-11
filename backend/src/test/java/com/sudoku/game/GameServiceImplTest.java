@@ -76,7 +76,7 @@ class GameServiceImplTest {
     @Test
     void loadGame_whenFound_returnsGameState() {
         String gameId = "test-id-123";
-        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, GRID, List.of(), 42, "IN_PROGRESS");
+        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, GRID, List.of(), 42, "IN_PROGRESS", 0);
         when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(expected));
 
         GameState result = gameService.loadGame(USER_ID, gameId);
@@ -118,7 +118,7 @@ class GameServiceImplTest {
     @Test
     void updateGame_delegatesToRepository() {
         String gameId = "test-id-456";
-        GameUpdateRequest request = new GameUpdateRequest(GRID, List.of(), 120, false);
+        GameUpdateRequest request = new GameUpdateRequest(GRID, List.of(), 120, false, null);
 
         gameService.updateGame(USER_ID, gameId, request);
 
@@ -126,7 +126,7 @@ class GameServiceImplTest {
     }
     @Test
     void findInProgress_whenFound_returnsGame() {
-        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, GRID, List.of(), 30, "IN_PROGRESS");
+        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, GRID, List.of(), 30, "IN_PROGRESS", 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         Optional<GameState> result = gameService.findInProgress(USER_ID);

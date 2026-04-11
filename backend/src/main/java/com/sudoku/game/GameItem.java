@@ -31,6 +31,7 @@ public class GameItem {
     private String candidates;
     private int timeSpentSeconds;
     private String status;
+    private int hintsUsed;
 
     // --- composite key ---
 
@@ -64,6 +65,9 @@ public class GameItem {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
+    public int getHintsUsed() { return hintsUsed; }
+    public void setHintsUsed(int hintsUsed) { this.hintsUsed = hintsUsed; }
+
     // --- factory methods ---
 
     static GameItem from(GameState state) {
@@ -76,6 +80,7 @@ public class GameItem {
         item.setCandidates(toJson(state.candidates()));
         item.setTimeSpentSeconds(state.timeSpentSeconds());
         item.setStatus(state.status());
+        item.setHintsUsed(state.hintsUsed());
         return item;
     }
 
@@ -88,7 +93,8 @@ public class GameItem {
                 fromJson(currentGrid, new TypeReference<List<List<Integer>>>() {}),
                 fromJson(candidates, new TypeReference<List<List<List<Integer>>>>() {}),
                 timeSpentSeconds,
-                status
+                status,
+                hintsUsed
         );
     }
 
@@ -97,6 +103,7 @@ public class GameItem {
         setCandidates(toJson(request.candidates()));
         setTimeSpentSeconds(request.timeSpentSeconds());
         setStatus(Boolean.TRUE.equals(request.isComplete()) ? "SOLVED" : "IN_PROGRESS");
+        if (request.hintsUsed() != null) setHintsUsed(request.hintsUsed());
     }
 
     // --- JSON helpers (package-private for use by this class only) ---

@@ -187,6 +187,7 @@ function SudokuApp({ user, signOut }) {
         elapsedSeconds={elapsedSeconds}
         timerRunning={timerRunning}
         gameStarted={!!currentGrid}
+        hintsUsed={hintsUsed}
         user={effectiveUser}
         onSignOut={signOut}
         avatar={avatar}

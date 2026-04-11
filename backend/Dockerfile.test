@@ -3,10 +3,11 @@
 FROM maven:3-eclipse-temurin-25
 WORKDIR /build
 
-# Use a cache mount for the local repository
 COPY pom.xml ./
-RUN --mount=type=cache,target=/root/.m2 \
-    mvn dependency:resolve -q
+# Bake all project + Quarkus build-time plugin deps into the image layer so they
+# are available at container runtime when quarkus:dev starts (no cache mount —
+# deps must be committed into the layer, not just the build-time cache).
+RUN mvn dependency:go-offline quarkus:go-offline -q
 
 COPY src/ src/
 EXPOSE 8080

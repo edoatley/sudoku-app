@@ -282,7 +282,8 @@ t=$(date +%s)
   echo "Building and starting services in parallel..."
   # --build ensures images are updated if source code changed
   # --wait will block until all healthchecks pass (Docker 20.10.13+)
-  docker compose -f "${REPO_ROOT}/docker-compose.test.yml" up -d --build --wait
+  # Explicitly enable BuildKit for the cache mounts to work
+  DOCKER_BUILDKIT=1 docker compose -f "${REPO_ROOT}/docker-compose.test.yml" up -d --build --wait
   COMPOSE_STARTED=true
 
   # Optional: Keep your manual loop if you want more granular console output,

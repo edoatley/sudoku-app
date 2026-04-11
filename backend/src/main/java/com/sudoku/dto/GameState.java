@@ -19,5 +19,6 @@ public record GameState(
         List<List<Integer>> currentGrid,
         List<List<List<Integer>>> candidates,
         int timeSpentSeconds,
-        String status
+        String status,
+        int hintsUsed
 ) {}

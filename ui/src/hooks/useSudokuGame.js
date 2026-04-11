@@ -6,20 +6,22 @@ const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
 const LS_KEY_CANDIDATE_GRID = 'sudoku_candidateGrid';
 const LS_KEY_DIFFICULTY = 'sudoku_difficulty';
 const LS_KEY_ELAPSED_SECONDS = 'sudoku_elapsedSeconds';
+const LS_KEY_HINTS_USED = 'sudoku_hintsUsed';
 
-function lsSave(gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds) {
+function lsSave(gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds, hintsUsed) {
   try {
     localStorage.setItem(LS_KEY_GAME_ID, gameId);
     localStorage.setItem(LS_KEY_CURRENT_GRID, JSON.stringify(currentGrid));
     localStorage.setItem(LS_KEY_CANDIDATE_GRID, JSON.stringify(candidateGrid));
     localStorage.setItem(LS_KEY_DIFFICULTY, difficulty);
     localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSeconds));
+    localStorage.setItem(LS_KEY_HINTS_USED, String(hintsUsed ?? 0));
   // eslint-disable-next-line no-unused-vars
   } catch (_) { /* storage full — silently ignore */ }
 }
 
 function lsClear() {
-  [LS_KEY_GAME_ID, LS_KEY_CURRENT_GRID, LS_KEY_CANDIDATE_GRID, LS_KEY_DIFFICULTY, LS_KEY_ELAPSED_SECONDS]
+  [LS_KEY_GAME_ID, LS_KEY_CURRENT_GRID, LS_KEY_CANDIDATE_GRID, LS_KEY_DIFFICULTY, LS_KEY_ELAPSED_SECONDS, LS_KEY_HINTS_USED]
     .forEach((k) => localStorage.removeItem(k));
 }
 
@@ -121,7 +123,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setHintMinRank(null);
       setHintsUsed(0);
       setExcludedHintRanks([]);
-      lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0);
+      lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0, 0);
       startTimer();
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -136,7 +138,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   useEffect(() => {
     const controller = new AbortController();
 
-    const applyLoadedGame = (data, savedCandidates, savedElapsed) => {
+    const applyLoadedGame = (data, savedCandidates, savedElapsed, savedHints) => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -149,6 +151,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setDifficulty(data.difficulty);
       setHistory([]);
       setElapsedSeconds(savedElapsed);
+      setHintsUsed(savedHints);
       setTimerRunning(true);
       timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
       setIsLoading(false);
@@ -166,8 +169,10 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
         })();
         const lsElapsed = parseInt(localStorage.getItem(LS_KEY_ELAPSED_SECONDS) || '0', 10);
         const savedElapsed = Math.max(lsElapsed, data.timeSpentSeconds ?? 0);
-        applyLoadedGame(data, savedCandidates, savedElapsed);
-        lsSave(data.gameId, data.currentGrid, savedCandidates, data.difficulty, savedElapsed);
+        const lsHints = parseInt(localStorage.getItem(LS_KEY_HINTS_USED) || '0', 10);
+        const savedHints = Math.max(lsHints, data.hintsUsed ?? 0);
+        applyLoadedGame(data, savedCandidates, savedElapsed, savedHints);
+        lsSave(data.gameId, data.currentGrid, savedCandidates, data.difficulty, savedElapsed, savedHints);
       }).catch(() => {
         if (controller.signal.aborted) return;
         lsClear();
@@ -181,16 +186,20 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
           const restoredCandidates = Array.isArray(data.candidates) && data.candidates.length === 9
             ? data.candidates
             : emptyCandidate();
-          applyLoadedGame(data, restoredCandidates, data.timeSpentSeconds ?? 0);
-          lsSave(data.gameId, data.currentGrid, restoredCandidates, data.difficulty, data.timeSpentSeconds ?? 0);
+          const restoredHints = data.hintsUsed ?? 0;
+          applyLoadedGame(data, restoredCandidates, data.timeSpentSeconds ?? 0, restoredHints);
+          lsSave(data.gameId, data.currentGrid, restoredCandidates, data.difficulty, data.timeSpentSeconds ?? 0, restoredHints);
         } else {
+          setIsLoading(false);
           startNewGame(undefined, controller.signal);
         }
       }).catch(() => {
         if (controller.signal.aborted) return;
-        startNewGame(undefined, controller.signal);
+        setIsLoading(false);
       });
     } else {
+      // No saved game and no authenticated user (e.g. VITE_SKIP_AUTH=true in integration tests).
+      // Auto-start a new game so the grid is immediately available.
       startNewGame(undefined, controller.signal);
     }
     return () => controller.abort();
@@ -203,16 +212,21 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   candidateGridRef.current = candidateGrid;
   const difficultyRef = useRef(difficulty);
   difficultyRef.current = difficulty;
+  const hintsUsedRef = useRef(0);
+  hintsUsedRef.current = hintsUsed;
 
   const syncToBackend = useCallback(() => {
     const gid = gameIdRef.current;
     const grid = currentGridRef.current;
     const candidates = candidateGridRef.current;
     if (!gid || !grid) return;
+    try {
+      localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSecondsRef.current));
+      localStorage.setItem(LS_KEY_HINTS_USED, String(hintsUsedRef.current));
     // eslint-disable-next-line no-unused-vars
-    try { localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSecondsRef.current)); } catch (_) { /* storage full */ }
+    } catch (_) { /* storage full */ }
     setIsSyncing(true);
-    saveGame(gid, { currentGrid: grid, candidates: candidates ?? [], timeSpentSeconds: elapsedSecondsRef.current })
+    saveGame(gid, { currentGrid: grid, candidates: candidates ?? [], timeSpentSeconds: elapsedSecondsRef.current, hintsUsed: hintsUsedRef.current })
       .finally(() => setIsSyncing(false));
   }, []);
 
@@ -629,7 +643,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setHistory([]);
       setHintsUsed(0);
       setExcludedHintRanks([]);
-      lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0);
+      lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0, 0);
       startTimer();
     } catch (err) {
       if (err instanceof ForbiddenError) { onForbidden?.(); return; }

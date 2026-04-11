@@ -2,7 +2,7 @@
  * Game persistence e2e tests.
  *
  * Verifies that:
- *  - On first visit with no saved game, no grid is shown
+ *  - On first visit with no saved game, a game is auto-started (POST /games, grid shown)
  *  - Starting a new game via menu calls POST /games and stores the returned gameId
  *  - Entering a cell value persists to localStorage immediately
  *  - Tab hide triggers an immediate PATCH /games/:id
@@ -27,7 +27,7 @@ const NEAR_COMPLETE_GRID = [
 ];
 
 test.describe('Game lifecycle — API calls', () => {
-  test('first visit with no saved game shows empty board (no POST /games)', async ({ page }) => {
+  test('first visit with no saved game auto-starts a game (POST /games, grid shown)', async ({ page }) => {
     let postGamesCalled = false;
 
     await page.route('**/games', (route) => {
@@ -38,11 +38,15 @@ test.describe('Game lifecycle — API calls', () => {
         route.continue();
       }
     });
+    await page.route('**/games/**', (route) => {
+      route.request().method() === 'PATCH'
+        ? route.fulfill({ status: 200, body: '' })
+        : route.continue();
+    });
 
     await page.goto('/');
-    // Wait for the page to settle — loading spinner gone, no grid visible
-    await expect(page.locator('[data-testid="cell-0-0"]')).not.toBeVisible({ timeout: 3000 });
-    expect(postGamesCalled).toBe(false);
+    await waitForGrid(page);
+    expect(postGamesCalled).toBe(true);
   });
 
   test('New Game menu triggers POST /games and stores gameId in localStorage', async ({ page }) => {

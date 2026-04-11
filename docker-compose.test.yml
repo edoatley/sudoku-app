@@ -48,10 +48,10 @@ services:
       SUDOKU_API_LOGGING_ENABLED: "false"
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/puzzles/generate"]
-      interval: 10s
+      interval: 5s
       timeout: 10s
-      retries: 18
-      start_period: 60s
+      retries: 20
+      start_period: 60s  # Allow time for Quarkus dev mode to compile and start
     depends_on:
       dynamodb-setup:
         condition: service_completed_successfully
