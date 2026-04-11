@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# test-local.sh — Run all test suites locally, mirroring the CI PR pipeline.
+# local-alltests.sh — Run all test suites locally, mirroring the CI PR pipeline.
 # Usage:
-#   bash scripts/test-local.sh [--skip-image-recognition] [--skip-lint] [--skip-audit]
-#                               [--skip-e2e] [--skip-backend] [--skip-integration]
-#                               [--skip-infra]
+#   bash scripts/local/local-alltests.sh [--skip-image-recognition] [--skip-lint] [--skip-audit]
+#                                        [--skip-e2e] [--skip-backend] [--skip-integration]
+#                                        [--skip-infra]
 #
 # Exits 0 if all suites pass, 1 if any suite fails.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Disable AWS CLI pager so output goes straight to stdout (no interactive less)
 export AWS_PAGER=""
@@ -276,35 +276,18 @@ elif [[ "${HAS_DOCKER}" == "false" ]]; then
 elif [[ "${HAS_NODE}" == "false" ]]; then
   skip "$SUITE" "node not found"
 else
-  t=$(date +%s)
+t=$(date +%s)
   INT_RC=0
 
-  echo "Building Docker images..."
-  docker build -t sudoku-app-backend:latest \
-    -f "${REPO_ROOT}/backend/Dockerfile.test" \
-    "${REPO_ROOT}/backend"
-
-  docker build -t sudoku-app-ui:latest \
-    -f "${REPO_ROOT}/ui/Dockerfile.test" \
-    --build-arg VITE_API_URL=http://localhost:8080/api/v1 \
-    --build-arg VITE_MOCK_API=false \
-    --build-arg VITE_SKIP_AUTH=true \
-    --build-arg VITE_DEV_TOOLS=true \
-    "${REPO_ROOT}/ui"
-
-  echo "Starting services..."
-  docker compose -f "${REPO_ROOT}/docker-compose.test.yml" up -d --no-build
+  echo "Building and starting services in parallel..."
+  # --build ensures images are updated if source code changed
+  # --wait will block until all healthchecks pass (Docker 20.10.13+)
+  docker compose -f "${REPO_ROOT}/docker-compose.test.yml" up -d --build --wait
   COMPOSE_STARTED=true
 
-  echo "Waiting for backend to be healthy..."
-  for i in $(seq 1 30); do
-    if curl -sf http://localhost:8080/api/v1/puzzles/generate &>/dev/null; then
-      echo "Backend is ready"
-      break
-    fi
-    echo "  Waiting... ($i/30)"
-    sleep 3
-  done
+  # Optional: Keep your manual loop if you want more granular console output,
+  # otherwise the '--wait' flag above handles the synchronization.
+  echo "Services are up and healthy."
 
   (cd "${REPO_ROOT}/ui" && CI=true npx playwright test --config playwright.integration.config.js)
   INT_RC=$?

@@ -329,7 +329,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
         return next;
       });
     }
-  }, [inputMode, originalGrid]);
+  }, [inputMode, originalGrid, pauseTimer]);
 
   const updateCell = useCallback((row, col) => {
     if (selectedCell?.row === row && selectedCell?.col === col && selectedNumber === null) {

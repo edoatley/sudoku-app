@@ -37,8 +37,8 @@ test('hint — clicking Hint shows the hint dialog with nudge text', async ({ pa
 
   await page.getByRole('button', { name: 'Hint' }).click();
 
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('dialog')).toContainText('There is a Naked Single hiding somewhere on the board.');
+  await expect(page.getByTestId('hint-panel')).toBeVisible();
+  await expect(page.getByTestId('hint-panel')).toContainText('There is a Naked Single hiding somewhere on the board.');
 });
 
 test('hint — advancing to reveal fills the hinted cell with the correct value', async ({ page }) => {
@@ -50,18 +50,17 @@ test('hint — advancing to reveal fills the hinted cell with the correct value'
   await waitForGrid(page);
 
   await page.getByRole('button', { name: 'Hint' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByTestId('hint-panel')).toBeVisible();
 
-  // nudge → focus
-  await page.getByRole('button', { name: 'Next Hint' }).click();
-  // focus → reveal (fills cell)
+  // nudge → focus → reveal (fills cell)
+  await page.getByRole('button', { name: 'Show Me' }).click();
   await page.getByRole('button', { name: 'Show Me' }).click();
 
   await expect(page.getByTestId('cell-0-2')).toContainText('4');
 
   // dismiss
   await page.getByRole('button', { name: 'Got It' }).click();
-  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page.getByTestId('hint-panel')).not.toBeVisible();
 });
 
 test('hint — "Try Different Hint" button appears at nudge stage', async ({ page }) => {
@@ -73,7 +72,7 @@ test('hint — "Try Different Hint" button appears at nudge stage', async ({ pag
   await waitForGrid(page);
 
   await page.getByRole('button', { name: 'Hint' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByTestId('hint-panel')).toBeVisible();
 
   await expect(page.getByRole('button', { name: 'Try Different Hint' })).toBeVisible();
 });
@@ -87,7 +86,8 @@ test('hint — "Try Different Hint" not visible at focus stage', async ({ page }
   await waitForGrid(page);
 
   await page.getByRole('button', { name: 'Hint' }).click();
-  await page.getByRole('button', { name: 'Next Hint' }).click();
+  await expect(page.getByTestId('hint-panel')).toBeVisible();
+  await page.getByRole('button', { name: 'Show Me' }).click();
 
   await expect(page.getByRole('button', { name: 'Try Different Hint' })).not.toBeVisible();
 });
@@ -103,11 +103,11 @@ test('hint — "Try Different Hint" sends new request and shows different techni
   await waitForGrid(page);
 
   await page.getByRole('button', { name: 'Hint' }).click();
-  await expect(page.getByRole('dialog')).toContainText('Naked Single');
+  await expect(page.getByTestId('hint-panel')).toContainText('Naked Single');
 
   await page.getByRole('button', { name: 'Try Different Hint' }).click();
 
-  await expect(page.getByRole('dialog')).toContainText('Hidden Single');
+  await expect(page.getByTestId('hint-panel')).toContainText('Hidden Single');
 });
 
 test('hint — second Hint request auto-skips first technique', async ({ page }) => {
@@ -122,8 +122,9 @@ test('hint — second Hint request auto-skips first technique', async ({ page })
 
   // First hint: get Naked Single, dismiss
   await page.getByRole('button', { name: 'Hint' }).click();
+  await expect(page.getByTestId('hint-panel')).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page.getByTestId('hint-panel')).not.toBeVisible();
 
   // Second hint request — should include excludedRanks
   await page.getByRole('button', { name: 'Hint', exact: true }).click();

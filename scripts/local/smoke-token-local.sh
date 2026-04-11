@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Validate the smoke-test Cognito token acquisition locally.
-# Usage: AWS_PROFILE=sandbox ./scripts/smoke-token-local.sh <user-pool-id> <username> <password>
-# Example: AWS_PROFILE=sandbox ./scripts/smoke-token-local.sh eu-west-2_71X75OgH8 user@example.com MyP@ss
+# Usage: AWS_PROFILE=sandbox ./scripts/local/smoke-token-local.sh <user-pool-id> <username> <password>
+# Example: AWS_PROFILE=sandbox ./scripts/local/smoke-token-local.sh eu-west-2_71X75OgH8 user@example.com MyP@ss
 set -euo pipefail
 
 USER_POOL_ID="${1:?Usage: $0 <user-pool-id> <username> <password>}"

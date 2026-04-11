@@ -57,10 +57,10 @@ test.describe('Hint', () => {
 
     await page.getByRole('button', { name: /hint/i }).click();
 
-    // Dialog should appear with some hint content
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10_000 });
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).not.toBeEmpty();
+    // Hint panel should appear with some hint content
+    await expect(page.getByTestId('hint-panel')).toBeVisible({ timeout: 10_000 });
+    const hintPanel = page.getByTestId('hint-panel');
+    await expect(hintPanel).not.toBeEmpty();
   });
 });
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Destroy a RC Terraform workspace locally.
-# Usage: AMPLIFY_GITHUB_TOKEN=<token> bash scripts/destroy-rc.sh <branch-name>
-# Example: AMPLIFY_GITHUB_TOKEN=ghp_xxx bash scripts/destroy-rc.sh rc-auth
+# Usage: AMPLIFY_GITHUB_TOKEN=<token> bash scripts/infra/destroy-rc.sh <branch-name>
+# Example: AMPLIFY_GITHUB_TOKEN=ghp_xxx bash scripts/infra/destroy-rc.sh rc-auth
 #
 # Requires: terraform, aws CLI, AWS_PROFILE=sandbox (or valid ambient credentials)
 
@@ -10,12 +10,12 @@ set -euo pipefail
 BRANCH="${1:-}"
 if [ -z "${BRANCH}" ]; then
   echo "ERROR: branch name required" >&2
-  echo "Usage: AMPLIFY_GITHUB_TOKEN=<token> bash scripts/destroy-rc.sh <branch-name>" >&2
+  echo "Usage: AMPLIFY_GITHUB_TOKEN=<token> bash scripts/infra/destroy-rc.sh <branch-name>" >&2
   exit 1
 fi
 
 # ── Load secrets from .env.local if not already in environment ─────────────────
-ENV_FILE="$(dirname "$0")/.env.local"
+ENV_FILE="$(dirname "$0")/../.env.local"
 if [ -f "${ENV_FILE}" ]; then
   # shellcheck source=/dev/null
   set -o allexport; source "${ENV_FILE}"; set +o allexport
@@ -39,7 +39,7 @@ echo "    Branch:    ${BRANCH}"
 echo "    Workspace: ${WORKSPACE}"
 echo ""
 
-cd "$(dirname "$0")/../infra"
+cd "$(dirname "$0")/../../infra"
 
 echo "==> terraform init"
 AWS_PROFILE=sandbox terraform init

@@ -66,7 +66,7 @@ export default function HintDialog({ open, hint, stage, onAdvance, onDismiss, on
       {isDesktop ? (
         /* Desktop: inline card below the board, capped to grid width */
         <Collapse in={open}>
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Paper data-testid="hint-panel" variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {titleBar}
             <Typography variant="body2">{stageText(hint, stage)}</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
@@ -76,7 +76,7 @@ export default function HintDialog({ open, hint, stage, onAdvance, onDismiss, on
         </Collapse>
       ) : (
         /* Mobile: keep the dialog */
-        <Dialog open={open} onClose={onDismiss} maxWidth="sm" fullWidth>
+        <Dialog data-testid="hint-panel" open={open} onClose={onDismiss} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ m: 0, p: 2, pr: 10 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               Hint — {hint?.techniqueName}

@@ -58,7 +58,7 @@ Both `sudoku.edoatley.co.uk` and `sudoku-beta.edoatley.co.uk` Route53 zones live
 | `iam.tf` | Lambda execution roles and DynamoDB policies |
 | `dynamodb.tf` | `SudokuGames` and `SudokuPlayers` tables |
 | `image_recognition_lambda.tf` | Image recognition Lambda (Bedrock-backed, container image) |
-| `scripts/delegate-dns.sh` | One-off script to create NS delegation in the parent AWS account |
+| `scripts/infra/delegate-dns.sh` | One-off script to create NS delegation in the parent AWS account |
 
 ---
 
@@ -230,7 +230,7 @@ Once the NS delegation is in place, the ACM certificate will validate automatica
 Run once with valid sandbox AWS credentials before the first `terraform apply`:
 
 ```bash
-AWS_PROFILE=sandbox bash scripts/bootstrap.sh
+AWS_PROFILE=sandbox bash scripts/infra/bootstrap.sh
 ```
 
 This creates (idempotent — safe to re-run):
@@ -318,13 +318,13 @@ This ensures all other resources — and the Route53 NS records — are availabl
 
 ### Local Deploy
 
-Use `scripts/deploy-local.sh` to mirror the CI deploy locally:
+Use `scripts/infra/deploy-local.sh` to mirror the CI deploy locally:
 
 ```bash
 # Secrets are loaded from scripts/.env.local if present (see setup-local-secrets.sh)
-bash scripts/deploy-local.sh          # uses current git branch
-bash scripts/deploy-local.sh main     # force production workspace
-bash scripts/deploy-local.sh rc-foo   # force rc-foo workspace
+bash scripts/infra/deploy-local.sh          # uses current git branch
+bash scripts/infra/deploy-local.sh main     # force production workspace
+bash scripts/infra/deploy-local.sh rc-foo   # force rc-foo workspace
 ```
 
 The script handles workspace selection, S3 zip download fallback, two-phase apply, NS record printing, and CORS/Cognito tightening.
