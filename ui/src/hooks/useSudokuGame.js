@@ -332,12 +332,16 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   }, [inputMode, originalGrid]);
 
   const updateCell = useCallback((row, col) => {
+    if (selectedCell?.row === row && selectedCell?.col === col && selectedNumber === null) {
+      setSelectedCell(null);
+      return;
+    }
     setSelectedCell({ row, col });
     if (selectedNumber !== null) {
       writeCellValue(row, col, selectedNumber);
       setSelectedNumber(null);
     }
-  }, [selectedNumber, writeCellValue]);
+  }, [selectedCell, selectedNumber, writeCellValue]);
 
   const handleNumberSelect = useCallback((n) => {
     if (n === null) { setSelectedNumber(null); return; }

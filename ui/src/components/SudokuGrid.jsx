@@ -2,12 +2,17 @@ import Box from '@mui/material/Box';
 import SudokuCell from './SudokuCell.jsx';
 
 function getBorderSx(row, col) {
+  const majorColor = 'primary.dark';
+  const minorColor = 'divider';
   return {
-    borderRight: col === 2 || col === 5 ? '2px solid' : '0.5px solid',
-    borderBottom: row === 2 || row === 5 ? '2px solid' : '0.5px solid',
-    borderLeft: col === 0 ? '2px solid' : 'none',
-    borderTop: row === 0 ? '2px solid' : 'none',
-    borderColor: 'text.primary',
+    borderRight: col === 2 || col === 5 ? `3px solid` : '1px solid',
+    borderRightColor: col === 2 || col === 5 ? majorColor : minorColor,
+    borderBottom: row === 2 || row === 5 ? '3px solid' : '1px solid',
+    borderBottomColor: row === 2 || row === 5 ? majorColor : minorColor,
+    borderLeft: col === 0 ? '3px solid' : 'none',
+    borderLeftColor: col === 0 ? majorColor : undefined,
+    borderTop: row === 0 ? '3px solid' : 'none',
+    borderTopColor: row === 0 ? majorColor : undefined,
   };
 }
 

@@ -84,10 +84,13 @@ function SudokuApp({ user, signOut }) {
     () => createTheme({
       palette: {
         mode: colorMode,
-        ...(colorMode === 'dark' && {
-          primary: { main: '#9c27b0' },
-        }),
+        primary: { main: colorMode === 'dark' ? '#9c27b0' : '#3949ab' },
+        background: {
+          default: colorMode === 'light' ? '#f5f5f0' : '#121212',
+          paper:   colorMode === 'light' ? '#ffffff' : '#1e1e1e',
+        },
       },
+      shape: { borderRadius: 6 },
     }),
     [colorMode]
   );
@@ -207,47 +210,53 @@ function SudokuApp({ user, signOut }) {
           ) : isPaused ? (
             <PauseOverlay onResume={resumeGame} />
           ) : currentGrid ? (
-            <Box sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', md: 'row' },
-              gap: { xs: 1, md: 2 },
-              alignItems: { xs: 'center', md: 'flex-start' },
-              width: '100%',
-            }}>
-              <SudokuGrid
-                originalGrid={originalGrid}
-                currentGrid={currentGrid}
-                candidateGrid={candidateGrid}
-                errorCells={errorCells}
-                highlightCells={highlightCells}
-                selectedCell={selectedCell}
-                selectedNumber={selectedNumber}
-                onCellClick={updateCell}
-              />
-              <NumberPad
-                selectedNumber={selectedNumber}
-                inputMode={inputMode}
-                onNumberSelect={handleNumberSelect}
-                onModeChange={setInputMode}
-                onClearCell={clearCell}
-                onUndo={undoLastMove}
-                canUndo={canUndo}
-                onValidate={requestValidation}
-                onHint={requestHint}
-                onFillCandidates={fillCandidates}
-                isLoading={isLoading}
-                completedNumbers={completedNumbers}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1, md: 2 }, width: '100%' }}>
+              {/* Grid + controls row */}
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', md: 'row' },
+                gap: { xs: 1, md: 2 },
+                alignItems: { xs: 'center', md: 'flex-start' },
+              }}>
+                <SudokuGrid
+                  originalGrid={originalGrid}
+                  currentGrid={currentGrid}
+                  candidateGrid={candidateGrid}
+                  errorCells={errorCells}
+                  highlightCells={highlightCells}
+                  selectedCell={selectedCell}
+                  selectedNumber={selectedNumber}
+                  onCellClick={updateCell}
+                />
+                <NumberPad
+                  selectedNumber={selectedNumber}
+                  inputMode={inputMode}
+                  onNumberSelect={handleNumberSelect}
+                  onModeChange={setInputMode}
+                  onClearCell={clearCell}
+                  onUndo={undoLastMove}
+                  canUndo={canUndo}
+                  onValidate={requestValidation}
+                  onHint={requestHint}
+                  onFillCandidates={fillCandidates}
+                  isLoading={isLoading}
+                  completedNumbers={completedNumbers}
+                  gameStatus={gameStatus}
+                  statusMessage={statusMessage}
+                  onCloseStatus={clearStatus}
+                />
+              </Box>
+              {/* Hint panel below the board */}
+              <HintDialog
+                open={!!activeHint}
+                hint={activeHint}
+                stage={hintStage}
+                onAdvance={advanceHint}
+                onDismiss={dismissHint}
+                onAlternateHint={requestAlternateHint}
               />
             </Box>
           ) : null}
-          <HintDialog
-            open={!!activeHint}
-            hint={activeHint}
-            stage={hintStage}
-            onAdvance={advanceHint}
-            onDismiss={dismissHint}
-            onAlternateHint={requestAlternateHint}
-          />
         </Stack>
       </Container>
 

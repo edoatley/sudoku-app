@@ -1,5 +1,7 @@
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -12,7 +14,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 
-const btnSx = { minWidth: { xs: 36, sm: 48 }, height: { xs: 36, sm: 48 }, p: 0 };
+const btnSx = { minWidth: { xs: 44, sm: 56 }, height: { xs: 44, sm: 56 }, p: 0, fontSize: '1.15rem' };
 
 const toolBtnSx = {
   minWidth: 0,
@@ -65,9 +67,24 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
   );
 }
 
-export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, completedNumbers }) {
+export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, completedNumbers, gameStatus, statusMessage, onCloseStatus }) {
   return (
     <Stack spacing={1} alignItems="center">
+      {/* Numbers: 1–5 top row, 6–9 bottom row */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
+          ))}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center' }}>
+          {[6, 7, 8, 9].map((n) => (
+            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
+          ))}
+        </Box>
+      </Box>
+
+      {/* Mode toggle below numbers */}
       <ToggleButtonGroup
         value={inputMode}
         exclusive
@@ -78,17 +95,6 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         <ToggleButton value="candidate">Candidate</ToggleButton>
       </ToggleButtonGroup>
 
-      {/* 3×3 number grid */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {[[1, 2, 3], [4, 5, 6], [7, 8, 9]].map((row) => (
-          <Box key={row[0]} sx={{ display: 'flex', gap: 0.5 }}>
-            {row.map((n) => (
-              <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
-            ))}
-          </Box>
-        ))}
-      </Box>
-
       {/* Toolbar: destructive group | tools group */}
       <Box sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
         <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon fontSize="small" />} onClick={onUndo} disabled={!canUndo} />
@@ -98,6 +104,18 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon fontSize="small" />} onClick={onHint} disabled={isLoading} />
         <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon fontSize="small" />} onClick={onFillCandidates} disabled={isLoading} />
       </Box>
+
+      {/* Inline status for valid/invalid results */}
+      <Collapse in={gameStatus === 'valid' || gameStatus === 'invalid'} sx={{ width: '100%' }}>
+        <Alert
+          data-testid="status-alert"
+          severity={gameStatus === 'invalid' ? 'warning' : 'success'}
+          onClose={onCloseStatus}
+          sx={{ py: 1, px: 2, fontWeight: 'bold', letterSpacing: 0.4 }}
+        >
+          {statusMessage}
+        </Alert>
+      </Collapse>
     </Stack>
   );
 }
