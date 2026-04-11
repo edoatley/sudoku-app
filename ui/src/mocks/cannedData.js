@@ -66,6 +66,7 @@ export const CANNED_HINT = {
   highlightCells: [{ row: 0, col: 2 }],
   eliminatedCandidates: [],
   solvedCells: [{ row: 0, col: 2, value: 4 }],
+  focusCandidates: [{ row: 0, col: 2, value: 4 }],
 };
 
 export const CANNED_GAME_STATE = {

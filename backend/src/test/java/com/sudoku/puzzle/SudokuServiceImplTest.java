@@ -218,7 +218,7 @@ class SudokuServiceImplTest {
                 return Optional.of(new HintResponse(
                         "Useless", "useless", "easy", 10,
                         "nudge", "focus", "reveal",
-                        List.of(), List.of(), List.of()
+                        List.of(), List.of(), List.of(), List.of()
                 ));
             }
         };

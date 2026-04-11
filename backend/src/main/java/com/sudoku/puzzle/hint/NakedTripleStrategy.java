@@ -85,6 +85,14 @@ public class NakedTripleStrategy implements HintStrategy {
                     String reveal = "Digits " + d1 + ", " + d2 + ", and " + d3
                             + " can be removed from all other cells in " + unitLabel.toLowerCase() + ".";
 
+                    List<CandidateElimination> focusCandidates = new ArrayList<>();
+                    for (Cell cell : List.of(cellA, cellB, cellC)) {
+                        for (int digit : union) {
+                            if (cell.candidates().contains(digit)) {
+                                focusCandidates.add(new CandidateElimination(cell.row(), cell.col(), digit));
+                            }
+                        }
+                    }
                     HintResponse hint = new HintResponse(
                             "Naked Triple",
                             "naked-triple",
@@ -99,7 +107,8 @@ public class NakedTripleStrategy implements HintStrategy {
                                     new Coordinate(cellC.row(), cellC.col())
                             ),
                             eliminations,
-                            List.of()
+                            List.of(),
+                            focusCandidates
                     );
                     return Optional.of(hint);
                 }

@@ -51,6 +51,13 @@ public class HiddenTripleStrategy implements HintStrategy {
 
                     if (cellsWithAny.size() != 3) continue;
 
+                    // Each digit must appear in at least one cell — digits with zero occurrences
+                    // are already placed elsewhere in the unit and don't form a valid hidden triple.
+                    boolean d1present = cellsWithAny.stream().anyMatch(c -> c.candidates().contains(fd1));
+                    boolean d2present = cellsWithAny.stream().anyMatch(c -> c.candidates().contains(fd2));
+                    boolean d3present = cellsWithAny.stream().anyMatch(c -> c.candidates().contains(fd3));
+                    if (!d1present || !d2present || !d3present) continue;
+
                     List<CandidateElimination> eliminations = new ArrayList<>();
                     for (Cell cell : cellsWithAny) {
                         for (int cand : cell.candidates()) {
@@ -68,6 +75,14 @@ public class HiddenTripleStrategy implements HintStrategy {
                     String focusCells = "(" + cA.row() + "," + cA.col() + "), ("
                             + cB.row() + "," + cB.col() + "), ("
                             + cC.row() + "," + cC.col() + ")";
+                    List<CandidateElimination> focusCandidates = new ArrayList<>();
+                    for (Cell cell : cellsWithAny) {
+                        for (int digit : new int[]{fd1, fd2, fd3}) {
+                            if (cell.candidates().contains(digit)) {
+                                focusCandidates.add(new CandidateElimination(cell.row(), cell.col(), digit));
+                            }
+                        }
+                    }
                     return Optional.of(new HintResponse(
                             "Hidden Triple",
                             "hidden-triple",
@@ -81,7 +96,8 @@ public class HiddenTripleStrategy implements HintStrategy {
                                     new Coordinate(cB.row(), cB.col()),
                                     new Coordinate(cC.row(), cC.col())),
                             eliminations,
-                            List.of()
+                            List.of(),
+                            focusCandidates
                     ));
                 }
             }

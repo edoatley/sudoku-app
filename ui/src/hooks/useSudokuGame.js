@@ -450,6 +450,17 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setHighlightCells(activeHint.highlightCells);
     } else if (hintStage === 'focus') {
       setHintStage('reveal');
+      if (activeHint.focusCandidates?.length > 0) {
+        setCandidateGrid((prev) => {
+          const next = prev.map((r) => r.map((c) => [...c]));
+          for (const { row, col, value } of activeHint.focusCandidates) {
+            if (!next[row][col].includes(value)) {
+              next[row][col].push(value);
+            }
+          }
+          return next;
+        });
+      }
       if (activeHint.eliminatedCandidates?.length > 0) {
         setCandidateGrid((prev) => {
           const next = prev.map((r) => r.map((c) => [...c]));

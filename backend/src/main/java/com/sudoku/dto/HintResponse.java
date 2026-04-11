@@ -12,4 +12,5 @@ public record HintResponse(
         String reveal,
         List<Coordinate> highlightCells,
         List<CandidateElimination> eliminatedCandidates,
-        List<ActionableCell> solvedCells) {}
+        List<ActionableCell> solvedCells,
+        List<CandidateElimination> focusCandidates) {}

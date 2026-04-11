@@ -82,7 +82,11 @@ public class HiddenPairStrategy implements HintStrategy {
                         "All other candidates can be removed from cells (" + rA + "," + cA + ") and (" + rB + "," + cB + ").",
                         List.of(new Coordinate(rA, cA), new Coordinate(rB, cB)),
                         eliminations,
-                        List.of()
+                        List.of(),
+                        List.of(
+                                new CandidateElimination(rA, cA, d1), new CandidateElimination(rA, cA, d2),
+                                new CandidateElimination(rB, cB, d1), new CandidateElimination(rB, cB, d2)
+                        )
                 );
                 return Optional.of(hint);
             }

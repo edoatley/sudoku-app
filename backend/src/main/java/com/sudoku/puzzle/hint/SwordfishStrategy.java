@@ -85,6 +85,10 @@ public class SwordfishStrategy implements HintStrategy {
 
                     if (eliminations.isEmpty()) continue;
 
+                    List<CandidateElimination> focusCandidates = new ArrayList<>();
+                    for (Coordinate h : highlights) {
+                        focusCandidates.add(new CandidateElimination(h.row(), h.col(), digit));
+                    }
                     return Optional.of(new HintResponse(
                             "Swordfish",
                             "swordfish",
@@ -97,7 +101,8 @@ public class SwordfishStrategy implements HintStrategy {
                                     + c1 + ", " + c2 + " and " + c3 + ".",
                             highlights,
                             eliminations,
-                            List.of()
+                            List.of(),
+                            focusCandidates
                     ));
                 }
             }
@@ -157,6 +162,10 @@ public class SwordfishStrategy implements HintStrategy {
 
                     if (eliminations.isEmpty()) continue;
 
+                    List<CandidateElimination> focusCandidates2 = new ArrayList<>();
+                    for (Coordinate h : highlights) {
+                        focusCandidates2.add(new CandidateElimination(h.row(), h.col(), digit));
+                    }
                     return Optional.of(new HintResponse(
                             "Swordfish",
                             "swordfish",
@@ -169,7 +178,8 @@ public class SwordfishStrategy implements HintStrategy {
                                     + r1 + ", " + r2 + " and " + r3 + ".",
                             highlights,
                             eliminations,
-                            List.of()
+                            List.of(),
+                            focusCandidates2
                     ));
                 }
             }

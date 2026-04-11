@@ -79,7 +79,9 @@ public class XWingStrategy implements HintStrategy {
                         List.of(new Coordinate(r1, c1), new Coordinate(r1, c2),
                                 new Coordinate(r2, c1), new Coordinate(r2, c2)),
                         eliminations,
-                        List.of()
+                        List.of(),
+                        List.of(new CandidateElimination(r1, c1, digit), new CandidateElimination(r1, c2, digit),
+                                new CandidateElimination(r2, c1, digit), new CandidateElimination(r2, c2, digit))
                 ));
             }
         }
@@ -134,7 +136,9 @@ public class XWingStrategy implements HintStrategy {
                         List.of(new Coordinate(r1, c1), new Coordinate(r1, c2),
                                 new Coordinate(r2, c1), new Coordinate(r2, c2)),
                         eliminations,
-                        List.of()
+                        List.of(),
+                        List.of(new CandidateElimination(r1, c1, digit), new CandidateElimination(r1, c2, digit),
+                                new CandidateElimination(r2, c1, digit), new CandidateElimination(r2, c2, digit))
                 ));
             }
         }

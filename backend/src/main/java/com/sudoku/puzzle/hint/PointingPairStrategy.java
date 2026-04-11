@@ -80,8 +80,10 @@ public class PointingPairStrategy implements HintStrategy {
     private HintResponse buildHint(List<Cell> pointingCells, List<CandidateElimination> eliminations,
                                    int digit, String lineDescription, int blockIndex) {
         List<Coordinate> highlights = new ArrayList<>();
+        List<CandidateElimination> focusCandidates = new ArrayList<>();
         for (Cell cell : pointingCells) {
             highlights.add(new Coordinate(cell.row(), cell.col()));
+            focusCandidates.add(new CandidateElimination(cell.row(), cell.col(), digit));
         }
         return new HintResponse(
                 "Pointing Pair",
@@ -93,7 +95,8 @@ public class PointingPairStrategy implements HintStrategy {
                 "Digit " + digit + " can be removed from the rest of " + lineDescription + " outside block " + blockIndex + ".",
                 highlights,
                 eliminations,
-                List.of()
+                List.of(),
+                focusCandidates
         );
     }
 }

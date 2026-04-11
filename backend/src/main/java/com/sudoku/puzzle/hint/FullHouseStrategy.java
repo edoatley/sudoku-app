@@ -74,7 +74,8 @@ public class FullHouseStrategy implements HintStrategy {
                 "Cell (" + r + ", " + c + ") must be " + missingDigit + ".",
                 List.of(new Coordinate(r, c)),
                 List.of(),
-                List.of(new ActionableCell(r, c, missingDigit))
+                List.of(new ActionableCell(r, c, missingDigit)),
+                List.of()
         );
         return Optional.of(hint);
     }

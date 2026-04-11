@@ -3,6 +3,7 @@ package com.sudoku.puzzle.hint;
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
 import com.sudoku.dto.ActionableCell;
+import com.sudoku.dto.CandidateElimination;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -64,7 +65,8 @@ public class HiddenSingleStrategy implements HintStrategy {
                         "Cell (" + r + ", " + c + ") must be " + digit + ".",
                         highlights,
                         List.of(),
-                        List.of(new ActionableCell(r, c, digit))
+                        List.of(new ActionableCell(r, c, digit)),
+                        List.of(new CandidateElimination(r, c, digit))
                 ));
             }
         }

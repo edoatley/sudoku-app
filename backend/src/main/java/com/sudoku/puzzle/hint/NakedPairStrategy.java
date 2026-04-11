@@ -85,7 +85,11 @@ public class NakedPairStrategy implements HintStrategy {
                         d1 + " and " + d2 + " can be eliminated from all other cells in the unit.",
                         List.of(new Coordinate(rA, cA), new Coordinate(rB, cB)),
                         eliminations,
-                        List.of()
+                        List.of(),
+                        List.of(
+                                new CandidateElimination(rA, cA, d1), new CandidateElimination(rA, cA, d2),
+                                new CandidateElimination(rB, cB, d1), new CandidateElimination(rB, cB, d2)
+                        )
                 );
                 return Optional.of(hint);
             }

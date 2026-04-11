@@ -84,6 +84,12 @@ public class YWingStrategy implements HintStrategy {
 
                     if (eliminations.isEmpty()) continue;
 
+                    List<CandidateElimination> focusCandidates = new ArrayList<>();
+                    for (Cell focusCell : List.of(pivot, p1, p2)) {
+                        for (int cand : focusCell.candidates()) {
+                            focusCandidates.add(new CandidateElimination(focusCell.row(), focusCell.col(), cand));
+                        }
+                    }
                     return Optional.of(new HintResponse(
                             "Y-Wing",
                             "y-wing",
@@ -99,7 +105,8 @@ public class YWingStrategy implements HintStrategy {
                                     new Coordinate(p1.row(), p1.col()),
                                     new Coordinate(p2.row(), p2.col())),
                             eliminations,
-                            List.of()
+                            List.of(),
+                            focusCandidates
                     ));
                 }
             }
