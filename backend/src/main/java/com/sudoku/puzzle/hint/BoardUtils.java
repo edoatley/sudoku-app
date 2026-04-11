@@ -1,0 +1,65 @@
+package com.sudoku.puzzle.hint;
+
+import com.sudoku.domain.Board;
+import com.sudoku.domain.Cell;
+
+import java.util.List;
+import java.util.stream.IntStream;
+
+import static com.sudoku.domain.SudokuConstants.BOX_SIZE;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Stateless board geometry helpers shared by hint strategies that reason about
+ * candidate positions across rows, columns, and blocks.
+ *
+ * These queries sit below the level of any individual solving technique — they
+ * answer structural questions about where a digit is still possible in a line or
+ * whether two cells influence each other — and are therefore factored out here
+ * rather than duplicated inside each strategy or polluting the HintStrategy
+ * interface with implementation details.
+ */
+public final class BoardUtils {
+
+    private BoardUtils() {}
+
+    /**
+     * Returns the column indices in the given row where {@code digit} is an
+     * active candidate in an empty cell, in ascending order.
+     */
+    public static List<Integer> candidateColumnsInRow(Board board, int row, int digit) {
+        return IntStream.range(0, UNIT_SIZE)
+                .filter(c -> {
+                    Cell cell = board.getCell(row, c);
+                    return cell.isEmpty() && cell.candidates().contains(digit);
+                })
+                .boxed()
+                .toList();
+    }
+
+    /**
+     * Returns the row indices in the given column where {@code digit} is an
+     * active candidate in an empty cell, in ascending order.
+     */
+    public static List<Integer> candidateRowsInColumn(Board board, int col, int digit) {
+        return IntStream.range(0, UNIT_SIZE)
+                .filter(r -> {
+                    Cell cell = board.getCell(r, col);
+                    return cell.isEmpty() && cell.candidates().contains(digit);
+                })
+                .boxed()
+                .toList();
+    }
+
+    /**
+     * Returns {@code true} if cells {@code a} and {@code b} are in the same row,
+     * column, or 3×3 box — meaning any candidate eliminated from one is visible to
+     * (and may therefore also be eliminated from) the other.
+     */
+    public static boolean isVisible(Cell a, Cell b) {
+        if (a.row() == b.row()) return true;
+        if (a.col() == b.col()) return true;
+        return (a.row() / BOX_SIZE == b.row() / BOX_SIZE)
+                && (a.col() / BOX_SIZE == b.col() / BOX_SIZE);
+    }
+}

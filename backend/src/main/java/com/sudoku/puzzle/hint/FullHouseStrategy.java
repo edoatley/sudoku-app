@@ -13,6 +13,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
+import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Identifies units where every cell except one is already filled, revealing the
+ * missing digit by elimination.
+ *
+ * Full House is the most fundamental Sudoku deduction — when a row, column, or
+ * block contains eight given or solved digits, the ninth cell is forced without
+ * any candidate analysis.
+ */
 @ApplicationScoped
 public class FullHouseStrategy implements HintStrategy {
 
@@ -24,17 +36,17 @@ public class FullHouseStrategy implements HintStrategy {
     @Override
     public Optional<HintResponse> evaluate(Board board) {
         // Scan rows 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i + 1);
             if (hint.isPresent()) return hint;
         }
         // Scan columns 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i + 1);
             if (hint.isPresent()) return hint;
         }
         // Scan blocks 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i + 1);
             if (hint.isPresent()) return hint;
         }
@@ -55,7 +67,7 @@ public class FullHouseStrategy implements HintStrategy {
 
         Cell emptyCell = emptyCells.get(0);
         int missingDigit = -1;
-        for (int d = 1; d <= 9; d++) {
+        for (int d = MIN_DIGIT; d <= MAX_DIGIT; d++) {
             if (!placed.contains(d)) {
                 missingDigit = d;
                 break;

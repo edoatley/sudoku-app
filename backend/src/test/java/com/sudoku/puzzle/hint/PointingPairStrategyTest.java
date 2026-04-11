@@ -1,7 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,10 +82,10 @@ class PointingPairStrategyTest {
         assertTrue(highlights.contains(new Coordinate(1, 1)));
 
         // Eliminations must be the two cells outside block 0 in row 1
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertEquals(2, elims.size());
-        assertTrue(elims.contains(new CandidateElimination(1, 5, 7)));
-        assertTrue(elims.contains(new CandidateElimination(1, 7, 7)));
+        assertTrue(elims.contains(new CoordinateCandidate(1, 5, 7)));
+        assertTrue(elims.contains(new CoordinateCandidate(1, 7, 7)));
 
         // Solving strategy returns no solved cells
         assertTrue(hint.solvedCells().isEmpty());
@@ -121,10 +121,10 @@ class PointingPairStrategyTest {
         assertTrue(highlights.contains(new Coordinate(0, 3)));
         assertTrue(highlights.contains(new Coordinate(1, 3)));
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertEquals(2, elims.size());
-        assertTrue(elims.contains(new CandidateElimination(4, 3, 3)));
-        assertTrue(elims.contains(new CandidateElimination(7, 3, 3)));
+        assertTrue(elims.contains(new CoordinateCandidate(4, 3, 3)));
+        assertTrue(elims.contains(new CoordinateCandidate(7, 3, 3)));
 
         assertTrue(hint.solvedCells().isEmpty());
     }

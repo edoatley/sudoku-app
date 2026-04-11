@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,6 +12,21 @@ import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
 
+import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
+import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.BoardUtils.candidateColumnsInRow;
+import static com.sudoku.puzzle.hint.BoardUtils.candidateRowsInColumn;
+
+/**
+ * Detects the Swordfish pattern, the 3-line generalisation of X-Wing.
+ *
+ * When a digit appears in 2 or 3 candidate positions across each of three rows
+ * and those positions span exactly three columns (or the symmetric column-based case),
+ * the digit can be eliminated from all other cells in those three columns. The pattern
+ * is an instance of the "fish" family of techniques where N base lines define N cover
+ * lines that must collectively absorb all occurrences of the digit.
+ */
 @ApplicationScoped
 public class SwordfishStrategy implements HintStrategy {
 
@@ -22,7 +37,7 @@ public class SwordfishStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int digit = 1; digit <= 9; digit++) {
+        for (int digit = MIN_DIGIT; digit <= MAX_DIGIT; digit++) {
             Optional<HintResponse> hint = checkRowBased(board, digit);
             if (hint.isPresent()) return hint;
             hint = checkColumnBased(board, digit);
@@ -41,7 +56,7 @@ public class SwordfishStrategy implements HintStrategy {
         List<List<Integer>> colSets = new ArrayList<>();
         List<Integer> rowIndices = new ArrayList<>();
 
-        for (int r = 0; r < 9; r++) {
+        for (int r = 0; r < UNIT_SIZE; r++) {
             List<Integer> cols = candidateColumnsInRow(board, r, digit);
             if (cols.size() == 2 || cols.size() == 3) {
                 rowIndices.add(r);
@@ -72,22 +87,22 @@ public class SwordfishStrategy implements HintStrategy {
                         }
                     }
 
-                    List<CandidateElimination> eliminations = new ArrayList<>();
-                    for (int r = 0; r < 9; r++) {
+                    List<CoordinateCandidate> eliminations = new ArrayList<>();
+                    for (int r = 0; r < UNIT_SIZE; r++) {
                         if (r == r1 || r == r2 || r == r3) continue;
                         for (int c : cols) {
                             Cell cell = board.getCell(r, c);
                             if (cell.isEmpty() && cell.candidates().contains(digit)) {
-                                eliminations.add(new CandidateElimination(r, c, digit));
+                                eliminations.add(new CoordinateCandidate(r, c, digit));
                             }
                         }
                     }
 
                     if (eliminations.isEmpty()) continue;
 
-                    List<CandidateElimination> focusCandidates = new ArrayList<>();
+                    List<CoordinateCandidate> focusCandidates = new ArrayList<>();
                     for (Coordinate h : highlights) {
-                        focusCandidates.add(new CandidateElimination(h.row(), h.col(), digit));
+                        focusCandidates.add(new CoordinateCandidate(h.row(), h.col(), digit));
                     }
                     return Optional.of(new HintResponse(
                             "Swordfish",
@@ -119,7 +134,7 @@ public class SwordfishStrategy implements HintStrategy {
         List<List<Integer>> rowSets = new ArrayList<>();
         List<Integer> colIndices = new ArrayList<>();
 
-        for (int c = 0; c < 9; c++) {
+        for (int c = 0; c < UNIT_SIZE; c++) {
             List<Integer> rows = candidateRowsInColumn(board, c, digit);
             if (rows.size() == 2 || rows.size() == 3) {
                 colIndices.add(c);
@@ -149,22 +164,22 @@ public class SwordfishStrategy implements HintStrategy {
                         }
                     }
 
-                    List<CandidateElimination> eliminations = new ArrayList<>();
-                    for (int c = 0; c < 9; c++) {
+                    List<CoordinateCandidate> eliminations = new ArrayList<>();
+                    for (int c = 0; c < UNIT_SIZE; c++) {
                         if (c == c1 || c == c2 || c == c3) continue;
                         for (int r : rows) {
                             Cell cell = board.getCell(r, c);
                             if (cell.isEmpty() && cell.candidates().contains(digit)) {
-                                eliminations.add(new CandidateElimination(r, c, digit));
+                                eliminations.add(new CoordinateCandidate(r, c, digit));
                             }
                         }
                     }
 
                     if (eliminations.isEmpty()) continue;
 
-                    List<CandidateElimination> focusCandidates2 = new ArrayList<>();
+                    List<CoordinateCandidate> focusCandidates2 = new ArrayList<>();
                     for (Coordinate h : highlights) {
-                        focusCandidates2.add(new CandidateElimination(h.row(), h.col(), digit));
+                        focusCandidates2.add(new CoordinateCandidate(h.row(), h.col(), digit));
                     }
                     return Optional.of(new HintResponse(
                             "Swordfish",
@@ -185,23 +200,5 @@ public class SwordfishStrategy implements HintStrategy {
             }
         }
         return Optional.empty();
-    }
-
-    private List<Integer> candidateColumnsInRow(Board board, int row, int digit) {
-        List<Integer> cols = new ArrayList<>();
-        for (int c = 0; c < 9; c++) {
-            Cell cell = board.getCell(row, c);
-            if (cell.isEmpty() && cell.candidates().contains(digit)) cols.add(c);
-        }
-        return cols;
-    }
-
-    private List<Integer> candidateRowsInColumn(Board board, int col, int digit) {
-        List<Integer> rows = new ArrayList<>();
-        for (int r = 0; r < 9; r++) {
-            Cell cell = board.getCell(r, col);
-            if (cell.isEmpty() && cell.candidates().contains(digit)) rows.add(r);
-        }
-        return rows;
     }
 }

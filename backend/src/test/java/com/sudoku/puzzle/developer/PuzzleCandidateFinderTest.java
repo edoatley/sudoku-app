@@ -2,7 +2,7 @@ package com.sudoku.puzzle.developer;
 
 import com.sudoku.domain.Board;
 import com.sudoku.dto.ActionableCell;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.puzzle.hint.*;
 import org.junit.jupiter.api.Test;
@@ -207,7 +207,7 @@ class PuzzleCandidateFinderTest {
                         board.calculateAllCandidates();
                     }
                     if (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty()) {
-                        for (CandidateElimination elim : h.eliminatedCandidates()) {
+                        for (CoordinateCandidate elim : h.eliminatedCandidates()) {
                             board.getCell(elim.row(), elim.col()).removeCandidate(elim.value());
                             changed = true;
                         }

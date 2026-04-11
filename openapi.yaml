@@ -440,7 +440,7 @@ components:
           type: array
           description: Pencil marks that should be removed based on this logic.
           items:
-            $ref: '#/components/schemas/CandidateElimination'
+            $ref: '#/components/schemas/CoordinateCandidate'
         solvedCells:
           type: array
           description: Cells that can be definitively filled based on this logic.
@@ -450,7 +450,7 @@ components:
           type: array
           description: Candidate marks to visually highlight as part of the hint focus area (without eliminating them).
           items:
-            $ref: '#/components/schemas/CandidateElimination'
+            $ref: '#/components/schemas/CoordinateCandidate'
       example:
         techniqueName: "Naked Pair"
         markdownSlug: "naked-pair"
@@ -515,7 +515,7 @@ components:
             minimum: 1
             maximum: 9
 
-    CandidateElimination:
+    CoordinateCandidate:
       type: object
       required:
         - row

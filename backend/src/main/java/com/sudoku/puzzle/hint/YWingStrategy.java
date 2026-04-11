@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,6 +12,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.BoardUtils.isVisible;
+
+/**
+ * Detects the Y-Wing pattern, where a pivot cell with exactly two candidates sees
+ * two pincer cells that together force an elimination via a shared candidate.
+ *
+ * If the pivot has candidates {A, B}, one pincer has {A, C}, and the other has {B, C},
+ * then any cell visible to both pincers cannot contain C — because whichever value the
+ * pivot takes, at least one pincer must be C, and that pincer sees the target cell.
+ */
 @ApplicationScoped
 public class YWingStrategy implements HintStrategy {
 
@@ -23,8 +34,8 @@ public class YWingStrategy implements HintStrategy {
     @Override
     public Optional<HintResponse> evaluate(Board board) {
         List<Cell> biValueCells = new ArrayList<>();
-        for (int r = 0; r < 9; r++) {
-            for (int c = 0; c < 9; c++) {
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            for (int c = 0; c < UNIT_SIZE; c++) {
                 Cell cell = board.getCell(r, c);
                 if (cell.isEmpty() && cell.candidates().size() == 2) {
                     biValueCells.add(cell);
@@ -69,25 +80,25 @@ public class YWingStrategy implements HintStrategy {
                     int c = cFromP1;
 
                     // Find cells visible to both p1 and p2 that have C as a candidate
-                    List<CandidateElimination> eliminations = new ArrayList<>();
-                    for (int r = 0; r < 9; r++) {
-                        for (int col = 0; col < 9; col++) {
+                    List<CoordinateCandidate> eliminations = new ArrayList<>();
+                    for (int r = 0; r < UNIT_SIZE; r++) {
+                        for (int col = 0; col < UNIT_SIZE; col++) {
                             Cell target = board.getCell(r, col);
                             if (target == pivot || target == p1 || target == p2) continue;
                             if (!target.isEmpty()) continue;
                             if (!target.candidates().contains(c)) continue;
                             if (isVisible(p1, target) && isVisible(p2, target)) {
-                                eliminations.add(new CandidateElimination(r, col, c));
+                                eliminations.add(new CoordinateCandidate(r, col, c));
                             }
                         }
                     }
 
                     if (eliminations.isEmpty()) continue;
 
-                    List<CandidateElimination> focusCandidates = new ArrayList<>();
+                    List<CoordinateCandidate> focusCandidates = new ArrayList<>();
                     for (Cell focusCell : List.of(pivot, p1, p2)) {
                         for (int cand : focusCell.candidates()) {
-                            focusCandidates.add(new CandidateElimination(focusCell.row(), focusCell.col(), cand));
+                            focusCandidates.add(new CoordinateCandidate(focusCell.row(), focusCell.col(), cand));
                         }
                     }
                     return Optional.of(new HintResponse(
@@ -127,10 +138,4 @@ public class YWingStrategy implements HintStrategy {
         throw new IllegalStateException("Cell has only one candidate");
     }
 
-    /** Two cells are visible if they share a row, column, or 3×3 block. */
-    private boolean isVisible(Cell a, Cell b) {
-        if (a.row() == b.row()) return true;
-        if (a.col() == b.col()) return true;
-        return (a.row() / 3 == b.row() / 3) && (a.col() / 3 == b.col() / 3);
-    }
 }

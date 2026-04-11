@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -13,6 +13,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Detects pairs of cells in a unit that share exactly the same two candidates,
+ * allowing those two digits to be eliminated from all other cells in the unit.
+ *
+ * Because the two digits must occupy the two cells in some order, they are
+ * unavailable to any other cell in the row, column, or block — a deduction that
+ * often unlocks further simplifications in the surrounding units.
+ */
 @ApplicationScoped
 public class NakedPairStrategy implements HintStrategy {
 
@@ -24,17 +34,17 @@ public class NakedPairStrategy implements HintStrategy {
     @Override
     public Optional<HintResponse> evaluate(Board board) {
         // Scan rows 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getRow(i));
             if (hint.isPresent()) return hint;
         }
         // Scan columns 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getColumn(i));
             if (hint.isPresent()) return hint;
         }
         // Scan blocks 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getBlock(i));
             if (hint.isPresent()) return hint;
         }
@@ -60,14 +70,14 @@ public class NakedPairStrategy implements HintStrategy {
                 int d1 = it.next();
                 int d2 = it.next();
 
-                List<CandidateElimination> eliminations = new ArrayList<>();
+                List<CoordinateCandidate> eliminations = new ArrayList<>();
                 for (Cell cell : unit) {
                     if (cell == cellA || cell == cellB || !cell.isEmpty()) continue;
                     if (cell.candidates().contains(d1)) {
-                        eliminations.add(new CandidateElimination(cell.row(), cell.col(), d1));
+                        eliminations.add(new CoordinateCandidate(cell.row(), cell.col(), d1));
                     }
                     if (cell.candidates().contains(d2)) {
-                        eliminations.add(new CandidateElimination(cell.row(), cell.col(), d2));
+                        eliminations.add(new CoordinateCandidate(cell.row(), cell.col(), d2));
                     }
                 }
 
@@ -87,8 +97,8 @@ public class NakedPairStrategy implements HintStrategy {
                         eliminations,
                         List.of(),
                         List.of(
-                                new CandidateElimination(rA, cA, d1), new CandidateElimination(rA, cA, d2),
-                                new CandidateElimination(rB, cB, d1), new CandidateElimination(rB, cB, d2)
+                                new CoordinateCandidate(rA, cA, d1), new CoordinateCandidate(rA, cA, d2),
+                                new CoordinateCandidate(rB, cB, d1), new CoordinateCandidate(rB, cB, d2)
                         )
                 );
                 return Optional.of(hint);

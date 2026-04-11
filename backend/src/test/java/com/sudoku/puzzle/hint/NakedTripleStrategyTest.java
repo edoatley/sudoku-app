@@ -1,7 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,9 +70,9 @@ class NakedTripleStrategyTest {
         assertTrue(highlights.contains(new Coordinate(3, 4)));
         assertTrue(highlights.contains(new Coordinate(3, 5)));
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertTrue(e.value() == 1 || e.value() == 2 || e.value() == 3,
                     "Eliminations must be for triple digits only");
         }

@@ -204,4 +204,6 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 
 ## Contributing
 
-> **Placeholder** — contributing guidelines not yet written.
+## TODO
+
+- [ ] More strategies: XY-Chain, Remote Pairs

@@ -1,7 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,9 +71,9 @@ class HiddenTripleStrategyTest {
         assertTrue(highlights.contains(new Coordinate(0, 5)));
         assertTrue(highlights.contains(new Coordinate(0, 7)));
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertFalse(e.value() == 1 || e.value() == 2 || e.value() == 3,
                     "Eliminated candidates must not be the hidden-triple digits");
         }

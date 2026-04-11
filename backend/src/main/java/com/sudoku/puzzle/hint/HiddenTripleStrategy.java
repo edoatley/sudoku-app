@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,6 +11,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
+import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Detects triples of digits that, within a unit, appear as candidates only within
+ * the same three cells — allowing all other candidates to be removed from those cells.
+ *
+ * Like a Hidden Pair but extended to three digits and three cells; the pattern is
+ * "hidden" because the three cells each typically carry extra pencil marks that
+ * obscure the triple until the full unit is scanned.
+ */
 @ApplicationScoped
 public class HiddenTripleStrategy implements HintStrategy {
 
@@ -21,15 +33,15 @@ public class HiddenTripleStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i);
             if (hint.isPresent()) return hint;
         }
@@ -39,9 +51,9 @@ public class HiddenTripleStrategy implements HintStrategy {
     private Optional<HintResponse> checkUnit(List<Cell> unit, String unitType, int unitIndex) {
         List<Cell> emptyCells = unit.stream().filter(Cell::isEmpty).toList();
 
-        for (int d1 = 1; d1 <= 9; d1++) {
-            for (int d2 = d1 + 1; d2 <= 9; d2++) {
-                for (int d3 = d2 + 1; d3 <= 9; d3++) {
+        for (int d1 = MIN_DIGIT; d1 <= MAX_DIGIT; d1++) {
+            for (int d2 = d1 + 1; d2 <= MAX_DIGIT; d2++) {
+                for (int d3 = d2 + 1; d3 <= MAX_DIGIT; d3++) {
                     final int fd1 = d1, fd2 = d2, fd3 = d3;
                     List<Cell> cellsWithAny = emptyCells.stream()
                             .filter(c -> c.candidates().contains(fd1)
@@ -58,11 +70,11 @@ public class HiddenTripleStrategy implements HintStrategy {
                     boolean d3present = cellsWithAny.stream().anyMatch(c -> c.candidates().contains(fd3));
                     if (!d1present || !d2present || !d3present) continue;
 
-                    List<CandidateElimination> eliminations = new ArrayList<>();
+                    List<CoordinateCandidate> eliminations = new ArrayList<>();
                     for (Cell cell : cellsWithAny) {
                         for (int cand : cell.candidates()) {
                             if (cand != d1 && cand != d2 && cand != d3) {
-                                eliminations.add(new CandidateElimination(cell.row(), cell.col(), cand));
+                                eliminations.add(new CoordinateCandidate(cell.row(), cell.col(), cand));
                             }
                         }
                     }
@@ -75,11 +87,11 @@ public class HiddenTripleStrategy implements HintStrategy {
                     String focusCells = "(" + cA.row() + "," + cA.col() + "), ("
                             + cB.row() + "," + cB.col() + "), ("
                             + cC.row() + "," + cC.col() + ")";
-                    List<CandidateElimination> focusCandidates = new ArrayList<>();
+                    List<CoordinateCandidate> focusCandidates = new ArrayList<>();
                     for (Cell cell : cellsWithAny) {
                         for (int digit : new int[]{fd1, fd2, fd3}) {
                             if (cell.candidates().contains(digit)) {
-                                focusCandidates.add(new CandidateElimination(cell.row(), cell.col(), digit));
+                                focusCandidates.add(new CoordinateCandidate(cell.row(), cell.col(), digit));
                             }
                         }
                     }

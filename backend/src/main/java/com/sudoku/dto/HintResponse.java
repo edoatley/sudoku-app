@@ -28,6 +28,6 @@ public record HintResponse(
         String focus,
         String reveal,
         List<Coordinate> highlightCells,
-        List<CandidateElimination> eliminatedCandidates,
+        List<CoordinateCandidate> eliminatedCandidates,
         List<ActionableCell> solvedCells,
-        List<CandidateElimination> focusCandidates) {}
+        List<CoordinateCandidate> focusCandidates) {}
