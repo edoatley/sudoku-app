@@ -177,6 +177,59 @@ class SudokuServiceImplTest {
         assertEquals(1, count02, "Cell (0,2) should appear exactly once in errors");
     }
 
+    @Test
+    void validatePuzzle_withSolution_correctCell_noErrors() {
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 4); // correct value per SOLVED_GRID
+
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+
+        assertTrue(response.isValid());
+        assertTrue(response.errors().isEmpty());
+    }
+
+    @Test
+    void validatePuzzle_withSolution_wrongCell_reportsError() {
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 9); // wrong: SOLVED_GRID has 4 here
+
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+
+        assertFalse(response.isValid());
+        List<Coordinate> errors = response.errors();
+        assertEquals(1, errors.size());
+        assertTrue(errors.contains(new Coordinate(0, 2)));
+    }
+
+    @Test
+    void validatePuzzle_withSolution_noDuplicateButWrong_reportsError() {
+        // This is the key case: no duplicates but cell doesn't match solution
+        // Row 8, col 8: EASY_GRID has 9 (given). Let's build a grid with a non-duplicate wrong value
+        // Use an empty cell and fill it with a plausible but wrong value
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 1); // SOLVED_GRID has 4; 1 is not a duplicate in row/col/block
+
+        // Duplicate check alone would say valid; solution check says invalid
+        ValidationResponse withoutSolution = service.validatePuzzle(new BoardRequest(grid));
+        assertTrue(withoutSolution.isValid(), "Duplicate check sees no conflict");
+
+        ValidationResponse withSolution = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+        assertFalse(withSolution.isValid(), "Solution check catches the wrong digit");
+    }
+
+    @Test
+    void validatePuzzle_withSolution_solvedBoard_isSolved() {
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(SOLVED_GRID, SOLVED_GRID, null, null));
+
+        assertTrue(response.isValid());
+        assertTrue(response.isSolved());
+        assertTrue(response.errors().isEmpty());
+    }
+
     // ---- getHint tests ----
 
     @Test
@@ -214,9 +267,12 @@ class SudokuServiceImplTest {
         // A strategy that returns a hint with no eliminations and no solvedCells
         com.sudoku.puzzle.hint.HintStrategy uselessStrategy = new com.sudoku.puzzle.hint.HintStrategy() {
             public int getDifficultyRank() { return 10; }
+            public com.sudoku.puzzle.hint.Difficulty getDifficulty() { return com.sudoku.puzzle.hint.Difficulty.EASY; }
+            public String getName() { return "Useless"; }
+            public String getSlug() { return "useless"; }
             public Optional<HintResponse> evaluate(com.sudoku.domain.Board board) {
                 return Optional.of(new HintResponse(
-                        "Useless", "useless", "easy", 10,
+                        "Useless", "useless", com.sudoku.puzzle.hint.Difficulty.EASY, 10,
                         "nudge", "focus", "reveal",
                         List.of(), List.of(), List.of(), List.of()
                 ));

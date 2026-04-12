@@ -71,7 +71,7 @@ export async function generatePuzzle(difficulty, signal) {
   return apiFetch('generatePuzzle', `${API_URL}/puzzles/generate?difficulty=${difficulty}`, { signal });
 }
 
-export async function validatePuzzle(currentGrid) {
+export async function validatePuzzle(currentGrid, solutionGrid = null) {
   if (MOCK_API) {
     await delay(400);
     return CANNED_VALIDATE_VALID;
@@ -80,7 +80,7 @@ export async function validatePuzzle(currentGrid) {
   return apiFetch('validatePuzzle', `${API_URL}/puzzles/validate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentGrid }),
+    body: JSON.stringify({ currentGrid, solutionGrid }),
   });
 }
 

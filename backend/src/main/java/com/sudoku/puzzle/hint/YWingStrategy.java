@@ -14,6 +14,7 @@ import java.util.Set;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 import static com.sudoku.puzzle.hint.BoardUtils.isVisible;
+import static com.sudoku.puzzle.hint.Difficulty.HARD;
 
 /**
  * Detects the Y-Wing pattern, where a pivot cell with exactly two candidates sees
@@ -25,6 +26,18 @@ import static com.sudoku.puzzle.hint.BoardUtils.isVisible;
  */
 @ApplicationScoped
 public class YWingStrategy implements HintStrategy {
+
+    private static final String NAME = "Y-Wing";
+    private static final String SLUG = "y-wing";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return HARD; }
 
     @Override
     public int getDifficultyRank() {
@@ -102,9 +115,9 @@ public class YWingStrategy implements HintStrategy {
                         }
                     }
                     return Optional.of(new HintResponse(
-                            "Y-Wing",
-                            "y-wing",
-                            "hard",
+                            NAME,
+                            SLUG,
+                            getDifficulty(),
                             getDifficultyRank(),
                             "A pivot cell with two candidates sees two pincers that together force an elimination.",
                             "Pivot (" + pivot.row() + "," + pivot.col() + ") has {" + a + "," + b + "}; "

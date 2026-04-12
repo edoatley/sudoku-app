@@ -14,6 +14,7 @@ import java.util.Optional;
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.HARD;
 
 /**
  * Detects triples of digits that, within a unit, appear as candidates only within
@@ -25,6 +26,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class HiddenTripleStrategy implements HintStrategy {
+
+    private static final String NAME = "Hidden Triple";
+    private static final String SLUG = "hidden-triple";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return HARD; }
 
     @Override
     public int getDifficultyRank() {
@@ -96,9 +109,9 @@ public class HiddenTripleStrategy implements HintStrategy {
                         }
                     }
                     return Optional.of(new HintResponse(
-                            "Hidden Triple",
-                            "hidden-triple",
-                            "hard",
+                            NAME,
+                            SLUG,
+                            getDifficulty(),
                             getDifficultyRank(),
                             "Three digits are collectively confined to exactly three cells within a unit.",
                             unitType + " " + unitIndex + ": digits " + d1 + ", " + d2 + " and " + d3

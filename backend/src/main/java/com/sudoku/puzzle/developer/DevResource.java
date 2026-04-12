@@ -61,7 +61,7 @@ public class DevResource {
         }
 
         int targetRank = rankForSlug(technique);
-        PuzzleResponse puzzleResponse = new PuzzleResponse(grid, "demo", targetRank);
+        PuzzleResponse puzzleResponse = new PuzzleResponse(grid, null, "demo", targetRank);
         return Response.ok(puzzleResponse).build();
     }
 

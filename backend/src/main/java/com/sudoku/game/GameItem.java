@@ -27,6 +27,7 @@ public class GameItem {
     private String gameId;
     private String difficulty;
     private String originalGrid;
+    private String solutionGrid;
     private String currentGrid;
     private String candidates;
     private int timeSpentSeconds;
@@ -53,6 +54,9 @@ public class GameItem {
     public String getOriginalGrid() { return originalGrid; }
     public void setOriginalGrid(String originalGrid) { this.originalGrid = originalGrid; }
 
+    public String getSolutionGrid() { return solutionGrid; }
+    public void setSolutionGrid(String solutionGrid) { this.solutionGrid = solutionGrid; }
+
     public String getCurrentGrid() { return currentGrid; }
     public void setCurrentGrid(String currentGrid) { this.currentGrid = currentGrid; }
 
@@ -76,6 +80,7 @@ public class GameItem {
         item.setGameId(state.gameId());
         item.setDifficulty(state.difficulty());
         item.setOriginalGrid(toJson(state.originalGrid()));
+        item.setSolutionGrid(state.solutionGrid() != null ? toJson(state.solutionGrid()) : null);
         item.setCurrentGrid(toJson(state.currentGrid()));
         item.setCandidates(toJson(state.candidates()));
         item.setTimeSpentSeconds(state.timeSpentSeconds());
@@ -90,6 +95,7 @@ public class GameItem {
                 gameId,
                 difficulty,
                 fromJson(originalGrid, new TypeReference<List<List<Integer>>>() {}),
+                solutionGrid != null ? fromJson(solutionGrid, new TypeReference<List<List<Integer>>>() {}) : null,
                 fromJson(currentGrid, new TypeReference<List<List<Integer>>>() {}),
                 fromJson(candidates, new TypeReference<List<List<List<Integer>>>>() {}),
                 timeSpentSeconds,

@@ -4,6 +4,7 @@ import com.sudoku.domain.Board;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -133,7 +134,7 @@ class SwordfishStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("swordfish", hint.markdownSlug());
-        assertEquals("hard", hint.difficulty());
+        assertEquals(Difficulty.HARD, hint.difficulty());
         assertEquals(100, strategy.getDifficultyRank());
     }
 

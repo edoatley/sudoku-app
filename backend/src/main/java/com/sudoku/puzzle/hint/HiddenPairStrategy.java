@@ -14,6 +14,7 @@ import java.util.Optional;
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
 
 /**
  * Detects pairs of digits that, within a unit, appear as candidates only in the
@@ -25,6 +26,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class HiddenPairStrategy implements HintStrategy {
+
+    private static final String NAME = "Hidden Pair";
+    private static final String SLUG = "hidden-pair";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return MEDIUM; }
 
     @Override
     public int getDifficultyRank() {
@@ -84,9 +97,9 @@ public class HiddenPairStrategy implements HintStrategy {
                 int rA = cellA.row(), cA = cellA.col();
                 int rB = cellB.row(), cB = cellB.col();
                 HintResponse hint = new HintResponse(
-                        "Hidden Pair",
-                        "hidden-pair",
-                        "medium",
+                        NAME,
+                        SLUG,
+                        getDifficulty(),
                         getDifficultyRank(),
                         "Two digits appear as candidates in exactly the same two cells within a unit.",
                         unitType + " " + unitIndex + ": digits " + d1 + " and " + d2

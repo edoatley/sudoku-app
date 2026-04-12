@@ -48,6 +48,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
   const [gameId, setGameId] = useState(null);
+  const [solutionGrid, setSolutionGrid] = useState(null);
   const [hintMinRank, setHintMinRank] = useState(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [excludedHintRanks, setExcludedHintRanks] = useState([]);
@@ -117,6 +118,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       const emptyGrid = emptyCandidate();
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
+      setSolutionGrid(data.solutionGrid);
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
       setCandidateGrid(emptyGrid);
       setHistory([]);
@@ -146,6 +148,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setIsPaused(false);
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
+      setSolutionGrid(data.solutionGrid);
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
       setCandidateGrid(savedCandidates);
       setDifficulty(data.difficulty);
@@ -210,6 +213,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   currentGridRef.current = currentGrid;
   const candidateGridRef = useRef(null);
   candidateGridRef.current = candidateGrid;
+  const solutionGridRef = useRef(null);
+  solutionGridRef.current = solutionGrid;
   const difficultyRef = useRef(difficulty);
   difficultyRef.current = difficulty;
   const hintsUsedRef = useRef(0);
@@ -310,7 +315,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       nextGrid[row][col] = number;
       const allFilled = nextGrid.every((r) => r.every((v) => v !== 0));
       if (allFilled) {
-        validatePuzzle(nextGrid).then((res) => {
+        validatePuzzle(nextGrid, solutionGridRef.current).then((res) => {
           if (!res.isValid) return;
           pauseTimer();
           setGameStatus('solved');
@@ -371,7 +376,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const result = await validatePuzzle(currentGrid);
+      const result = await validatePuzzle(currentGrid, solutionGrid);
       if (result.isValid) {
         const allFilled = currentGrid.every((row) => row.every((v) => v !== 0));
         if (allFilled) {

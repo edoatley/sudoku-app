@@ -5,6 +5,7 @@ import com.sudoku.dto.ActionableCell;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -112,6 +113,6 @@ class HiddenSingleStrategyTest {
         assertEquals(40, strategy.getDifficultyRank());
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("hidden-single", hint.markdownSlug());
-        assertEquals("easy", hint.difficulty());
+        assertEquals(Difficulty.EASY, hint.difficulty());
     }
 }

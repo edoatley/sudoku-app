@@ -21,7 +21,7 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_producesValidNineByNineGrid(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty);
+        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
 
         assertNotNull(grid);
         assertEquals(9, grid.size(), "grid must have 9 rows");
@@ -39,7 +39,7 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_cluesContainNoConflicts(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty);
+        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
 
         // Rows
         for (int r = 0; r < 9; r++) {
@@ -59,35 +59,35 @@ class PuzzleGeneratorTest {
 
     @Test
     void generate_easy_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("easy");
+        List<List<Integer>> grid = generator.generate("easy").puzzle();
         assertTrue(countClues(grid) >= 36,
                 "Easy should have ≥36 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_medium_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("medium");
+        List<List<Integer>> grid = generator.generate("medium").puzzle();
         assertTrue(countClues(grid) >= 30,
                 "Medium should have ≥30 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_hard_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("hard");
+        List<List<Integer>> grid = generator.generate("hard").puzzle();
         assertTrue(countClues(grid) >= 25,
                 "Hard should have ≥25 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_expert_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("expert");
+        List<List<Integer>> grid = generator.generate("expert").puzzle();
         assertTrue(countClues(grid) >= 22,
                 "Expert should have ≥22 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_unknownDifficulty_fallsBackToMedium() {
-        List<List<Integer>> grid = generator.generate("unknown");
+        List<List<Integer>> grid = generator.generate("unknown").puzzle();
         assertTrue(countClues(grid) >= 30,
                 "Unknown difficulty should fall back to medium (≥30 clues)");
     }
@@ -97,7 +97,7 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_puzzleHasUniqueSolution(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty);
+        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
         int[][] puzzle = toArray(grid);
         assertEquals(1, countSolutions(puzzle, 0),
                 difficulty + " puzzle must have exactly one solution");

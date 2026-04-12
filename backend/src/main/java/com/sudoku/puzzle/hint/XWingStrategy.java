@@ -16,6 +16,7 @@ import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 import static com.sudoku.puzzle.hint.BoardUtils.candidateColumnsInRow;
 import static com.sudoku.puzzle.hint.BoardUtils.candidateRowsInColumn;
+import static com.sudoku.puzzle.hint.Difficulty.HARD;
 
 /**
  * Detects the X-Wing pattern, where a digit is confined to exactly two cells in
@@ -28,6 +29,18 @@ import static com.sudoku.puzzle.hint.BoardUtils.candidateRowsInColumn;
  */
 @ApplicationScoped
 public class XWingStrategy implements HintStrategy {
+
+    private static final String NAME = "X-Wing";
+    private static final String SLUG = "x-wing";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return HARD; }
 
     @Override
     public int getDifficultyRank() {
@@ -83,9 +96,9 @@ public class XWingStrategy implements HintStrategy {
                 if (eliminations.isEmpty()) continue;
 
                 return Optional.of(new HintResponse(
-                        "X-Wing",
-                        "x-wing",
-                        "hard",
+                        NAME,
+                        SLUG,
+                        getDifficulty(),
                         getDifficultyRank(),
                         "A digit appears in exactly two cells in each of two rows, and those cells share the same two columns.",
                         "Digit " + digit + " in rows " + r1 + " and " + r2
@@ -140,9 +153,9 @@ public class XWingStrategy implements HintStrategy {
                 if (eliminations.isEmpty()) continue;
 
                 return Optional.of(new HintResponse(
-                        "X-Wing",
-                        "x-wing",
-                        "hard",
+                        NAME,
+                        SLUG,
+                        getDifficulty(),
                         getDifficultyRank(),
                         "A digit appears in exactly two cells in each of two columns, and those cells share the same two rows.",
                         "Digit " + digit + " in columns " + c1 + " and " + c2

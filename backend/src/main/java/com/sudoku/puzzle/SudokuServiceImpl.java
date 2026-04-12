@@ -51,13 +51,40 @@ public class SudokuServiceImpl implements SudokuService {
     @Override
     public PuzzleResponse generatePuzzle(String difficulty) {
         String normalised = difficulty.toLowerCase();
-        List<List<Integer>> grid = generator.generate(normalised);
-        return new PuzzleResponse(grid, normalised);
+        var result = generator.generate(normalised);
+        return new PuzzleResponse(result.puzzle(), result.solution(), normalised);
     }
 
     @Override
     public ValidationResponse validatePuzzle(BoardRequest request) {
-        Board board = Board.fromGrid(request.currentGrid());
+        List<List<Integer>> solution = request.solutionGrid();
+        if (solution != null) {
+            return validateAgainstSolution(request.currentGrid(), solution);
+        }
+        return validateByDuplicates(request.currentGrid());
+    }
+
+    private ValidationResponse validateAgainstSolution(List<List<Integer>> currentGrid, List<List<Integer>> solution) {
+        Set<Coordinate> errorSet = new LinkedHashSet<>();
+        boolean hasEmpty = false;
+
+        for (int r = 0; r < 9; r++) {
+            for (int c = 0; c < 9; c++) {
+                int current = currentGrid.get(r).get(c);
+                if (current == 0) {
+                    hasEmpty = true;
+                } else if (current != solution.get(r).get(c)) {
+                    errorSet.add(new Coordinate(r, c));
+                }
+            }
+        }
+
+        boolean isSolved = errorSet.isEmpty() && !hasEmpty;
+        return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
+    }
+
+    private ValidationResponse validateByDuplicates(List<List<Integer>> currentGrid) {
+        Board board = Board.fromGrid(currentGrid);
         Set<Coordinate> errorSet = new LinkedHashSet<>();
 
         for (int i = 0; i < 9; i++) {

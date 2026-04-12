@@ -15,6 +15,7 @@ import java.util.Optional;
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.EASY;
 
 /**
  * Finds digits that appear as a candidate in exactly one cell within a unit,
@@ -26,6 +27,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class HiddenSingleStrategy implements HintStrategy {
+
+    private static final String NAME = "Hidden Single";
+    private static final String SLUG = "hidden-single";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return EASY; }
 
     @Override
     public int getDifficultyRank() {
@@ -68,9 +81,9 @@ public class HiddenSingleStrategy implements HintStrategy {
                 }
 
                 return Optional.of(new HintResponse(
-                        "Hidden Single",
-                        "hidden-single",
-                        "easy",
+                        NAME,
+                        SLUG,
+                        getDifficulty(),
                         getDifficultyRank(),
                         "A digit appears as a candidate in exactly one cell within a unit.",
                         unitType + " " + unitNumber + " has digit " + digit + " as a candidate in only one cell.",

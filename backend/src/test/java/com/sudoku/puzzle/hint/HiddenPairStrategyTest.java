@@ -5,6 +5,7 @@ import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -104,7 +105,7 @@ class HiddenPairStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("hidden-pair", hint.markdownSlug());
-        assertEquals("medium", hint.difficulty());
+        assertEquals(Difficulty.MEDIUM, hint.difficulty());
         assertEquals(70, strategy.getDifficultyRank());
     }
 }

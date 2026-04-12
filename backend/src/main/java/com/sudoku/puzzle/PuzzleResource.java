@@ -2,7 +2,6 @@ package com.sudoku.puzzle;
 
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
-import com.sudoku.dto.HintResponse;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
 import jakarta.inject.Inject;

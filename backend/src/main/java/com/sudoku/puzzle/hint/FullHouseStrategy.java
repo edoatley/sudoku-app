@@ -16,6 +16,7 @@ import java.util.Set;
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.EASY;
 
 /**
  * Identifies units where every cell except one is already filled, revealing the
@@ -27,6 +28,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class FullHouseStrategy implements HintStrategy {
+
+    private static final String NAME = "Full House";
+    private static final String SLUG = "full-house";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return EASY; }
 
     @Override
     public int getDifficultyRank() {
@@ -77,9 +90,9 @@ public class FullHouseStrategy implements HintStrategy {
         int r = emptyCell.row();
         int c = emptyCell.col();
         HintResponse hint = new HintResponse(
-                "Full House",
-                "full-house",
-                "easy",
+                NAME,
+                SLUG,
+                getDifficulty(),
                 getDifficultyRank(),
                 "One unit has only a single empty cell remaining.",
                 unitType + " " + unitNumber + " has 8 of 9 cells filled.",

@@ -5,6 +5,7 @@ import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -145,7 +146,7 @@ class XWingStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("x-wing", hint.markdownSlug());
-        assertEquals("hard", hint.difficulty());
+        assertEquals(Difficulty.HARD, hint.difficulty());
         assertEquals(90, strategy.getDifficultyRank());
     }
 }

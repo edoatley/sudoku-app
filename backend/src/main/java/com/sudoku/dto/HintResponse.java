@@ -1,5 +1,7 @@
 package com.sudoku.dto;
 
+import com.sudoku.puzzle.hint.Difficulty;
+
 import java.util.List;
 
 /**
@@ -22,7 +24,7 @@ import java.util.List;
 public record HintResponse(
         String techniqueName,
         String markdownSlug,
-        String difficulty,
+        Difficulty difficulty,
         int strategyRank,
         String nudge,
         String focus,

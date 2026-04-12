@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
 
 /**
  * Detects groups of three cells in a unit whose combined candidates contain
@@ -27,6 +28,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class NakedTripleStrategy implements HintStrategy {
+
+    private static final String NAME = "Naked Triple";
+    private static final String SLUG = "naked-triple";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return MEDIUM; }
 
     @Override
     public int getDifficultyRank() {
@@ -105,9 +118,9 @@ public class NakedTripleStrategy implements HintStrategy {
                         }
                     }
                     HintResponse hint = new HintResponse(
-                            "Naked Triple",
-                            "naked-triple",
-                            "medium",
+                            NAME,
+                            SLUG,
+                            getDifficulty(),
                             getDifficultyRank(),
                             "Three cells in a unit collectively contain only three candidates.",
                             focus,

@@ -34,12 +34,17 @@ public final class PuzzleGenerator {
     }
 
     /**
+     * Result of puzzle generation, carrying both the puzzle (with holes) and its unique solution.
+     */
+    public record PuzzleResult(List<List<Integer>> puzzle, List<List<Integer>> solution) {}
+
+    /**
      * Generates a puzzle grid for the requested difficulty.
      *
      * @param difficulty one of "easy", "medium", "hard", "expert" (case-insensitive)
-     * @return a 9×9 grid of integers (0 = empty, 1-9 = given clue)
+     * @return a {@link PuzzleResult} containing the puzzle (zeros for empty cells) and its solution
      */
-    public List<List<Integer>> generate(String difficulty) {
+    public PuzzleResult generate(String difficulty) {
         int targetClues = switch (difficulty.toLowerCase()) {
             case "easy"   -> CLUES_EASY;
             case "hard"   -> CLUES_HARD;
@@ -53,7 +58,7 @@ public final class PuzzleGenerator {
         int[][] puzzle = copyGrid(solution);
         digHoles(puzzle, targetClues);
 
-        return toImmutableList(puzzle);
+        return new PuzzleResult(toImmutableList(puzzle), toImmutableList(solution));
     }
 
     // -------------------------------------------------------------------------

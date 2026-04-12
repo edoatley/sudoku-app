@@ -5,6 +5,7 @@ import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -100,7 +101,7 @@ class YWingStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("y-wing", hint.markdownSlug());
-        assertEquals("hard", hint.difficulty());
+        assertEquals(Difficulty.HARD, hint.difficulty());
         assertEquals(110, strategy.getDifficultyRank());
     }
 

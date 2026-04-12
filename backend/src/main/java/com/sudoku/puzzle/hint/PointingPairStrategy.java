@@ -15,6 +15,7 @@ import static com.sudoku.domain.SudokuConstants.BOX_SIZE;
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
 
 /**
  * Detects when all occurrences of a digit within a block are confined to a single
@@ -27,6 +28,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class PointingPairStrategy implements HintStrategy {
+
+    private static final String NAME = "Pointing Pair";
+    private static final String SLUG = "pointing-pair";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return MEDIUM; }
 
     @Override
     public int getDifficultyRank() {
@@ -100,9 +113,9 @@ public class PointingPairStrategy implements HintStrategy {
             focusCandidates.add(new CoordinateCandidate(cell.row(), cell.col(), digit));
         }
         return new HintResponse(
-                "Pointing Pair",
-                "pointing-pair",
-                "medium",
+                NAME,
+                SLUG,
+                getDifficulty(),
                 getDifficultyRank(),
                 "Within a block, all candidates for a digit are confined to one row or column.",
                 "Block " + blockIndex + ": digit " + digit + " is confined to " + lineDescription + ".",

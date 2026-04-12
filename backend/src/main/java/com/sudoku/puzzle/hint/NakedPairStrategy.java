@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
 
 /**
  * Detects pairs of cells in a unit that share exactly the same two candidates,
@@ -25,6 +26,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class NakedPairStrategy implements HintStrategy {
+
+    private static final String NAME = "Naked Pair";
+    private static final String SLUG = "naked-pair";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return MEDIUM; }
 
     @Override
     public int getDifficultyRank() {
@@ -86,9 +99,9 @@ public class NakedPairStrategy implements HintStrategy {
                 int rA = cellA.row(), cA = cellA.col();
                 int rB = cellB.row(), cB = cellB.col();
                 HintResponse hint = new HintResponse(
-                        "Naked Pair",
-                        "naked-pair",
-                        "medium",
+                        NAME,
+                        SLUG,
+                        getDifficulty(),
                         getDifficultyRank(),
                         "Two cells in the same unit share exactly the same two candidates.",
                         "Cells (" + rA + "," + cA + ") and (" + rB + "," + cB + ") both have only " + d1 + " and " + d2 + ".",

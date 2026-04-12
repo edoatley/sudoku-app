@@ -4,6 +4,7 @@ import com.sudoku.domain.Board;
 import com.sudoku.dto.ActionableCell;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -101,7 +102,7 @@ class FullHouseStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("full-house", hint.markdownSlug());
-        assertEquals("easy", hint.difficulty());
+        assertEquals(Difficulty.EASY, hint.difficulty());
     }
 
     private List<List<Integer>> mutableCopy(List<List<Integer>> original) {

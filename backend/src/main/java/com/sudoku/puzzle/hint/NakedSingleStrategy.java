@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.EASY;
 
 /**
  * Finds cells where candidate elimination has left exactly one possible digit,
@@ -22,6 +23,18 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  */
 @ApplicationScoped
 public class NakedSingleStrategy implements HintStrategy {
+
+    private static final String NAME = "Naked Single";
+    private static final String SLUG = "naked-single";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return EASY; }
 
     @Override
     public int getDifficultyRank() {
@@ -36,9 +49,9 @@ public class NakedSingleStrategy implements HintStrategy {
                 if (cell.isEmpty() && cell.candidates().size() == 1) {
                     int digit = cell.candidates().iterator().next();
                     HintResponse hint = new HintResponse(
-                            "Naked Single",
-                            "naked-single",
-                            "easy",
+                            NAME,
+                            SLUG,
+                            getDifficulty(),
                             getDifficultyRank(),
                             "A cell has been reduced to exactly one possible candidate.",
                             "Cell (" + r + ", " + c + ") has had every other digit eliminated.",

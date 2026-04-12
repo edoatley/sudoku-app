@@ -17,6 +17,7 @@ import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 import static com.sudoku.puzzle.hint.BoardUtils.candidateColumnsInRow;
 import static com.sudoku.puzzle.hint.BoardUtils.candidateRowsInColumn;
+import static com.sudoku.puzzle.hint.Difficulty.HARD;
 
 /**
  * Detects the Swordfish pattern, the 3-line generalisation of X-Wing.
@@ -29,6 +30,18 @@ import static com.sudoku.puzzle.hint.BoardUtils.candidateRowsInColumn;
  */
 @ApplicationScoped
 public class SwordfishStrategy implements HintStrategy {
+
+    private static final String NAME = "Swordfish";
+    private static final String SLUG = "swordfish";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return HARD; }
 
     @Override
     public int getDifficultyRank() {
@@ -105,9 +118,9 @@ public class SwordfishStrategy implements HintStrategy {
                         focusCandidates.add(new CoordinateCandidate(h.row(), h.col(), digit));
                     }
                     return Optional.of(new HintResponse(
-                            "Swordfish",
-                            "swordfish",
-                            "hard",
+                            NAME,
+                            SLUG,
+                            getDifficulty(),
                             getDifficultyRank(),
                             "A digit appears in 2–3 cells across three rows, and those cells span exactly three columns.",
                             "Digit " + digit + " in rows " + r1 + ", " + r2 + " and " + r3
@@ -182,9 +195,9 @@ public class SwordfishStrategy implements HintStrategy {
                         focusCandidates2.add(new CoordinateCandidate(h.row(), h.col(), digit));
                     }
                     return Optional.of(new HintResponse(
-                            "Swordfish",
-                            "swordfish",
-                            "hard",
+                            NAME,
+                            SLUG,
+                            getDifficulty(),
                             getDifficultyRank(),
                             "A digit appears in 2–3 cells across three columns, and those cells span exactly three rows.",
                             "Digit " + digit + " in columns " + c1 + ", " + c2 + " and " + c3
