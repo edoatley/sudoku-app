@@ -15,6 +15,14 @@ import java.util.Optional;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+/**
+ * DynamoDB-backed persistence for Sudoku game sessions.
+ *
+ * <p>Each game is stored with the player's {@code userId} as the partition key and a
+ * UUID {@code gameId} as the sort key, allowing efficient per-player queries and direct
+ * key lookups. Grid data is serialised to JSON strings by {@link GameItem} before storage,
+ * since DynamoDB has no native multi-dimensional list type.
+ */
 @ApplicationScoped
 public class DynamoDbGameRepository implements GameRepository {
 
@@ -50,7 +58,7 @@ public class DynamoDbGameRepository implements GameRepository {
         return table.query(QueryConditional.keyEqualTo(Key.builder().partitionValue(userId).build()))
                 .items()
                 .stream()
-                .filter(item -> "IN_PROGRESS".equals(item.getStatus()))
+                .filter(item -> GameStatus.IN_PROGRESS.getValue().equals(item.getStatus()))
                 .findFirst()
                 .map(GameItem::toGameState);
     }

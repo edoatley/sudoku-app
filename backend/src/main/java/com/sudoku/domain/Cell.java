@@ -4,6 +4,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
 /**
  * Mutable model of a single cell in a 9×9 Sudoku board.
  *
@@ -23,8 +25,8 @@ public final class Cell {
     private Set<Integer> candidates;
 
     public Cell(int row, int col, int value) {
-        if (row < 0 || row > 8) throw new IllegalArgumentException("row must be in [0,8], got: " + row);
-        if (col < 0 || col > 8) throw new IllegalArgumentException("col must be in [0,8], got: " + col);
+        if (row < 0 || row > UNIT_SIZE - 1) throw new IllegalArgumentException("row must be in [0,8], got: " + row);
+        if (col < 0 || col > UNIT_SIZE - 1) throw new IllegalArgumentException("col must be in [0,8], got: " + col);
         if (value < 0 || value > 9) throw new IllegalArgumentException("value must be in [0,9], got: " + value);
         this.row = row;
         this.col = col;

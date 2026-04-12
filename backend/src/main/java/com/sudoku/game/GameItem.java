@@ -108,7 +108,7 @@ public class GameItem {
         setCurrentGrid(toJson(request.currentGrid()));
         setCandidates(toJson(request.candidates()));
         setTimeSpentSeconds(request.timeSpentSeconds());
-        setStatus(Boolean.TRUE.equals(request.isComplete()) ? "SOLVED" : "IN_PROGRESS");
+        setStatus(Boolean.TRUE.equals(request.isComplete()) ? GameStatus.SOLVED.getValue() : GameStatus.IN_PROGRESS.getValue());
         if (request.hintsUsed() != null) setHintsUsed(request.hintsUsed());
     }
 

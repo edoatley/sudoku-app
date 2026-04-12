@@ -15,6 +15,14 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+/**
+ * REST entry point for stateless Sudoku puzzle operations.
+ *
+ * <p>Exposes puzzle generation, board validation, logical hint retrieval, and candidate
+ * calculation to unauthenticated callers. No game state is created or modified here —
+ * all endpoints are pure functions over the submitted grid, keeping the puzzle logic
+ * accessible without requiring a player account.
+ */
 @Path("/puzzles")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

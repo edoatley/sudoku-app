@@ -230,6 +230,49 @@ class SudokuServiceImplTest {
         assertTrue(response.errors().isEmpty());
     }
 
+    @Test
+    void validatePuzzle_withSolution_multipleWrongCells_reportsAllErrors() {
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 9); // SOLVED_GRID has 4 here
+        grid.get(0).set(3, 1); // SOLVED_GRID has 6 here
+
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+
+        assertFalse(response.isValid());
+        List<Coordinate> errors = response.errors();
+        assertTrue(errors.contains(new Coordinate(0, 2)), "Cell (0,2) should be an error");
+        assertTrue(errors.contains(new Coordinate(0, 3)), "Cell (0,3) should be an error");
+    }
+
+    @Test
+    void validatePuzzle_withSolution_partiallyFilledAllCorrect_notSolved() {
+        // All filled cells match the solution but empty cells remain — valid but not solved
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(EASY_GRID, SOLVED_GRID, null, null));
+
+        assertTrue(response.isValid());
+        assertFalse(response.isSolved(), "Board still has empty cells so isSolved must be false");
+        assertTrue(response.errors().isEmpty());
+    }
+
+    @Test
+    void getHint_withMinRank_skipsStrategiesBelowThreshold() {
+        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+                new FullHouseStrategy(),    // rank 10
+                new NakedSingleStrategy(),  // rank 20
+                new NakedPairStrategy()     // rank 30
+        ));
+        // minRank 20 should skip FullHouse (rank 10) even if it would fire
+        Optional<HintResponse> hint = fullService.getHint(
+                new BoardRequest(EASY_GRID, 20));
+
+        // EASY_GRID has a Naked Single — it should be returned (rank 20 >= minRank 20)
+        assertTrue(hint.isPresent());
+        assertNotEquals("Full House", hint.get().techniqueName(),
+                "Full House (rank 10) should have been skipped by minRank=20");
+    }
+
     // ---- getHint tests ----
 
     @Test

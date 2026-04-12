@@ -1,9 +1,14 @@
 package com.sudoku.puzzle;
 
+import jakarta.enterprise.context.ApplicationScoped;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+
+import static com.sudoku.domain.SudokuConstants.BOX_SIZE;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 
 /**
  * Generates valid Sudoku puzzles with a unique solution.
@@ -19,7 +24,8 @@ import java.util.Random;
  * <p>All heavy per-request work is done in {@link #generate}; the class itself is stateless and
  * SnapStart-safe (no static mutable state).
  */
-public final class PuzzleGenerator {
+@ApplicationScoped
+public class PuzzleGenerator {
 
     /** Target number of given clues per difficulty level. */
     private static final int CLUES_EASY   = 36;
@@ -29,7 +35,13 @@ public final class PuzzleGenerator {
 
     private final Random random;
 
-    public PuzzleGenerator(Random random) {
+    /** CDI no-arg constructor — {@link Random} is initialised at startup for SnapStart readiness. */
+    public PuzzleGenerator() {
+        this.random = new Random();
+    }
+
+    /** Package-private constructor for tests that require a seeded {@link Random}. */
+    PuzzleGenerator(Random random) {
         this.random = random;
     }
 
@@ -142,8 +154,8 @@ public final class PuzzleGenerator {
     // -------------------------------------------------------------------------
 
     private int[] findEmpty(int[][] grid) {
-        for (int r = 0; r < 9; r++) {
-            for (int c = 0; c < 9; c++) {
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            for (int c = 0; c < UNIT_SIZE; c++) {
                 if (grid[r][c] == 0) return new int[]{r, c};
             }
         }
@@ -152,18 +164,18 @@ public final class PuzzleGenerator {
 
     private boolean isPlaceable(int[][] grid, int row, int col, int digit) {
         // row check
-        for (int c = 0; c < 9; c++) {
+        for (int c = 0; c < UNIT_SIZE; c++) {
             if (grid[row][c] == digit) return false;
         }
         // column check
-        for (int r = 0; r < 9; r++) {
+        for (int r = 0; r < UNIT_SIZE; r++) {
             if (grid[r][col] == digit) return false;
         }
         // 3×3 block check
-        int startRow = (row / 3) * 3;
-        int startCol = (col / 3) * 3;
-        for (int r = startRow; r < startRow + 3; r++) {
-            for (int c = startCol; c < startCol + 3; c++) {
+        int startRow = (row / BOX_SIZE) * BOX_SIZE;
+        int startCol = (col / BOX_SIZE) * BOX_SIZE;
+        for (int r = startRow; r < startRow + BOX_SIZE; r++) {
+            for (int c = startCol; c < startCol + BOX_SIZE; c++) {
                 if (grid[r][c] == digit) return false;
             }
         }
@@ -178,9 +190,9 @@ public final class PuzzleGenerator {
     }
 
     private List<int[]> allPositions() {
-        List<int[]> positions = new ArrayList<>(81);
-        for (int r = 0; r < 9; r++) {
-            for (int c = 0; c < 9; c++) {
+        List<int[]> positions = new ArrayList<>(UNIT_SIZE * UNIT_SIZE);
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            for (int c = 0; c < UNIT_SIZE; c++) {
                 positions.add(new int[]{r, c});
             }
         }
@@ -188,18 +200,18 @@ public final class PuzzleGenerator {
     }
 
     private int[][] copyGrid(int[][] source) {
-        int[][] copy = new int[9][9];
-        for (int r = 0; r < 9; r++) {
-            System.arraycopy(source[r], 0, copy[r], 0, 9);
+        int[][] copy = new int[UNIT_SIZE][UNIT_SIZE];
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            System.arraycopy(source[r], 0, copy[r], 0, UNIT_SIZE);
         }
         return copy;
     }
 
     private List<List<Integer>> toImmutableList(int[][] grid) {
-        List<List<Integer>> result = new ArrayList<>(9);
-        for (int r = 0; r < 9; r++) {
-            List<Integer> row = new ArrayList<>(9);
-            for (int c = 0; c < 9; c++) {
+        List<List<Integer>> result = new ArrayList<>(UNIT_SIZE);
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            List<Integer> row = new ArrayList<>(UNIT_SIZE);
+            for (int c = 0; c < UNIT_SIZE; c++) {
                 row.add(grid[r][c]);
             }
             result.add(Collections.unmodifiableList(row));

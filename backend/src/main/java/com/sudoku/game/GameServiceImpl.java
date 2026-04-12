@@ -10,26 +10,38 @@ import jakarta.ws.rs.NotFoundException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Orchestrates the lifecycle of a player's Sudoku game session.
+ *
+ * <p>Handles the transition from a freshly generated (or externally imported) puzzle into
+ * a persisted {@link com.sudoku.dto.GameState}, and routes ongoing save/load operations
+ * through the {@link GameRepository}. Keeping this logic here rather than in the resource
+ * layer ensures the HTTP boundary remains thin and testable independently of persistence.
+ */
 @ApplicationScoped
 public class GameServiceImpl implements GameService {
 
-    @Inject
-    SudokuService sudokuService;
+    private final SudokuService sudokuService;
+    private final GameRepository gameRepository;
 
     @Inject
-    GameRepository gameRepository;
+    public GameServiceImpl(SudokuService sudokuService, GameRepository gameRepository) {
+        this.sudokuService = sudokuService;
+        this.gameRepository = gameRepository;
+    }
 
     @Override
     public GameState createGame(String userId, String difficulty) {
         var puzzle = sudokuService.generatePuzzle(difficulty);
-        List<List<List<Integer>>> emptyCandidates = IntStream.range(0, 9)
-                .mapToObj(r -> IntStream.range(0, 9)
+        List<List<List<Integer>>> emptyCandidates = IntStream.range(0, UNIT_SIZE)
+                .mapToObj(r -> IntStream.range(0, UNIT_SIZE)
                         .mapToObj(c -> List.<Integer>of())
-                        .collect(Collectors.toList()))
-                .collect(Collectors.toList());
+                        .toList())
+                .toList();
 
         GameState gameState = new GameState(
                 userId,
@@ -37,10 +49,10 @@ public class GameServiceImpl implements GameService {
                 puzzle.difficulty(),
                 puzzle.originalGrid(),
                 puzzle.solutionGrid(),
-                puzzle.originalGrid().stream().map(row -> row.stream().collect(Collectors.toList())).collect(Collectors.toList()),
+                puzzle.originalGrid().stream().map(List::copyOf).toList(),
                 emptyCandidates,
                 0,
-                "IN_PROGRESS",
+                GameStatus.IN_PROGRESS.getValue(),
                 0
         );
         gameRepository.save(gameState);
@@ -49,22 +61,22 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public GameState createGameFromExistingGrid(String userId, List<List<Integer>> originalGrid) {
-        List<List<List<Integer>>> emptyCandidates = IntStream.range(0, 9)
-                .mapToObj(r -> IntStream.range(0, 9)
+        List<List<List<Integer>>> emptyCandidates = IntStream.range(0, UNIT_SIZE)
+                .mapToObj(r -> IntStream.range(0, UNIT_SIZE)
                         .mapToObj(c -> List.<Integer>of())
-                        .collect(Collectors.toList()))
-                .collect(Collectors.toList());
+                        .toList())
+                .toList();
 
         GameState gameState = new GameState(
                 userId,
                 UUID.randomUUID().toString(),
-                "imported",
+                GameStatus.IMPORTED.getValue(),
                 originalGrid,
                 null,
-                originalGrid.stream().map(row -> row.stream().collect(Collectors.toList())).collect(Collectors.toList()),
+                originalGrid.stream().map(List::copyOf).toList(),
                 emptyCandidates,
                 0,
-                "IN_PROGRESS",
+                GameStatus.IN_PROGRESS.getValue(),
                 0
         );
         gameRepository.save(gameState);

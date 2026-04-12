@@ -79,13 +79,14 @@ public class FullHouseStrategy implements HintStrategy {
         if (emptyCells.size() != 1) return Optional.empty();
 
         Cell emptyCell = emptyCells.get(0);
-        int missingDigit = -1;
+        int missingDigit = 0;
         for (int d = MIN_DIGIT; d <= MAX_DIGIT; d++) {
             if (!placed.contains(d)) {
                 missingDigit = d;
                 break;
             }
         }
+        if (missingDigit == 0) return Optional.empty(); // guard: unit is already complete
 
         int r = emptyCell.row();
         int c = emptyCell.col();

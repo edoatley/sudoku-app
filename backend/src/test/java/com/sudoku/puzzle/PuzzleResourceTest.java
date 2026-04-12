@@ -121,6 +121,42 @@ class PuzzleResourceTest {
                 .body("errors", hasSize(greaterThanOrEqualTo(2)));
     }
 
+    @Test
+    void validate_withSolution_wrongButNoDuplicate_returnsInvalid() {
+        // Cell (0,2) is empty in EASY_GRID; SOLVED_GRID has 4 there.
+        // Fill it with 1 — no duplicate in row/col/block, but wrong answer.
+        // Without solutionGrid this would return isValid=true (old bug).
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 1);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(new BoardRequestBodyWithSolution(grid, SOLVED_GRID))
+            .when().post("/puzzles/validate")
+            .then()
+                .statusCode(200)
+                .body("isValid", is(false))
+                .body("errors", hasSize(1))
+                .body("errors[0].row", is(0))
+                .body("errors[0].col", is(2));
+    }
+
+    @Test
+    void validate_withSolution_wrongButNoDuplicate_withoutSolution_returnsValid() {
+        // Same wrong cell but no solutionGrid supplied — falls back to duplicate detection,
+        // which sees no conflict and reports valid. Documents the known limitation.
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 1);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(new BoardRequestBody(grid))
+            .when().post("/puzzles/validate")
+            .then()
+                .statusCode(200)
+                .body("isValid", is(true));
+    }
+
     // ---- POST /api/v1/puzzles/hint ----
 
     @Test
@@ -217,6 +253,8 @@ class PuzzleResourceTest {
 
     // Simple wrapper so Jackson can serialize the request body
     record BoardRequestBody(List<List<Integer>> currentGrid) {}
+
+    record BoardRequestBodyWithSolution(List<List<Integer>> currentGrid, List<List<Integer>> solutionGrid) {}
 
     record BoardRequestBodyWithExclusions(List<List<Integer>> currentGrid, List<Integer> excludedRanks) {}
 }

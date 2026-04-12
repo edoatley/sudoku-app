@@ -41,9 +41,7 @@ class GameServiceImplTest {
     void setUp() {
         sudokuService = mock(SudokuService.class);
         gameRepository = mock(GameRepository.class);
-        gameService = new GameServiceImpl();
-        gameService.sudokuService = sudokuService;
-        gameService.gameRepository = gameRepository;
+        gameService = new GameServiceImpl(sudokuService, gameRepository);
     }
 
     @Test
