@@ -256,6 +256,27 @@ class SudokuServiceImplTest {
         assertTrue(response.errors().isEmpty());
     }
 
+    // ---- solveGrid tests ----
+
+    @Test
+    void solveGrid_validPuzzle_returnsSolution() {
+        Optional<List<List<Integer>>> result = service.solveGrid(EASY_GRID);
+
+        assertTrue(result.isPresent());
+        assertEquals(SOLVED_GRID, result.get());
+    }
+
+    @Test
+    void solveGrid_unsolvableGrid_returnsEmpty() {
+        // Row 0 has 5 at position (0,0); placing another 5 at (0,4) creates a contradiction
+        List<List<Integer>> invalid = mutableCopy(EASY_GRID);
+        invalid.get(0).set(4, 5); // duplicate 5 in row 0 — no solution possible
+
+        Optional<List<List<Integer>>> result = service.solveGrid(invalid);
+
+        assertTrue(result.isEmpty());
+    }
+
     @Test
     void getHint_withMinRank_skipsStrategiesBelowThreshold() {
         SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(

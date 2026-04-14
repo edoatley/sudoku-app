@@ -228,4 +228,21 @@ class GameResourceTest {
                 .statusCode(204);
     }
 
+    @Test
+    void postGamesFromImage_withValidGrid_returns201WithSolutionGrid() {
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("originalGrid", GRID))
+        .when()
+                .post("/games/from-image")
+        .then()
+                .statusCode(201)
+                .contentType(ContentType.JSON)
+                .body("difficulty", equalTo("imported"))
+                .body("originalGrid", hasSize(9))
+                .body("currentGrid", hasSize(9))
+                .body("solutionGrid", notNullValue())
+                .body("solutionGrid", hasSize(9));
+    }
+
 }

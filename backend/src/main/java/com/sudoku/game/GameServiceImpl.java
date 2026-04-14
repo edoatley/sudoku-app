@@ -67,12 +67,17 @@ public class GameServiceImpl implements GameService {
                         .toList())
                 .toList();
 
+        // Attempt to solve the imported grid so validation can do precise cell-by-cell checking.
+        // If the grid has no valid solution (e.g. OCR error), falls back to null and validation
+        // gracefully degrades to duplicate-detection only.
+        List<List<Integer>> solution = sudokuService.solveGrid(originalGrid).orElse(null);
+
         GameState gameState = new GameState(
                 userId,
                 UUID.randomUUID().toString(),
                 GameStatus.IMPORTED.getValue(),
                 originalGrid,
-                null,
+                solution,
                 originalGrid.stream().map(List::copyOf).toList(),
                 emptyCandidates,
                 0,

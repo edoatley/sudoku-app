@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 import static com.sudoku.domain.SudokuConstants.BOX_SIZE;
@@ -71,6 +72,21 @@ public class PuzzleGenerator {
         digHoles(puzzle, targetClues);
 
         return new PuzzleResult(toImmutableList(puzzle), toImmutableList(solution));
+    }
+
+    /**
+     * Attempts to solve the given puzzle grid using backtracking.
+     *
+     * @param puzzle a 9×9 grid with zeros for empty cells
+     * @return an {@link Optional} containing the solved grid if exactly one solution exists,
+     *         or {@link Optional#empty()} if the puzzle has no solution or contains contradictions
+     */
+    public Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle) {
+        int[][] grid = toArray(puzzle);
+        if (!fillBoard(grid)) {
+            return Optional.empty();
+        }
+        return Optional.of(toImmutableList(grid));
     }
 
     // -------------------------------------------------------------------------
@@ -205,6 +221,16 @@ public class PuzzleGenerator {
             System.arraycopy(source[r], 0, copy[r], 0, UNIT_SIZE);
         }
         return copy;
+    }
+
+    private int[][] toArray(List<List<Integer>> grid) {
+        int[][] arr = new int[UNIT_SIZE][UNIT_SIZE];
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            for (int c = 0; c < UNIT_SIZE; c++) {
+                arr[r][c] = grid.get(r).get(c);
+            }
+        }
+        return arr;
     }
 
     private List<List<Integer>> toImmutableList(int[][] grid) {

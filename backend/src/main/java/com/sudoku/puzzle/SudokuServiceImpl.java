@@ -162,4 +162,9 @@ public class SudokuServiceImpl implements SudokuService {
         board.calculateAllCandidates();
         return new CandidatesResponse(board.toCandidatesGrid());
     }
+
+    @Override
+    public Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle) {
+        return generator.solveGrid(puzzle);
+    }
 }

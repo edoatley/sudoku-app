@@ -394,8 +394,10 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
         setStatusMessage(allFilled ? null : 'Board is valid so far.');
         setErrorCells(new Set());
       } else {
+        const errorCount = (result.errors ?? []).length;
+        const errorWord = errorCount === 1 ? 'error' : 'errors';
         setGameStatus('invalid');
-        setStatusMessage('The board contains errors.');
+        setStatusMessage(`The board has ${errorCount} ${errorWord}. Check the highlighted cells.`);
         setErrorCells(new Set((result.errors ?? []).map((e) => `${e.row},${e.col}`)));
       }
     } catch (err) {
@@ -643,9 +645,11 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       const emptyGrid = emptyCandidate();
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
+      setSolutionGrid(data.solutionGrid ?? null);
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
       setCandidateGrid(emptyGrid);
       setHistory([]);
+      setHintMinRank(null);
       setHintsUsed(0);
       setExcludedHintRanks([]);
       lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0, 0);
