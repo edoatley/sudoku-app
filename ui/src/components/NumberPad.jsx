@@ -95,6 +95,17 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         <ToggleButton value="candidate">Candidate</ToggleButton>
       </ToggleButtonGroup>
 
+      {/* 3×3 number grid */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {[[1, 2, 3], [4, 5, 6], [7, 8, 9]].map((row) => (
+          <Box key={row[0]} sx={{ display: 'flex', gap: 0.5 }}>
+            {row.map((n) => (
+              <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
+            ))}
+          </Box>
+        ))}
+      </Box>
+
       {/* Toolbar: destructive group | tools group */}
       <Box sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
         <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon fontSize="small" />} onClick={onUndo} disabled={!canUndo} />
