@@ -20,7 +20,7 @@ export default function StatusBar({ gameStatus, statusMessage, onClose }) {
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       sx={{ bottom: { xs: 16, sm: 24 } }}
     >
-      <Alert data-testid="status-alert" severity={severity} onClose={onClose} sx={{ width: '100%' }}>
+      <Alert data-testid="status-snackbar" severity={severity} onClose={onClose} sx={{ width: '100%' }}>
         {message}
       </Alert>
     </Snackbar>

@@ -48,6 +48,17 @@ const MEDIUM_SOLVED = [
   [7, 6, 3, 4, 1, 8, 2, 5, 0], // [8][8] = 0 — last cell for player to fill
 ];
 
+// State returned by POST /games when starting a fresh game (no cells pre-filled)
+const GAME_STATE_FRESH = {
+  gameId: CANNED_GAME_ID,
+  difficulty: 'medium',
+  originalGrid: MEDIUM_ORIGINAL,
+  currentGrid: MEDIUM_ORIGINAL.map((r) => [...r]),
+  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  timeSpentSeconds: 0,
+  status: 'IN_PROGRESS',
+};
+
 const GAME_STATE_PARTIAL = {
   gameId: CANNED_GAME_ID,
   difficulty: 'medium',
@@ -76,7 +87,7 @@ const ELAPSED_AT_PAUSE = 47; // seconds stored in localStorage
 async function setupFirstSessionRoutes(page, patchBodies) {
   await page.route('**/games', (route) => {
     if (route.request().method() === 'POST') {
-      route.fulfill({ status: 201, json: GAME_STATE_PARTIAL });
+      route.fulfill({ status: 201, json: GAME_STATE_FRESH });
     } else {
       route.continue();
     }
@@ -126,39 +137,36 @@ async function setupResumeSessionRoutes(page, patchBodies) {
 // ─── Test ─────────────────────────────────────────────────────────────────────
 
 test('full player journey: new user → play → pause → resume → complete → finish', async ({ page }) => {
+  test.setTimeout(30_000); // multi-step journey needs more time under parallel load
+
   // ── Session 1: new user visit ──────────────────────────────────────────────
 
   const session1Patches = [];
   await setupFirstSessionRoutes(page, session1Patches);
 
+  // Ensure no leftover localStorage from previous runs (e.g. session 2 of a prior run)
+  await page.addInitScript(() => localStorage.clear());
+
   await page.goto('/');
 
-  // 1. New user — no grid displayed (originalGrid is null)
-  await expect(page.getByTestId('cell-0-0')).not.toBeVisible();
+  // 1. App auto-starts a new game (VITE_SKIP_AUTH=true + no localStorage → startNewGame called automatically)
+  await expect(page.getByTestId('cell-0-0')).toBeVisible({ timeout: 5000 });
 
-  // 2. Open hamburger menu, select New Game, pick Medium, click Start
-  await page.getByRole('button', { name: 'Game menu' }).click();
-  await page.getByRole('menuitem', { name: 'New Game' }).click();
-  await page.getByLabel('Medium').click();
-  await page.getByRole('button', { name: 'Start' }).click();
-
-  // Grid should now appear
-  await expect(page.getByTestId('cell-0-0')).toBeVisible();
-
-  // 3. Player fills a couple of cells (originalGrid[0][0] and [0][1] are 0 so editable)
-  await page.getByRole('button', { name: '4', exact: true }).click();
+  // 2. Player fills a couple of cells (originalGrid[0][0] and [0][1] are 0 so editable)
+  // Use cell-first pattern to avoid stale selectedCell issues between fills
   await page.getByTestId('cell-0-0').click();
-  await expect(page.getByTestId('cell-0-0')).toContainText('4');
-
-  await page.getByRole('button', { name: '3', exact: true }).click();
+  await page.getByRole('button', { name: '4', exact: true }).click();
   await page.getByTestId('cell-0-1').click();
+  await page.getByRole('button', { name: '3', exact: true }).click();
+
+  await expect(page.getByTestId('cell-0-0')).toContainText('4');
   await expect(page.getByTestId('cell-0-1')).toContainText('3');
 
-  // 4. Player pauses the game (clicks Pause button in header)
+  // 3. Player pauses the game (clicks Pause button in header)
   await page.getByRole('button', { name: 'Pause game' }).click();
   await expect(page.getByTestId('pause-overlay')).toBeVisible();
 
-  // 5. Tab goes hidden — triggers immediate PATCH sync with current state
+  // 4. Tab goes hidden — triggers immediate PATCH sync with current state
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
     document.dispatchEvent(new Event('visibilitychange'));

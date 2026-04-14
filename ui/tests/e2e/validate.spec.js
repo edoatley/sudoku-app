@@ -64,5 +64,5 @@ test('invalid — enter a duplicate value in row 0 and validate', async ({ page 
   const alert = page.getByTestId('status-alert');
   await expect(alert).toBeVisible();
   await expect(alert).toHaveAttribute('class', /MuiAlert-colorWarning/);
-  await expect(alert).toContainText('The board contains errors.');
+  await expect(alert).toContainText('The board has 2 errors. Check the highlighted cells.');
 });

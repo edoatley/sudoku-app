@@ -206,4 +206,5 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 
 ## TODO
 
+- [ ] Hints need to cycle or resend request to API
 - [ ] More strategies: XY-Chain, Remote Pairs
