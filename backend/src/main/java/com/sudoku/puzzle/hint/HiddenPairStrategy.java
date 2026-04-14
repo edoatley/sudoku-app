@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,8 +11,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
+import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
+
+/**
+ * Detects pairs of digits that, within a unit, appear as candidates only in the
+ * same two cells — allowing all other candidates to be removed from those cells.
+ *
+ * The pattern is "hidden" because the two cells typically carry additional pencil
+ * marks; only the constraint that neither digit can go anywhere else in the unit
+ * reveals that the pair is locked to those two cells.
+ */
 @ApplicationScoped
 public class HiddenPairStrategy implements HintStrategy {
+
+    private static final String NAME = "Hidden Pair";
+    private static final String SLUG = "hidden-pair";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return MEDIUM; }
 
     @Override
     public int getDifficultyRank() {
@@ -21,15 +46,15 @@ public class HiddenPairStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i);
             if (hint.isPresent()) return hint;
         }
@@ -42,8 +67,8 @@ public class HiddenPairStrategy implements HintStrategy {
             if (cell.isEmpty()) emptyCells.add(cell);
         }
 
-        for (int d1 = 1; d1 <= 9; d1++) {
-            for (int d2 = d1 + 1; d2 <= 9; d2++) {
+        for (int d1 = MIN_DIGIT; d1 <= MAX_DIGIT; d1++) {
+            for (int d2 = d1 + 1; d2 <= MAX_DIGIT; d2++) {
                 List<Cell> cellsWithD1 = new ArrayList<>();
                 List<Cell> cellsWithD2 = new ArrayList<>();
                 for (Cell cell : emptyCells) {
@@ -58,11 +83,11 @@ public class HiddenPairStrategy implements HintStrategy {
                 Cell cellA = cellsWithD1.get(0);
                 Cell cellB = cellsWithD1.get(1);
 
-                List<CandidateElimination> eliminations = new ArrayList<>();
+                List<CoordinateCandidate> eliminations = new ArrayList<>();
                 for (Cell cell : List.of(cellA, cellB)) {
                     for (int cand : cell.candidates()) {
                         if (cand != d1 && cand != d2) {
-                            eliminations.add(new CandidateElimination(cell.row(), cell.col(), cand));
+                            eliminations.add(new CoordinateCandidate(cell.row(), cell.col(), cand));
                         }
                     }
                 }
@@ -72,16 +97,21 @@ public class HiddenPairStrategy implements HintStrategy {
                 int rA = cellA.row(), cA = cellA.col();
                 int rB = cellB.row(), cB = cellB.col();
                 HintResponse hint = new HintResponse(
-                        "Hidden Pair",
-                        "hidden-pair",
-                        "medium",
+                        NAME,
+                        SLUG,
+                        getDifficulty(),
+                        getDifficultyRank(),
                         "Two digits appear as candidates in exactly the same two cells within a unit.",
                         unitType + " " + unitIndex + ": digits " + d1 + " and " + d2
                                 + " are confined to cells (" + rA + "," + cA + ") and (" + rB + "," + cB + ").",
                         "All other candidates can be removed from cells (" + rA + "," + cA + ") and (" + rB + "," + cB + ").",
                         List.of(new Coordinate(rA, cA), new Coordinate(rB, cB)),
                         eliminations,
-                        List.of()
+                        List.of(),
+                        List.of(
+                                new CoordinateCandidate(rA, cA, d1), new CoordinateCandidate(rA, cA, d2),
+                                new CoordinateCandidate(rB, cB, d1), new CoordinateCandidate(rB, cB, d2)
+                        )
                 );
                 return Optional.of(hint);
             }

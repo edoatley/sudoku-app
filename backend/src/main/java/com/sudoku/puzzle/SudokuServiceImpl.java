@@ -18,10 +18,19 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Core implementation of the Sudoku puzzle domain.
+ *
+ * <p>Coordinates puzzle generation via {@link PuzzleGenerator} and hint discovery via
+ * the ordered chain of {@link HintStrategy} implementations discovered through CDI.
+ * Strategies are evaluated in ascending difficulty-rank order so players always receive
+ * the simplest applicable logical deduction, preserving the pedagogical progression from
+ * beginner techniques (Full House, Naked Single) through advanced patterns (X-Wing, Y-Wing).
+ */
 @ApplicationScoped
 public class SudokuServiceImpl implements SudokuService {
 
@@ -29,16 +38,16 @@ public class SudokuServiceImpl implements SudokuService {
     private final List<HintStrategy> strategies;
 
     @Inject
-    public SudokuServiceImpl(Instance<HintStrategy> strategyInstance) {
-        this.generator = new PuzzleGenerator(new Random());
+    public SudokuServiceImpl(PuzzleGenerator generator, Instance<HintStrategy> strategyInstance) {
+        this.generator = generator;
         this.strategies = strategyInstance.stream()
                 .sorted(Comparator.comparingInt(HintStrategy::getDifficultyRank))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // Test-only constructor (package-private)
     SudokuServiceImpl(List<HintStrategy> strategies) {
-        this.generator = new PuzzleGenerator(new Random());
+        this.generator = new PuzzleGenerator();
         this.strategies = List.copyOf(strategies);
     }
 
@@ -51,28 +60,55 @@ public class SudokuServiceImpl implements SudokuService {
     @Override
     public PuzzleResponse generatePuzzle(String difficulty) {
         String normalised = difficulty.toLowerCase();
-        List<List<Integer>> grid = generator.generate(normalised);
-        return new PuzzleResponse(grid, normalised);
+        var result = generator.generate(normalised);
+        return new PuzzleResponse(result.puzzle(), result.solution(), normalised);
     }
 
     @Override
     public ValidationResponse validatePuzzle(BoardRequest request) {
-        Board board = Board.fromGrid(request.currentGrid());
+        List<List<Integer>> solution = request.solutionGrid();
+        if (solution != null) {
+            return validateAgainstSolution(request.currentGrid(), solution);
+        }
+        return validateByDuplicates(request.currentGrid());
+    }
+
+    private ValidationResponse validateAgainstSolution(List<List<Integer>> currentGrid, List<List<Integer>> solution) {
+        Set<Coordinate> errorSet = new LinkedHashSet<>();
+        boolean hasEmpty = false;
+
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            for (int c = 0; c < UNIT_SIZE; c++) {
+                int current = currentGrid.get(r).get(c);
+                if (current == 0) {
+                    hasEmpty = true;
+                } else if (current != solution.get(r).get(c)) {
+                    errorSet.add(new Coordinate(r, c));
+                }
+            }
+        }
+
+        boolean isSolved = errorSet.isEmpty() && !hasEmpty;
+        return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
+    }
+
+    private ValidationResponse validateByDuplicates(List<List<Integer>> currentGrid) {
+        Board board = Board.fromGrid(currentGrid);
         Set<Coordinate> errorSet = new LinkedHashSet<>();
 
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             findDuplicates(board.getRow(i), errorSet);
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             findDuplicates(board.getColumn(i), errorSet);
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             findDuplicates(board.getBlock(i), errorSet);
         }
 
         boolean hasEmpty = false;
         outer:
-        for (int r = 0; r < 9; r++) {
+        for (int r = 0; r < UNIT_SIZE; r++) {
             for (Cell cell : board.getRow(r)) {
                 if (cell.isEmpty()) {
                     hasEmpty = true;
@@ -105,10 +141,17 @@ public class SudokuServiceImpl implements SudokuService {
         Board board = Board.fromGrid(request.currentGrid());
         board.calculateAllCandidates();
         int minRank = request.minRank() != null ? request.minRank() : 0;
+        List<Integer> excluded = request.excludedRanks() != null ? request.excludedRanks() : List.of();
         for (HintStrategy strategy : strategies) {
             if (strategy.getDifficultyRank() < minRank) continue;
+            if (excluded.contains(strategy.getDifficultyRank())) continue;
             Optional<HintResponse> hint = strategy.evaluate(board);
-            if (hint.isPresent()) return hint;
+            if (hint.isPresent()) {
+                HintResponse h = hint.get();
+                boolean hasAction = (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty())
+                        || (h.solvedCells() != null && !h.solvedCells().isEmpty());
+                if (hasAction) return hint;
+            }
         }
         return Optional.empty();
     }
@@ -118,5 +161,10 @@ public class SudokuServiceImpl implements SudokuService {
         Board board = Board.fromGrid(request.currentGrid());
         board.calculateAllCandidates();
         return new CandidatesResponse(board.toCandidatesGrid());
+    }
+
+    @Override
+    public Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle) {
+        return generator.solveGrid(puzzle);
     }
 }

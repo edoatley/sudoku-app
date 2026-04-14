@@ -7,7 +7,7 @@
  * Run standalone:
  *   npm run test:hint-demos
  *
- * Or as part of the full local test suite via scripts/test-local.sh.
+ * Or as part of the full local test suite via scripts/local/local-alltests.sh.
  */
 import { test, expect } from '@playwright/test';
 
@@ -47,8 +47,8 @@ for (const { label, techniqueName } of HINT_DEMOS) {
 
     await page.getByRole('button', { name: /hint/i }).click();
 
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible({ timeout: 10_000 });
-    await expect(dialog).toContainText(techniqueName);
+    const hintPanel = page.getByTestId('hint-panel');
+    await expect(hintPanel).toBeVisible({ timeout: 10_000 });
+    await expect(hintPanel).toContainText(techniqueName);
   });
 }

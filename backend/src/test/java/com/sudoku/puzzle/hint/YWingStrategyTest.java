@@ -1,10 +1,11 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -71,9 +72,9 @@ class YWingStrategyTest {
         assertEquals(3, highlights.size());
         assertTrue(highlights.contains(new Coordinate(2, 4)));
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertEquals(5, e.value(), "Eliminated candidate must be the shared pincer digit C=5");
         }
         assertTrue(elims.stream().anyMatch(e -> e.row() == 6 && e.col() == 8));
@@ -100,7 +101,7 @@ class YWingStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("y-wing", hint.markdownSlug());
-        assertEquals("hard", hint.difficulty());
+        assertEquals(Difficulty.HARD, hint.difficulty());
         assertEquals(110, strategy.getDifficultyRank());
     }
 

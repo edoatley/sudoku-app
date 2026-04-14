@@ -224,7 +224,7 @@ jobs:
           if terraform output -json subdomain_nameservers | jq -e 'length > 0' > /dev/null 2>&1; then
             echo "========================================================"
             echo "  Route53 NS records for sudoku.edoatley.co.uk"
-            echo "  Run infra/scripts/delegate-dns.sh with these values:"
+            echo "  Run scripts/infra/delegate-dns.sh with these values:"
             echo "========================================================"
             terraform output -json subdomain_nameservers | jq -r '.[]'
             echo "========================================================"

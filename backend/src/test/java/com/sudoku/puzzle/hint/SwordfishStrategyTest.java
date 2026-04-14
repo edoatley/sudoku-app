@@ -1,9 +1,10 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -68,9 +69,9 @@ class SwordfishStrategyTest {
         HintResponse hint = result.get();
         assertEquals("swordfish", hint.markdownSlug());
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertEquals(7, e.value());
             assertTrue(e.row() != 0 && e.row() != 3 && e.row() != 6,
                     "Eliminations must not be in the Swordfish rows");
@@ -102,9 +103,9 @@ class SwordfishStrategyTest {
         HintResponse hint = result.get();
         assertEquals("swordfish", hint.markdownSlug());
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertEquals(4, e.value());
             assertTrue(e.col() != 0 && e.col() != 3 && e.col() != 6,
                     "Eliminations must not be in the Swordfish columns");
@@ -133,7 +134,7 @@ class SwordfishStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("swordfish", hint.markdownSlug());
-        assertEquals("hard", hint.difficulty());
+        assertEquals(Difficulty.HARD, hint.difficulty());
         assertEquals(100, strategy.getDifficultyRank());
     }
 

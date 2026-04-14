@@ -2,11 +2,11 @@
 # Prompts for deploy secrets and writes them to scripts/.env.local
 # Run once; the deploy/destroy scripts source this file automatically.
 #
-# Usage: bash scripts/setup-local-secrets.sh
+# Usage: bash scripts/infra/setup-local-secrets.sh
 
 set -euo pipefail
 
-ENV_FILE="$(dirname "$0")/.env.local"
+ENV_FILE="$(dirname "$0")/../.env.local"
 
 prompt_secret() {
   local var="$1" prompt="$2" existing=""

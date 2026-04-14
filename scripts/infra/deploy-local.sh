@@ -8,7 +8,7 @@
 #   GOOGLE_CLIENT_SECRET=<secret> \
 #   SMOKE_TEST_USER_EMAIL=<email> \
 #   SMOKE_TEST_USER_PASSWORD=<password> \
-#   bash scripts/deploy-local.sh [branch]
+#   bash scripts/infra/deploy-local.sh [branch]
 #
 # branch defaults to the current git branch.
 # main → default workspace (prod); rc-* → named workspace.
@@ -18,12 +18,12 @@ set -euo pipefail
 BRANCH="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 
 # ── Load secrets from .env.local if not already in environment ─────────────────
-ENV_FILE="$(dirname "$0")/.env.local"
+ENV_FILE="$(dirname "$0")/../.env.local"
 if [ -f "${ENV_FILE}" ]; then
   # shellcheck source=/dev/null
   set -o allexport; source "${ENV_FILE}"; set +o allexport
 else
-  echo "Hint: run 'bash scripts/setup-local-secrets.sh' once to avoid passing secrets on the command line."
+  echo "Hint: run 'bash scripts/infra/setup-local-secrets.sh' once to avoid passing secrets on the command line."
 fi
 
 : "${AMPLIFY_GITHUB_TOKEN:?AMPLIFY_GITHUB_TOKEN must be set (run setup-local-secrets.sh)}"
@@ -48,7 +48,7 @@ echo "    Workspace: ${WORKSPACE}"
 echo "    Env label: ${ENV}"
 echo ""
 
-REPO_ROOT="$(dirname "$0")/.."
+REPO_ROOT="$(dirname "$0")/../.."
 cd "${REPO_ROOT}/infra"
 
 # ── Locate Lambda zip ──────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ if [ "${WORKSPACE}" = "default" ]; then
     echo ""
     echo "========================================================"
     echo "  Route53 NS records for sudoku.edoatley.co.uk"
-    echo "  Run scripts/delegate-dns.sh with these values:"
+    echo "  Run scripts/infra/delegate-dns.sh with these values:"
     echo "========================================================"
     echo "${NS}" | jq -r '.[]'
     echo "========================================================"

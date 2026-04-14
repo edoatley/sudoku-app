@@ -4,6 +4,19 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Mutable model of a single cell in a 9×9 Sudoku board.
+ *
+ * <p>A cell holds its fixed position ({@code row}, {@code col}), its current digit
+ * ({@code 0} meaning empty), and the set of pencil-mark candidates still valid for
+ * that position. Candidates are cleared automatically when a value is placed via
+ * {@link #setValue}, keeping the two pieces of state consistent.
+ *
+ * <p>This is an internal domain object used by {@link Board} and the hint/solve
+ * strategies; it is never serialised directly to JSON.
+ */
 public final class Cell {
 
     private final int row;
@@ -12,8 +25,8 @@ public final class Cell {
     private Set<Integer> candidates;
 
     public Cell(int row, int col, int value) {
-        if (row < 0 || row > 8) throw new IllegalArgumentException("row must be in [0,8], got: " + row);
-        if (col < 0 || col > 8) throw new IllegalArgumentException("col must be in [0,8], got: " + col);
+        if (row < 0 || row > UNIT_SIZE - 1) throw new IllegalArgumentException("row must be in [0,8], got: " + row);
+        if (col < 0 || col > UNIT_SIZE - 1) throw new IllegalArgumentException("col must be in [0,8], got: " + col);
         if (value < 0 || value > 9) throw new IllegalArgumentException("value must be in [0,9], got: " + value);
         this.row = row;
         this.col = col;

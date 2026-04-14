@@ -209,7 +209,7 @@ components:
           type: array
           description: Pencil marks that should be removed based on this logic.
           items:
-            $ref: '#/components/schemas/CandidateElimination'
+            $ref: '#/components/schemas/CoordinateCandidate'
         solvedCells:
           type: array
           description: Cells that can be definitively filled based on this logic.
@@ -279,7 +279,7 @@ components:
             minimum: 1
             maximum: 9
 
-    CandidateElimination:
+    CoordinateCandidate:
       type: object
       required:
         - row

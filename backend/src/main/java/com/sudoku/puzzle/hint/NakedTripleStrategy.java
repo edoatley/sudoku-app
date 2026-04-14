@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -14,8 +14,32 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
+
+/**
+ * Detects groups of three cells in a unit whose combined candidates contain
+ * exactly three distinct digits, eliminating those digits from all other cells
+ * in the unit.
+ *
+ * Each cell in the triple must hold between one and three of the shared digits,
+ * and together the three cells account for all placements of those digits within
+ * the unit — so no other cell can contain any of them.
+ */
 @ApplicationScoped
 public class NakedTripleStrategy implements HintStrategy {
+
+    private static final String NAME = "Naked Triple";
+    private static final String SLUG = "naked-triple";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return MEDIUM; }
 
     @Override
     public int getDifficultyRank() {
@@ -24,15 +48,15 @@ public class NakedTripleStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row " + i);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column " + i);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block " + i);
             if (hint.isPresent()) return hint;
         }
@@ -62,12 +86,12 @@ public class NakedTripleStrategy implements HintStrategy {
 
                     if (union.size() != 3) continue;
 
-                    List<CandidateElimination> eliminations = new ArrayList<>();
+                    List<CoordinateCandidate> eliminations = new ArrayList<>();
                     for (Cell cell : unit) {
                         if (cell == cellA || cell == cellB || cell == cellC || !cell.isEmpty()) continue;
                         for (int digit : union) {
                             if (cell.candidates().contains(digit)) {
-                                eliminations.add(new CandidateElimination(cell.row(), cell.col(), digit));
+                                eliminations.add(new CoordinateCandidate(cell.row(), cell.col(), digit));
                             }
                         }
                     }
@@ -85,10 +109,19 @@ public class NakedTripleStrategy implements HintStrategy {
                     String reveal = "Digits " + d1 + ", " + d2 + ", and " + d3
                             + " can be removed from all other cells in " + unitLabel.toLowerCase() + ".";
 
+                    List<CoordinateCandidate> focusCandidates = new ArrayList<>();
+                    for (Cell cell : List.of(cellA, cellB, cellC)) {
+                        for (int digit : union) {
+                            if (cell.candidates().contains(digit)) {
+                                focusCandidates.add(new CoordinateCandidate(cell.row(), cell.col(), digit));
+                            }
+                        }
+                    }
                     HintResponse hint = new HintResponse(
-                            "Naked Triple",
-                            "naked-triple",
-                            "medium",
+                            NAME,
+                            SLUG,
+                            getDifficulty(),
+                            getDifficultyRank(),
                             "Three cells in a unit collectively contain only three candidates.",
                             focus,
                             reveal,
@@ -98,7 +131,8 @@ public class NakedTripleStrategy implements HintStrategy {
                                     new Coordinate(cellC.row(), cellC.col())
                             ),
                             eliminations,
-                            List.of()
+                            List.of(),
+                            focusCandidates
                     );
                     return Optional.of(hint);
                 }

@@ -13,8 +13,33 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
+import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.EASY;
+
+/**
+ * Identifies units where every cell except one is already filled, revealing the
+ * missing digit by elimination.
+ *
+ * Full House is the most fundamental Sudoku deduction — when a row, column, or
+ * block contains eight given or solved digits, the ninth cell is forced without
+ * any candidate analysis.
+ */
 @ApplicationScoped
 public class FullHouseStrategy implements HintStrategy {
+
+    private static final String NAME = "Full House";
+    private static final String SLUG = "full-house";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return EASY; }
 
     @Override
     public int getDifficultyRank() {
@@ -24,17 +49,17 @@ public class FullHouseStrategy implements HintStrategy {
     @Override
     public Optional<HintResponse> evaluate(Board board) {
         // Scan rows 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i + 1);
             if (hint.isPresent()) return hint;
         }
         // Scan columns 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i + 1);
             if (hint.isPresent()) return hint;
         }
         // Scan blocks 0-8
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i + 1);
             if (hint.isPresent()) return hint;
         }
@@ -54,26 +79,29 @@ public class FullHouseStrategy implements HintStrategy {
         if (emptyCells.size() != 1) return Optional.empty();
 
         Cell emptyCell = emptyCells.get(0);
-        int missingDigit = -1;
-        for (int d = 1; d <= 9; d++) {
+        int missingDigit = 0;
+        for (int d = MIN_DIGIT; d <= MAX_DIGIT; d++) {
             if (!placed.contains(d)) {
                 missingDigit = d;
                 break;
             }
         }
+        if (missingDigit == 0) return Optional.empty(); // guard: unit is already complete
 
         int r = emptyCell.row();
         int c = emptyCell.col();
         HintResponse hint = new HintResponse(
-                "Full House",
-                "full-house",
-                "easy",
+                NAME,
+                SLUG,
+                getDifficulty(),
+                getDifficultyRank(),
                 "One unit has only a single empty cell remaining.",
                 unitType + " " + unitNumber + " has 8 of 9 cells filled.",
                 "Cell (" + r + ", " + c + ") must be " + missingDigit + ".",
                 List.of(new Coordinate(r, c)),
                 List.of(),
-                List.of(new ActionableCell(r, c, missingDigit))
+                List.of(new ActionableCell(r, c, missingDigit)),
+                List.of()
         );
         return Optional.of(hint);
     }

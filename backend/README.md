@@ -9,7 +9,7 @@ Java 21 REST API built with Quarkus, deployed as an AWS Lambda function behind A
 | | |
 |---|---|
 | Language | Java 21 |
-| Framework | Quarkus 3.x (`quarkus-amazon-lambda-rest`) |
+| Framework | Quarkus 3.34.x (`quarkus-amazon-lambda-rest`) |
 | Auth | `quarkus-oidc` — JWT validation via Cognito OIDC discovery |
 | Database | AWS DynamoDB (`quarkus-amazon-dynamodb-enhanced`) |
 | Test | JUnit 5, Mockito, RestAssured, LocalStack (integration tests) |
@@ -25,6 +25,8 @@ Java 21 REST API built with Quarkus, deployed as an AWS Lambda function behind A
 
 In `dev` mode, OIDC is disabled and a `DevUserFilter` injects `local-dev-user` as the authenticated user — no Cognito or Google login required.
 
+`DevDatabaseInitializer` automatically creates the required DynamoDB tables in LocalStack on startup in `dev` mode — no manual table creation needed.
+
 The Quarkus Dev UI is available at <http://localhost:8080/q/dev/>.
 
 ---
@@ -34,46 +36,73 @@ The Quarkus Dev UI is available at <http://localhost:8080/q/dev/>.
 ```
 src/main/java/com/sudoku/
 ├── auth/
-│   └── DevUserFilter.java        # Dev/IT only — injects mock SecurityContext when no JWT present
+│   └── AllowedUsersFilter.java   # Server-side email allowlist; rejects non-allowlisted JWTs with 403
 ├── cors/
 │   └── CorsFilter.java           # JAX-RS filter adding CORS headers
+├── developer/
+│   ├── DevDatabaseInitializer.java  # Dev-only: creates DynamoDB tables in LocalStack on startup
+│   └── DevUserFilter.java           # Dev/test/IT only — injects mock SecurityContext when no JWT present
 ├── domain/
-│   ├── Board.java                # Core 9×9 board model
-│   └── Cell.java                 # Individual cell
+│   ├── Board.java                # Core 9×9 board model with row/col/block views and candidate logic
+│   ├── Cell.java                 # Individual cell (position, value, pencil-mark candidates)
+│   └── SudokuConstants.java      # UNIT_SIZE, BOX_SIZE, MIN_DIGIT, MAX_DIGIT
 ├── dto/                          # Record types for request/response bodies
+│   ├── ActionableCell.java       # (row, col, value) — cell with a determined digit
+│   ├── BoardRequest.java         # currentGrid + optional solutionGrid, minRank, excludedRanks
+│   ├── CandidatesResponse.java   # 9×9 grid of candidate lists per cell
+│   ├── Coordinate.java           # (row, col) position
+│   ├── CoordinateCandidate.java  # (row, col, value) pencil-mark candidate
+│   ├── CreateGameFromGridRequest.java  # originalGrid for image-recognition import
 │   ├── GameState.java            # userId, gameId, grids, candidates, status …
-│   ├── GameUpdateRequest.java
-│   ├── PuzzleResponse.java
-│   ├── HintResponse.java
-│   └── …
+│   ├── GameUpdateRequest.java    # currentGrid, candidates, time, completion flag, hintsUsed
+│   ├── HintResponse.java         # Full hint payload: technique, nudge/focus/reveal, highlighted cells
+│   ├── PuzzleResponse.java       # originalGrid, solutionGrid, difficulty
+│   └── ValidationResponse.java  # isValid, isSolved, error coordinates
 ├── game/
-│   ├── GameResource.java         # POST /games, GET /games/{id}, PATCH /games/{id}
+│   ├── GameResource.java         # POST /games, POST /games/from-image, GET /games/current,
+│   │                             #   GET /games/{id}, PATCH /games/{id}
 │   ├── GameService.java          # Interface
 │   ├── GameServiceImpl.java
+│   ├── GameStatus.java           # Enum: IN_PROGRESS, SOLVED, IMPORTED
 │   ├── GameRepository.java       # Interface
 │   ├── DynamoDbGameRepository.java
 │   └── GameItem.java             # DynamoDB enhanced client bean (userId PK + gameId SK)
 ├── health/
-│   └── HealthResource.java       # GET /health
+│   └── HealthResource.java       # GET /health — liveness probe
 ├── logging/
-│   └── ApiLoggingFilter.java     # Request/response logging
+│   └── ApiLoggingFilter.java     # Dev-only: logs request/response method, path, body, status
 ├── player/
 │   ├── PlayerResource.java       # GET /players/me
 │   ├── PlayerService.java
 │   ├── PlayerServiceImpl.java    # Lazy profile creation on first login
 │   ├── PlayerRepository.java
 │   ├── DynamoDbPlayerRepository.java
-│   └── PlayerItem.java           # DynamoDB enhanced client bean (userId PK)
+│   ├── PlayerItem.java           # DynamoDB enhanced client bean (userId PK)
+│   └── PlayerProfile.java        # Record DTO for player data
 └── puzzle/
     ├── PuzzleResource.java       # GET /puzzles/generate, POST /puzzles/validate|hint|candidates
-    ├── SudokuService.java
+    ├── SudokuService.java        # Interface
     ├── SudokuServiceImpl.java
-    ├── PuzzleGenerator.java
+    ├── PuzzleGenerator.java      # Randomised backtracking + hole-digging with uniqueness check
+    ├── developer/
+    │   ├── DevResource.java         # GET /dev/hint-demo?technique=<slug>
+    │   ├── HintDemoGrids.java       # Loads pre-baked grids from resources/developer/
+    │   └── MockSudokuService.java   # Test helper with hardcoded grids
     └── hint/
-        ├── HintStrategy.java
-        ├── FullHouseStrategy.java
-        ├── NakedSingleStrategy.java
-        └── NakedPairStrategy.java
+        ├── HintStrategy.java        # Interface: evaluate(Board), rank, difficulty, name, slug
+        ├── BoardUtils.java          # Static helpers: candidateColumnsInRow, isVisible
+        ├── Difficulty.java          # Enum: EASY, MEDIUM, HARD
+        ├── FullHouseStrategy.java   # Rank 10 — one empty cell remaining in a unit
+        ├── NakedSingleStrategy.java # Rank 20 — cell with exactly one candidate
+        ├── NakedPairStrategy.java   # Rank 30 — two cells sharing same two candidates
+        ├── HiddenSingleStrategy.java # Rank 40 — digit in exactly one cell of a unit
+        ├── PointingPairStrategy.java # Rank 50 — digit confined to one row/col within a block
+        ├── NakedTripleStrategy.java  # Rank 60 — three cells with three shared candidates
+        ├── HiddenPairStrategy.java   # Rank 70 — two digits confined to two cells
+        ├── HiddenTripleStrategy.java # Rank 80 — three digits confined to three cells
+        ├── XWingStrategy.java        # Rank 90 — 2×2 fish pattern
+        ├── SwordfishStrategy.java    # Rank 100 — 3×3 fish pattern
+        └── YWingStrategy.java        # Rank 110 — pivot cell with two pincers
 ```
 
 ---
@@ -95,9 +124,17 @@ src/main/java/com/sudoku/
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/v1/games` | Create a new game |
-| GET | `/api/v1/games/{gameId}` | Load a saved game |
+| POST | `/api/v1/games/from-image` | Create a game from an externally recognised grid |
+| GET | `/api/v1/games/current` | Get the player's current in-progress game |
+| GET | `/api/v1/games/{gameId}` | Load a saved game by ID |
 | PATCH | `/api/v1/games/{gameId}` | Save game progress |
 | GET | `/api/v1/players/me` | Get or create the current user's profile |
+
+**Developer-only** (`dev` profile):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/dev/hint-demo` | Return a pre-baked grid for a given hint technique (`?technique=<slug>`) |
 
 The JWT is validated by the API Gateway JWT authorizer (Cognito issuer/audience). Quarkus extracts the `userId` from the `SecurityContext` via `quarkus-oidc` in production, or from the `DevUserFilter` mock in `dev`/`test`/`it` profiles.
 
@@ -105,13 +142,13 @@ The JWT is validated by the API Gateway JWT authorizer (Cognito issuer/audience)
 
 ## Testing
 
-### Unit tests
+### Unit tests (no infrastructure required)
 
 ```bash
 ./mvnw test
 ```
 
-Pure unit tests using Mockito — no infrastructure required.
+Pure unit tests using JUnit 5 and Mockito for domain logic and service classes, plus `@QuarkusTest` API tests (RestAssured) that start the full Quarkus CDI container. The `@QuarkusTest` tests target LocalStack via `src/test/resources/application.properties` — LocalStack is started automatically by `DevDatabaseInitializer`.
 
 ### Integration tests
 
@@ -119,25 +156,7 @@ Pure unit tests using Mockito — no infrastructure required.
 ./mvnw verify -DskipITs=false
 ```
 
-Uses `@QuarkusTest` + RestAssured. DynamoDB is pointed at LocalStack. Start LocalStack first:
-
-```bash
-docker run --rm -d -p 4566:4566 localstack/localstack
-# then create the required tables:
-aws --endpoint-url=http://localhost:4566 dynamodb create-table \
-  --table-name SudokuGames \
-  --attribute-definitions AttributeName=userId,AttributeType=S AttributeName=gameId,AttributeType=S \
-  --key-schema AttributeName=userId,KeyType=HASH AttributeName=gameId,KeyType=RANGE \
-  --billing-mode PAY_PER_REQUEST --region us-east-1
-
-aws --endpoint-url=http://localhost:4566 dynamodb create-table \
-  --table-name SudokuPlayers \
-  --attribute-definitions AttributeName=userId,AttributeType=S \
-  --key-schema AttributeName=userId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST --region us-east-1
-```
-
-CI handles LocalStack setup automatically via `.github/actions/create-localstack-dynamodb/`.
+Uses `@QuarkusIntegrationTest` to test the packaged Lambda zip against LocalStack. CI handles LocalStack setup automatically via `.github/actions/create-localstack-dynamodb/`.
 
 ---
 
@@ -188,5 +207,7 @@ Key properties in `src/main/resources/application.properties`:
 | `quarkus.oidc.application-type` | `service` — Bearer token mode, no redirect |
 | `sudoku.dynamodb.table-name` | `SudokuGames` table name (injected via `GAMES_TABLE_NAME` env var) |
 | `sudoku.dynamodb.players-table-name` | `SudokuPlayers` table name (injected via `PLAYERS_TABLE_NAME` env var) |
+| `sudoku.cors.allowed-origins` | Comma-separated list of allowed CORS origins (injected via `CORS_ALLOWED_ORIGINS` env var) |
+| `app.allowed.emails` | Comma-separated email allowlist; empty string disables the check (dev/test default) |
 
 In `dev`, `test`, and `it` profiles, OIDC is disabled and proactive auth is turned off so the `DevUserFilter` can inject a mock identity.

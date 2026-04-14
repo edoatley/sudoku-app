@@ -9,7 +9,7 @@ const SEVERITY = {
 };
 
 export default function StatusBar({ gameStatus, statusMessage, onClose }) {
-  const open = gameStatus !== 'idle' && gameStatus !== 'solved' && gameStatus in SEVERITY;
+  const open = gameStatus !== 'idle' && gameStatus !== 'solved' && gameStatus !== 'valid' && gameStatus !== 'invalid' && gameStatus in SEVERITY;
   const severity = SEVERITY[gameStatus] ?? 'info';
   const message = gameStatus === 'solved' ? 'Congratulations — puzzle solved!' : statusMessage;
 
@@ -20,7 +20,7 @@ export default function StatusBar({ gameStatus, statusMessage, onClose }) {
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       sx={{ bottom: { xs: 16, sm: 24 } }}
     >
-      <Alert data-testid="status-alert" severity={severity} onClose={onClose} sx={{ width: '100%' }}>
+      <Alert data-testid="status-snackbar" severity={severity} onClose={onClose} sx={{ width: '100%' }}>
         {message}
       </Alert>
     </Snackbar>

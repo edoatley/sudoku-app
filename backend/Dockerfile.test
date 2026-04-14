@@ -2,8 +2,15 @@
 # Used by docker-compose.test.yml only; not deployed to production.
 FROM maven:3-eclipse-temurin-25
 WORKDIR /build
+
 COPY pom.xml ./
-RUN mvn dependency:go-offline -q
+# Bake all project + Quarkus build-time plugin deps into the image layer so they
+# are available at container runtime when quarkus:dev starts (no cache mount —
+# deps must be committed into the layer, not just the build-time cache).
+RUN mvn dependency:go-offline quarkus:go-offline -q
+
 COPY src/ src/
 EXPOSE 8080
+
+# Keep using dev mode for integration tests as requested
 ENTRYPOINT ["mvn", "quarkus:dev", "-Dquarkus.http.host=0.0.0.0", "-Ddebug=false", "-Dquarkus.console.enabled=false", "-Dquarkus.live-reload.enabled=false"]

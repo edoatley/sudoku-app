@@ -1,0 +1,19 @@
+# Dependency and Build folders
+node_modules
+dist
+coverage
+
+# Test artifacts (generated on host)
+playwright-report
+test-results
+
+# Git and OS metadata
+.git
+.gitignore
+.dockerignore
+**/.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -11,16 +11,42 @@ servers:
   - url: https://api.your-amplify-domain.com/v1
     description: Production AWS API Gateway
 tags:
+  - name: Health
+    description: Health check endpoint
   - name: Puzzles
     description: Endpoints for generating and validating Sudoku grids
+  - name: Games
+    description: Endpoints for managing game state
+  - name: Players
+    description: Endpoints for player profile management
+
+security:
+  - CognitoJWT: []
 
 paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the current health status of the service.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+
   /puzzles/generate:
     get:
       tags:
         - Puzzles
       summary: Generate a new Sudoku puzzle
       description: Returns a newly generated 9x9 Sudoku grid based on the requested difficulty.
+      security: []
       parameters:
         - in: query
           name: difficulty
@@ -40,6 +66,7 @@ paths:
     post:
       tags:
         - Puzzles
+      security: []
       summary: Validate a Sudoku board
       description: Checks the provided 9x9 grid against Sudoku rules. Returns true if valid, or a list of conflicting coordinates if invalid.
       requestBody:
@@ -62,6 +89,7 @@ paths:
     post:
       tags:
         - Puzzles
+      security: []
       summary: Request a logical learning hint for the current board
       description: Evaluates the board using human logic techniques. Returns a progressive hint (Nudge, Focus, Reveal) and the exact board modifications required.
       requestBody:
@@ -84,6 +112,7 @@ paths:
     post:
       tags:
         - Puzzles
+      security: []
       summary: Auto-calculate candidates for the board
       description: Evaluates the current board and returns a grid of all valid candidate numbers for every empty cell.
       requestBody:
@@ -122,6 +151,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GameState'
+
+  /games/from-image:
+    post:
+      tags:
+        - Games
+      summary: Start a new game from a scanned image grid
+      description: Creates a new game using a grid extracted from an image (e.g., photographed puzzle). Returns the full game state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameFromGridRequest'
+      responses:
+        '201':
+          description: Game created successfully from image grid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameState'
+
+  /games/current:
+    get:
+      tags:
+        - Games
+      summary: Get the current in-progress game
+      description: Retrieves the authenticated user's current in-progress game, if one exists.
+      responses:
+        '200':
+          description: Current game state retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameState'
+        '204':
+          description: No current game in progress.
 
   /games/{gameId}:
     get:
@@ -169,11 +234,35 @@ paths:
           description: Game saved successfully.
 
 
+  /players/me:
+    get:
+      tags:
+        - Players
+      summary: Get the current player's profile
+      description: Returns the authenticated user's profile, including display name and account timestamps.
+      responses:
+        '200':
+          description: Player profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerProfile'
+        '404':
+          description: Player profile not found.
+
 components:
+  securitySchemes:
+    CognitoJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: AWS Cognito JWT access token.
+
   schemas:
     GameState:
       type: object
       required:
+        - userId
         - gameId
         - difficulty
         - originalGrid
@@ -182,6 +271,9 @@ components:
         - timeSpentSeconds
         - status
       properties:
+        userId:
+          type: string
+          description: The ID of the authenticated user who owns this game.
         gameId:
           type: string
           format: uuid
@@ -255,6 +347,9 @@ components:
           $ref: '#/components/schemas/Grid'
         difficulty:
           $ref: '#/components/schemas/Difficulty'
+        minRank:
+          type: integer
+          description: The minimum strategy rank used when generating this puzzle.
 
     BoardRequest:
       type: object
@@ -263,6 +358,14 @@ components:
       properties:
         currentGrid:
           $ref: '#/components/schemas/Grid'
+        minRank:
+          type: integer
+          description: Optional minimum strategy rank to filter hints (hints below this rank are skipped).
+        excludedRanks:
+          type: array
+          description: Optional list of strategy ranks to exclude from hint selection.
+          items:
+            type: integer
       example:
         currentGrid: [
           [5,3,0,0,7,0,0,0,0],
@@ -299,12 +402,14 @@ components:
         - techniqueName
         - markdownSlug
         - difficulty
+        - strategyRank
         - nudge
         - focus
         - reveal
         - highlightCells
         - eliminatedCandidates
         - solvedCells
+        - focusCandidates
       properties:
         techniqueName:
           type: string
@@ -314,6 +419,9 @@ components:
           description: The identifier linking to the frontend markdown file (e.g., "naked-pair").
         difficulty:
           $ref: '#/components/schemas/Difficulty'
+        strategyRank:
+          type: integer
+          description: Numeric rank of the strategy used (lower = simpler technique).
         nudge:
           type: string
           description: Level 1 Hint - A gentle push toward the technique.
@@ -332,12 +440,17 @@ components:
           type: array
           description: Pencil marks that should be removed based on this logic.
           items:
-            $ref: '#/components/schemas/CandidateElimination'
+            $ref: '#/components/schemas/CoordinateCandidate'
         solvedCells:
           type: array
           description: Cells that can be definitively filled based on this logic.
           items:
             $ref: '#/components/schemas/ActionableCell'
+        focusCandidates:
+          type: array
+          description: Candidate marks to visually highlight as part of the hint focus area (without eliminating them).
+          items:
+            $ref: '#/components/schemas/CoordinateCandidate'
       example:
         techniqueName: "Naked Pair"
         markdownSlug: "naked-pair"
@@ -402,7 +515,7 @@ components:
             minimum: 1
             maximum: 9
 
-    CandidateElimination:
+    CoordinateCandidate:
       type: object
       required:
         - row
@@ -451,3 +564,55 @@ components:
         row: 2
         col: 4
         value: 7
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+      properties:
+        status:
+          type: string
+          description: Health status of the service (e.g., "UP").
+          example: "UP"
+        service:
+          type: string
+          description: Name of the service.
+          example: "sudoku-api"
+
+    PlayerProfile:
+      type: object
+      required:
+        - userId
+        - email
+        - displayName
+        - createdAt
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          description: Unique identifier for the player (from Cognito sub claim).
+        email:
+          type: string
+          format: email
+          description: The player's email address.
+        displayName:
+          type: string
+          description: The player's display name.
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the player profile was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the player profile was last updated.
+
+    CreateGameFromGridRequest:
+      type: object
+      required:
+        - originalGrid
+      properties:
+        originalGrid:
+          $ref: '#/components/schemas/Grid'
+      description: Request to create a game from a pre-existing grid (e.g., scanned from an image).

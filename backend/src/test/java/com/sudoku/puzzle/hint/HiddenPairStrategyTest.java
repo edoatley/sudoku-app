@@ -1,10 +1,11 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -70,10 +71,10 @@ class HiddenPairStrategyTest {
         assertTrue(highlights.contains(new Coordinate(0, 2)));
         assertTrue(highlights.contains(new Coordinate(0, 5)));
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
         // Eliminations must be from the pair cells only, for candidates other than 2 and 6
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertTrue(e.value() != 2 && e.value() != 6,
                     "Eliminated candidates must not be the hidden-pair digits");
         }
@@ -104,7 +105,7 @@ class HiddenPairStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("hidden-pair", hint.markdownSlug());
-        assertEquals("medium", hint.difficulty());
+        assertEquals(Difficulty.MEDIUM, hint.difficulty());
         assertEquals(70, strategy.getDifficultyRank());
     }
 }

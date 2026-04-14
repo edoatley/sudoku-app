@@ -16,10 +16,10 @@ const fontSize = 'calc(var(--sudoku-cell-size, 44px) * 0.58)';
 function getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRegionHighlight, isGiven) {
   if (isError)           return 'error.light';
   if (isHighlight)       return 'warning.light';
-  if (isNumberHighlight) return 'primary.main';
+  if (isNumberHighlight) return 'primary.light';
   if (isSelected)        return 'primary.dark';
-  if (isRegionHighlight) return 'action.hover';
-  if (isGiven)           return 'action.selected';
+  if (isRegionHighlight) return '#e8eaf6';
+  if (isGiven)           return '#fffde7';
   return 'background.paper';
 }
 
@@ -71,14 +71,14 @@ export default function SudokuCell({ row, col, value, isGiven, isError, isHighli
         bgcolor: bg,
         fontWeight: isGiven ? 'bold' : 'normal',
         fontSize: fontSize,
-        color: (isNumberHighlight || isSelected) && !isError && !isHighlight ? 'white' : 'text.primary',
+        color: isSelected && !isError && !isHighlight ? 'white' : 'text.primary',
         cursor: 'pointer',
         userSelect: 'none',
         '&:hover': { filter: 'brightness(0.92)' },
       }}
     >
       {hasCandidates ? (
-        <CandidateDisplay candidates={candidates} useWhite={isNumberHighlight || isSelected} />
+        <CandidateDisplay candidates={candidates} useWhite={isSelected && !isError && !isHighlight} />
       ) : (
         displayValue
       )}

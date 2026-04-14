@@ -177,6 +177,123 @@ class SudokuServiceImplTest {
         assertEquals(1, count02, "Cell (0,2) should appear exactly once in errors");
     }
 
+    @Test
+    void validatePuzzle_withSolution_correctCell_noErrors() {
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 4); // correct value per SOLVED_GRID
+
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+
+        assertTrue(response.isValid());
+        assertTrue(response.errors().isEmpty());
+    }
+
+    @Test
+    void validatePuzzle_withSolution_wrongCell_reportsError() {
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 9); // wrong: SOLVED_GRID has 4 here
+
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+
+        assertFalse(response.isValid());
+        List<Coordinate> errors = response.errors();
+        assertEquals(1, errors.size());
+        assertTrue(errors.contains(new Coordinate(0, 2)));
+    }
+
+    @Test
+    void validatePuzzle_withSolution_noDuplicateButWrong_reportsError() {
+        // This is the key case: no duplicates but cell doesn't match solution
+        // Row 8, col 8: EASY_GRID has 9 (given). Let's build a grid with a non-duplicate wrong value
+        // Use an empty cell and fill it with a plausible but wrong value
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 1); // SOLVED_GRID has 4; 1 is not a duplicate in row/col/block
+
+        // Duplicate check alone would say valid; solution check says invalid
+        ValidationResponse withoutSolution = service.validatePuzzle(new BoardRequest(grid));
+        assertTrue(withoutSolution.isValid(), "Duplicate check sees no conflict");
+
+        ValidationResponse withSolution = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+        assertFalse(withSolution.isValid(), "Solution check catches the wrong digit");
+    }
+
+    @Test
+    void validatePuzzle_withSolution_solvedBoard_isSolved() {
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(SOLVED_GRID, SOLVED_GRID, null, null));
+
+        assertTrue(response.isValid());
+        assertTrue(response.isSolved());
+        assertTrue(response.errors().isEmpty());
+    }
+
+    @Test
+    void validatePuzzle_withSolution_multipleWrongCells_reportsAllErrors() {
+        List<List<Integer>> grid = mutableCopy(EASY_GRID);
+        grid.get(0).set(2, 9); // SOLVED_GRID has 4 here
+        grid.get(0).set(3, 1); // SOLVED_GRID has 6 here
+
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(grid, SOLVED_GRID, null, null));
+
+        assertFalse(response.isValid());
+        List<Coordinate> errors = response.errors();
+        assertTrue(errors.contains(new Coordinate(0, 2)), "Cell (0,2) should be an error");
+        assertTrue(errors.contains(new Coordinate(0, 3)), "Cell (0,3) should be an error");
+    }
+
+    @Test
+    void validatePuzzle_withSolution_partiallyFilledAllCorrect_notSolved() {
+        // All filled cells match the solution but empty cells remain — valid but not solved
+        ValidationResponse response = service.validatePuzzle(
+                new BoardRequest(EASY_GRID, SOLVED_GRID, null, null));
+
+        assertTrue(response.isValid());
+        assertFalse(response.isSolved(), "Board still has empty cells so isSolved must be false");
+        assertTrue(response.errors().isEmpty());
+    }
+
+    // ---- solveGrid tests ----
+
+    @Test
+    void solveGrid_validPuzzle_returnsSolution() {
+        Optional<List<List<Integer>>> result = service.solveGrid(EASY_GRID);
+
+        assertTrue(result.isPresent());
+        assertEquals(SOLVED_GRID, result.get());
+    }
+
+    @Test
+    void solveGrid_unsolvableGrid_returnsEmpty() {
+        // Row 0 has 5 at position (0,0); placing another 5 at (0,4) creates a contradiction
+        List<List<Integer>> invalid = mutableCopy(EASY_GRID);
+        invalid.get(0).set(4, 5); // duplicate 5 in row 0 — no solution possible
+
+        Optional<List<List<Integer>>> result = service.solveGrid(invalid);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getHint_withMinRank_skipsStrategiesBelowThreshold() {
+        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+                new FullHouseStrategy(),    // rank 10
+                new NakedSingleStrategy(),  // rank 20
+                new NakedPairStrategy()     // rank 30
+        ));
+        // minRank 20 should skip FullHouse (rank 10) even if it would fire
+        Optional<HintResponse> hint = fullService.getHint(
+                new BoardRequest(EASY_GRID, 20));
+
+        // EASY_GRID has a Naked Single — it should be returned (rank 20 >= minRank 20)
+        assertTrue(hint.isPresent());
+        assertNotEquals("Full House", hint.get().techniqueName(),
+                "Full House (rank 10) should have been skipped by minRank=20");
+    }
+
     // ---- getHint tests ----
 
     @Test
@@ -207,6 +324,48 @@ class SudokuServiceImplTest {
         Optional<HintResponse> hint = fullService.getHint(new BoardRequest(SOLVED_GRID));
 
         assertTrue(hint.isEmpty());
+    }
+
+    @Test
+    void getHint_skipsHintWithNoActionableOutcome() {
+        // A strategy that returns a hint with no eliminations and no solvedCells
+        com.sudoku.puzzle.hint.HintStrategy uselessStrategy = new com.sudoku.puzzle.hint.HintStrategy() {
+            public int getDifficultyRank() { return 10; }
+            public com.sudoku.puzzle.hint.Difficulty getDifficulty() { return com.sudoku.puzzle.hint.Difficulty.EASY; }
+            public String getName() { return "Useless"; }
+            public String getSlug() { return "useless"; }
+            public Optional<HintResponse> evaluate(com.sudoku.domain.Board board) {
+                return Optional.of(new HintResponse(
+                        "Useless", "useless", com.sudoku.puzzle.hint.Difficulty.EASY, 10,
+                        "nudge", "focus", "reveal",
+                        List.of(), List.of(), List.of(), List.of()
+                ));
+            }
+        };
+        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+                uselessStrategy,
+                new NakedSingleStrategy()
+        ));
+        Optional<HintResponse> hint = fullService.getHint(new BoardRequest(EASY_GRID));
+
+        assertTrue(hint.isPresent());
+        assertEquals("Naked Single", hint.get().techniqueName(), "Should skip useless hint and return Naked Single");
+    }
+
+    @Test
+    void getHint_withExcludedRanks_skipsMatchingStrategy() {
+        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+                new NakedSingleStrategy(),   // rank 20
+                new NakedPairStrategy()      // rank 30
+        ));
+        // Exclude Naked Single (rank 20); board has a naked single so without exclusion it would be first
+        Optional<HintResponse> hint = fullService.getHint(
+                new BoardRequest(EASY_GRID, null, List.of(20)));
+
+        // With rank 20 excluded, it should fall through to NakedPair (rank 30) or return empty
+        // The important assertion: the returned hint must NOT be Naked Single
+        hint.ifPresent(h -> assertNotEquals("Naked Single", h.techniqueName(),
+                "Naked Single should have been excluded"));
     }
 
     // ---- helpers ----

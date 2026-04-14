@@ -53,10 +53,10 @@ public class MockSudokuService {
     );
 
     private static final Map<String, PuzzleResponse> PUZZLE_MAP = Map.of(
-            "easy",   new PuzzleResponse(EASY_GRID,   "easy"),
-            "medium", new PuzzleResponse(MEDIUM_GRID, "medium"),
-            "hard",   new PuzzleResponse(HARD_GRID,   "hard"),
-            "expert", new PuzzleResponse(HARD_GRID,   "expert")
+            "easy",   new PuzzleResponse(EASY_GRID,   null, "easy"),
+            "medium", new PuzzleResponse(MEDIUM_GRID, null, "medium"),
+            "hard",   new PuzzleResponse(HARD_GRID,   null, "hard"),
+            "expert", new PuzzleResponse(HARD_GRID,   null, "expert")
     );
 
     public PuzzleResponse generatePuzzle(String difficulty) {

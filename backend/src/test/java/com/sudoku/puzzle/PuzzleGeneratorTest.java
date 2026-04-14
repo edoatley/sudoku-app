@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
@@ -21,7 +22,7 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_producesValidNineByNineGrid(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty);
+        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
 
         assertNotNull(grid);
         assertEquals(9, grid.size(), "grid must have 9 rows");
@@ -39,7 +40,7 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_cluesContainNoConflicts(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty);
+        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
 
         // Rows
         for (int r = 0; r < 9; r++) {
@@ -59,35 +60,35 @@ class PuzzleGeneratorTest {
 
     @Test
     void generate_easy_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("easy");
+        List<List<Integer>> grid = generator.generate("easy").puzzle();
         assertTrue(countClues(grid) >= 36,
                 "Easy should have ≥36 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_medium_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("medium");
+        List<List<Integer>> grid = generator.generate("medium").puzzle();
         assertTrue(countClues(grid) >= 30,
                 "Medium should have ≥30 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_hard_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("hard");
+        List<List<Integer>> grid = generator.generate("hard").puzzle();
         assertTrue(countClues(grid) >= 25,
                 "Hard should have ≥25 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_expert_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("expert");
+        List<List<Integer>> grid = generator.generate("expert").puzzle();
         assertTrue(countClues(grid) >= 22,
                 "Expert should have ≥22 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_unknownDifficulty_fallsBackToMedium() {
-        List<List<Integer>> grid = generator.generate("unknown");
+        List<List<Integer>> grid = generator.generate("unknown").puzzle();
         assertTrue(countClues(grid) >= 30,
                 "Unknown difficulty should fall back to medium (≥30 clues)");
     }
@@ -97,10 +98,56 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_puzzleHasUniqueSolution(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty);
+        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
         int[][] puzzle = toArray(grid);
         assertEquals(1, countSolutions(puzzle, 0),
                 difficulty + " puzzle must have exactly one solution");
+    }
+
+    // ---- solveGrid ----
+
+    @Test
+    void solveGrid_knownPuzzle_returnsCompleteSolution() {
+        List<List<Integer>> puzzle = List.of(
+                List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
+                List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
+                List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
+                List.of(8, 0, 0, 0, 6, 0, 0, 0, 3),
+                List.of(4, 0, 0, 8, 0, 3, 0, 0, 1),
+                List.of(7, 0, 0, 0, 2, 0, 0, 0, 6),
+                List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
+                List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
+                List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
+        );
+
+        Optional<List<List<Integer>>> result = generator.solveGrid(puzzle);
+
+        assertTrue(result.isPresent(), "Valid puzzle must have a solution");
+        result.get().forEach(row ->
+                row.forEach(v -> assertTrue(v >= 1 && v <= 9,
+                        "Every cell must be 1-9 in the solution, got " + v)));
+        assertEquals(1, countSolutions(toArray(result.get()), 0),
+                "Returned solution must itself be complete (no zeros)");
+    }
+
+    @Test
+    void solveGrid_contradictoryGrid_returnsEmpty() {
+        // Two 5s in the same row — no solution possible
+        List<List<Integer>> invalid = List.of(
+                List.of(5, 3, 0, 0, 5, 0, 0, 0, 0),
+                List.of(6, 0, 0, 1, 9, 0, 0, 0, 0),
+                List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
+                List.of(8, 0, 0, 0, 6, 0, 0, 0, 3),
+                List.of(4, 0, 0, 8, 0, 3, 0, 0, 1),
+                List.of(7, 0, 0, 0, 2, 0, 0, 0, 6),
+                List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
+                List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
+                List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
+        );
+
+        Optional<List<List<Integer>>> result = generator.solveGrid(invalid);
+
+        assertTrue(result.isEmpty(), "Contradictory puzzle must return empty");
     }
 
     // ---- Reproducibility ----

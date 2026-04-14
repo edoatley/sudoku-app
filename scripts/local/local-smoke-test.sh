@@ -8,7 +8,7 @@
 # manual token wrangling needed. Requires only a signed-in AWS sandbox profile.
 #
 # Usage:
-#   AWS_PROFILE=sandbox bash scripts/local-smoke-test.sh [branch] [--skip-playwright] [--skip-image] [--skip-api]
+#   AWS_PROFILE=sandbox bash scripts/local/local-smoke-test.sh [branch] [--skip-playwright] [--skip-image] [--skip-api]
 #
 # branch defaults to the current git branch.
 # main → default workspace (prod); rc-* → named workspace.
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="${SCRIPT_DIR}/.."
+REPO_ROOT="${SCRIPT_DIR}/../.."
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 BRANCH=""
@@ -35,12 +35,12 @@ for arg in "$@"; do
 done
 
 # ── Load secrets from .env.local ───────────────────────────────────────────────
-ENV_FILE="${SCRIPT_DIR}/.env.local"
+ENV_FILE="${SCRIPT_DIR}/../.env.local"
 if [[ -f "${ENV_FILE}" ]]; then
   # shellcheck source=/dev/null
   set -o allexport; source "${ENV_FILE}"; set +o allexport
 else
-  echo "Hint: run 'bash scripts/setup-local-secrets.sh' to create .env.local" >&2
+  echo "Hint: run 'bash scripts/infra/setup-local-secrets.sh' to create .env.local" >&2
 fi
 
 : "${SMOKE_TEST_USER_EMAIL:?SMOKE_TEST_USER_EMAIL must be set (run setup-local-secrets.sh)}"

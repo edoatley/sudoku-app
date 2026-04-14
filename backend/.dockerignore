@@ -1,7 +1,7 @@
-*
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
-!src/**
-!pom.xml
+target/
+.git
+.mvn
+*.log
+mvnw
+mvnw.cmd
+README.md

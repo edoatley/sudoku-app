@@ -41,14 +41,12 @@ class GameServiceImplTest {
     void setUp() {
         sudokuService = mock(SudokuService.class);
         gameRepository = mock(GameRepository.class);
-        gameService = new GameServiceImpl();
-        gameService.sudokuService = sudokuService;
-        gameService.gameRepository = gameRepository;
+        gameService = new GameServiceImpl(sudokuService, gameRepository);
     }
 
     @Test
     void createGame_generatesPuzzleAndPersistsGameState() {
-        when(sudokuService.generatePuzzle("easy")).thenReturn(new PuzzleResponse(GRID, "easy"));
+        when(sudokuService.generatePuzzle("easy")).thenReturn(new PuzzleResponse(GRID, null, "easy"));
 
         GameState result = gameService.createGame(USER_ID, "easy");
 
@@ -65,7 +63,7 @@ class GameServiceImplTest {
 
     @Test
     void createGame_generatesUniqueGameIds() {
-        when(sudokuService.generatePuzzle(anyString())).thenReturn(new PuzzleResponse(GRID, "medium"));
+        when(sudokuService.generatePuzzle(anyString())).thenReturn(new PuzzleResponse(GRID, null, "medium"));
 
         GameState game1 = gameService.createGame(USER_ID, "medium");
         GameState game2 = gameService.createGame(USER_ID, "medium");
@@ -76,7 +74,7 @@ class GameServiceImplTest {
     @Test
     void loadGame_whenFound_returnsGameState() {
         String gameId = "test-id-123";
-        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, GRID, List.of(), 42, "IN_PROGRESS");
+        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, List.of(), 42, "IN_PROGRESS", 0);
         when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(expected));
 
         GameState result = gameService.loadGame(USER_ID, gameId);
@@ -93,6 +91,8 @@ class GameServiceImplTest {
 
     @Test
     void createGameFromExistingGrid_usesSuppliedException_andPersists() {
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+
         GameState result = gameService.createGameFromExistingGrid(USER_ID, GRID);
 
         assertEquals(USER_ID, result.userId());
@@ -100,15 +100,40 @@ class GameServiceImplTest {
         assertEquals("imported", result.difficulty());
         assertEquals(GRID, result.originalGrid());
         assertEquals(GRID, result.currentGrid());
+        assertNull(result.solutionGrid());
         assertEquals(0, result.timeSpentSeconds());
         assertEquals("IN_PROGRESS", result.status());
         assertEquals(9, result.candidates().size());
         verify(sudokuService, never()).generatePuzzle(anyString());
+        verify(sudokuService).solveGrid(GRID);
         verify(gameRepository).save(any(GameState.class));
     }
 
     @Test
+    void createGameFromExistingGrid_whenSolvable_storesSolution() {
+        List<List<Integer>> solution = List.of(
+                List.of(5, 3, 4, 6, 7, 8, 9, 1, 2),
+                List.of(6, 7, 2, 1, 9, 5, 3, 4, 8),
+                List.of(1, 9, 8, 3, 4, 2, 5, 6, 7),
+                List.of(8, 5, 9, 7, 6, 1, 4, 2, 3),
+                List.of(4, 2, 6, 8, 5, 3, 7, 9, 1),
+                List.of(7, 1, 3, 9, 2, 4, 8, 5, 6),
+                List.of(9, 6, 1, 5, 3, 7, 2, 8, 4),
+                List.of(2, 8, 7, 4, 1, 9, 6, 3, 5),
+                List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
+        );
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(solution));
+
+        GameState result = gameService.createGameFromExistingGrid(USER_ID, GRID);
+
+        assertEquals(solution, result.solutionGrid());
+        verify(sudokuService).solveGrid(GRID);
+    }
+
+    @Test
     void createGameFromExistingGrid_generatesUniqueGameIds() {
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+
         GameState game1 = gameService.createGameFromExistingGrid(USER_ID, GRID);
         GameState game2 = gameService.createGameFromExistingGrid(USER_ID, GRID);
 
@@ -118,7 +143,7 @@ class GameServiceImplTest {
     @Test
     void updateGame_delegatesToRepository() {
         String gameId = "test-id-456";
-        GameUpdateRequest request = new GameUpdateRequest(GRID, List.of(), 120, false);
+        GameUpdateRequest request = new GameUpdateRequest(GRID, List.of(), 120, false, null);
 
         gameService.updateGame(USER_ID, gameId, request);
 
@@ -126,7 +151,7 @@ class GameServiceImplTest {
     }
     @Test
     void findInProgress_whenFound_returnsGame() {
-        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, GRID, List.of(), 30, "IN_PROGRESS");
+        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, List.of(), 30, "IN_PROGRESS", 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         Optional<GameState> result = gameService.findInProgress(USER_ID);

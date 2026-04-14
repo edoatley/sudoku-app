@@ -1,10 +1,11 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -66,10 +67,10 @@ class NakedPairStrategyTest {
         assertTrue(highlights.contains(new Coordinate(0, 7)));
 
         // Eliminated candidates should be non-empty (digits 2 and/or 6 removed from other row 0 cells)
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
         // All eliminations must be for digit 2 or 6
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertTrue(e.value() == 2 || e.value() == 6);
         }
 
@@ -96,6 +97,6 @@ class NakedPairStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("naked-pair", hint.markdownSlug());
-        assertEquals("medium", hint.difficulty());
+        assertEquals(Difficulty.MEDIUM, hint.difficulty());
     }
 }

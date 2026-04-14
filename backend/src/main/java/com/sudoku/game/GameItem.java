@@ -27,10 +27,12 @@ public class GameItem {
     private String gameId;
     private String difficulty;
     private String originalGrid;
+    private String solutionGrid;
     private String currentGrid;
     private String candidates;
     private int timeSpentSeconds;
     private String status;
+    private int hintsUsed;
 
     // --- composite key ---
 
@@ -52,6 +54,9 @@ public class GameItem {
     public String getOriginalGrid() { return originalGrid; }
     public void setOriginalGrid(String originalGrid) { this.originalGrid = originalGrid; }
 
+    public String getSolutionGrid() { return solutionGrid; }
+    public void setSolutionGrid(String solutionGrid) { this.solutionGrid = solutionGrid; }
+
     public String getCurrentGrid() { return currentGrid; }
     public void setCurrentGrid(String currentGrid) { this.currentGrid = currentGrid; }
 
@@ -64,6 +69,9 @@ public class GameItem {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
+    public int getHintsUsed() { return hintsUsed; }
+    public void setHintsUsed(int hintsUsed) { this.hintsUsed = hintsUsed; }
+
     // --- factory methods ---
 
     static GameItem from(GameState state) {
@@ -72,10 +80,12 @@ public class GameItem {
         item.setGameId(state.gameId());
         item.setDifficulty(state.difficulty());
         item.setOriginalGrid(toJson(state.originalGrid()));
+        item.setSolutionGrid(state.solutionGrid() != null ? toJson(state.solutionGrid()) : null);
         item.setCurrentGrid(toJson(state.currentGrid()));
         item.setCandidates(toJson(state.candidates()));
         item.setTimeSpentSeconds(state.timeSpentSeconds());
         item.setStatus(state.status());
+        item.setHintsUsed(state.hintsUsed());
         return item;
     }
 
@@ -85,10 +95,12 @@ public class GameItem {
                 gameId,
                 difficulty,
                 fromJson(originalGrid, new TypeReference<List<List<Integer>>>() {}),
+                solutionGrid != null ? fromJson(solutionGrid, new TypeReference<List<List<Integer>>>() {}) : null,
                 fromJson(currentGrid, new TypeReference<List<List<Integer>>>() {}),
                 fromJson(candidates, new TypeReference<List<List<List<Integer>>>>() {}),
                 timeSpentSeconds,
-                status
+                status,
+                hintsUsed
         );
     }
 
@@ -96,7 +108,8 @@ public class GameItem {
         setCurrentGrid(toJson(request.currentGrid()));
         setCandidates(toJson(request.candidates()));
         setTimeSpentSeconds(request.timeSpentSeconds());
-        setStatus(Boolean.TRUE.equals(request.isComplete()) ? "SOLVED" : "IN_PROGRESS");
+        setStatus(Boolean.TRUE.equals(request.isComplete()) ? GameStatus.SOLVED.getValue() : GameStatus.IN_PROGRESS.getValue());
+        if (request.hintsUsed() != null) setHintsUsed(request.hintsUsed());
     }
 
     // --- JSON helpers (package-private for use by this class only) ---

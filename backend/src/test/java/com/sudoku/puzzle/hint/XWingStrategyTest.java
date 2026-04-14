@@ -1,10 +1,11 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.CandidateElimination;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
+import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -78,9 +79,9 @@ class XWingStrategyTest {
         assertTrue(highlights.contains(new Coordinate(4, 2)));
         assertTrue(highlights.contains(new Coordinate(4, 6)));
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertEquals(5, e.value());
             assertTrue(e.row() != 1 && e.row() != 4, "Eliminations must not be in the X-Wing rows");
         }
@@ -111,9 +112,9 @@ class XWingStrategyTest {
         HintResponse hint = result.get();
         assertEquals("x-wing", hint.markdownSlug());
 
-        List<CandidateElimination> elims = hint.eliminatedCandidates();
+        List<CoordinateCandidate> elims = hint.eliminatedCandidates();
         assertFalse(elims.isEmpty());
-        for (CandidateElimination e : elims) {
+        for (CoordinateCandidate e : elims) {
             assertEquals(3, e.value());
             assertTrue(e.col() != 3 && e.col() != 7, "Eliminations must not be in the X-Wing columns");
         }
@@ -145,7 +146,7 @@ class XWingStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("x-wing", hint.markdownSlug());
-        assertEquals("hard", hint.difficulty());
+        assertEquals(Difficulty.HARD, hint.difficulty());
         assertEquals(90, strategy.getDifficultyRank());
     }
 }

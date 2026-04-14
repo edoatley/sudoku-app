@@ -19,6 +19,14 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import java.util.Map;
 
+/**
+ * REST entry point for managing a player's Sudoku game sessions.
+ *
+ * <p>Authenticated callers can create new games, resume an in-progress game, load any
+ * saved game by ID, update game progress, and import puzzles captured via the
+ * image-recognition pipeline. User identity is sourced from the JWT principal injected
+ * by {@code DevUserFilter} in development or by API Gateway in production.
+ */
 @Path("/games")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -55,7 +63,7 @@ public class GameResource {
                    .orElse(Response.noContent().build());
     }
 
-        @GET
+    @GET
     @Path("/{gameId}")
     public GameState loadGame(@PathParam("gameId") String gameId) {
         String userId = securityContext.getUserPrincipal().getName();

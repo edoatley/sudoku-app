@@ -7,6 +7,24 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.sudoku.domain.SudokuConstants.BOX_SIZE;
+import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
+import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+/**
+ * Immutable-structure, mutable-state representation of a 9×9 Sudoku board.
+ *
+ * <p>The grid is built once via {@link #fromGrid(List)} and the 81 {@link Cell} objects
+ * it owns are mutated in-place by solving and hint strategies. The class exposes
+ * structured views of the grid — individual cells, full rows, columns, and the nine
+ * 3×3 blocks — that are used by constraint-propagation and pattern-detection logic.
+ *
+ * <p>Candidate management is also centralised here: {@link #calculateAllCandidates()}
+ * populates every empty cell's pencil marks by eliminating digits already present in
+ * the same row, column, and block, and {@link #toCandidatesGrid()} serialises those
+ * marks into the nested-list format expected by {@link com.sudoku.dto.CandidatesResponse}.
+ */
 public final class Board {
 
     private final Cell[][] cells;
@@ -16,18 +34,18 @@ public final class Board {
     }
 
     public static Board fromGrid(List<List<Integer>> grid) {
-        if (grid == null || grid.size() != 9) {
+        if (grid == null || grid.size() != UNIT_SIZE) {
             throw new IllegalArgumentException("Grid must be 9 rows");
         }
-        Cell[][] cells = new Cell[9][9];
-        for (int r = 0; r < 9; r++) {
+        Cell[][] cells = new Cell[UNIT_SIZE][UNIT_SIZE];
+        for (int r = 0; r < UNIT_SIZE; r++) {
             List<Integer> row = grid.get(r);
-            if (row == null || row.size() != 9) {
+            if (row == null || row.size() != UNIT_SIZE) {
                 throw new IllegalArgumentException("Each row must have 9 columns, row " + r + " is invalid");
             }
-            for (int c = 0; c < 9; c++) {
+            for (int c = 0; c < UNIT_SIZE; c++) {
                 Integer val = row.get(c);
-                if (val == null || val < 0 || val > 9) {
+                if (val == null || val < 0 || val > MAX_DIGIT) {
                     throw new IllegalArgumentException("Cell value must be in [0,9], got: " + val + " at (" + r + "," + c + ")");
                 }
                 cells[r][c] = new Cell(r, c, val);
@@ -41,8 +59,8 @@ public final class Board {
     }
 
     public List<Cell> getRow(int rowIndex) {
-        List<Cell> row = new ArrayList<>(9);
-        for (int c = 0; c < 9; c++) {
+        List<Cell> row = new ArrayList<>(UNIT_SIZE);
+        for (int c = 0; c < UNIT_SIZE; c++) {
             row.add(cells[rowIndex][c]);
         }
         return Collections.unmodifiableList(row);
@@ -50,16 +68,16 @@ public final class Board {
 
     public List<Cell> getColumn(int colIndex) {
         return Collections.unmodifiableList(
-            IntStream.range(0, 9).mapToObj(r -> cells[r][colIndex]).toList()
+            IntStream.range(0, UNIT_SIZE).mapToObj(r -> cells[r][colIndex]).toList()
         );
     }
 
     public List<Cell> getBlock(int blockIndex) {
-        int startRow = (blockIndex / 3) * 3;
-        int startCol = (blockIndex % 3) * 3;
-        List<Cell> block = new ArrayList<>(9);
-        for (int r = startRow; r < startRow + 3; r++) {
-            for (int c = startCol; c < startCol + 3; c++) {
+        int startRow = (blockIndex / BOX_SIZE) * BOX_SIZE;
+        int startCol = (blockIndex % BOX_SIZE) * BOX_SIZE;
+        List<Cell> block = new ArrayList<>(UNIT_SIZE);
+        for (int r = startRow; r < startRow + BOX_SIZE; r++) {
+            for (int c = startCol; c < startCol + BOX_SIZE; c++) {
                 block.add(cells[r][c]);
             }
         }
@@ -67,13 +85,13 @@ public final class Board {
     }
 
     public void calculateAllCandidates() {
-        for (int r = 0; r < 9; r++) {
-            for (int c = 0; c < 9; c++) {
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            for (int c = 0; c < UNIT_SIZE; c++) {
                 Cell cell = cells[r][c];
                 if (cell.isEmpty()) {
                     Set<Integer> used = collectUsedDigits(r, c);
                     Set<Integer> candidates = new HashSet<>();
-                    for (int d = 1; d <= 9; d++) {
+                    for (int d = MIN_DIGIT; d <= MAX_DIGIT; d++) {
                         if (!used.contains(d)) candidates.add(d);
                     }
                     cell.setCandidates(candidates);
@@ -83,10 +101,10 @@ public final class Board {
     }
 
     public List<List<List<Integer>>> toCandidatesGrid() {
-        List<List<List<Integer>>> grid = new ArrayList<>(9);
-        for (int r = 0; r < 9; r++) {
-            List<List<Integer>> row = new ArrayList<>(9);
-            for (int c = 0; c < 9; c++) {
+        List<List<List<Integer>>> grid = new ArrayList<>(UNIT_SIZE);
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            List<List<Integer>> row = new ArrayList<>(UNIT_SIZE);
+            for (int c = 0; c < UNIT_SIZE; c++) {
                 Cell cell = cells[r][c];
                 if (cell.isEmpty()) {
                     List<Integer> sorted = new ArrayList<>(cell.candidates());
@@ -109,7 +127,7 @@ public final class Board {
         for (Cell c : getColumn(col)) {
             if (!c.isEmpty()) used.add(c.value());
         }
-        int blockIndex = (row / 3) * 3 + (col / 3);
+        int blockIndex = (row / BOX_SIZE) * BOX_SIZE + (col / BOX_SIZE);
         for (Cell c : getBlock(blockIndex)) {
             if (!c.isEmpty()) used.add(c.value());
         }

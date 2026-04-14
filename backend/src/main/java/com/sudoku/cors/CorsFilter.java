@@ -11,6 +11,26 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * JAX-RS provider that enforces CORS (Cross-Origin Resource Sharing) for the Sudoku API.
+ *
+ * <p>This filter is necessary because the frontend (React/Vite on AWS Amplify) is hosted on a
+ * different origin than the backend API (AWS API Gateway + Lambda). Without explicit CORS headers,
+ * browsers block cross-origin requests as a security measure.
+ *
+ * <p>Two filter phases are implemented:
+ * <ul>
+ *   <li><b>Request filter</b> — short-circuits HTTP {@code OPTIONS} preflight requests by
+ *       immediately returning {@code 200 OK} with the required CORS headers, avoiding unnecessary
+ *       Lambda invocation for the actual handler logic.</li>
+ *   <li><b>Response filter</b> — attaches {@code Access-Control-Allow-*} headers to every
+ *       non-preflight response so the browser permits the calling page to read the result.</li>
+ * </ul>
+ *
+ * <p>Allowed origins are driven by the {@code sudoku.cors.allowed-origins} config property so that
+ * local development, staging, and production environments can each whitelist only their own
+ * frontend URL without code changes.
+ */
 @Provider
 public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilter {
 

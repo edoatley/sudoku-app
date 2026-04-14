@@ -3,6 +3,7 @@ package com.sudoku.puzzle.hint;
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
 import com.sudoku.dto.ActionableCell;
+import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,8 +12,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
+import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+import static com.sudoku.puzzle.hint.Difficulty.EASY;
+
+/**
+ * Finds digits that appear as a candidate in exactly one cell within a unit,
+ * meaning that cell must contain the digit regardless of its other candidates.
+ *
+ * A Hidden Single is "hidden" because the forcing cell may still have several
+ * pencil marks — only by scanning the whole unit does it become clear that no
+ * other cell can hold this digit.
+ */
 @ApplicationScoped
 public class HiddenSingleStrategy implements HintStrategy {
+
+    private static final String NAME = "Hidden Single";
+    private static final String SLUG = "hidden-single";
+
+    @Override
+    public String getName() { return NAME; }
+
+    @Override
+    public String getSlug() { return SLUG; }
+
+    @Override
+    public Difficulty getDifficulty() { return EASY; }
 
     @Override
     public int getDifficultyRank() {
@@ -21,15 +47,15 @@ public class HiddenSingleStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i + 1);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i + 1);
             if (hint.isPresent()) return hint;
         }
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < UNIT_SIZE; i++) {
             Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i + 1);
             if (hint.isPresent()) return hint;
         }
@@ -37,7 +63,7 @@ public class HiddenSingleStrategy implements HintStrategy {
     }
 
     private Optional<HintResponse> checkUnit(List<Cell> unit, String unitType, int unitNumber) {
-        for (int digit = 1; digit <= 9; digit++) {
+        for (int digit = MIN_DIGIT; digit <= MAX_DIGIT; digit++) {
             List<Cell> matches = new ArrayList<>();
             for (Cell cell : unit) {
                 if (cell.isEmpty() && cell.candidates().contains(digit)) {
@@ -55,15 +81,17 @@ public class HiddenSingleStrategy implements HintStrategy {
                 }
 
                 return Optional.of(new HintResponse(
-                        "Hidden Single",
-                        "hidden-single",
-                        "easy",
+                        NAME,
+                        SLUG,
+                        getDifficulty(),
+                        getDifficultyRank(),
                         "A digit appears as a candidate in exactly one cell within a unit.",
                         unitType + " " + unitNumber + " has digit " + digit + " as a candidate in only one cell.",
                         "Cell (" + r + ", " + c + ") must be " + digit + ".",
                         highlights,
                         List.of(),
-                        List.of(new ActionableCell(r, c, digit))
+                        List.of(new ActionableCell(r, c, digit)),
+                        List.of(new CoordinateCandidate(r, c, digit))
                 ));
             }
         }

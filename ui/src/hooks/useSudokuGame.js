@@ -6,20 +6,22 @@ const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
 const LS_KEY_CANDIDATE_GRID = 'sudoku_candidateGrid';
 const LS_KEY_DIFFICULTY = 'sudoku_difficulty';
 const LS_KEY_ELAPSED_SECONDS = 'sudoku_elapsedSeconds';
+const LS_KEY_HINTS_USED = 'sudoku_hintsUsed';
 
-function lsSave(gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds) {
+function lsSave(gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds, hintsUsed) {
   try {
     localStorage.setItem(LS_KEY_GAME_ID, gameId);
     localStorage.setItem(LS_KEY_CURRENT_GRID, JSON.stringify(currentGrid));
     localStorage.setItem(LS_KEY_CANDIDATE_GRID, JSON.stringify(candidateGrid));
     localStorage.setItem(LS_KEY_DIFFICULTY, difficulty);
     localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSeconds));
+    localStorage.setItem(LS_KEY_HINTS_USED, String(hintsUsed ?? 0));
   // eslint-disable-next-line no-unused-vars
   } catch (_) { /* storage full — silently ignore */ }
 }
 
 function lsClear() {
-  [LS_KEY_GAME_ID, LS_KEY_CURRENT_GRID, LS_KEY_CANDIDATE_GRID, LS_KEY_DIFFICULTY, LS_KEY_ELAPSED_SECONDS]
+  [LS_KEY_GAME_ID, LS_KEY_CURRENT_GRID, LS_KEY_CANDIDATE_GRID, LS_KEY_DIFFICULTY, LS_KEY_ELAPSED_SECONDS, LS_KEY_HINTS_USED]
     .forEach((k) => localStorage.removeItem(k));
 }
 
@@ -46,7 +48,10 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   const [timerRunning, setTimerRunning] = useState(false);
   const timerRef = useRef(null);
   const [gameId, setGameId] = useState(null);
+  const [solutionGrid, setSolutionGrid] = useState(null);
   const [hintMinRank, setHintMinRank] = useState(null);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [excludedHintRanks, setExcludedHintRanks] = useState([]);
   const prevUserIdRef = useRef(user?.username ?? null);
   const [isSyncing, setIsSyncing] = useState(false);
   const gameIdRef = useRef(null);
@@ -55,6 +60,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   elapsedSecondsRef.current = elapsedSeconds;
 
   const [isPaused, setIsPaused] = useState(false);
+  const [importStage, setImportStage] = useState(null);
   const isPausedRef = useRef(false);
   isPausedRef.current = isPaused;
 
@@ -113,11 +119,14 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       const emptyGrid = emptyCandidate();
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
+      setSolutionGrid(data.solutionGrid);
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
       setCandidateGrid(emptyGrid);
       setHistory([]);
       setHintMinRank(null);
-      lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0);
+      setHintsUsed(0);
+      setExcludedHintRanks([]);
+      lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0, 0);
       startTimer();
     } catch (err) {
       if (err.name === 'AbortError') return;
@@ -132,7 +141,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   useEffect(() => {
     const controller = new AbortController();
 
-    const applyLoadedGame = (data, savedCandidates, savedElapsed) => {
+    const applyLoadedGame = (data, savedCandidates, savedElapsed, savedHints) => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -140,11 +149,13 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setIsPaused(false);
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
+      setSolutionGrid(data.solutionGrid);
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
       setCandidateGrid(savedCandidates);
       setDifficulty(data.difficulty);
       setHistory([]);
       setElapsedSeconds(savedElapsed);
+      setHintsUsed(savedHints);
       setTimerRunning(true);
       timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
       setIsLoading(false);
@@ -162,8 +173,10 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
         })();
         const lsElapsed = parseInt(localStorage.getItem(LS_KEY_ELAPSED_SECONDS) || '0', 10);
         const savedElapsed = Math.max(lsElapsed, data.timeSpentSeconds ?? 0);
-        applyLoadedGame(data, savedCandidates, savedElapsed);
-        lsSave(data.gameId, data.currentGrid, savedCandidates, data.difficulty, savedElapsed);
+        const lsHints = parseInt(localStorage.getItem(LS_KEY_HINTS_USED) || '0', 10);
+        const savedHints = Math.max(lsHints, data.hintsUsed ?? 0);
+        applyLoadedGame(data, savedCandidates, savedElapsed, savedHints);
+        lsSave(data.gameId, data.currentGrid, savedCandidates, data.difficulty, savedElapsed, savedHints);
       }).catch(() => {
         if (controller.signal.aborted) return;
         lsClear();
@@ -177,16 +190,20 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
           const restoredCandidates = Array.isArray(data.candidates) && data.candidates.length === 9
             ? data.candidates
             : emptyCandidate();
-          applyLoadedGame(data, restoredCandidates, data.timeSpentSeconds ?? 0);
-          lsSave(data.gameId, data.currentGrid, restoredCandidates, data.difficulty, data.timeSpentSeconds ?? 0);
+          const restoredHints = data.hintsUsed ?? 0;
+          applyLoadedGame(data, restoredCandidates, data.timeSpentSeconds ?? 0, restoredHints);
+          lsSave(data.gameId, data.currentGrid, restoredCandidates, data.difficulty, data.timeSpentSeconds ?? 0, restoredHints);
         } else {
+          setIsLoading(false);
           startNewGame(undefined, controller.signal);
         }
       }).catch(() => {
         if (controller.signal.aborted) return;
-        startNewGame(undefined, controller.signal);
+        setIsLoading(false);
       });
     } else {
+      // No saved game and no authenticated user (e.g. VITE_SKIP_AUTH=true in integration tests).
+      // Auto-start a new game so the grid is immediately available.
       startNewGame(undefined, controller.signal);
     }
     return () => controller.abort();
@@ -197,18 +214,25 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   currentGridRef.current = currentGrid;
   const candidateGridRef = useRef(null);
   candidateGridRef.current = candidateGrid;
+  const solutionGridRef = useRef(null);
+  solutionGridRef.current = solutionGrid;
   const difficultyRef = useRef(difficulty);
   difficultyRef.current = difficulty;
+  const hintsUsedRef = useRef(0);
+  hintsUsedRef.current = hintsUsed;
 
   const syncToBackend = useCallback(() => {
     const gid = gameIdRef.current;
     const grid = currentGridRef.current;
     const candidates = candidateGridRef.current;
     if (!gid || !grid) return;
+    try {
+      localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSecondsRef.current));
+      localStorage.setItem(LS_KEY_HINTS_USED, String(hintsUsedRef.current));
     // eslint-disable-next-line no-unused-vars
-    try { localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSecondsRef.current)); } catch (_) { /* storage full */ }
+    } catch (_) { /* storage full */ }
     setIsSyncing(true);
-    saveGame(gid, { currentGrid: grid, candidates: candidates ?? [], timeSpentSeconds: elapsedSecondsRef.current })
+    saveGame(gid, { currentGrid: grid, candidates: candidates ?? [], timeSpentSeconds: elapsedSecondsRef.current, hintsUsed: hintsUsedRef.current })
       .finally(() => setIsSyncing(false));
   }, []);
 
@@ -292,7 +316,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       nextGrid[row][col] = number;
       const allFilled = nextGrid.every((r) => r.every((v) => v !== 0));
       if (allFilled) {
-        validatePuzzle(nextGrid).then((res) => {
+        validatePuzzle(nextGrid, solutionGridRef.current).then((res) => {
           if (!res.isValid) return;
           pauseTimer();
           setGameStatus('solved');
@@ -325,15 +349,19 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
         return next;
       });
     }
-  }, [inputMode, originalGrid]);
+  }, [inputMode, originalGrid, pauseTimer]);
 
   const updateCell = useCallback((row, col) => {
+    if (selectedCell?.row === row && selectedCell?.col === col && selectedNumber === null) {
+      setSelectedCell(null);
+      return;
+    }
     setSelectedCell({ row, col });
     if (selectedNumber !== null) {
       writeCellValue(row, col, selectedNumber);
       setSelectedNumber(null);
     }
-  }, [selectedNumber, writeCellValue]);
+  }, [selectedCell, selectedNumber, writeCellValue]);
 
   const handleNumberSelect = useCallback((n) => {
     if (n === null) { setSelectedNumber(null); return; }
@@ -349,7 +377,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const result = await validatePuzzle(currentGrid);
+      const result = await validatePuzzle(currentGrid, solutionGrid);
       if (result.isValid) {
         const allFilled = currentGrid.every((row) => row.every((v) => v !== 0));
         if (allFilled) {
@@ -367,8 +395,10 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
         setStatusMessage(allFilled ? null : 'Board is valid so far.');
         setErrorCells(new Set());
       } else {
+        const errorCount = (result.errors ?? []).length;
+        const errorWord = errorCount === 1 ? 'error' : 'errors';
         setGameStatus('invalid');
-        setStatusMessage('The board contains errors.');
+        setStatusMessage(`The board has ${errorCount} ${errorWord}. Check the highlighted cells.`);
         setErrorCells(new Set((result.errors ?? []).map((e) => `${e.row},${e.col}`)));
       }
     } catch (err) {
@@ -384,7 +414,18 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const hint = await getHint(currentGrid, hintMinRank);
+      const hint = await getHint(currentGrid, hintMinRank, excludedHintRanks);
+      if (!hint) {
+        setExcludedHintRanks([]);
+        setStatusMessage('No more hints available.');
+        return;
+      }
+      setHintsUsed((n) => n + 1);
+      if (hint.strategyRank != null) {
+        setExcludedHintRanks((prev) =>
+          prev.includes(hint.strategyRank) ? prev : [...prev, hint.strategyRank]
+        );
+      }
       setActiveHint(hint);
       setHintStage('nudge');
       setHighlightCells([]);
@@ -395,7 +436,34 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, hintMinRank, onForbidden]);
+  }, [currentGrid, hintMinRank, excludedHintRanks, onForbidden]);
+
+  const requestAlternateHint = useCallback(async () => {
+    if (!currentGrid) return;
+    setIsLoading(true);
+    try {
+      const hint = await getHint(currentGrid, hintMinRank, excludedHintRanks);
+      if (!hint) {
+        setExcludedHintRanks([]);
+        setStatusMessage('No more alternate hints. Starting over from the easiest.');
+        return;
+      }
+      if (hint.strategyRank != null) {
+        setExcludedHintRanks((prev) =>
+          prev.includes(hint.strategyRank) ? prev : [...prev, hint.strategyRank]
+        );
+      }
+      setActiveHint(hint);
+      setHintStage('nudge');
+      setHighlightCells([]);
+    } catch (err) {
+      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
+      setStatusMessage(`Hint failed: ${err.message}`);
+      setGameStatus('error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentGrid, hintMinRank, excludedHintRanks, onForbidden]);
 
   const advanceHint = useCallback(() => {
     if (!activeHint) return;
@@ -404,6 +472,17 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setHighlightCells(activeHint.highlightCells);
     } else if (hintStage === 'focus') {
       setHintStage('reveal');
+      if (activeHint.focusCandidates?.length > 0) {
+        setCandidateGrid((prev) => {
+          const next = prev.map((r) => r.map((c) => [...c]));
+          for (const { row, col, value } of activeHint.focusCandidates) {
+            if (!next[row][col].includes(value)) {
+              next[row][col].push(value);
+            }
+          }
+          return next;
+        });
+      }
       if (activeHint.eliminatedCandidates?.length > 0) {
         setCandidateGrid((prev) => {
           const next = prev.map((r) => r.map((c) => [...c]));
@@ -533,6 +612,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       difficulty: difficultyRef.current,
       outcome,
       elapsedSeconds: outcome === 'won' ? elapsedSecondsRef.current : null,
+      hintsUsed,
     });
     pauseTimer();
     setIsPaused(false);
@@ -548,10 +628,11 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     setStatusMessage(null);
     setSelectedCell(null);
     setSelectedNumber(null);
-  }, [pauseTimer, gameStatus, onGameComplete]);
+  }, [pauseTimer, gameStatus, onGameComplete, hintsUsed]);
 
   const startNewGameFromImage = useCallback(async (imageFile) => {
     setIsLoading(true);
+    setImportStage('uploading');
     setErrorCells(new Set());
     setActiveHint(null);
     setHintStage('nudge');
@@ -562,14 +643,19 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     setSelectedNumber(null);
     try {
       const { originalGrid: importedGrid } = await importPuzzle(imageFile);
+      setImportStage('analysing');
       const data = await createGameFromGrid(importedGrid);
       const emptyGrid = emptyCandidate();
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
+      setSolutionGrid(data.solutionGrid ?? null);
       setCurrentGrid(data.currentGrid.map((row) => [...row]));
       setCandidateGrid(emptyGrid);
       setHistory([]);
-      lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0);
+      setHintMinRank(null);
+      setHintsUsed(0);
+      setExcludedHintRanks([]);
+      lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0, 0);
       startTimer();
     } catch (err) {
       if (err instanceof ForbiddenError) { onForbidden?.(); return; }
@@ -577,6 +663,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setGameStatus('error');
     } finally {
       setIsLoading(false);
+      setImportStage(null);
     }
   }, [startTimer, onForbidden]);
 
@@ -600,6 +687,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCandidateGrid(emptyGrid);
       setHistory([]);
       setHintMinRank(data.minRank ?? null);
+      setHintsUsed(0);
+      setExcludedHintRanks([]);
       lsClear();
       startTimer();
     } catch (err) {
@@ -644,7 +733,9 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     undoLastMove,
     canUndo: history.length > 0,
     requestValidation,
+    hintsUsed,
     requestHint,
+    requestAlternateHint,
     advanceHint,
     dismissHint,
     fillCandidates,
@@ -656,5 +747,6 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     isPaused,
     pauseGame,
     resumeGame,
+    importStage,
   };
 }

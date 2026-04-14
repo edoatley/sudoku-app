@@ -1,4 +1,4 @@
-package com.sudoku.auth;
+package com.sudoku.developer;
 
 import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.ws.rs.container.ContainerRequestContext;

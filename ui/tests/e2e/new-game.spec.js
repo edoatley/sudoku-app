@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { EASY_PUZZLE, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 const HARD_PUZZLE = {
   difficulty: 'hard',
@@ -29,6 +29,8 @@ function makeGameState(puzzle) {
 }
 
 test('new-game — selecting Hard difficulty and starting a new game loads the puzzle', async ({ page }) => {
+  // Start with an existing easy game loaded (via GET), then trigger a new Hard game via menu
+  await setupGameRoutes(page);
   await page.route('**/games', (route) => {
     if (route.request().method() === 'POST') {
       route.fulfill({ status: 201, json: makeGameState(HARD_PUZZLE) });
@@ -36,24 +38,16 @@ test('new-game — selecting Hard difficulty and starting a new game loads the p
       route.continue();
     }
   });
-  await page.route('**/games/**', (route) => {
-    if (route.request().method() === 'PATCH') {
-      route.fulfill({ status: 200, body: '' });
-    } else {
-      route.continue();
-    }
-  });
 
   await page.goto('/');
-
-  // No grid on fresh visit — open hamburger menu to start a new game
-  await expect(page.getByTestId('cell-0-0')).not.toBeVisible();
+  await waitForGrid(page);
 
   await page.getByRole('button', { name: 'Game menu' }).click();
   await page.getByRole('menuitem', { name: 'New Game' }).click();
   await page.getByRole('radio', { name: 'Hard' }).click();
   await page.getByRole('button', { name: 'Start' }).click();
 
-  await waitForGrid(page);
+  // Hard puzzle cell (0,0) is empty in HARD_PUZZLE.originalGrid
   await expect(page.getByTestId('cell-0-0')).toBeVisible();
+  await expect(page.getByTestId('cell-0-0')).not.toContainText(/[1-9]/);
 });

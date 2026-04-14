@@ -1,19 +1,26 @@
 # Builds the Vite app and serves it with `vite preview` for integration testing.
-# Used by docker-compose.test.yml only; not deployed to production.
 FROM node:25-slim AS build
 WORKDIR /app
+
+# 1. Cache dependencies separately
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps
-COPY . .
-# Build-time vars injected via --build-arg in docker-compose.test.yml
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --legacy-peer-deps
+
+# 2. Move ARGs above COPY . . 
+# This ensures that changing source code doesn't invalidate the ARG layers
 ARG VITE_API_URL=http://localhost:8080/api/v1
 ARG VITE_MOCK_API=false
 ARG VITE_SKIP_AUTH=false
 ARG VITE_DEV_TOOLS=false
+
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_MOCK_API=$VITE_MOCK_API
 ENV VITE_SKIP_AUTH=$VITE_SKIP_AUTH
 ENV VITE_DEV_TOOLS=$VITE_DEV_TOOLS
+
+# 3. Copy source and build
+COPY . .
 RUN npm run build
 
 FROM node:25-slim

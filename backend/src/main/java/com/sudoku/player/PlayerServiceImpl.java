@@ -5,6 +5,14 @@ import jakarta.inject.Inject;
 
 import java.time.Instant;
 
+/**
+ * Manages player profile creation and retrieval.
+ *
+ * <p>Player profiles are provisioned lazily: the first authenticated request triggers
+ * profile creation using identity claims from the JWT (email, display name). Subsequent
+ * requests return the existing profile without modification, so display-name changes
+ * must go through a dedicated update flow rather than being overwritten on every login.
+ */
 @ApplicationScoped
 public class PlayerServiceImpl implements PlayerService {
 

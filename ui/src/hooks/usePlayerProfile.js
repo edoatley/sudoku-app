@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getPlayerProfile, getEmailFromSession, ForbiddenError } from '../api/sudokuApi.js';
+import { getPlayerProfile, getEmailFromSession, ForbiddenError, warmupImageRecognition } from '../api/sudokuApi.js';
+
+const ENABLE_IMPORT = import.meta.env.VITE_ENABLE_IMPORT === 'true';
 
 const LS_KEY_AVATAR = 'sudoku_avatar';
 const LS_KEY_HISTORY = 'sudoku_gameHistory';
@@ -25,7 +27,10 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
 
   useEffect(() => {
     if (!user) return;
-    getPlayerProfile().then(setPlayerProfile).catch(async (err) => {
+    getPlayerProfile().then((profile) => {
+      setPlayerProfile(profile);
+      if (ENABLE_IMPORT) warmupImageRecognition();
+    }).catch(async (err) => {
       if (err instanceof ForbiddenError) {
         const email = await getEmailFromSession().catch(() => null);
         onForbidden?.(email);
@@ -38,13 +43,14 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
     setAvatarState(iconName);
   }, []);
 
-  const recordGame = useCallback(({ gameId, difficulty, outcome, elapsedSeconds }) => {
+  const recordGame = useCallback(({ gameId, difficulty, outcome, elapsedSeconds, hintsUsed }) => {
     if (!gameId) return;
     const entry = {
       id: gameId,
       difficulty,
       outcome,
       elapsedSeconds,
+      hintsUsed: hintsUsed ?? 0,
       completedAt: new Date().toISOString(),
     };
     setHistory((prev) => {

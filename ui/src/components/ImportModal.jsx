@@ -8,7 +8,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
-export default function ImportModal({ open, isLoading, onConfirm, onCancel }) {
+export default function ImportModal({ open, isLoading, importStage, onConfirm, onCancel }) {
   const [imageFile, setImageFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
@@ -66,10 +66,21 @@ export default function ImportModal({ open, isLoading, onConfirm, onCancel }) {
             />
           )}
 
-          {!imageFile && (
+          {!imageFile && !isLoading && (
             <Typography variant="body2" color="text.secondary" textAlign="center">
               Take a photo of a sudoku puzzle and import it to play.
             </Typography>
+          )}
+
+          {isLoading && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mt: 1 }}>
+              <CircularProgress size={32} />
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                {importStage === 'analysing'
+                  ? 'Analysing puzzle\u2026 this may take up to 60 seconds on first use.'
+                  : 'Uploading image\u2026'}
+              </Typography>
+            </Box>
           )}
         </Box>
       </DialogContent>
@@ -77,27 +88,13 @@ export default function ImportModal({ open, isLoading, onConfirm, onCancel }) {
         <Button onClick={handleCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-          <Button
-            variant="contained"
-            onClick={handleConfirm}
-            disabled={isLoading || !imageFile}
-          >
-            Import &amp; Play
-          </Button>
-          {isLoading && (
-            <CircularProgress
-              size={24}
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                mt: '-12px',
-                ml: '-12px',
-              }}
-            />
-          )}
-        </Box>
+        <Button
+          variant="contained"
+          onClick={handleConfirm}
+          disabled={isLoading || !imageFile}
+        >
+          Import &amp; Play
+        </Button>
       </DialogActions>
     </Dialog>
   );
