@@ -60,6 +60,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   elapsedSecondsRef.current = elapsedSeconds;
 
   const [isPaused, setIsPaused] = useState(false);
+  const [importStage, setImportStage] = useState(null);
   const isPausedRef = useRef(false);
   isPausedRef.current = isPaused;
 
@@ -631,6 +632,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
 
   const startNewGameFromImage = useCallback(async (imageFile) => {
     setIsLoading(true);
+    setImportStage('uploading');
     setErrorCells(new Set());
     setActiveHint(null);
     setHintStage('nudge');
@@ -641,6 +643,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     setSelectedNumber(null);
     try {
       const { originalGrid: importedGrid } = await importPuzzle(imageFile);
+      setImportStage('analysing');
       const data = await createGameFromGrid(importedGrid);
       const emptyGrid = emptyCandidate();
       setGameId(data.gameId);
@@ -660,6 +663,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setGameStatus('error');
     } finally {
       setIsLoading(false);
+      setImportStage(null);
     }
   }, [startTimer, onForbidden]);
 
@@ -743,5 +747,6 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     isPaused,
     pauseGame,
     resumeGame,
+    importStage,
   };
 }

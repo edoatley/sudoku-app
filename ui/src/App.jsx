@@ -136,6 +136,7 @@ function SudokuApp({ user, signOut }) {
     isPaused,
     pauseGame,
     resumeGame,
+    importStage,
   } = useSudokuGame(user, { onGameComplete: recordGame, onForbidden: handleForbidden });
 
   const completedNumbers = useMemo(() => {
@@ -272,6 +273,7 @@ function SudokuApp({ user, signOut }) {
       <ImportModal
         open={importModalOpen}
         isLoading={isLoading}
+        importStage={importStage}
         onConfirm={handleImportConfirm}
         onCancel={() => setImportModalOpen(false)}
       />

@@ -180,6 +180,15 @@ export async function importPuzzle(imageFile) {
   }, true);
 }
 
+export async function warmupImageRecognition() {
+  if (MOCK_API) return;
+  try {
+    await fetch(`${API_URL}/puzzles/import/warmup`);
+  } catch {
+    // silent — warm-up is best-effort
+  }
+}
+
 export async function getDemoGrid(technique) {
   if (MOCK_API) {
     await delay(200);

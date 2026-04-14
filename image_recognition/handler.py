@@ -87,6 +87,16 @@ def handler(event: dict, context: object) -> dict:
 
     where ``originalGrid`` is a 9x9 list of ints (0 = empty cell).
     """
+    # Warmup probe — returns immediately without invoking Bedrock
+    raw_path = event.get("rawPath", "")
+    if raw_path.endswith("/warmup"):
+        logger.info("Warmup probe received")
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"status": "ok", "service": "sudoku-image-recognition"}),
+        }
+
     try:
         raw_body = event.get("body") or ""
         try:

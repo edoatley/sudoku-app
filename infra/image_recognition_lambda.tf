@@ -123,3 +123,9 @@ resource "aws_apigatewayv2_route" "post_puzzles_import" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }
+
+resource "aws_apigatewayv2_route" "get_puzzles_import_warmup" {
+  api_id    = aws_apigatewayv2_api.sudoku.id
+  route_key = "GET /api/v1/puzzles/import/warmup"
+  target    = "integrations/${aws_apigatewayv2_integration.image_recognition.id}"
+}
