@@ -23,6 +23,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * UUID {@code gameId} as the sort key, allowing efficient per-player queries and direct
  * key lookups. Grid data is serialised to JSON strings by {@link GameItem} before storage,
  * since DynamoDB has no native multi-dimensional list type.
+ *
+ * <p>Also enforces part of the single-active-game invariant via {@link #abandonGame},
+ * which transitions an IN_PROGRESS game to ABANDONED when the player starts a new one.
  */
 @ApplicationScoped
 public class DynamoDbGameRepository implements GameRepository {
@@ -74,6 +77,19 @@ public class DynamoDbGameRepository implements GameRepository {
             return;
         }
         existing.applyUpdate(request, Instant.now().toString());
+        table.updateItem(existing);
+    }
+
+    @Override
+    public void abandonGame(String userId, String gameId) {
+        GameItem existing = table.getItem(Key.builder()
+                .partitionValue(userId)
+                .sortValue(gameId)
+                .build());
+        if (existing == null) {
+            return;
+        }
+        existing.markAbandoned(Instant.now().toString());
         table.updateItem(existing);
     }
 }

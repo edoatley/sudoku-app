@@ -116,6 +116,18 @@ public class GameItem {
         );
     }
 
+    /**
+     * Marks this game as abandoned by the server when the player starts a new game.
+     * Only status and endedAt are mutated — grid data is preserved so the record
+     * remains queryable for audit or statistics purposes.
+     *
+     * @param now ISO-8601 UTC timestamp string for the abandonment moment
+     */
+    void markAbandoned(String now) {
+        setStatus(GameStatus.ABANDONED.getValue());
+        setEndedAt(now);
+    }
+
     void applyUpdate(GameUpdateRequest request, String now) {
         setCurrentGrid(toJson(request.currentGrid()));
         setCandidates(toJson(request.candidates()));

@@ -13,8 +13,10 @@ import java.util.Optional;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -226,6 +228,46 @@ class GameResourceTest {
                 .get("/games/current")
         .then()
                 .statusCode(204);
+    }
+
+    @Test
+    void postGames_whenInProgressGameExists_abandonsIt() {
+        String existingGameId = "existing-game-id";
+        GameState inProgress = new GameState(USER_ID, existingGameId, "easy", GRID, null, GRID,
+                emptyCandidates(), 120, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("difficulty", "hard"))
+        .when()
+                .post("/games")
+        .then()
+                .statusCode(201)
+                .body("status", equalTo("IN_PROGRESS"));
+
+        verify(gameRepository).abandonGame(USER_ID, existingGameId);
+        verify(gameRepository).save(any(GameState.class));
+    }
+
+    @Test
+    void postGamesFromImage_whenInProgressGameExists_abandonsIt() {
+        String existingGameId = "existing-import-id";
+        GameState inProgress = new GameState(USER_ID, existingGameId, "easy", GRID, null, GRID,
+                emptyCandidates(), 60, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null);
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("originalGrid", GRID))
+        .when()
+                .post("/games/from-image")
+        .then()
+                .statusCode(201)
+                .body("status", equalTo("IN_PROGRESS"));
+
+        verify(gameRepository).abandonGame(USER_ID, existingGameId);
+        verify(gameRepository).save(any(GameState.class));
     }
 
     @Test

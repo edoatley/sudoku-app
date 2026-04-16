@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.InOrder;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -149,6 +151,57 @@ class GameServiceImplTest {
 
         verify(gameRepository).update(eq(USER_ID), eq(gameId), eq(request));
     }
+    @Test
+    void createGame_whenInProgressGameExists_abandonsItBeforeCreatingNew() {
+        GameState existing = new GameState(USER_ID, "old-game-id", "easy", GRID, null, GRID,
+                List.of(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+        when(sudokuService.generatePuzzle("medium")).thenReturn(new PuzzleResponse(GRID, null, "medium"));
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
+
+        gameService.createGame(USER_ID, "medium");
+
+        InOrder order = inOrder(gameRepository);
+        order.verify(gameRepository).findInProgress(USER_ID);
+        order.verify(gameRepository).abandonGame(USER_ID, "old-game-id");
+        order.verify(gameRepository).save(any(GameState.class));
+    }
+
+    @Test
+    void createGame_whenNoInProgressGame_doesNotCallAbandon() {
+        when(sudokuService.generatePuzzle("easy")).thenReturn(new PuzzleResponse(GRID, null, "easy"));
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.empty());
+
+        gameService.createGame(USER_ID, "easy");
+
+        verify(gameRepository, never()).abandonGame(anyString(), anyString());
+        verify(gameRepository).save(any(GameState.class));
+    }
+
+    @Test
+    void createGameFromExistingGrid_whenInProgressGameExists_abandonsItBeforeCreatingNew() {
+        GameState existing = new GameState(USER_ID, "old-imported-id", "easy", GRID, null, GRID,
+                List.of(), 30, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null);
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+
+        gameService.createGameFromExistingGrid(USER_ID, GRID);
+
+        InOrder order = inOrder(gameRepository);
+        order.verify(gameRepository).findInProgress(USER_ID);
+        order.verify(gameRepository).abandonGame(USER_ID, "old-imported-id");
+        order.verify(gameRepository).save(any(GameState.class));
+    }
+
+    @Test
+    void createGameFromExistingGrid_whenNoInProgressGame_doesNotCallAbandon() {
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.empty());
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+
+        gameService.createGameFromExistingGrid(USER_ID, GRID);
+
+        verify(gameRepository, never()).abandonGame(anyString(), anyString());
+    }
+
     @Test
     void findInProgress_whenFound_returnsGame() {
         GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, List.of(), 30, "IN_PROGRESS", 0, null, null);
