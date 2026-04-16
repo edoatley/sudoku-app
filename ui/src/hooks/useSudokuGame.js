@@ -166,6 +166,33 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setIsLoading(true);
       loadGame(savedGameId).then((data) => {
         if (controller.signal.aborted) return;
+        if (data.status !== 'IN_PROGRESS') {
+          // Game was abandoned or completed on another device — discard the stale
+          // localStorage entry and let the authenticated-user path find the real
+          // active game, or start a new one if none exists.
+          lsClear();
+          if (user) {
+            return getCurrentGame().then((current) => {
+              if (controller.signal.aborted) return;
+              if (current) {
+                const restoredCandidates = Array.isArray(current.candidates) && current.candidates.length === 9
+                  ? current.candidates
+                  : emptyCandidate();
+                applyLoadedGame(current, restoredCandidates, current.timeSpentSeconds ?? 0, current.hintsUsed ?? 0);
+                lsSave(current.gameId, current.currentGrid, restoredCandidates, current.difficulty, current.timeSpentSeconds ?? 0, current.hintsUsed ?? 0);
+              } else {
+                setIsLoading(false);
+                startNewGame(undefined, controller.signal);
+              }
+            }).catch(() => {
+              if (controller.signal.aborted) return;
+              setIsLoading(false);
+            });
+          }
+          setIsLoading(false);
+          startNewGame(undefined, controller.signal);
+          return;
+        }
         const savedCandidates = (() => {
           try { return JSON.parse(localStorage.getItem(LS_KEY_CANDIDATE_GRID)) || emptyCandidate(); }
           // eslint-disable-next-line no-unused-vars

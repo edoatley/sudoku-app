@@ -177,6 +177,45 @@ describe('initialisation', () => {
     expect(result.current.currentGrid).toBeNull();
     expect(localStorage.getItem('sudoku_gameId')).toBeNull();
   });
+
+  it('ignores abandoned game in localStorage and fetches current game from API when authenticated', async () => {
+    localStorage.setItem('sudoku_gameId', 'abandoned-id');
+    loadGame.mockResolvedValueOnce({ ...CANNED_GAME_STATE, gameId: 'abandoned-id', status: 'ABANDONED' });
+    const activeGame = { ...CANNED_GAME_STATE, gameId: 'active-id', status: 'IN_PROGRESS' };
+    getCurrentGame.mockResolvedValueOnce(activeGame);
+    const mockUser = { username: 'test-user' };
+    const { result } = await mountAndSettle(mockUser);
+    expect(loadGame).toHaveBeenCalledWith('abandoned-id');
+    expect(getCurrentGame).toHaveBeenCalled();
+    expect(result.current.gameId).toBe('active-id');
+    // active game's id should now be in localStorage, not the abandoned one
+    expect(localStorage.getItem('sudoku_gameId')).toBe('active-id');
+  });
+
+  it('starts new game when abandoned game in localStorage and no active game on server', async () => {
+    localStorage.setItem('sudoku_gameId', 'abandoned-id');
+    loadGame.mockResolvedValueOnce({ ...CANNED_GAME_STATE, gameId: 'abandoned-id', status: 'ABANDONED' });
+    getCurrentGame.mockResolvedValueOnce(null);
+    const mockUser = { username: 'test-user' };
+    const { result } = await mountAndSettle(mockUser);
+    expect(getCurrentGame).toHaveBeenCalled();
+    expect(createGame).toHaveBeenCalled();
+    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    // stale id cleared; new game's id is now in localStorage
+    expect(localStorage.getItem('sudoku_gameId')).not.toBe('abandoned-id');
+  });
+
+  it('ignores solved game in localStorage and starts new game when unauthenticated', async () => {
+    localStorage.setItem('sudoku_gameId', 'solved-id');
+    loadGame.mockResolvedValueOnce({ ...CANNED_GAME_STATE, gameId: 'solved-id', status: 'SOLVED' });
+    const { result } = await mountAndSettle(null);
+    expect(loadGame).toHaveBeenCalledWith('solved-id');
+    expect(getCurrentGame).not.toHaveBeenCalled();
+    expect(createGame).toHaveBeenCalled();
+    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    // stale id cleared; new game's id is now in localStorage
+    expect(localStorage.getItem('sudoku_gameId')).not.toBe('solved-id');
+  });
 });
 
 // ─── Cell selection ───────────────────────────────────────────────────────────
