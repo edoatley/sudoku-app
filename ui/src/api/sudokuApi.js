@@ -48,7 +48,19 @@ async function apiFetch(label, url, options = {}, authenticated = false) {
       console.groupEnd();
     }
     if (res.status === 403) throw new ForbiddenError();
-    throw new Error(`HTTP ${res.status}`);
+    let message = `HTTP ${res.status}`;
+    try {
+      const contentType = res.headers.get('content-type') ?? '';
+      if (contentType.includes('application/json')) {
+        const errorBody = await res.json();
+        if (typeof errorBody.error === 'string' && errorBody.error.length > 0) {
+          message = errorBody.error;
+        }
+      }
+    } catch {
+      // Body could not be parsed — fall back to HTTP status message
+    }
+    throw new Error(message);
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') {
     if (LOG_API) { console.log('← (no content)'); console.groupEnd(); }

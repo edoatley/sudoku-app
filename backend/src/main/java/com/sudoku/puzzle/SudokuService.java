@@ -15,4 +15,10 @@ public interface SudokuService {
     Optional<HintResponse> getHint(BoardRequest request);
     CandidatesResponse getCandidates(BoardRequest request);
     Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle);
+
+    /**
+     * Returns true if the given grid has exactly one valid solution.
+     * Returns false for grids with no solution or multiple solutions.
+     */
+    boolean hasSingleSolution(List<List<Integer>> grid);
 }

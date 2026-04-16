@@ -287,4 +287,31 @@ class GameResourceTest {
                 .body("solutionGrid", hasSize(9));
     }
 
+    @Test
+    void postGamesFromImage_withDuplicateDigitsInGrid_returns422WithErrorMessage() {
+        // Row 0 has two 5s — violates sudoku row constraint
+        List<List<Integer>> invalidGrid = List.of(
+                List.of(5, 5, 0, 0, 7, 0, 0, 0, 0),
+                List.of(6, 0, 0, 1, 9, 0, 0, 0, 0),
+                List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
+                List.of(8, 0, 0, 0, 6, 0, 0, 0, 3),
+                List.of(4, 0, 0, 8, 0, 3, 0, 0, 1),
+                List.of(7, 0, 0, 0, 2, 0, 0, 0, 6),
+                List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
+                List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
+                List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
+        );
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("originalGrid", invalidGrid))
+        .when()
+                .post("/games/from-image")
+        .then()
+                .statusCode(422)
+                .contentType(ContentType.JSON)
+                .body("error", notNullValue())
+                .body("error", containsString("duplicate"));
+    }
+
 }

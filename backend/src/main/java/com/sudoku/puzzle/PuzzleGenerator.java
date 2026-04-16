@@ -75,6 +75,17 @@ public class PuzzleGenerator {
     }
 
     /**
+     * Returns the number of solutions for the given puzzle, stopping as soon as 2 are found.
+     * Used by import validation to reject ambiguous puzzles before they are persisted.
+     *
+     * @return 0 if the puzzle has no solution, 1 if it has exactly one, 2 if it has more than one
+     */
+    public int countSolutions(List<List<Integer>> puzzle) {
+        int[][] grid = toArray(puzzle);
+        return countSolutions(grid, 0);
+    }
+
+    /**
      * Attempts to solve the given puzzle grid using backtracking.
      *
      * @param puzzle a 9×9 grid with zeros for empty cells

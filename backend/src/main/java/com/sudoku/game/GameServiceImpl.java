@@ -1,7 +1,9 @@
 package com.sudoku.game;
 
+import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
+import com.sudoku.dto.ValidationResponse;
 import com.sudoku.puzzle.SudokuService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -69,24 +71,39 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public GameState createGameFromExistingGrid(String userId, List<List<Integer>> originalGrid) {
+        // Stage 1: duplicate clue check — reuses existing validateByDuplicates path
+        ValidationResponse validation = sudokuService.validatePuzzle(new BoardRequest(originalGrid));
+        if (!validation.isValid()) {
+            throw new InvalidPuzzleException(
+                    "Puzzle contains duplicate digits — check rows, columns, and boxes for conflicts");
+        }
+
+        // Stage 2: uniqueness — must have exactly one solution
+        Optional<List<List<Integer>>> solution = sudokuService.solveGrid(originalGrid);
+        if (solution.isEmpty()) {
+            throw new InvalidPuzzleException(
+                    "Puzzle has no valid solution — it may have been scanned incorrectly");
+        }
+        if (!sudokuService.hasSingleSolution(originalGrid)) {
+            throw new InvalidPuzzleException(
+                    "Puzzle has multiple solutions — a valid sudoku must have exactly one solution");
+        }
+
+        // Validation passed — now safe to abandon any existing in-progress game
         abandonAnyInProgressGame(userId);
+
         List<List<List<Integer>>> emptyCandidates = IntStream.range(0, UNIT_SIZE)
                 .mapToObj(r -> IntStream.range(0, UNIT_SIZE)
                         .mapToObj(c -> List.<Integer>of())
                         .toList())
                 .toList();
 
-        // Attempt to solve the imported grid so validation can do precise cell-by-cell checking.
-        // If the grid has no valid solution (e.g. OCR error), falls back to null and validation
-        // gracefully degrades to duplicate-detection only.
-        List<List<Integer>> solution = sudokuService.solveGrid(originalGrid).orElse(null);
-
         GameState gameState = new GameState(
                 userId,
                 UUID.randomUUID().toString(),
                 GameStatus.IMPORTED.getValue(),
                 originalGrid,
-                solution,
+                solution.get(),
                 originalGrid.stream().map(List::copyOf).toList(),
                 emptyCandidates,
                 0,

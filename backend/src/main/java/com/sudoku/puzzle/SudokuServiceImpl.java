@@ -167,4 +167,9 @@ public class SudokuServiceImpl implements SudokuService {
     public Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle) {
         return generator.solveGrid(puzzle);
     }
+
+    @Override
+    public boolean hasSingleSolution(List<List<Integer>> grid) {
+        return generator.countSolutions(grid) == 1;
+    }
 }

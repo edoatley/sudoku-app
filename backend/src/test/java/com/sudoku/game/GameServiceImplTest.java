@@ -1,8 +1,11 @@
 package com.sudoku.game;
 
+import com.sudoku.dto.BoardRequest;
+import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import com.sudoku.dto.PuzzleResponse;
+import com.sudoku.dto.ValidationResponse;
 import com.sudoku.puzzle.SudokuService;
 import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +41,21 @@ class GameServiceImplTest {
             List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
     );
+
+    private static final List<List<Integer>> SOLUTION = List.of(
+            List.of(5, 3, 4, 6, 7, 8, 9, 1, 2),
+            List.of(6, 7, 2, 1, 9, 5, 3, 4, 8),
+            List.of(1, 9, 8, 3, 4, 2, 5, 6, 7),
+            List.of(8, 5, 9, 7, 6, 1, 4, 2, 3),
+            List.of(4, 2, 6, 8, 5, 3, 7, 9, 1),
+            List.of(7, 1, 3, 9, 2, 4, 8, 5, 6),
+            List.of(9, 6, 1, 5, 3, 7, 2, 8, 4),
+            List.of(2, 8, 7, 4, 1, 9, 6, 3, 5),
+            List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
+    );
+
+    private static final ValidationResponse VALID_RESPONSE =
+            new ValidationResponse(true, false, List.of());
 
     @BeforeEach
     void setUp() {
@@ -92,8 +110,10 @@ class GameServiceImplTest {
     }
 
     @Test
-    void createGameFromExistingGrid_usesSuppliedException_andPersists() {
-        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+    void createGameFromExistingGrid_withValidPuzzle_persistsGameWithSolution() {
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
+        when(sudokuService.hasSingleSolution(GRID)).thenReturn(true);
 
         GameState result = gameService.createGameFromExistingGrid(USER_ID, GRID);
 
@@ -102,44 +122,82 @@ class GameServiceImplTest {
         assertEquals("imported", result.difficulty());
         assertEquals(GRID, result.originalGrid());
         assertEquals(GRID, result.currentGrid());
-        assertNull(result.solutionGrid());
+        assertEquals(SOLUTION, result.solutionGrid());
         assertEquals(0, result.timeSpentSeconds());
         assertEquals("IN_PROGRESS", result.status());
         assertEquals(9, result.candidates().size());
         verify(sudokuService, never()).generatePuzzle(anyString());
-        verify(sudokuService).solveGrid(GRID);
         verify(gameRepository).save(any(GameState.class));
     }
 
     @Test
     void createGameFromExistingGrid_whenSolvable_storesSolution() {
-        List<List<Integer>> solution = List.of(
-                List.of(5, 3, 4, 6, 7, 8, 9, 1, 2),
-                List.of(6, 7, 2, 1, 9, 5, 3, 4, 8),
-                List.of(1, 9, 8, 3, 4, 2, 5, 6, 7),
-                List.of(8, 5, 9, 7, 6, 1, 4, 2, 3),
-                List.of(4, 2, 6, 8, 5, 3, 7, 9, 1),
-                List.of(7, 1, 3, 9, 2, 4, 8, 5, 6),
-                List.of(9, 6, 1, 5, 3, 7, 2, 8, 4),
-                List.of(2, 8, 7, 4, 1, 9, 6, 3, 5),
-                List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
-        );
-        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(solution));
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
+        when(sudokuService.hasSingleSolution(GRID)).thenReturn(true);
 
         GameState result = gameService.createGameFromExistingGrid(USER_ID, GRID);
 
-        assertEquals(solution, result.solutionGrid());
-        verify(sudokuService).solveGrid(GRID);
+        assertEquals(SOLUTION, result.solutionGrid());
     }
 
     @Test
     void createGameFromExistingGrid_generatesUniqueGameIds() {
-        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
+        when(sudokuService.hasSingleSolution(GRID)).thenReturn(true);
 
         GameState game1 = gameService.createGameFromExistingGrid(USER_ID, GRID);
         GameState game2 = gameService.createGameFromExistingGrid(USER_ID, GRID);
 
         assertNotEquals(game1.gameId(), game2.gameId());
+    }
+
+    @Test
+    void createGameFromExistingGrid_withDuplicateDigits_throwsInvalidPuzzleException() {
+        ValidationResponse invalidResponse = new ValidationResponse(
+                false, false, List.of(new Coordinate(0, 0), new Coordinate(0, 1)));
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(invalidResponse);
+
+        assertThrows(InvalidPuzzleException.class,
+                () -> gameService.createGameFromExistingGrid(USER_ID, GRID));
+        verify(gameRepository, never()).save(any());
+    }
+
+    @Test
+    void createGameFromExistingGrid_withNoSolution_throwsInvalidPuzzleException() {
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+
+        assertThrows(InvalidPuzzleException.class,
+                () -> gameService.createGameFromExistingGrid(USER_ID, GRID));
+        verify(gameRepository, never()).save(any());
+    }
+
+    @Test
+    void createGameFromExistingGrid_withMultipleSolutions_throwsInvalidPuzzleException() {
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
+        when(sudokuService.hasSingleSolution(GRID)).thenReturn(false);
+
+        assertThrows(InvalidPuzzleException.class,
+                () -> gameService.createGameFromExistingGrid(USER_ID, GRID));
+        verify(gameRepository, never()).save(any());
+    }
+
+    @Test
+    void createGameFromExistingGrid_whenInvalid_doesNotAbandonExistingGame() {
+        ValidationResponse invalidResponse = new ValidationResponse(
+                false, false, List.of(new Coordinate(0, 0)));
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(invalidResponse);
+        GameState existing = new GameState(USER_ID, "old-game-id", "easy", GRID, null, GRID,
+                List.of(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
+
+        assertThrows(InvalidPuzzleException.class,
+                () -> gameService.createGameFromExistingGrid(USER_ID, GRID));
+        verify(gameRepository, never()).abandonGame(anyString(), anyString());
+        verify(gameRepository, never()).save(any());
     }
 
     @Test
@@ -182,7 +240,9 @@ class GameServiceImplTest {
         GameState existing = new GameState(USER_ID, "old-imported-id", "easy", GRID, null, GRID,
                 List.of(), 30, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
-        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
+        when(sudokuService.hasSingleSolution(GRID)).thenReturn(true);
 
         gameService.createGameFromExistingGrid(USER_ID, GRID);
 
@@ -195,7 +255,9 @@ class GameServiceImplTest {
     @Test
     void createGameFromExistingGrid_whenNoInProgressGame_doesNotCallAbandon() {
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.empty());
-        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
+        when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
+        when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
+        when(sudokuService.hasSingleSolution(GRID)).thenReturn(true);
 
         gameService.createGameFromExistingGrid(USER_ID, GRID);
 
