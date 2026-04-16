@@ -44,7 +44,7 @@ public class PlayerItem {
         return item;
     }
 
-    PlayerProfile toPlayerProfile() {
+    public PlayerProfile toPlayerProfile() {
         return new PlayerProfile(userId, email, displayName, createdAt, updatedAt);
     }
 }

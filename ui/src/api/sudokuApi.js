@@ -203,6 +203,14 @@ export async function getPlayerProfile() {
   return apiFetch('getPlayerProfile', `${API_URL}/players/me`, {}, true);
 }
 
+export async function getDevData(entity) {
+  if (MOCK_API) {
+    await delay(200);
+    return { items: [] };
+  }
+  return apiFetch(`getDevData/${entity}`, `${API_URL}/dev/data/${encodeURIComponent(entity)}`);
+}
+
 export async function createGameFromGrid(originalGrid) {
   if (MOCK_API) {
     await delay(300);

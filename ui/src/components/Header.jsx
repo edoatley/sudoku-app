@@ -24,6 +24,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
 import ImageIcon from '@mui/icons-material/Image';
 import BugReportIcon from '@mui/icons-material/BugReport';
+import StorageIcon from '@mui/icons-material/Storage';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import AvatarPickerDialog from './AvatarPickerDialog.jsx';
@@ -79,6 +80,7 @@ export default function Header({
   onNewGame,
   onImport,
   onDemoGame,
+  onDevData,
   colorMode,
   onToggleColorMode,
   avatar,
@@ -187,6 +189,13 @@ export default function Header({
                       <ListItemText>{label}</ListItemText>
                     </MenuItem>
                   ))}
+                  {onDevData && <Divider />}
+                  {onDevData && (
+                    <MenuItem onClick={() => { handleGameMenuClose(); onDevData(); }}>
+                      <ListItemIcon><StorageIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText>Data Browser</ListItemText>
+                    </MenuItem>
+                  )}
                 </Menu>
               )}
             </>

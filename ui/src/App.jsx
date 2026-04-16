@@ -22,6 +22,7 @@ import Header from './components/Header.jsx';
 import PauseOverlay from './components/PauseOverlay.jsx';
 import NewGameModal from './components/NewGameModal.jsx';
 import ImportModal from './components/ImportModal.jsx';
+import DevDataDialog from './components/DevDataDialog.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
@@ -97,6 +98,7 @@ function SudokuApp({ user, signOut }) {
 
   const [newGameModalOpen, setNewGameModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [devDataOpen, setDevDataOpen] = useState(false);
 
   const {
     originalGrid,
@@ -202,6 +204,7 @@ function SudokuApp({ user, signOut }) {
         onNewGame={() => setNewGameModalOpen(true)}
         onImport={ENABLE_IMPORT ? () => setImportModalOpen(true) : null}
         onDemoGame={DEV_TOOLS ? loadDemoGame : null}
+        onDevData={DEV_TOOLS ? () => setDevDataOpen(true) : null}
         colorMode={colorMode}
         onToggleColorMode={handleToggleColorMode}
       />
@@ -279,6 +282,10 @@ function SudokuApp({ user, signOut }) {
       />
 
       <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
+
+      {DEV_TOOLS && (
+        <DevDataDialog open={devDataOpen} onClose={() => setDevDataOpen(false)} />
+      )}
 
       <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">
         <DialogTitle>Congratulations!</DialogTitle>

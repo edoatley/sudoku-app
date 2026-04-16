@@ -11,6 +11,7 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -72,7 +73,7 @@ public class DynamoDbGameRepository implements GameRepository {
         if (existing == null) {
             return;
         }
-        existing.applyUpdate(request);
+        existing.applyUpdate(request, Instant.now().toString());
         table.updateItem(existing);
     }
 }

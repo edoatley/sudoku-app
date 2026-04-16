@@ -74,7 +74,7 @@ class GameServiceImplTest {
     @Test
     void loadGame_whenFound_returnsGameState() {
         String gameId = "test-id-123";
-        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, List.of(), 42, "IN_PROGRESS", 0);
+        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, List.of(), 42, "IN_PROGRESS", 0, null, null);
         when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(expected));
 
         GameState result = gameService.loadGame(USER_ID, gameId);
@@ -151,7 +151,7 @@ class GameServiceImplTest {
     }
     @Test
     void findInProgress_whenFound_returnsGame() {
-        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, List.of(), 30, "IN_PROGRESS", 0);
+        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, List.of(), 30, "IN_PROGRESS", 0, null, null);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         Optional<GameState> result = gameService.findInProgress(USER_ID);

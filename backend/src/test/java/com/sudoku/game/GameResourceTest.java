@@ -87,7 +87,7 @@ class GameResourceTest {
                 .statusCode(201)
                 .extract().path("gameId");
 
-        GameState saved = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0);
+        GameState saved = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null);
         when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(saved));
 
         given()
@@ -113,8 +113,8 @@ class GameResourceTest {
                 .statusCode(201)
                 .extract().path("gameId");
 
-        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0);
-        GameState updated = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 60, "IN_PROGRESS", 0);
+        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null);
+        GameState updated = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 60, "IN_PROGRESS", 0, null, null);
         when(gameRepository.findById(USER_ID, gameId))
                 .thenReturn(Optional.of(initial))
                 .thenReturn(Optional.of(updated));
@@ -157,8 +157,8 @@ class GameResourceTest {
                 .statusCode(201)
                 .extract().path("gameId");
 
-        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0);
-        GameState solved  = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 300, "SOLVED", 0);
+        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null);
+        GameState solved  = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 300, "SOLVED", 0, null, null);
         when(gameRepository.findById(USER_ID, gameId))
                 .thenReturn(Optional.of(initial))
                 .thenReturn(Optional.of(solved));
@@ -203,7 +203,7 @@ class GameResourceTest {
     @Test
     void getCurrentGame_whenInProgress_returns200WithGame() {
         String gameId = "in-progress-id";
-        GameState inProgress = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 45, "IN_PROGRESS", 0);
+        GameState inProgress = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 45, "IN_PROGRESS", 0, null, null);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         given()

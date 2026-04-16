@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,7 +54,9 @@ public class GameServiceImpl implements GameService {
                 emptyCandidates,
                 0,
                 GameStatus.IN_PROGRESS.getValue(),
-                0
+                0,
+                Instant.now().toString(),
+                null
         );
         gameRepository.save(gameState);
         return gameState;
@@ -82,7 +85,9 @@ public class GameServiceImpl implements GameService {
                 emptyCandidates,
                 0,
                 GameStatus.IN_PROGRESS.getValue(),
-                0
+                0,
+                Instant.now().toString(),
+                null
         );
         gameRepository.save(gameState);
         return gameState;

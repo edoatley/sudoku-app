@@ -33,6 +33,8 @@ public class GameItem {
     private int timeSpentSeconds;
     private String status;
     private int hintsUsed;
+    private String startedAt;
+    private String endedAt;
 
     // --- composite key ---
 
@@ -72,6 +74,12 @@ public class GameItem {
     public int getHintsUsed() { return hintsUsed; }
     public void setHintsUsed(int hintsUsed) { this.hintsUsed = hintsUsed; }
 
+    public String getStartedAt() { return startedAt; }
+    public void setStartedAt(String startedAt) { this.startedAt = startedAt; }
+
+    public String getEndedAt() { return endedAt; }
+    public void setEndedAt(String endedAt) { this.endedAt = endedAt; }
+
     // --- factory methods ---
 
     static GameItem from(GameState state) {
@@ -86,10 +94,12 @@ public class GameItem {
         item.setTimeSpentSeconds(state.timeSpentSeconds());
         item.setStatus(state.status());
         item.setHintsUsed(state.hintsUsed());
+        item.setStartedAt(state.startedAt());
+        item.setEndedAt(state.endedAt());
         return item;
     }
 
-    GameState toGameState() {
+    public GameState toGameState() {
         return new GameState(
                 userId,
                 gameId,
@@ -100,15 +110,22 @@ public class GameItem {
                 fromJson(candidates, new TypeReference<List<List<List<Integer>>>>() {}),
                 timeSpentSeconds,
                 status,
-                hintsUsed
+                hintsUsed,
+                startedAt,
+                endedAt
         );
     }
 
-    void applyUpdate(GameUpdateRequest request) {
+    void applyUpdate(GameUpdateRequest request, String now) {
         setCurrentGrid(toJson(request.currentGrid()));
         setCandidates(toJson(request.candidates()));
         setTimeSpentSeconds(request.timeSpentSeconds());
-        setStatus(Boolean.TRUE.equals(request.isComplete()) ? GameStatus.SOLVED.getValue() : GameStatus.IN_PROGRESS.getValue());
+        if (Boolean.TRUE.equals(request.isComplete())) {
+            setStatus(GameStatus.SOLVED.getValue());
+            setEndedAt(now);
+        } else {
+            setStatus(GameStatus.IN_PROGRESS.getValue());
+        }
         if (request.hintsUsed() != null) setHintsUsed(request.hintsUsed());
     }
 

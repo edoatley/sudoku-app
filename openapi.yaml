@@ -19,6 +19,8 @@ tags:
     description: Endpoints for managing game state
   - name: Players
     description: Endpoints for player profile management
+  - name: Developer
+    description: Developer-only endpoints for local testing. Not exposed in production.
 
 security:
   - CognitoJWT: []
@@ -233,6 +235,35 @@ paths:
         '200':
           description: Game saved successfully.
 
+  /dev/data/games:
+    get:
+      tags:
+        - Developer
+      summary: List all games (dev only)
+      description: Returns all game records from the database as standard JSON. Only available locally against LocalStack; not routed in production.
+      security: []
+      responses:
+        '200':
+          description: All game records retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameDataList'
+
+  /dev/data/players:
+    get:
+      tags:
+        - Developer
+      summary: List all players (dev only)
+      description: Returns all player profiles from the database. Only available locally against LocalStack; not routed in production.
+      security: []
+      responses:
+        '200':
+          description: All player records retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerDataList'
 
   /players/me:
     get:
@@ -291,6 +322,16 @@ components:
         status:
           type: string
           enum: [IN_PROGRESS, SOLVED, ABANDONED]
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO-8601 UTC timestamp when the game was created. Null for games created before this field was introduced.
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO-8601 UTC timestamp when the game reached SOLVED status. Null if still in progress.
       example:
         gameId: "123e4567-e89b-12d3-a456-426614174000"
         difficulty: "medium"
@@ -616,3 +657,25 @@ components:
         originalGrid:
           $ref: '#/components/schemas/Grid'
       description: Request to create a game from a pre-existing grid (e.g., scanned from an image).
+
+    GameDataList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          description: All game records from the database.
+          items:
+            $ref: '#/components/schemas/GameState'
+
+    PlayerDataList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          description: All player records from the database.
+          items:
+            $ref: '#/components/schemas/PlayerProfile'
