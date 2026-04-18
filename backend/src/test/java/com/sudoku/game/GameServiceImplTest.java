@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+// @spec GL-BE-001, GL-BE-002, GL-BE-003, GL-BE-004, GL-BE-005, GL-BE-006, GL-BE-010, GL-BE-011, GL-BE-012, GL-BE-020, GL-BE-021, GL-BE-022, GL-BE-030, GL-DATA-001, GL-DATA-002, GL-DATA-003, GL-DATA-004
 class GameServiceImplTest {
 
     private SudokuService sudokuService;

@@ -36,7 +36,7 @@ arrows:
     next: ~
 
   - id: game-lifecycle
-    status: MAPPED
+    status: AUDITED
     lld: docs/llds/game-lifecycle.md
     specs: docs/specs/game-lifecycle-specs.md
     arrow: docs/arrows/game-lifecycle.md
@@ -44,7 +44,7 @@ arrows:
     implemented: 22
     deferred: 0
     gaps: 0
-    next: Consider logging a warning when update() is called for a non-existent game (silent no-op)
+    next: ~
 
   - id: user-management
     status: MAPPED

@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
  * <p>The real DynamoDB integration is exercised separately by the Docker Compose integration tests.
  */
 @QuarkusTest
+// @spec GL-API-001, GL-API-002, GL-API-003, GL-API-004, GL-API-005
 class GameResourceTest {
 
     @InjectMock

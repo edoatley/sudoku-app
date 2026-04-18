@@ -108,7 +108,7 @@ Ordered by dependency (lower layers first):
 
 ## Arrow 4: game-lifecycle
 
-**Status:** [ ] Complete
+**Status:** [x] Complete
 
 ### Test files to audit
 - `backend/src/test/java/com/sudoku/game/GameServiceImplTest.java`

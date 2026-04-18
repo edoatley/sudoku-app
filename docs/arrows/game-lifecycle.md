@@ -4,7 +4,7 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 
 ## Status
 
-**MAPPED** - 2026-04-18. All source files read and documented. No tests audited yet.
+**AUDITED** - 2026-04-18. All source files and tests read, annotated, and verified.
 
 ## References
 
@@ -18,7 +18,8 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 - docs/specs/game-lifecycle-specs.md (20 specs, all [x])
 
 ### Tests
-- backend/src/test/java/.../game/ (not yet audited)
+- backend/src/test/java/com/sudoku/game/GameServiceImplTest.java — covers GL-BE-001 to 022, GL-BE-030, GL-DATA-001 to 004; @spec annotations added
+- backend/src/test/java/com/sudoku/game/GameResourceTest.java — covers GL-API-001 to 005; @spec annotations added
 
 ### Code
 - backend/src/main/java/.../game/GameResource.java
@@ -69,6 +70,3 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 
 ### Nice to Have
 1. Return a typed error or log a warning when `update()` is called for a non-existent game, rather than silently no-oping. (GL-API-005)
-
-### Nice to Have
-2. Return a typed error or log a warning when `update()` is called for a non-existent game, rather than silently no-oping. (GL-API-005)
