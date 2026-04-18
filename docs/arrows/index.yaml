@@ -14,7 +14,7 @@ arrows:
     next: ~
 
   - id: hint-engine
-    status: MAPPED
+    status: AUDITED
     lld: docs/llds/hint-engine.md
     specs: docs/specs/hint-engine-specs.md
     arrow: docs/arrows/hint-engine.md
@@ -22,7 +22,7 @@ arrows:
     implemented: 30
     deferred: 0
     gaps: 0
-    next: Document Naked Pair rank vs label discrepancy in source; consider typed getHint() return
+    next: ~
 
   - id: puzzle-generation
     status: MAPPED

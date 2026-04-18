@@ -51,7 +51,7 @@ Ordered by dependency (lower layers first):
 
 ## Arrow 2: hint-engine
 
-**Status:** [ ] Complete
+**Status:** [x] Complete
 
 ### Test files to audit
 - `backend/src/test/java/com/sudoku/puzzle/SudokuServiceImplTest.java`

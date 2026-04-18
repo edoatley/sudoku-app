@@ -4,7 +4,7 @@
 
 ## Status
 
-**MAPPED** - 2026-04-18. All strategy implementations and orchestrator read and documented. No tests audited yet.
+**AUDITED** - 2026-04-18. All strategy implementations, orchestrator, and tests read, annotated, and verified.
 
 ## References
 
@@ -18,7 +18,9 @@
 - docs/specs/hint-engine-specs.md (29 specs, all [x])
 
 ### Tests
-- backend/src/test/java/.../puzzle/ (not yet audited)
+- backend/src/test/java/com/sudoku/puzzle/SudokuServiceImplTest.java — covers HE-BE-001 to 007, HE-BE-030 to 034; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/hint/BoardUtilsTest.java — covers SL-PROC-004 to 006; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/hint/*StrategyTest.java (11 files) — covers HE-BE-010 to 020, HE-API-001 to 006; @spec annotations added
 
 ### Code
 - backend/src/main/java/.../puzzle/SudokuService.java
@@ -59,8 +61,8 @@
 
 ## Work Required
 
-### Should Fix
-1. Document the Naked Pair rank vs label discrepancy with a comment in `NakedPairStrategy.java` to prevent future confusion. (HE-BE-012)
+### Done
+1. ~~Document the Naked Pair rank vs label discrepancy~~. Added explanatory comment in `NakedPairStrategy.java` getDifficulty() block. (HE-BE-012)
 
 ### Nice to Have
 2. Return a typed result from `getHint()` distinguishing "no hint found" from "puzzle already solved" to allow callers to handle each case correctly. (HE-BE-007)

@@ -17,6 +17,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec HE-BE-001, HE-BE-002, HE-BE-003, HE-BE-004, HE-BE-005, HE-BE-006, HE-BE-007, HE-BE-030, HE-BE-031, HE-BE-032, HE-BE-033, HE-BE-034
 class SudokuServiceImplTest {
 
     private SudokuServiceImpl service;

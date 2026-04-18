@@ -36,6 +36,10 @@ public class NakedPairStrategy implements HintStrategy {
     @Override
     public String getSlug() { return SLUG; }
 
+    // @spec HE-BE-012
+    // NOTE: difficulty label is MEDIUM but rank is 30, which sorts *before* Hidden Single (rank 40, EASY).
+    // Rank is authoritative for strategy ordering — the MEDIUM label reflects solving complexity,
+    // not the threshold at which it fires relative to simpler strategies.
     @Override
     public Difficulty getDifficulty() { return MEDIUM; }
 

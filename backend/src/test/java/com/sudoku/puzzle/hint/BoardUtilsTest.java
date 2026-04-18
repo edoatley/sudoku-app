@@ -13,6 +13,7 @@ import static com.sudoku.puzzle.hint.BoardUtils.candidateRowsInColumn;
 import static com.sudoku.puzzle.hint.BoardUtils.isVisible;
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec SL-PROC-004, SL-PROC-005, SL-PROC-006
 class BoardUtilsTest {
 
     private Board board;
