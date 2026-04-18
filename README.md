@@ -206,5 +206,12 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 
 ## TODO
 
-- [ ] Hints need to cycle or resend request to API
+- [ ] Hints rotation? Need to cycle or resend request to API so user does not get no hints
+- [ ] Improved error handling. Aim to give the user clearewr and understandable errors - for example not a 422 if puzzle import failed and 404 if no hints - these are not user friendly. Also make the error messages visually better
+- [ ] Co-ordinates provided in hints should be 1-indexed
 - [ ] More strategies: XY-Chain, Remote Pairs
+- [ ] New mode to manually type in a puzzle (can be used when an import fails)
+- [ ] Make the score history more visually appealing and convey more useful information
+- [ ] Create a league table that shows the different players and how they are doing relative to their peers. Should reward number of puzzles completed, and short times taken 
+- [ ] Add expert difficulty
+- [ ] Review LLD tech debt

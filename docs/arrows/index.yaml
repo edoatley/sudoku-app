@@ -1,0 +1,91 @@
+version: 1
+updated: 2026-04-18
+
+arrows:
+  - id: sudoku-logic
+    status: MAPPED
+    lld: docs/llds/sudoku-logic.md
+    specs: docs/specs/sudoku-logic-specs.md
+    arrow: docs/arrows/sudoku-logic.md
+    spec_count: 14
+    implemented: 14
+    deferred: 0
+    gaps: 0
+    next: Fix IllegalArgumentException→InvalidPuzzleException translation chain
+
+  - id: hint-engine
+    status: MAPPED
+    lld: docs/llds/hint-engine.md
+    specs: docs/specs/hint-engine-specs.md
+    arrow: docs/arrows/hint-engine.md
+    spec_count: 30
+    implemented: 30
+    deferred: 0
+    gaps: 0
+    next: Document Naked Pair rank vs label discrepancy in source; consider typed getHint() return
+
+  - id: puzzle-generation
+    status: MAPPED
+    lld: docs/llds/puzzle-generation-validation.md
+    specs: docs/specs/puzzle-generation-specs.md
+    arrow: docs/arrows/puzzle-generation.md
+    spec_count: 17
+    implemented: 17
+    deferred: 0
+    gaps: 0
+    next: Replace DevResource slug-to-rank name matching with getSlug() map lookup
+
+  - id: game-lifecycle
+    status: MAPPED
+    lld: docs/llds/game-lifecycle.md
+    specs: docs/specs/game-lifecycle-specs.md
+    arrow: docs/arrows/game-lifecycle.md
+    spec_count: 22
+    implemented: 22
+    deferred: 0
+    gaps: 0
+    next: Remove or repurpose GameStatus.IMPORTED dead enum value
+
+  - id: user-management
+    status: MAPPED
+    lld: docs/llds/user-management.md
+    specs: docs/specs/user-management-specs.md
+    arrow: docs/arrows/user-management.md
+    spec_count: 20
+    implemented: 20
+    deferred: 0
+    gaps: 0
+    next: Move production email allowlist to env var; add PATCH /players/me
+
+  - id: image-recognition
+    status: MAPPED
+    lld: docs/llds/image-recognition.md
+    specs: docs/specs/image-recognition-specs.md
+    arrow: docs/arrows/image-recognition.md
+    spec_count: 24
+    implemented: 24
+    deferred: 0
+    gaps: 0
+    next: Fix AWS_REGION_NAME default (us-east-1 → eu-west-2); sync IAM with _MODELS
+
+  - id: cloud-platform
+    status: MAPPED
+    lld: docs/llds/cloud-platform.md
+    specs: docs/specs/cloud-platform-specs.md
+    arrow: docs/arrows/cloud-platform.md
+    spec_count: 22
+    implemented: 22
+    deferred: 0
+    gaps: 0
+    next: Document ECR bootstrap prerequisite; add CloudWatch alarms on Lambda errors
+
+  - id: react-frontend
+    status: MAPPED
+    lld: docs/llds/react-frontend.md
+    specs: docs/specs/react-frontend-specs.md
+    arrow: docs/arrows/react-frontend.md
+    spec_count: 39
+    implemented: 39
+    deferred: 0
+    gaps: 0
+    next: Delete GameControls.jsx stub; verify TutorialModal markdown source
