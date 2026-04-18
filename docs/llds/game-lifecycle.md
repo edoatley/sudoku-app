@@ -33,7 +33,7 @@ Games move through a simple lifecycle:
          └── resume via GET /games/current
 ```
 
-`IMPORTED` is not a status — it is a `difficulty` label. Imported games start as `IN_PROGRESS`.
+Imported games start as `IN_PROGRESS`; their origin is recorded as `"imported"` in the `difficulty` field.
 
 ### Valid Transitions
 
@@ -150,7 +150,6 @@ Two mutation methods on `GameItem`:
 | `IN_PROGRESS` | `"IN_PROGRESS"` | Active game |
 | `SOLVED` | `"SOLVED"` | Player completed puzzle |
 | `ABANDONED` | `"ABANDONED"` | Superseded by new game |
-| `IMPORTED` | `"imported"` | (Unused as status — see quirks) |
 
 `@JsonValue` on `getValue()` ensures Jackson serializes the string form, not the enum name.
 
@@ -194,8 +193,7 @@ Single-field record: `List<List<Integer>> originalGrid`. Used by the image impor
 
 ## Technical Debt & Inconsistencies
 
-- `GameStatus.IMPORTED` exists as an enum value but is used as a `difficulty` string ("imported"), not as a `status`. The `status` field of an imported game is `IN_PROGRESS`. This means `IMPORTED` is a vestigial enum value that is never written to the `status` attribute.
-- `GameServiceImpl.createGameFromExistingGrid` sets `difficulty` to `GameStatus.IMPORTED.getValue()` (i.e., `"imported"`). This conflates the difficulty field with the import source — a semantic mismatch.
+- `GameServiceImpl.createGameFromExistingGrid` sets `difficulty` to the plain string `"imported"`. This conflates the difficulty field with the import source — a semantic mismatch, but acceptable for now.
 - `DynamoDbGameRepository.update()` silently no-ops if the game doesn't exist (null check returns early). Callers receive no indication that the update was dropped.
 - `findInProgress` queries all games for a user then filters in memory. If a user accumulates many games, this scan grows. Acceptable now; a GSI on `status` would fix it at scale.
 - The `ObjectMapper` in `GameItem` is a static field. Jackson ObjectMapper is thread-safe and this is fine, but it's an implicit dependency hidden inside an entity class.

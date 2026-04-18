@@ -33,7 +33,7 @@ arrows:
     implemented: 17
     deferred: 0
     gaps: 0
-    next: Replace DevResource slug-to-rank name matching with getSlug() map lookup
+    next: Consider extracting validateByDuplicates into a shared utility (MockSudokuService/SudokuServiceImpl duplication)
 
   - id: game-lifecycle
     status: MAPPED
@@ -44,7 +44,7 @@ arrows:
     implemented: 22
     deferred: 0
     gaps: 0
-    next: Remove or repurpose GameStatus.IMPORTED dead enum value
+    next: Consider logging a warning when update() is called for a non-existent game (silent no-op)
 
   - id: user-management
     status: MAPPED

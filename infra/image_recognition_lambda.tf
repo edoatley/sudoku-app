@@ -46,10 +46,12 @@ resource "aws_iam_policy" "image_recognition_bedrock" {
       {
         Effect = "Allow"
         Action = ["bedrock:InvokeModel"]
-        Resource = [
-          for model in local.bedrock_models :
-          "arn:aws:bedrock:*:*:inference-profile/${model}"
-        ]
+        Resource = concat(
+          # Inference-profile ARNs — what the Lambda code actually calls
+          [for model in local.bedrock_models : "arn:aws:bedrock:*:*:inference-profile/${model}"],
+          # Foundation-model ARNs — required by Bedrock when the profile routes to a regional endpoint
+          [for model in local.bedrock_models : "arn:aws:bedrock:*::foundation-model/${replace(model, "/^(eu|us|ap)\\./", "")}"]
+        )
       }
     ]
   })

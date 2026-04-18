@@ -227,12 +227,12 @@ Provides canned puzzle grids and a duplicate-based validator for use in testing 
 | Random initialized at startup | `new Random()` in no-arg constructor | `new Random()` per generate call | SnapStart: all initialization must happen before first invocation; per-call would break warm starts |
 | Seeded Random test constructor | `PuzzleGenerator(Random random)` package-private | Mockito mock, subclass | Allows deterministic tests without CDI; package-private keeps it out of public API |
 | PuzzleResource returns 404 for no hint | `Response.status(404)` | 204 No Content, 200 with null body | 404 is semantically "no hint exists"; 204 would be ambiguous with "hint found but empty" |
-| Slug-to-rank matching via name convention | `startsWith(slug.replace("-",""))` | Map<String,Integer> registry | Zero-maintenance: new strategies auto-match by convention; fragile to rename |
+| Slug-to-rank matching via getSlug() map | `Map<String, HintStrategy>` from `getSlug()` | Class-name prefix convention | Robust to class renames; duplicate slug fails fast at startup |
 | HintDemoGrids static initializer | Load all grids at class init | Lazy load per request | Fail-fast at startup if files missing; no per-request I/O overhead |
 
 ## Technical Debt & Inconsistencies
 
-- `DevResource.slugMatchesStrategy()` uses a string prefix match on the lowercased class name. This is brittle: renaming a strategy class would silently break the demo without a compile error. A `getSlug()` map lookup would be safer.
+- `DevResource` builds a `Map<String, HintStrategy>` keyed by `getSlug()` at construction time. A duplicate slug throws `IllegalStateException` at startup. The old class-name prefix matching has been removed.
 - `PuzzleGenerator.solveGrid()` reuses `fillBoard()` which randomizes digit order — meaning the returned solution is random among all valid solutions. For import validation this is fine (we only care if a solution exists), but it means two calls on the same incomplete grid can return different solutions.
 - `MockSudokuService` implements validation logic that duplicates `SudokuServiceImpl`'s `validateByDuplicates` path. If the validation logic changes, the mock must be updated manually.
 - `PuzzleResponse.minRank` is null for generated puzzles. The field exists only for the dev demo use case. A separate `DemoPuzzleResponse` would be cleaner but adds a type.

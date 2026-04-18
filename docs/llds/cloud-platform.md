@@ -220,7 +220,7 @@ TLS certificates provisioned automatically by Amplify via ACM. No manual certifi
 - `infra/variables.tf` has required variables (`google_client_id`, `google_client_secret`, `github_token`) with no defaults and no documentation of where to source them.
 - CloudWatch has no alarms or metric filters on Lambda errors — no automated notification when either Lambda starts returning 5xx responses.
 - `VITE_DEV_TOOLS=true` in all non-default workspaces. If an RC workspace is accidentally pointed at production infrastructure, developer tools would be visible to all users.
-- IAM grants `bedrock:InvokeModel` on five model ARNs; the image recognition code only uses one. IAM and code are out of sync.
+- IAM `bedrock:InvokeModel` grants are derived from `local.bedrock_models` in Terraform — inference-profile ARNs and the corresponding foundation-model ARNs (required for regional routing) are both generated from the same list.
 
 ## Behavioral Quirks
 

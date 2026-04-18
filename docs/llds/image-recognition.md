@@ -60,9 +60,11 @@ Maximum accepted image size: **8 MB** (checked before preprocessing).
 
 ```python
 _MODELS = [
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
 ]
 ```
+
+The model list is injected via the `BEDROCK_MODELS` env var (comma-separated), set by Terraform from `local.bedrock_models`. The same list drives the IAM policy, so IAM and code are always in sync. The hardcoded value above is the fallback for local/test runs only.
 
 Currently one model. The cascade and cross-check infrastructure is in place for multi-model operation (see below).
 
@@ -177,7 +179,7 @@ Key design: a grid with duplicates is **not rejected outright** if it is the bes
 {
   "originalGrid": [[5,3,0,...], ...],
   "validPuzzle": true,
-  "modelName": "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+  "modelName": "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 ```
 
@@ -216,8 +218,8 @@ The warmup route (`GET /api/v1/puzzles/import/warmup`) returns 200 immediately w
 ## Technical Debt & Inconsistencies
 
 - `_MODELS` contains only one entry. The multi-model cross-check code is fully implemented but untested with multiple live models.
-- The IAM policy grants `bedrock:InvokeModel` on several model ARNs (Nova, Mistral, Nemotron, Claude) that are not in `_MODELS`. IAM and code are out of sync.
-- `AWS_REGION_NAME` environment variable defaults to `us-east-1` if not set, but the rest of the app runs in `eu-west-2`. If the env var is not injected by Terraform, Bedrock calls go to the wrong region. Terraform does inject it — but the default is a silent footgun.
+- `AWS_REGION_NAME` defaults to `eu-west-2`; Terraform also injects it explicitly via the Lambda environment block.
+- PIL preprocessing (`_downscale_image`) is implemented and unit-tested but the call in `handler()` is deferred (commented out) pending confirmation that preprocessing improves recognition accuracy.
 - Error logging uses `print`-style statements in some places alongside the configured logger. Inconsistent logging approach.
 - The `handler()` function is 70+ lines long and handles parsing, validation, and response building inline. Extracting `_parse_request()` and `_build_response()` helpers would improve readability.
 

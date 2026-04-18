@@ -101,7 +101,7 @@ public class GameServiceImpl implements GameService {
         GameState gameState = new GameState(
                 userId,
                 UUID.randomUUID().toString(),
-                GameStatus.IMPORTED.getValue(),
+                "imported",
                 originalGrid,
                 solution.get(),
                 originalGrid.stream().map(List::copyOf).toList(),

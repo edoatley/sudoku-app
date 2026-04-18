@@ -224,7 +224,7 @@ Patterns and decisions that only became visible after reading all components tog
 
 **Exception type mismatch at domain boundaries.** `Board.fromGrid()` throws `IllegalArgumentException`; the game layer catches it and wraps it in `InvalidPuzzleException`; the JAX-RS mapper translates that to HTTP 422. The translation chain works but is inelegant — a domain-level `InvalidGridException` thrown from `fromGrid()` would remove one translation step.
 
-**`GameStatus.IMPORTED` is unused as a status.** The enum value exists but is used as a `difficulty` string, not a `status`. Imported games start as `IN_PROGRESS`. The enum value is misleading and could cause confusion if a developer searches for where `IMPORTED` status is used.
+**Imported games use the `difficulty` field to record origin.** Imported games start as `IN_PROGRESS`; their origin is recorded as `"imported"` in the `difficulty` field. `GameStatus` has exactly three values: `IN_PROGRESS`, `SOLVED`, `ABANDONED`.
 
 **Frontend hint exclusion is session-scoped.** `excludedHintRanks` accumulates per browser session. If the user reloads the page mid-hint-exploration, exclusions reset. The backend is stateless with respect to this — it cannot resume from where the user was.
 

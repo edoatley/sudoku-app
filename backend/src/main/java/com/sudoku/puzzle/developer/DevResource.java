@@ -12,8 +12,8 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -25,13 +25,12 @@ import java.util.stream.Collectors;
 @Produces(MediaType.APPLICATION_JSON)
 public class DevResource {
 
-    private final List<HintStrategy> strategies;
+    private final Map<String, HintStrategy> strategyBySlug;
 
     @Inject
     public DevResource(Instance<HintStrategy> strategyInstance) {
-        this.strategies = strategyInstance.stream()
-                .sorted(Comparator.comparingInt(HintStrategy::getDifficultyRank))
-                .collect(Collectors.toList());
+        this.strategyBySlug = strategyInstance.stream()
+                .collect(Collectors.toMap(HintStrategy::getSlug, s -> s));
     }
 
     /**
@@ -60,30 +59,9 @@ public class DevResource {
                     .build();
         }
 
-        int targetRank = rankForSlug(technique);
+        HintStrategy strategy = strategyBySlug.get(technique);
+        int targetRank = strategy != null ? strategy.getDifficultyRank() : Integer.MAX_VALUE;
         PuzzleResponse puzzleResponse = new PuzzleResponse(grid, null, "demo", targetRank);
         return Response.ok(puzzleResponse).build();
-    }
-
-    /**
-     * Resolves the difficulty rank of the target strategy by its slug.
-     * Returns Integer.MAX_VALUE if the slug is not found.
-     */
-    private int rankForSlug(String slug) {
-        return strategies.stream()
-                .filter(s -> slugMatchesStrategy(slug, s))
-                .mapToInt(HintStrategy::getDifficultyRank)
-                .findFirst()
-                .orElse(Integer.MAX_VALUE);
-    }
-
-    /**
-     * Maps a slug to a strategy by simple class-name convention.
-     * e.g. "naked-pair" → NakedPairStrategy, "full-house" → FullHouseStrategy.
-     */
-    private boolean slugMatchesStrategy(String slug, HintStrategy strategy) {
-        String simpleName = strategy.getClass().getSimpleName().toLowerCase();
-        String normalised = slug.replace("-", "");
-        return simpleName.startsWith(normalised);
     }
 }

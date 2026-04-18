@@ -60,15 +60,15 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 
 ## Key Findings
 
-1. **`GameStatus.IMPORTED` is a dead enum value** — Used as a `difficulty` string ("imported"), never written to the `status` attribute. Imported games have status IN_PROGRESS. The enum value is misleading. (GL-BE-020)
+1. **`GameStatus.IMPORTED` removed** — Was used only as a `difficulty` string, never as a `status` value. Replaced with the plain string `"imported"` in `GameServiceImpl`. `GameStatus` now has exactly three values matching its three lifecycle states. (GL-BE-020)
 2. **Silent no-op on missing game** — `DynamoDbGameRepository.update()` returns silently if the game does not exist. The caller receives no error signal. (GL-API-005)
 3. **`findInProgress` client-side filter** — Queries all games for a user then filters in memory. Acceptable with the single-active invariant (≤1 IN_PROGRESS per user); a GSI would fix it at scale.
 4. **Validation before abandonment in import flow** — Deliberate design: avoids wasting a DynamoDB write on grids that will be rejected. (GL-BE-003)
 
 ## Work Required
 
-### Should Fix
-1. Remove or repurpose `GameStatus.IMPORTED` — it is never used as a status and creates a false impression that imported games have a distinct status. (GL-BE-020)
+### Nice to Have
+1. Return a typed error or log a warning when `update()` is called for a non-existent game, rather than silently no-oping. (GL-API-005)
 
 ### Nice to Have
 2. Return a typed error or log a warning when `update()` is called for a non-existent game, rather than silently no-oping. (GL-API-005)

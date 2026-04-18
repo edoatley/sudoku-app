@@ -55,14 +55,14 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 ## Key Findings
 
 1. **Target clue counts are not guarantees** — `digHoles()` stops early if uniqueness cannot be preserved. A generated "easy" puzzle may have more than 36 clues. (PG-BE-004)
-2. **Slug-to-rank matching is brittle** — `DevResource.rankForSlug()` matches by stripping hyphens and doing a `startsWith` on the lowercased class name. Renaming a strategy class silently breaks the demo without a compile error. (PG-DEV-001)
+2. **Slug-to-rank lookup** — Fixed. `DevResource` now builds a `Map<String, HintStrategy>` from `getSlug()` at construction time. A duplicate slug would throw `IllegalStateException` at startup. (PG-DEV-001)
 3. **`solveGrid()` is non-deterministic** — Delegates to `fillBoard()` which randomises digit order. For puzzles with a unique solution this always returns the correct answer, but two calls on the same incomplete grid may return different solutions.
 4. **Duplicate validation in mock** — `MockSudokuService.validatePuzzle()` duplicates the validation logic from `SudokuServiceImpl.validateByDuplicates()`. Changes to duplicate semantics require two updates.
 
 ## Work Required
 
-### Should Fix
-1. Replace `DevResource.rankForSlug()` name-matching convention with a direct `getSlug()` map lookup to make slug-to-rank resolution robust to class renames. (PG-DEV-001)
+### Nice to Have
+1. Extract `validateByDuplicates` logic into a shared utility to eliminate the duplication between `SudokuServiceImpl` and `MockSudokuService`.
 
 ### Nice to Have
 2. Extract `validateByDuplicates` logic into a shared utility to eliminate the duplication between `SudokuServiceImpl` and `MockSudokuService`.
