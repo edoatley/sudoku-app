@@ -4,7 +4,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 
 ## Status
 
-**MAPPED** - 2026-04-18. All Terraform files read and documented. No apply/drift audit performed.
+**AUDITED** - 2026-04-18. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists).
 
 ## References
 
@@ -18,7 +18,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 - docs/specs/cloud-platform-specs.md (18 specs, all [x])
 
 ### Tests
-- No infrastructure tests exist (no Terratest or equivalent)
+- No infrastructure tests exist (no Terratest or equivalent). This is an accepted gap.
 
 ### Code
 - infra/main.tf, infra/terraform.tf, infra/variables.tf, infra/outputs.tf
@@ -64,9 +64,11 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 
 ## Work Required
 
-### Must Fix
-1. Document ECR bootstrap prerequisite prominently in the infra README or Terraform root module. (CP-INFRA-012)
+### Done
 
-### Should Fix
-2. Add CloudWatch alarms on Lambda error rate and throttle metrics with SNS notification.
-3. Document source locations for `google_client_id`, `google_client_secret`, and `github_token` in `variables.tf` descriptions.
+1. ~~ECR bootstrap prerequisite~~: `infra/README.md` Bootstrap section already documents the `scripts/infra/bootstrap.sh` prerequisite and the ECR repository it creates. (CP-INFRA-012)
+2. ~~Variable source documentation~~: Added source location notes to `github_token`, `google_client_id`, and `google_client_secret` descriptions in `infra/variables.tf`.
+
+### Deferred
+
+1. Add CloudWatch alarms on Lambda error rate and throttle metrics with SNS notification. (separate feature work)

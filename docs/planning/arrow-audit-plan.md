@@ -147,7 +147,7 @@ Ordered by dependency (lower layers first):
 
 ## Arrow 6: cloud-platform
 
-**Status:** [ ] Complete
+**Status:** [x] Complete
 
 ### Test files to audit
 - No test files exist (no Terratest or equivalent). Note this explicitly in the arrow doc.

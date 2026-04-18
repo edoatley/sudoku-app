@@ -1,5 +1,5 @@
 variable "github_token" {
-  description = "GitHub classic OAuth token (repo scope) for Amplify repository connection."
+  description = "GitHub classic OAuth token (repo scope) for Amplify repository connection. In CI: AMPLIFY_GITHUB_TOKEN secret. Locally: scripts/.env.local."
   type        = string
   sensitive   = true
 }
@@ -41,13 +41,13 @@ variable "api_gateway_throttle_rate_limit" {
 }
 
 variable "google_client_id" {
-  description = "Google OAuth 2.0 Client ID for Cognito social login."
+  description = "Google OAuth 2.0 Client ID for Cognito social login. Source: Google Cloud Console → APIs & Services → Credentials. In CI: GOOGLE_CLIENT_ID secret. Locally: scripts/.env.local."
   type        = string
   sensitive   = true
 }
 
 variable "google_client_secret" {
-  description = "Google OAuth 2.0 Client Secret for Cognito social login."
+  description = "Google OAuth 2.0 Client Secret for Cognito social login. Source: Google Cloud Console → APIs & Services → Credentials. In CI: GOOGLE_CLIENT_SECRET secret. Locally: scripts/.env.local."
   type        = string
   sensitive   = true
 }
