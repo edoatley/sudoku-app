@@ -58,15 +58,15 @@ arrows:
     next: Move production email allowlist to env var; add PATCH /players/me
 
   - id: image-recognition
-    status: MAPPED
+    status: AUDITED
     lld: docs/llds/image-recognition.md
     specs: docs/specs/image-recognition-specs.md
     arrow: docs/arrows/image-recognition.md
     spec_count: 24
-    implemented: 24
-    deferred: 0
+    implemented: 19
+    deferred: 5
     gaps: 0
-    next: Fix AWS_REGION_NAME default (us-east-1 → eu-west-2); sync IAM with _MODELS
+    next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) when image quality data is available
 
   - id: cloud-platform
     status: MAPPED

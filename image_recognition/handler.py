@@ -27,10 +27,12 @@ if not logger.handlers:
 
 # ---------------------------------------------------------------------------
 # Model cascade — tried in order, first valid result wins.
+# Populated from the BEDROCK_MODELS env var (comma-separated) injected by
+# Terraform, which also generates the matching IAM policy from the same list.
+# The fallback keeps local/test runs working without any env configuration.
 # ---------------------------------------------------------------------------
-_MODELS = [
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-]
+_MODELS_DEFAULT = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+_MODELS = [m.strip() for m in os.environ.get("BEDROCK_MODELS", _MODELS_DEFAULT).split(",") if m.strip()]
 
 # Downscale to at most this many pixels on the longest edge before sending.
 # Reduces image-token cost and latency with no accuracy loss for grid reading.
@@ -44,7 +46,7 @@ _MIN_PLAUSIBLE_CLUES = 10
 # Configuration
 # ---------------------------------------------------------------------------
 
-_DEFAULT_REGION = "us-east-1"
+_DEFAULT_REGION = "eu-west-2"
 _AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
 
 # ---------------------------------------------------------------------------
@@ -115,7 +117,7 @@ def handler(event: dict, context: object) -> dict:
             return _error(400, "Image too large — maximum size is 8 MB.")
 
         # Downscale to reduce image-token cost; re-detect media type after
-        # image_bytes = _downscale_image(image_bytes) # Temporarily bypass to see if PIL is degrading the image too much
+        # image_bytes = _downscale_image(image_bytes)  # Deferred: IR-PROC-001–004; re-enable once PIL preprocessing value is confirmed
         
         client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
         grid, valid, model_name = _recognize_with_bedrock(client, image_bytes)

@@ -280,6 +280,33 @@ class TestHasRowColBoxDuplicate:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# handler() — warmup probe (IR-API-002)
+# ---------------------------------------------------------------------------
+
+
+class TestHandlerWarmup:
+
+    def test_warmup_returns_200(self):
+        response = handler.handler({"rawPath": "/api/v1/puzzles/import/warmup"}, None)
+        assert response["statusCode"] == 200
+
+    def test_warmup_does_not_invoke_bedrock(self):
+        with patch("handler.boto3") as mock_boto3:
+            handler.handler({"rawPath": "/api/v1/puzzles/import/warmup"}, None)
+            mock_boto3.client.assert_not_called()
+
+    def test_non_warmup_path_not_intercepted(self):
+        """A path that doesn't end with /warmup falls through to normal validation."""
+        response = handler.handler({"rawPath": "/api/v1/puzzles/import"}, None)
+        assert response["statusCode"] == 400  # no body → normal validation kicks in
+
+
+# ---------------------------------------------------------------------------
+# handler() — request validation (no AWS calls)
+# ---------------------------------------------------------------------------
+
+
 class TestHandlerRequestValidation:
 
     def test_missing_body_returns_400(self):

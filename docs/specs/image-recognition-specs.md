@@ -9,11 +9,11 @@
 
 ## Image Preprocessing
 
-- [x] **IR-PROC-001**: Where PIL is available, the system shall downscale images whose longest edge exceeds 800px using LANCZOS resampling before sending to Bedrock.
-- [x] **IR-PROC-002**: Where PIL is available and the image has an alpha channel, the system shall composite the image onto a white background before processing.
-- [x] **IR-PROC-003**: Where PIL is available, the system shall desaturate the image to greyscale before sending to Bedrock.
-- [x] **IR-PROC-004**: Where PIL is available, the system shall encode the processed image as JPEG at quality 85 before sending to Bedrock.
-- [x] **IR-PROC-005**: If PIL processing fails for any reason, the system shall fall back to sending the original image bytes without preprocessing.
+- [D] **IR-PROC-001**: Where PIL is available, the system shall downscale images whose longest edge exceeds 800px using LANCZOS resampling before sending to Bedrock.
+- [D] **IR-PROC-002**: Where PIL is available and the image has an alpha channel, the system shall composite the image onto a white background before processing.
+- [D] **IR-PROC-003**: Where PIL is available, the system shall desaturate the image to greyscale before sending to Bedrock.
+- [D] **IR-PROC-004**: Where PIL is available, the system shall encode the processed image as JPEG at quality 85 before sending to Bedrock.
+- [D] **IR-PROC-005**: If PIL processing fails for any reason, the system shall fall back to sending the original image bytes without preprocessing.
 - [x] **IR-PROC-006**: The system shall detect image format from magic bytes (PNG, JPEG, GIF, WebP) and default to JPEG for unknown formats.
 
 ## Bedrock Invocation

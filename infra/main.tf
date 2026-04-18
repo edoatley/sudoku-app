@@ -6,6 +6,13 @@ locals {
   is_rc      = startswith(terraform.workspace, "rc-")
   suffix     = local.is_default ? "" : "-${terraform.workspace}"
 
+  # Bedrock inference profiles used by the image recognition Lambda.
+  # This list is the single source of truth: IAM permissions and the Lambda
+  # BEDROCK_MODELS env var are both derived from it.
+  bedrock_models = [
+    "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  ]
+
   lambda_zip_bucket_id = local.is_default ? aws_s3_bucket.lambda_zip[0].id : data.aws_s3_bucket.lambda_zip_shared[0].id
 
   # Cognito references — rc workspaces share a single pool; others own theirs

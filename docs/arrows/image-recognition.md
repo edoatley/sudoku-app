@@ -52,18 +52,15 @@ Photo-to-grid extraction via Amazon Bedrock, with image preprocessing, two-stage
 ## Key Findings
 
 1. **Single model in cascade** — `_MODELS` contains only one entry (Claude Haiku). The cross-check and scoring logic is fully implemented but untested with multiple live models.
-2. **IAM vs code mismatch** — IAM policy grants `bedrock:InvokeModel` on 5 model ARNs (Nova Pro, Nova Lite, Mistral, Nemotron, Claude Haiku). Only Claude Haiku appears in `_MODELS`. (IR-PROC-010)
-3. **`AWS_REGION_NAME` defaults to us-east-1** — The rest of the system runs in eu-west-2. If the env var is not injected, Bedrock calls go to the wrong region. Terraform injects it correctly, but the default is a silent footgun.
-4. **PIL fallback is silent** — If PIL processing fails, original bytes are sent to Bedrock with no error signal to the caller. The model may receive a larger, colour image. (IR-PROC-005)
-5. **Warmup path matching** — The handler checks `"/warmup" in event["path"]` rather than an exact path match. Any path containing "/warmup" would be intercepted.
+2. **IAM vs code sync** — Fixed. `local.bedrock_models` in Terraform is the single source of truth; IAM `Resource` list and the Lambda `BEDROCK_MODELS` env var are both derived from it. Python reads `_MODELS` from the env var at startup.
+3. **`AWS_REGION_NAME` defaults to eu-west-2** — Fixed. Model switched from `global.` to `eu.` inference profile for EU data residency.
+4. **PIL preprocessing deferred** — IR-PROC-001–005 are `[D]`; `_downscale_image()` exists and is unit-tested but the call in `handler()` is commented out pending confirmation that preprocessing adds value.
+5. **Warmup uses `rawPath.endswith("/warmup")`** — exact suffix match; covered by test.
 
 ## Work Required
 
-### Must Fix
-1. Change `AWS_REGION_NAME` default from "us-east-1" to "eu-west-2" to eliminate the silent wrong-region footgun.
-
-### Should Fix
-2. Sync IAM policy model ARNs with the actual `_MODELS` list, or document that the IAM grants are intentionally broad for future use.
+### Nice to Have
+1. Add a second model to `_MODELS` (via `local.bedrock_models` in Terraform) to exercise the cross-check logic under real conditions.
 
 ### Nice to Have
 3. Add a second model to `_MODELS` to exercise the cross-check logic under real conditions.
