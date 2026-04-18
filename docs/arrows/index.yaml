@@ -47,7 +47,7 @@ arrows:
     next: ~
 
   - id: user-management
-    status: MAPPED
+    status: AUDITED
     lld: docs/llds/user-management.md
     specs: docs/specs/user-management-specs.md
     arrow: docs/arrows/user-management.md
@@ -55,7 +55,7 @@ arrows:
     implemented: 20
     deferred: 0
     gaps: 0
-    next: Move production email allowlist to env var; add PATCH /players/me
+    next: ~
 
   - id: image-recognition
     status: AUDITED

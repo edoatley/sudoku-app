@@ -128,7 +128,7 @@ Ordered by dependency (lower layers first):
 
 ## Arrow 5: user-management
 
-**Status:** [ ] Complete
+**Status:** [x] Complete
 
 ### Test files to audit
 - `backend/src/test/java/com/sudoku/player/PlayerResourceTest.java`

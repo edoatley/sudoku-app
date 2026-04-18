@@ -4,7 +4,7 @@ Player profile lazy-creation, JWT-based auth, email allowlist, CORS, and dev/tes
 
 ## Status
 
-**MAPPED** - 2026-04-18. All source files read and documented. No tests audited yet.
+**AUDITED** - 2026-04-18. All source files and tests read, annotated, and verified.
 
 ## References
 
@@ -18,7 +18,8 @@ Player profile lazy-creation, JWT-based auth, email allowlist, CORS, and dev/tes
 - docs/specs/user-management-specs.md (22 specs, all [x])
 
 ### Tests
-- backend/src/test/java/.../player/ (not yet audited)
+- backend/src/test/java/com/sudoku/player/PlayerResourceTest.java — covers UM-BE-001 to 002, UM-API-001, UM-DATA-001 to 002; @spec annotations added
+- backend/src/test/java/com/sudoku/auth/AllowedUsersFilterTest.java — covers UM-BE-010 to 012, UM-BE-020 to 022; @spec annotations added
 
 ### Code
 - backend/src/main/java/.../player/PlayerResource.java

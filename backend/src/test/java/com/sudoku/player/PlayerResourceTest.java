@@ -12,6 +12,7 @@ import java.security.Principal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
+// @spec UM-BE-001, UM-BE-002, UM-API-001, UM-DATA-001, UM-DATA-002
 class PlayerResourceTest {
 
     // A Principal that also implements JsonWebToken so we can test the cast path.
