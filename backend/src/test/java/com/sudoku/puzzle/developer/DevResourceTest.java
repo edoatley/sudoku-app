@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 // @spec PG-DEV-001
+// @spec PG-DEV-001, PG-DEV-004
 class DevResourceTest {
 
     private DevResource devResource;

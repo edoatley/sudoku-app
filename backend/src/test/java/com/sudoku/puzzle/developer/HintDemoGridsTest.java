@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * (either directly on the raw grid, or after autocompleting simpler strategies
  * as the DevResource does at runtime).
  */
+// @spec PG-DEV-002, PG-DEV-003
 class HintDemoGridsTest {
 
     // ---- full-house ----

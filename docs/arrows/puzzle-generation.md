@@ -4,7 +4,7 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 
 ## Status
 
-**MAPPED** - 2026-04-18. All source files read and documented. No tests audited yet.
+**AUDITED** - 2026-04-18. All source files and tests read, annotated, and verified.
 
 ## References
 
@@ -18,7 +18,12 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 - docs/specs/puzzle-generation-specs.md (15 specs, all [x])
 
 ### Tests
-- backend/src/test/java/.../puzzle/ (not yet audited)
+- backend/src/test/java/com/sudoku/puzzle/PuzzleGeneratorTest.java — covers PG-BE-001 to 006; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/PuzzleResourceTest.java — covers PG-API-001 to 004, PG-API-010 to 012; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/developer/MockSudokuServiceTest.java — covers PG-DEV-001 to 004; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/developer/HintDemoGridsTest.java — covers PG-DEV-002 to 003; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/developer/DevResourceTest.java — covers PG-DEV-001, PG-DEV-004; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/developer/PuzzleCandidateFinderTest.java — **deleted** (scratch file, zero assertions, javadoc marked for deletion)
 
 ### Code
 - backend/src/main/java/.../puzzle/PuzzleGenerator.java
@@ -63,6 +68,3 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 
 ### Nice to Have
 1. Extract `validateByDuplicates` logic into a shared utility to eliminate the duplication between `SudokuServiceImpl` and `MockSudokuService`.
-
-### Nice to Have
-2. Extract `validateByDuplicates` logic into a shared utility to eliminate the duplication between `SudokuServiceImpl` and `MockSudokuService`.

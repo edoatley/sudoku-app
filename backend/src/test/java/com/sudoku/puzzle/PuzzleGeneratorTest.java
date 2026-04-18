@@ -12,6 +12,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec PG-BE-001, PG-BE-002, PG-BE-003, PG-BE-004, PG-BE-005, PG-BE-006
 class PuzzleGeneratorTest {
 
     /** Fixed seed so tests are reproducible. */

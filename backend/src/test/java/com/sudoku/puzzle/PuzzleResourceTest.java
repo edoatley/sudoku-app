@@ -10,6 +10,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 @QuarkusTest
+// @spec PG-API-001, PG-API-002, PG-API-003, PG-API-004, PG-API-010, PG-API-011, PG-API-012
 class PuzzleResourceTest {
 
     // Partial easy board (0 = empty) — same as MockSudokuServiceTest.EASY_GRID

@@ -83,7 +83,7 @@ Ordered by dependency (lower layers first):
 
 ## Arrow 3: puzzle-generation
 
-**Status:** [ ] Complete
+**Status:** [x] Complete
 
 ### Test files to audit
 - `backend/src/test/java/com/sudoku/puzzle/PuzzleGeneratorTest.java`

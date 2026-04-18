@@ -25,7 +25,7 @@ arrows:
     next: ~
 
   - id: puzzle-generation
-    status: MAPPED
+    status: AUDITED
     lld: docs/llds/puzzle-generation-validation.md
     specs: docs/specs/puzzle-generation-specs.md
     arrow: docs/arrows/puzzle-generation.md
@@ -33,7 +33,7 @@ arrows:
     implemented: 17
     deferred: 0
     gaps: 0
-    next: Consider extracting validateByDuplicates into a shared utility (MockSudokuService/SudokuServiceImpl duplication)
+    next: ~
 
   - id: game-lifecycle
     status: MAPPED
