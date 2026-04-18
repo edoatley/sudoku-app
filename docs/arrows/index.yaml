@@ -3,7 +3,7 @@ updated: 2026-04-18
 
 arrows:
   - id: sudoku-logic
-    status: MAPPED
+    status: AUDITED
     lld: docs/llds/sudoku-logic.md
     specs: docs/specs/sudoku-logic-specs.md
     arrow: docs/arrows/sudoku-logic.md
@@ -11,7 +11,7 @@ arrows:
     implemented: 14
     deferred: 0
     gaps: 0
-    next: Fix IllegalArgumentException→InvalidPuzzleException translation chain
+    next: ~
 
   - id: hint-engine
     status: MAPPED

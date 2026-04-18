@@ -4,7 +4,7 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 
 ## Status
 
-**MAPPED** - 2026-04-18. All domain classes read and documented. No tests audited yet.
+**AUDITED** - 2026-04-18. All domain classes and tests read, annotated, and verified.
 
 ## References
 
@@ -18,7 +18,8 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 - docs/specs/sudoku-logic-specs.md (15 specs, all [x])
 
 ### Tests
-- backend/src/test/java/.../domain/ (not yet audited)
+- backend/src/test/java/com/sudoku/domain/BoardTest.java — covers SL-DATA-001 to 005, SL-PROC-001 to 003; @spec annotations added
+- backend/src/test/java/com/sudoku/domain/CellTest.java — covers SL-DATA-006 to 008; @spec annotations added
 
 ### Code
 - backend/src/main/java/.../domain/SudokuConstants.java
@@ -55,5 +56,5 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 
 ## Work Required
 
-### Should Fix
-1. `Board.fromGrid()` throws `IllegalArgumentException`; callers wrap it in `InvalidPuzzleException`. A domain-level `InvalidGridException` from `fromGrid()` would eliminate one translation step. (SL-DATA-003, SL-DATA-004)
+### Done
+1. ~~`Board.fromGrid()` throws `IllegalArgumentException`~~. Introduced `InvalidGridException` in `com.sudoku.domain`; `fromGrid()` now throws it directly. (SL-DATA-003, SL-DATA-004)
