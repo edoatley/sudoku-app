@@ -166,7 +166,7 @@ Ordered by dependency (lower layers first):
 
 ## Arrow 7: react-frontend
 
-**Status:** [ ] Complete
+**Status:** [x] Complete
 
 ### Test files to audit
 - No `*.test.jsx` files found under `ui/src/`. Note this explicitly.
@@ -194,4 +194,4 @@ To resume this plan in a new session:
 6. Commit with the specified message
 7. Check the box and move to the next arrow
 
-Current state: **Arrow 1 complete** — begin with Arrow 2: hint-engine.
+Current state: **ALL ARROWS AUDITED** — audit pass complete 2026-04-18.

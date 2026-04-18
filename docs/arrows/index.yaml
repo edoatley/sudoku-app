@@ -80,7 +80,7 @@ arrows:
     next: ~
 
   - id: react-frontend
-    status: MAPPED
+    status: AUDITED
     lld: docs/llds/react-frontend.md
     specs: docs/specs/react-frontend-specs.md
     arrow: docs/arrows/react-frontend.md
@@ -88,4 +88,4 @@ arrows:
     implemented: 39
     deferred: 0
     gaps: 0
-    next: Delete GameControls.jsx stub; verify TutorialModal markdown source
+    next: ~

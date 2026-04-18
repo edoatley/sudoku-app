@@ -4,7 +4,7 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 
 ## Status
 
-**MAPPED** - 2026-04-18. All source files read and documented. No component or E2E tests audited yet.
+**AUDITED** - 2026-04-18. All source files read and documented. No frontend tests exist (no .test.jsx or e2e files); this is an accepted gap.
 
 ## References
 
@@ -18,8 +18,8 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 - docs/specs/react-frontend-specs.md (30 specs, all [x])
 
 ### Tests
-- ui/src/**/*.test.jsx (not yet audited)
-- ui/e2e/ (not yet audited)
+- No `.test.jsx` files exist under `ui/src/` — accepted gap.
+- No e2e tests exist under `ui/e2e/` — accepted gap.
 
 ### Code
 - ui/src/App.jsx, ui/src/main.jsx
@@ -68,9 +68,9 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 
 ## Work Required
 
-### Should Fix
-1. Delete `GameControls.jsx` — it is a dead stub returning null. (no spec affected)
-2. Verify tutorial markdown files are committed to `ui/public/techniques/` or generated at build time and document this clearly. (FE-UI-015)
+### Done
+1. ~~Delete `GameControls.jsx`~~ — deleted; it was a dead stub returning null. (no spec affected)
+2. ~~Verify tutorial markdown files~~ — confirmed all 11 files exist in `ui/public/techniques/`; added source comment in `TutorialModal.jsx`. (FE-UI-015)
 
 ### Nice to Have
 3. Persist game history to the server (e.g., via a GET /players/me/history endpoint) so it survives browser storage clears. (FE-UI-042)

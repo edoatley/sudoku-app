@@ -1,3 +1,7 @@
+// @spec FE-UI-015
+// Tutorial markdown files are static assets committed to ui/public/techniques/{slug}.md
+// (one file per strategy slug). They are served directly by Vite's dev server and
+// copied into the Amplify build output at build time — no runtime generation needed.
 import { useState, useEffect } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
