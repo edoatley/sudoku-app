@@ -2,6 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
+import com.sudoku.domain.Grid;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +34,7 @@ class BoardUtilsTest {
 
     @BeforeEach
     void setUp() {
-        board = Board.fromGrid(EMPTY_GRID);
+        board = Board.fromGrid(Grid.of((EMPTY_GRID)));
         board.calculateAllCandidates();
     }
 
@@ -68,7 +69,7 @@ class BoardUtilsTest {
             }
             grid.add(row);
         }
-        Board partialBoard = Board.fromGrid(grid);
+        Board partialBoard = Board.fromGrid(Grid.of((grid)));
         partialBoard.calculateAllCandidates();
 
         List<Integer> cols = candidateColumnsInRow(partialBoard, 0, 5);
@@ -105,7 +106,7 @@ class BoardUtilsTest {
             }
             grid.add(row);
         }
-        Board partialBoard = Board.fromGrid(grid);
+        Board partialBoard = Board.fromGrid(Grid.of((grid)));
         partialBoard.calculateAllCandidates();
 
         List<Integer> rows = candidateRowsInColumn(partialBoard, 0, 7);

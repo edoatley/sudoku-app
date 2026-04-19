@@ -38,12 +38,12 @@ Key behavioral invariant: when `setValue()` is called, the candidates set is cle
 
 `Board` is the 9×9 grid. The structure (which cell is at which coordinate) is fixed at construction; the cell states evolve.
 
-**Factory:** `Board.fromGrid(List<List<Integer>>)` validates:
+**Factory:** `Board.fromGrid(Grid)` validates:
 
 - Grid must be 9×9 (exactly 9 rows, each with exactly 9 columns)
 - Each value must be in range [0, 9] (0 = empty)
 
-If validation fails, an `IllegalArgumentException` is thrown.
+If validation fails, an `InvalidGridException` is thrown (in `com.sudoku.domain`).
 
 **Internals:** Cells are stored in a `Cell[][]` array (9×9). The board exposes three unit views:
 
@@ -56,7 +56,7 @@ If validation fails, an `IllegalArgumentException` is thrown.
 
 **Candidate calculation:** `calculateAllCandidates()` computes candidates for every empty cell by eliminating digits already present in the cell's row, column, and block. This is called before any hint strategy runs.
 
-**Serialization:** `toCandidatesGrid()` converts the internal candidate sets to `List<List<List<Integer>>>` (9×9 outer, inner list of candidate digits) for REST response serialization.
+**Serialization:** `toCandidatesGrid()` converts the internal candidate sets to a `CandidatesGrid` record (wire format: `{"rows": [[[...],...],...]}`) for REST response serialization.
 
 ### BoardUtils
 
@@ -100,14 +100,12 @@ Coordinates are zero-based throughout the entire system. This is enforced at the
 | Candidates as `Set<Integer>` on Cell | Each cell owns its candidate set | Separate candidates array, external candidates map | Keeps related data co-located; Cell is the natural owner |
 | `setValue()` clears candidates | Side effect built into setter | Caller responsibility | Invariant enforcement — a solved cell must have no candidates |
 | Zero-based coordinates throughout | All (row, col) are 0-indexed | 1-indexed (user-facing) | Simplifies array indexing; REST layer serializes the same values |
-| Static factory `fromGrid()` with validation | Throws `IllegalArgumentException` on bad input | Separate validator class, Optional return | Fail-fast at boundary; callers (PuzzleGenerator, REST) catch and translate |
+| Static factory `fromGrid()` with validation | Throws `InvalidGridException` on bad input | Separate validator class, Optional return | Fail-fast at boundary; `InvalidGridExceptionMapper` translates to HTTP 400 |
 | `BoardUtils` as stateless helper class | Static methods in separate class | Methods on Board, utility methods on Cell | Keeps Board focused on state; geometry helpers used only by hint strategies |
 
 ## Technical Debt & Inconsistencies
 
-- `Board.fromGrid()` throws `IllegalArgumentException` but the game layer catches and wraps it in `InvalidPuzzleException`. The exception type mismatch is functional but inelegant.
 - Candidate calculation runs on every hint request (full recalculation). There is no caching — acceptable for serverless (stateless per-request) but worth noting.
-- `toCandidatesGrid()` returns a `List<List<List<Integer>>>` which is verbose to work with in callers.
 
 ## Behavioral Quirks
 

@@ -3,6 +3,8 @@ package com.sudoku.game;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sudoku.domain.CandidatesGrid;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
@@ -87,10 +89,10 @@ public class GameItem {
         item.setUserId(state.userId());
         item.setGameId(state.gameId());
         item.setDifficulty(state.difficulty());
-        item.setOriginalGrid(toJson(state.originalGrid()));
-        item.setSolutionGrid(state.solutionGrid() != null ? toJson(state.solutionGrid()) : null);
-        item.setCurrentGrid(toJson(state.currentGrid()));
-        item.setCandidates(toJson(state.candidates()));
+        item.setOriginalGrid(toJson(state.originalGrid().rows()));
+        item.setSolutionGrid(toJson(state.solutionGrid().rows()));
+        item.setCurrentGrid(toJson(state.currentGrid().rows()));
+        item.setCandidates(toJson(state.candidates().rows()));
         item.setTimeSpentSeconds(state.timeSpentSeconds());
         item.setStatus(state.status());
         item.setHintsUsed(state.hintsUsed());
@@ -104,10 +106,10 @@ public class GameItem {
                 userId,
                 gameId,
                 difficulty,
-                fromJson(originalGrid, new TypeReference<List<List<Integer>>>() {}),
-                solutionGrid != null ? fromJson(solutionGrid, new TypeReference<List<List<Integer>>>() {}) : null,
-                fromJson(currentGrid, new TypeReference<List<List<Integer>>>() {}),
-                fromJson(candidates, new TypeReference<List<List<List<Integer>>>>() {}),
+                Grid.of(fromJson(originalGrid, new TypeReference<List<List<Integer>>>() {})),
+                Grid.of(fromJson(solutionGrid, new TypeReference<List<List<Integer>>>() {})),
+                Grid.of(fromJson(currentGrid, new TypeReference<List<List<Integer>>>() {})),
+                CandidatesGrid.of(fromJson(candidates, new TypeReference<List<List<List<Integer>>>>() {})),
                 timeSpentSeconds,
                 status,
                 hintsUsed,
@@ -129,8 +131,8 @@ public class GameItem {
     }
 
     void applyUpdate(GameUpdateRequest request, String now) {
-        setCurrentGrid(toJson(request.currentGrid()));
-        setCandidates(toJson(request.candidates()));
+        setCurrentGrid(toJson(request.currentGrid().rows()));
+        setCandidates(toJson(request.candidates().rows()));
         setTimeSpentSeconds(request.timeSpentSeconds());
         if (Boolean.TRUE.equals(request.isComplete())) {
             setStatus(GameStatus.SOLVED.getValue());

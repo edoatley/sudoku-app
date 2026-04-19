@@ -2,6 +2,7 @@ package com.sudoku.puzzle.developer;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
 import com.sudoku.dto.Coordinate;
@@ -16,7 +17,7 @@ import java.util.stream.IntStream;
 
 public class MockSudokuService {
 
-    private static final List<List<Integer>> EASY_GRID = List.of(
+    private static final Grid EASY_GRID = Grid.of(List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
             List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -26,9 +27,9 @@ public class MockSudokuService {
             List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
             List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-    );
+    ));
 
-    private static final List<List<Integer>> MEDIUM_GRID = List.of(
+    private static final Grid MEDIUM_GRID = Grid.of(List.of(
             List.of(0, 0, 0, 2, 6, 0, 7, 0, 1),
             List.of(6, 8, 0, 0, 7, 0, 0, 9, 0),
             List.of(1, 9, 0, 0, 0, 4, 5, 0, 0),
@@ -38,9 +39,9 @@ public class MockSudokuService {
             List.of(0, 0, 9, 3, 0, 0, 0, 7, 4),
             List.of(0, 4, 0, 0, 5, 0, 0, 3, 6),
             List.of(7, 0, 3, 0, 1, 8, 0, 0, 0)
-    );
+    ));
 
-    private static final List<List<Integer>> HARD_GRID = List.of(
+    private static final Grid HARD_GRID = Grid.of(List.of(
             List.of(0, 0, 0, 0, 0, 0, 6, 8, 0),
             List.of(0, 0, 0, 0, 7, 3, 0, 0, 9),
             List.of(3, 0, 9, 0, 0, 0, 0, 4, 5),
@@ -50,7 +51,7 @@ public class MockSudokuService {
             List.of(9, 6, 0, 0, 0, 0, 3, 0, 8),
             List.of(7, 0, 0, 6, 8, 0, 0, 0, 0),
             List.of(0, 2, 8, 0, 0, 0, 0, 0, 0)
-    );
+    ));
 
     private static final Map<String, PuzzleResponse> PUZZLE_MAP = Map.of(
             "easy",   new PuzzleResponse(EASY_GRID,   null, "easy"),

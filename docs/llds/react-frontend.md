@@ -145,7 +145,11 @@ All backend communication goes through a single module. Every function checks `V
 
 - HTTP 403 → throws `ForbiddenError` (caught by `usePlayerProfile`, triggers forbidden screen)
 - HTTP 204 → returns `null`
-- Other errors → parses JSON error body or uses HTTP status text
+- Other errors → parses JSON error body; reads `errorBody.message` as primary error field, falls back to `errorBody.error` for backwards compatibility
+
+**Wire adapter:** `sudokuApi.js` imports `gridFromWire`, `gridToWire`, `candidatesFromWire`, `candidatesToWire` from `utils/gridAdapters.js`. All outbound grid fields are wrapped with `gridToWire`/`candidatesToWire`; all inbound responses unwrap via `gridFromWire`/`candidatesFromWire`. Internal hook state always uses plain arrays — the `Grid` wire format never propagates past `sudokuApi.js`.
+
+Mock paths also call the unwrap helpers so the hook receives the same plain-array format regardless of `VITE_MOCK_API`.
 
 **Endpoints:**
 
@@ -232,7 +236,8 @@ Theme is created with `useMemo` and only recalculated when `colorMode` changes.
 - **E2E tests:** Playwright (two suites: standard + hint-demos)
 - **Coverage:** V8 provider, JUnit reporter
 - **localStorage mock:** `test-setup.js` implements in-memory `localStorage`/`sessionStorage` (jsdom 26 does not expose them natively)
-- **Mock data:** `mocks/cannedData.js` provides canned puzzles, hint, validation, game state, and candidates for `VITE_MOCK_API=true` mode
+- **Mock data:** `mocks/cannedData.js` provides canned puzzles, hint, validation, game state, and candidates for `VITE_MOCK_API=true` mode; all grid fields are in wire format (`{rows: [...]}`)
+- **Test isolation:** Tests that mock `sudokuApi.js` directly (e.g., `useSudokuGame.test.js`) must provide pre-unwrapped plain arrays since the real adapter code is bypassed
 
 ## Observed Design Decisions
 
@@ -249,17 +254,13 @@ Theme is created with `useMemo` and only recalculated when `colorMode` changes.
 ## Technical Debt & Inconsistencies
 
 - `useSudokuGame` is a very large hook. Several concerns (timer, localStorage sync, auto-save, hint management) could each be extracted into smaller hooks without changing the external interface.
-- `TutorialModal` fetches markdown from `/techniques/{slug}.md` — a path relative to the deployed origin. In dev mode this file must exist in the `public/` directory or the modal shows an error. It is unclear whether these markdown files are committed to the repo or generated.
-- The auto-save interval (60 seconds) was noted as 5 seconds in earlier implementation notes. Verify the actual value in `useSudokuGame` if precision matters.
-- `GameControls.jsx` exists but returns `null` — game controls were moved to the Header hamburger menu. The file is a dead stub.
+- `TutorialModal` fetches markdown from `/techniques/{slug}.md` — confirmed that all 11 files exist in `ui/public/techniques/`.
 - `usePlayerProfile.recordGame()` stores the last 10 games in localStorage only — there is no API endpoint to persist game history server-side. History is lost if the user clears their browser storage.
-- `cannedData.js` canned puzzles have `null` solution grids. This means validation in mock mode always uses the duplicate-detection path, not the solution-comparison path. Mock mode cannot test the solution-comparison validation flow.
 
 ## Behavioral Quirks
 
 - Selecting a number then clicking an empty cell places it; clicking a filled cell selects it (does not overwrite unless selectedNumber is set and inputMode is normal). The interaction model is tap-number-then-tap-cell OR tap-cell-then-tap-number — both orderings work.
 - `loadDemoGame` does not call `createGame` on the backend — demo grids are local-only. If the user refreshes after loading a demo, `localStorage` has a game with no server counterpart; `GET /games/current` will return 204, and the stale localStorage data will be discarded.
-- In mock mode, `generatePuzzle` returns a puzzle with `solutionGrid: null`. The game runs without a server-stored solution — validation uses duplicate detection only.
 - The `completedNumbers` set (digits appearing 9 times) is computed from `currentGrid` in `App.jsx` via `useMemo`, not inside `useSudokuGame`. This means the number pad and the hook are slightly decoupled — the hook doesn't know which numbers are "complete".
 
 ## References
@@ -269,6 +270,7 @@ Theme is created with `useMemo` and only recalculated when `colorMode` changes.
 - `ui/src/hooks/useSudokuGame.js`, `ui/src/hooks/usePlayerProfile.js`
 - `ui/src/components/` (all component files)
 - `ui/src/utils/avatarIcons.js`
+- `ui/src/utils/gridAdapters.js`
 - `ui/src/mocks/cannedData.js`
 - `ui/src/test-setup.js`
 - `ui/package.json`, `ui/vite.config.js`

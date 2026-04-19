@@ -1,4 +1,6 @@
+// @spec DT-UI-005, DT-UI-006, DT-UI-007, DT-UI-008
 import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, CANNED_GAME_STATE } from '../mocks/cannedData.js';
+import { gridFromWire, gridToWire, candidatesFromWire, candidatesToWire } from '../utils/gridAdapters.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
@@ -53,7 +55,9 @@ async function apiFetch(label, url, options = {}, authenticated = false) {
       const contentType = res.headers.get('content-type') ?? '';
       if (contentType.includes('application/json')) {
         const errorBody = await res.json();
-        if (typeof errorBody.error === 'string' && errorBody.error.length > 0) {
+        if (typeof errorBody.message === 'string' && errorBody.message.length > 0) {
+          message = errorBody.message;
+        } else if (typeof errorBody.error === 'string' && errorBody.error.length > 0) {
           message = errorBody.error;
         }
       }
@@ -74,13 +78,36 @@ async function apiFetch(label, url, options = {}, authenticated = false) {
   return data;
 }
 
+// @spec DT-UI-006 — unwrap grid fields from a PuzzleResponse wire object
+function unwrapPuzzleResponse(data) {
+  if (!data) return data;
+  return {
+    ...data,
+    originalGrid: gridFromWire(data.originalGrid),
+    solutionGrid: gridFromWire(data.solutionGrid),
+  };
+}
+
+// @spec DT-UI-006 — unwrap grid fields from a GameState wire object
+function unwrapGameState(data) {
+  if (!data) return data;
+  return {
+    ...data,
+    originalGrid: gridFromWire(data.originalGrid),
+    currentGrid: gridFromWire(data.currentGrid),
+    solutionGrid: gridFromWire(data.solutionGrid),
+    candidates: candidatesFromWire(data.candidates),
+  };
+}
+
 export async function generatePuzzle(difficulty, signal) {
   if (MOCK_API) {
     await delay(400);
-    return CANNED_PUZZLES[difficulty] ?? CANNED_PUZZLES.easy;
+    return unwrapPuzzleResponse(CANNED_PUZZLES[difficulty] ?? CANNED_PUZZLES.easy);
   }
 
-  return apiFetch('generatePuzzle', `${API_URL}/puzzles/generate?difficulty=${difficulty}`, { signal });
+  const data = await apiFetch('generatePuzzle', `${API_URL}/puzzles/generate?difficulty=${difficulty}`, { signal });
+  return unwrapPuzzleResponse(data);
 }
 
 export async function validatePuzzle(currentGrid, solutionGrid = null) {
@@ -92,7 +119,7 @@ export async function validatePuzzle(currentGrid, solutionGrid = null) {
   return apiFetch('validatePuzzle', `${API_URL}/puzzles/validate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentGrid, solutionGrid }),
+    body: JSON.stringify({ currentGrid: gridToWire(currentGrid), solutionGrid: gridToWire(solutionGrid) }),
   });
 }
 
@@ -102,7 +129,7 @@ export async function getHint(currentGrid, minRank = null, excludedRanks = null)
     return CANNED_HINT;
   }
 
-  const body = { currentGrid };
+  const body = { currentGrid: gridToWire(currentGrid) };
   if (minRank != null) body.minRank = minRank;
   if (excludedRanks?.length > 0) body.excludedRanks = excludedRanks;
   return apiFetch('getHint', `${API_URL}/puzzles/hint`, {
@@ -118,33 +145,36 @@ export async function getCandidates(currentGrid) {
     return CANNED_CANDIDATES;
   }
 
-  return apiFetch('getCandidates', `${API_URL}/puzzles/candidates`, {
+  const data = await apiFetch('getCandidates', `${API_URL}/puzzles/candidates`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentGrid }),
+    body: JSON.stringify({ currentGrid: gridToWire(currentGrid) }),
   });
+  return data ? { ...data, candidatesGrid: candidatesFromWire(data.candidatesGrid) } : data;
 }
 
 export async function createGame(difficulty) {
   if (MOCK_API) {
     await delay(400);
-    return { ...CANNED_GAME_STATE, difficulty };
+    return unwrapGameState({ ...CANNED_GAME_STATE, difficulty });
   }
 
-  return apiFetch('createGame', `${API_URL}/games`, {
+  const data = await apiFetch('createGame', `${API_URL}/games`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ difficulty }),
   }, true);
+  return unwrapGameState(data);
 }
 
 export async function loadGame(gameId) {
   if (MOCK_API) {
     await delay(200);
-    return { ...CANNED_GAME_STATE, gameId };
+    return unwrapGameState({ ...CANNED_GAME_STATE, gameId });
   }
 
-  return apiFetch('loadGame', `${API_URL}/games/${gameId}`, {}, true);
+  const data = await apiFetch('loadGame', `${API_URL}/games/${gameId}`, {}, true);
+  return unwrapGameState(data);
 }
 
 export async function getCurrentGame() {
@@ -153,7 +183,8 @@ export async function getCurrentGame() {
     return null;
   }
 
-  return apiFetch('getCurrentGame', `${API_URL}/games/current`, {}, true);
+  const data = await apiFetch('getCurrentGame', `${API_URL}/games/current`, {}, true);
+  return unwrapGameState(data);
 }
 
 export async function saveGame(gameId, { currentGrid, candidates, timeSpentSeconds, isComplete = false, hintsUsed }) {
@@ -165,7 +196,13 @@ export async function saveGame(gameId, { currentGrid, candidates, timeSpentSecon
   return apiFetch('saveGame', `${API_URL}/games/${gameId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ currentGrid, candidates, timeSpentSeconds, isComplete, hintsUsed }),
+    body: JSON.stringify({
+      currentGrid: gridToWire(currentGrid),
+      candidates: candidatesToWire(candidates),
+      timeSpentSeconds,
+      isComplete,
+      hintsUsed,
+    }),
   }, true);
 }
 
@@ -181,15 +218,16 @@ function fileToBase64(file) {
 export async function importPuzzle(imageFile) {
   if (MOCK_API) {
     await delay(1200);
-    return { originalGrid: CANNED_PUZZLES.easy.originalGrid };
+    return { originalGrid: gridFromWire(CANNED_PUZZLES.easy.originalGrid) };
   }
 
   const base64 = await fileToBase64(imageFile);
-  return apiFetch('importPuzzle', `${API_URL}/puzzles/import`, {
+  const data = await apiFetch('importPuzzle', `${API_URL}/puzzles/import`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64 }),
   }, true);
+  return data ? { ...data, originalGrid: gridFromWire(data.originalGrid) } : data;
 }
 
 export async function warmupImageRecognition() {
@@ -204,10 +242,11 @@ export async function warmupImageRecognition() {
 export async function getDemoGrid(technique) {
   if (MOCK_API) {
     await delay(200);
-    return CANNED_PUZZLES.easy;
+    return unwrapPuzzleResponse(CANNED_PUZZLES.easy);
   }
 
-  return apiFetch('getDemoGrid', `${API_URL}/dev/hint-demo?technique=${encodeURIComponent(technique)}`);
+  const data = await apiFetch('getDemoGrid', `${API_URL}/dev/hint-demo?technique=${encodeURIComponent(technique)}`);
+  return unwrapPuzzleResponse(data);
 }
 
 export async function getPlayerProfile() {
@@ -226,12 +265,14 @@ export async function getDevData(entity) {
 export async function createGameFromGrid(originalGrid) {
   if (MOCK_API) {
     await delay(300);
-    return { ...CANNED_GAME_STATE, originalGrid, currentGrid: originalGrid.map((r) => [...r]) };
+    const base = unwrapGameState(CANNED_GAME_STATE);
+    return { ...base, originalGrid, currentGrid: originalGrid.map((r) => [...r]) };
   }
 
-  return apiFetch('createGameFromGrid', `${API_URL}/games/from-image`, {
+  const data = await apiFetch('createGameFromGrid', `${API_URL}/games/from-image`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ originalGrid }),
+    body: JSON.stringify({ originalGrid: gridToWire(originalGrid) }),
   }, true);
+  return unwrapGameState(data);
 }

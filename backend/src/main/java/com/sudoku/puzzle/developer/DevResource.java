@@ -1,5 +1,6 @@
 package com.sudoku.puzzle.developer;
 
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.puzzle.hint.HintStrategy;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,7 +13,6 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -52,7 +52,7 @@ public class DevResource {
                     .build();
         }
 
-        List<List<Integer>> grid = HintDemoGrids.forSlug(technique);
+        Grid grid = HintDemoGrids.forSlug(technique);
         if (grid == null) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity("{\"error\":\"Unknown technique: " + technique + "\"}")

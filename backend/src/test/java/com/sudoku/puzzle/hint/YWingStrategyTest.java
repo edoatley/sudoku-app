@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
@@ -50,7 +51,7 @@ class YWingStrategyTest {
 
     @Test
     void yWing_detection_returnsHint() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         clearAllCandidates(board);
 
         // Pivot at (2,4) has {3,7}
@@ -85,7 +86,7 @@ class YWingStrategyTest {
 
     @Test
     void yWing_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         assertTrue(strategy.evaluate(board).isEmpty());
@@ -93,7 +94,7 @@ class YWingStrategyTest {
 
     @Test
     void yWing_markdownSlug_and_difficulty() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         clearAllCandidates(board);
         board.getCell(2, 4).setCandidates(Set.of(3, 7));
         board.getCell(2, 8).setCandidates(Set.of(3, 5));

@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +50,7 @@ class SwordfishStrategyTest {
 
     @Test
     void swordfish_rowBased_returnsHint() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         clearAllCandidates(board);
 
         // Digit 7 spans exactly 3 columns {1, 4, 7} across rows 0, 3, 6 — Swordfish
@@ -83,7 +84,7 @@ class SwordfishStrategyTest {
 
     @Test
     void swordfish_columnBased_returnsHint() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         clearAllCandidates(board);
 
         // Digit 4 spans exactly 3 rows {2, 5, 8} across columns 0, 3, 6 — Swordfish
@@ -115,7 +116,7 @@ class SwordfishStrategyTest {
 
     @Test
     void swordfish_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         assertTrue(strategy.evaluate(board).isEmpty());
@@ -123,7 +124,7 @@ class SwordfishStrategyTest {
 
     @Test
     void swordfish_markdownSlug_and_difficulty() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         clearAllCandidates(board);
         board.getCell(0, 1).setCandidates(Set.of(7, 2));
         board.getCell(0, 4).setCandidates(Set.of(7, 3));

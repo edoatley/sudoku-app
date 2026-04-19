@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BoardTest {
 
-    private static final List<List<Integer>> EASY_GRID = List.of(
+    private static final Grid EASY_GRID = Grid.of(List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
             List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -20,7 +20,7 @@ class BoardTest {
             List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
             List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-    );
+    ));
 
     // Correct candidates computed by pure row/col/block elimination from EASY_GRID
     private static final List<List<List<Integer>>> EXPECTED_CANDIDATES = List.of(
@@ -64,14 +64,14 @@ class BoardTest {
     // @spec SL-DATA-003
     @Test
     void fromGridThrowsOnWrongRowCount() {
-        List<List<Integer>> bad = EASY_GRID.subList(0, 8);
+        Grid bad = Grid.of(EASY_GRID.rows().subList(0, 8));
         assertThrows(InvalidGridException.class, () -> Board.fromGrid(bad));
     }
 
     // @spec SL-DATA-003
     @Test
     void fromGridThrowsOnWrongColumnCount() {
-        List<List<Integer>> bad = List.of(
+        Grid bad = Grid.of(List.of(
                 List.of(5, 3, 0, 0, 7, 0, 0, 0), // only 8 cols
                 List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
                 List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -81,14 +81,14 @@ class BoardTest {
                 List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
                 List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
                 List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-        );
+        ));
         assertThrows(InvalidGridException.class, () -> Board.fromGrid(bad));
     }
 
     // @spec SL-DATA-004
     @Test
     void fromGridThrowsOnOutOfRangeCellValue() {
-        List<List<Integer>> bad = List.of(
+        Grid bad = Grid.of(List.of(
                 List.of(5, 3, 0, 0, 7, 0, 0, 0, 10), // 10 is out of range
                 List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
                 List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -98,7 +98,7 @@ class BoardTest {
                 List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
                 List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
                 List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-        );
+        ));
         assertThrows(InvalidGridException.class, () -> Board.fromGrid(bad));
     }
 
@@ -197,7 +197,7 @@ class BoardTest {
     void toCandidatesGridMatchesMockServiceResponse() {
         Board board = Board.fromGrid(EASY_GRID);
         board.calculateAllCandidates();
-        List<List<List<Integer>>> actual = board.toCandidatesGrid();
-        assertEquals(EXPECTED_CANDIDATES, actual);
+        CandidatesGrid actual = board.toCandidatesGrid();
+        assertEquals(EXPECTED_CANDIDATES, actual.rows());
     }
 }

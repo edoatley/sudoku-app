@@ -1,5 +1,6 @@
 package com.sudoku.puzzle;
 
+import com.sudoku.domain.Grid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -23,12 +24,12 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_producesValidNineByNineGrid(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
+        Grid grid = generator.generate(difficulty).puzzle();
 
         assertNotNull(grid);
         assertEquals(9, grid.size(), "grid must have 9 rows");
         for (int r = 0; r < 9; r++) {
-            List<Integer> row = grid.get(r);
+            List<Integer> row = grid.row(r);
             assertEquals(9, row.size(), "row " + r + " must have 9 columns");
             for (int c = 0; c < 9; c++) {
                 int val = row.get(c);
@@ -41,7 +42,7 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_cluesContainNoConflicts(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
+        Grid grid = generator.generate(difficulty).puzzle();
 
         // Rows
         for (int r = 0; r < 9; r++) {
@@ -61,35 +62,35 @@ class PuzzleGeneratorTest {
 
     @Test
     void generate_easy_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("easy").puzzle();
+        Grid grid = generator.generate("easy").puzzle();
         assertTrue(countClues(grid) >= 36,
                 "Easy should have ≥36 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_medium_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("medium").puzzle();
+        Grid grid = generator.generate("medium").puzzle();
         assertTrue(countClues(grid) >= 30,
                 "Medium should have ≥30 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_hard_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("hard").puzzle();
+        Grid grid = generator.generate("hard").puzzle();
         assertTrue(countClues(grid) >= 25,
                 "Hard should have ≥25 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_expert_hasAtLeastExpectedClues() {
-        List<List<Integer>> grid = generator.generate("expert").puzzle();
+        Grid grid = generator.generate("expert").puzzle();
         assertTrue(countClues(grid) >= 22,
                 "Expert should have ≥22 clues, got " + countClues(grid));
     }
 
     @Test
     void generate_unknownDifficulty_fallsBackToMedium() {
-        List<List<Integer>> grid = generator.generate("unknown").puzzle();
+        Grid grid = generator.generate("unknown").puzzle();
         assertTrue(countClues(grid) >= 30,
                 "Unknown difficulty should fall back to medium (≥30 clues)");
     }
@@ -99,7 +100,7 @@ class PuzzleGeneratorTest {
     @ParameterizedTest
     @ValueSource(strings = {"easy", "medium", "hard", "expert"})
     void generate_puzzleHasUniqueSolution(String difficulty) {
-        List<List<Integer>> grid = generator.generate(difficulty).puzzle();
+        Grid grid = generator.generate(difficulty).puzzle();
         int[][] puzzle = toArray(grid);
         assertEquals(1, countSolutions(puzzle, 0),
                 difficulty + " puzzle must have exactly one solution");
@@ -109,7 +110,7 @@ class PuzzleGeneratorTest {
 
     @Test
     void solveGrid_knownPuzzle_returnsCompleteSolution() {
-        List<List<Integer>> puzzle = List.of(
+        Grid puzzle = Grid.of(List.of(
                 List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
                 List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
                 List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -119,12 +120,12 @@ class PuzzleGeneratorTest {
                 List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
                 List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
                 List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-        );
+        ));
 
-        Optional<List<List<Integer>>> result = generator.solveGrid(puzzle);
+        Optional<Grid> result = generator.solveGrid(puzzle);
 
         assertTrue(result.isPresent(), "Valid puzzle must have a solution");
-        result.get().forEach(row ->
+        result.get().rows().forEach(row ->
                 row.forEach(v -> assertTrue(v >= 1 && v <= 9,
                         "Every cell must be 1-9 in the solution, got " + v)));
         assertEquals(1, countSolutions(toArray(result.get()), 0),
@@ -134,7 +135,7 @@ class PuzzleGeneratorTest {
     @Test
     void solveGrid_contradictoryGrid_returnsEmpty() {
         // Two 5s in the same row — no solution possible
-        List<List<Integer>> invalid = List.of(
+        Grid invalid = Grid.of(List.of(
                 List.of(5, 3, 0, 0, 5, 0, 0, 0, 0),
                 List.of(6, 0, 0, 1, 9, 0, 0, 0, 0),
                 List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -144,9 +145,9 @@ class PuzzleGeneratorTest {
                 List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
                 List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
                 List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-        );
+        ));
 
-        Optional<List<List<Integer>>> result = generator.solveGrid(invalid);
+        Optional<Grid> result = generator.solveGrid(invalid);
 
         assertTrue(result.isEmpty(), "Contradictory puzzle must return empty");
     }
@@ -165,9 +166,9 @@ class PuzzleGeneratorTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private int countClues(List<List<Integer>> grid) {
+    private int countClues(Grid grid) {
         int count = 0;
-        for (List<Integer> row : grid) {
+        for (List<Integer> row : grid.rows()) {
             for (int val : row) {
                 if (val != 0) count++;
             }
@@ -183,10 +184,10 @@ class PuzzleGeneratorTest {
         }
     }
 
-    private List<Integer> cluesIn(List<List<Integer>> grid, int[][] indices) {
+    private List<Integer> cluesIn(Grid grid, int[][] indices) {
         List<Integer> result = new java.util.ArrayList<>();
         for (int[] rc : indices) {
-            int v = grid.get(rc[0]).get(rc[1]);
+            int v = grid.cell(rc[0], rc[1]);
             if (v != 0) result.add(v);
         }
         return result;
@@ -217,11 +218,11 @@ class PuzzleGeneratorTest {
         return idx;
     }
 
-    private int[][] toArray(List<List<Integer>> grid) {
+    private int[][] toArray(Grid grid) {
         int[][] arr = new int[9][9];
         for (int r = 0; r < 9; r++) {
             for (int c = 0; c < 9; c++) {
-                arr[r][c] = grid.get(r).get(c);
+                arr[r][c] = grid.cell(r, c);
             }
         }
         return arr;

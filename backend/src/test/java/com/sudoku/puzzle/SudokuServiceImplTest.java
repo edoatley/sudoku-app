@@ -1,5 +1,6 @@
 package com.sudoku.puzzle;
 
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.ActionableCell;
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
@@ -12,6 +13,7 @@ import com.sudoku.puzzle.hint.NakedSingleStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,7 +24,7 @@ class SudokuServiceImplTest {
 
     private SudokuServiceImpl service;
 
-    private static final List<List<Integer>> EASY_GRID = List.of(
+    private static final Grid EASY_GRID = Grid.of(List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
             List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -32,10 +34,10 @@ class SudokuServiceImplTest {
             List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
             List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-    );
+    ));
 
     // Known correct solution for EASY_GRID
-    private static final List<List<Integer>> SOLVED_GRID = List.of(
+    private static final Grid SOLVED_GRID = Grid.of(List.of(
             List.of(5, 3, 4, 6, 7, 8, 9, 1, 2),
             List.of(6, 7, 2, 1, 9, 5, 3, 4, 8),
             List.of(1, 9, 8, 3, 4, 2, 5, 6, 7),
@@ -45,7 +47,7 @@ class SudokuServiceImplTest {
             List.of(9, 6, 1, 5, 3, 7, 2, 8, 4),
             List.of(2, 8, 7, 4, 1, 9, 6, 3, 5),
             List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
-    );
+    ));
 
     @BeforeEach
     void setUp() {
@@ -57,27 +59,27 @@ class SudokuServiceImplTest {
     @Test
     void getCandidates_easyGrid_returnsCorrectCandidates() {
         CandidatesResponse response = service.getCandidates(new BoardRequest(EASY_GRID));
-        List<List<List<Integer>>> grid = response.candidatesGrid();
+        List<List<List<Integer>>> rows = response.candidatesGrid().rows();
 
         // Cell (0,2) is empty; row has 5,3,7; col has 8,4,7; block(0) has 5,3,6,9,8 → candidates [1,2,4]
-        List<Integer> cell02 = grid.get(0).get(2);
+        List<Integer> cell02 = rows.get(0).get(2);
         assertEquals(List.of(1, 2, 4), cell02);
     }
 
     @Test
     void getCandidates_filledCells_returnEmptyList() {
         CandidatesResponse response = service.getCandidates(new BoardRequest(EASY_GRID));
-        List<List<List<Integer>>> grid = response.candidatesGrid();
+        List<List<List<Integer>>> rows = response.candidatesGrid().rows();
 
         // Cell (0,0) = 5 (filled) → empty candidates
-        assertEquals(List.of(), grid.get(0).get(0));
+        assertEquals(List.of(), rows.get(0).get(0));
         // Cell (1,3) = 1 (filled) → empty candidates
-        assertEquals(List.of(), grid.get(1).get(3));
+        assertEquals(List.of(), rows.get(1).get(3));
     }
 
     @Test
     void getCandidates_emptyBoard_allNineCandidates() {
-        List<List<Integer>> emptyGrid = List.of(
+        Grid emptyGrid = Grid.of(List.of(
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
@@ -87,13 +89,13 @@ class SudokuServiceImplTest {
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0)
-        );
+        ));
         CandidatesResponse response = service.getCandidates(new BoardRequest(emptyGrid));
-        List<List<List<Integer>>> grid = response.candidatesGrid();
+        List<List<List<Integer>>> rows = response.candidatesGrid().rows();
 
         for (int r = 0; r < 9; r++) {
             for (int c = 0; c < 9; c++) {
-                assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9), grid.get(r).get(c),
+                assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9), rows.get(r).get(c),
                         "Cell (" + r + "," + c + ") should have all 9 candidates");
             }
         }
@@ -122,8 +124,7 @@ class SudokuServiceImplTest {
     @Test
     void validatePuzzle_rowDuplicate_reportsErrors() {
         // Modify row 0: put 5 in position (0,4) to duplicate the 5 at (0,0)
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(4, 5); // was 7, now 5 — duplicates (0,0)=5
+        Grid grid = withCell(EASY_GRID, 0, 4, 5); // was 7, now 5 — duplicates (0,0)=5
 
         ValidationResponse response = service.validatePuzzle(new BoardRequest(grid));
 
@@ -137,8 +138,7 @@ class SudokuServiceImplTest {
     @Test
     void validatePuzzle_columnDuplicate_reportsErrors() {
         // Column 0 has 5,6,_,8,4,7,_,_,_ — put 5 at (3,0) to duplicate (0,0)=5
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(3).set(0, 5); // was 8, now 5 — duplicates (0,0)=5 in column 0
+        Grid grid = withCell(EASY_GRID, 3, 0, 5); // was 8, now 5 — duplicates (0,0)=5 in column 0
 
         ValidationResponse response = service.validatePuzzle(new BoardRequest(grid));
 
@@ -152,8 +152,7 @@ class SudokuServiceImplTest {
     void validatePuzzle_blockDuplicate_reportsErrors() {
         // Block 0 (rows 0-2, cols 0-2) has 5,3,6,9,8 — the 9 is at (2,1)
         // add a 9 at (0,2) to duplicate (2,1)=9 within block 0
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 9); // was 0, now 9 — duplicates (2,1)=9 in block 0
+        Grid grid = withCell(EASY_GRID, 0, 2, 9); // was 0, now 9 — duplicates (2,1)=9 in block 0
 
         ValidationResponse response = service.validatePuzzle(new BoardRequest(grid));
 
@@ -165,8 +164,7 @@ class SudokuServiceImplTest {
 
     @Test
     void validatePuzzle_multipleConflicts_cellAppearsOnce() {
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 3); // was 0, now 3 — duplicates (0,1)=3 in row 0 and block 0
+        Grid grid = withCell(EASY_GRID, 0, 2, 3); // was 0, now 3 — duplicates (0,1)=3 in row 0 and block 0
 
         ValidationResponse response = service.validatePuzzle(new BoardRequest(grid));
 
@@ -180,8 +178,7 @@ class SudokuServiceImplTest {
 
     @Test
     void validatePuzzle_withSolution_correctCell_noErrors() {
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 4); // correct value per SOLVED_GRID
+        Grid grid = withCell(EASY_GRID, 0, 2, 4); // correct value per SOLVED_GRID
 
         ValidationResponse response = service.validatePuzzle(
                 new BoardRequest(grid, SOLVED_GRID, null, null));
@@ -192,8 +189,7 @@ class SudokuServiceImplTest {
 
     @Test
     void validatePuzzle_withSolution_wrongCell_reportsError() {
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 9); // wrong: SOLVED_GRID has 4 here
+        Grid grid = withCell(EASY_GRID, 0, 2, 9); // wrong: SOLVED_GRID has 4 here
 
         ValidationResponse response = service.validatePuzzle(
                 new BoardRequest(grid, SOLVED_GRID, null, null));
@@ -207,10 +203,7 @@ class SudokuServiceImplTest {
     @Test
     void validatePuzzle_withSolution_noDuplicateButWrong_reportsError() {
         // This is the key case: no duplicates but cell doesn't match solution
-        // Row 8, col 8: EASY_GRID has 9 (given). Let's build a grid with a non-duplicate wrong value
-        // Use an empty cell and fill it with a plausible but wrong value
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 1); // SOLVED_GRID has 4; 1 is not a duplicate in row/col/block
+        Grid grid = withCell(EASY_GRID, 0, 2, 1); // SOLVED_GRID has 4; 1 is not a duplicate in row/col/block
 
         // Duplicate check alone would say valid; solution check says invalid
         ValidationResponse withoutSolution = service.validatePuzzle(new BoardRequest(grid));
@@ -233,9 +226,10 @@ class SudokuServiceImplTest {
 
     @Test
     void validatePuzzle_withSolution_multipleWrongCells_reportsAllErrors() {
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 9); // SOLVED_GRID has 4 here
-        grid.get(0).set(3, 1); // SOLVED_GRID has 6 here
+        Grid grid = withCells(EASY_GRID,
+                new int[]{0, 2, 9},  // SOLVED_GRID has 4 here
+                new int[]{0, 3, 1}   // SOLVED_GRID has 6 here
+        );
 
         ValidationResponse response = service.validatePuzzle(
                 new BoardRequest(grid, SOLVED_GRID, null, null));
@@ -261,7 +255,7 @@ class SudokuServiceImplTest {
 
     @Test
     void solveGrid_validPuzzle_returnsSolution() {
-        Optional<List<List<Integer>>> result = service.solveGrid(EASY_GRID);
+        Optional<Grid> result = service.solveGrid(EASY_GRID);
 
         assertTrue(result.isPresent());
         assertEquals(SOLVED_GRID, result.get());
@@ -270,10 +264,9 @@ class SudokuServiceImplTest {
     @Test
     void solveGrid_unsolvableGrid_returnsEmpty() {
         // Row 0 has 5 at position (0,0); placing another 5 at (0,4) creates a contradiction
-        List<List<Integer>> invalid = mutableCopy(EASY_GRID);
-        invalid.get(0).set(4, 5); // duplicate 5 in row 0 — no solution possible
+        Grid invalid = withCell(EASY_GRID, 0, 4, 5); // duplicate 5 in row 0 — no solution possible
 
-        Optional<List<List<Integer>>> result = service.solveGrid(invalid);
+        Optional<Grid> result = service.solveGrid(invalid);
 
         assertTrue(result.isEmpty());
     }
@@ -371,11 +364,31 @@ class SudokuServiceImplTest {
 
     // ---- helpers ----
 
-    private List<List<Integer>> mutableCopy(List<List<Integer>> original) {
-        List<List<Integer>> copy = new java.util.ArrayList<>();
-        for (List<Integer> row : original) {
-            copy.add(new java.util.ArrayList<>(row));
+    /** Returns a new Grid with one cell value overridden. */
+    private Grid withCell(Grid original, int row, int col, int value) {
+        List<List<Integer>> copy = new ArrayList<>();
+        for (int r = 0; r < original.rows().size(); r++) {
+            List<Integer> origRow = original.rows().get(r);
+            if (r == row) {
+                List<Integer> newRow = new ArrayList<>(origRow);
+                newRow.set(col, value);
+                copy.add(newRow);
+            } else {
+                copy.add(origRow);
+            }
         }
-        return copy;
+        return Grid.of(copy);
+    }
+
+    /** Returns a new Grid with multiple cells overridden. Each override is int[]{row, col, value}. */
+    private Grid withCells(Grid original, int[]... overrides) {
+        List<List<Integer>> copy = new ArrayList<>();
+        for (List<Integer> origRow : original.rows()) {
+            copy.add(new ArrayList<>(origRow));
+        }
+        for (int[] override : overrides) {
+            copy.get(override[0]).set(override[1], override[2]);
+        }
+        return Grid.of(copy);
     }
 }

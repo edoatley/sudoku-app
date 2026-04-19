@@ -33,14 +33,14 @@ public final class Board {
         this.cells = cells;
     }
 
-    // @spec SL-DATA-001, SL-DATA-002, SL-DATA-003, SL-DATA-004
-    public static Board fromGrid(List<List<Integer>> grid) {
-        if (grid == null || grid.size() != UNIT_SIZE) {
+    // @spec SL-DATA-001, SL-DATA-002, SL-DATA-003, SL-DATA-004, DT-BOARD-001
+    public static Board fromGrid(Grid grid) {
+        if (grid == null || grid.rows() == null || grid.size() != UNIT_SIZE) {
             throw new InvalidGridException("Grid must be 9 rows");
         }
         Cell[][] cells = new Cell[UNIT_SIZE][UNIT_SIZE];
         for (int r = 0; r < UNIT_SIZE; r++) {
-            List<Integer> row = grid.get(r);
+            List<Integer> row = grid.row(r);
             if (row == null || row.size() != UNIT_SIZE) {
                 throw new InvalidGridException("Each row must have 9 columns, row " + r + " is invalid");
             }
@@ -106,8 +106,8 @@ public final class Board {
         }
     }
 
-    // @spec SL-PROC-003
-    public List<List<List<Integer>>> toCandidatesGrid() {
+    // @spec SL-PROC-003, DT-BOARD-002
+    public CandidatesGrid toCandidatesGrid() {
         List<List<List<Integer>>> grid = new ArrayList<>(UNIT_SIZE);
         for (int r = 0; r < UNIT_SIZE; r++) {
             List<List<Integer>> row = new ArrayList<>(UNIT_SIZE);
@@ -123,7 +123,7 @@ public final class Board {
             }
             grid.add(Collections.unmodifiableList(row));
         }
-        return Collections.unmodifiableList(grid);
+        return CandidatesGrid.of(Collections.unmodifiableList(grid));
     }
 
     private Set<Integer> collectUsedDigits(int row, int col) {

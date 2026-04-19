@@ -17,6 +17,11 @@ public interface GameRepository {
 
     void save(GameState gameState);
 
+    /**
+     * Finds a game by its composite key.
+     *
+     * @throws GameNotFoundException if no game exists for the given (userId, gameId) pair
+     */
     Optional<GameState> findById(String userId, String gameId);
 
     Optional<GameState> findInProgress(String userId);

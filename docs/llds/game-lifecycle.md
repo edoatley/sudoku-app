@@ -7,7 +7,7 @@
 
 The Game Lifecycle component owns all stateful game operations: creating games, persisting player progress, enforcing the single-active-game invariant, and managing the state machine from `IN_PROGRESS` through to `SOLVED` or `ABANDONED`. It is the only component that reads and writes game records in DynamoDB.
 
-Files: `game/GameResource.java`, `game/GameService.java`, `game/GameServiceImpl.java`, `game/GameRepository.java`, `game/DynamoDbGameRepository.java`, `game/GameItem.java`, `game/GameStatus.java`, `game/InvalidPuzzleException.java`, `game/InvalidPuzzleExceptionMapper.java`, `dto/GameState.java`, `dto/GameUpdateRequest.java`, `dto/CreateGameFromGridRequest.java`.
+Files: `game/GameResource.java`, `game/GameService.java`, `game/GameServiceImpl.java`, `game/GameRepository.java`, `game/DynamoDbGameRepository.java`, `game/GameItem.java`, `game/GameStatus.java`, `game/InvalidPuzzleException.java`, `game/DuplicateDigitsException.java`, `game/PuzzleHasNoSolutionException.java`, `game/PuzzleHasMultipleSolutionsException.java`, `game/GameNotFoundException.java`, `exception/GameNotFoundExceptionMapper.java`, `dto/GameState.java`, `dto/GameUpdateRequest.java`, `dto/CreateGameFromGridRequest.java`.
 
 ## State Machine
 
@@ -84,13 +84,15 @@ All endpoints are under `/api/v1/games` and require JWT authentication. The `use
 
 ### Import Validation Error Messages
 
-`InvalidPuzzleException` is mapped to HTTP 422 by `InvalidPuzzleExceptionMapper`. Three possible messages, surfaced directly to the user:
+`InvalidPuzzleException` is mapped to HTTP 422 by `InvalidPuzzleExceptionMapper` in `com.sudoku.exception`. Three concrete subclasses carry fixed messages:
 
-| Condition | Message |
+| Exception | Message |
 | --- | --- |
-| Duplicate digits | `"Puzzle contains duplicate digits — check rows, columns, and boxes for conflicts"` |
-| No solution | `"Puzzle has no valid solution — it may have been scanned incorrectly"` |
-| Multiple solutions | `"Puzzle has multiple solutions — a valid sudoku must have exactly one solution"` |
+| `DuplicateDigitsException` | `"Puzzle contains duplicate digits — check rows, columns, and boxes for conflicts"` |
+| `PuzzleHasNoSolutionException` | `"Puzzle has no valid solution — it may have been scanned incorrectly"` |
+| `PuzzleHasMultipleSolutionsException` | `"Puzzle has multiple solutions — a valid sudoku must have exactly one solution"` |
+
+All three produce `ErrorResponse("INVALID_PUZZLE", <message>)` — code is always `INVALID_PUZZLE` regardless of subtype.
 
 ## DynamoDB Schema
 
@@ -101,10 +103,10 @@ Table: `SudokuGames{suffix}` (name injected via `sudoku.dynamodb.table-name`)
 | `userId` | String | Partition Key | JWT principal name |
 | `gameId` | String | Sort Key | UUID generated at creation |
 | `difficulty` | String | — | "easy" / "medium" / "hard" / "expert" / "imported" |
-| `originalGrid` | String | — | JSON-serialized `List<List<Integer>>` |
-| `solutionGrid` | String | — | JSON-serialized; nullable for imported games |
-| `currentGrid` | String | — | JSON-serialized; updated on each PATCH |
-| `candidates` | String | — | JSON-serialized `List<List<List<Integer>>>` |
+| `originalGrid` | String | — | JSON-serialized `Grid` (inner rows stored as list-of-lists) |
+| `solutionGrid` | String | — | JSON-serialized `Grid`; non-nullable — every game has a solution |
+| `currentGrid` | String | — | JSON-serialized `Grid`; updated on each PATCH |
+| `candidates` | String | — | JSON-serialized `CandidatesGrid` |
 | `timeSpentSeconds` | Number | — | Cumulative; overwritten (not incremented) |
 | `status` | String | — | "IN_PROGRESS" / "SOLVED" / "ABANDONED" |
 | `hintsUsed` | Number | — | Overwritten from client |
@@ -159,16 +161,18 @@ Two mutation methods on `GameItem`:
 
 Returned by all read and create endpoints. Contains the complete game including all grids, status, timing, and hints.
 
-Key nullable fields: `solutionGrid` (null for imported games), `endedAt` (null while in progress).
+Grid fields use domain types: `originalGrid`, `solutionGrid`, `currentGrid` are `Grid`; `candidates` is `CandidatesGrid`.
+
+Key nullable fields: `endedAt` (null while in progress). `solutionGrid` is non-nullable — every persisted game has a solution.
 
 ### GameUpdateRequest (progress save)
 
-Sent by client on each autosave (every 5 seconds from the frontend):
+Sent by client on each autosave:
 
 | Field | Type | Nullable | Notes |
 | --- | --- | --- | --- |
-| `currentGrid` | `List<List<Integer>>` | No | Full grid, not a diff |
-| `candidates` | `List<List<List<Integer>>>` | No | Full pencil marks |
+| `currentGrid` | `Grid` | No | Full grid, not a diff |
+| `candidates` | `CandidatesGrid` | No | Full pencil marks |
 | `timeSpentSeconds` | `int` | No | Cumulative total |
 | `isComplete` | `Boolean` | Yes | True triggers SOLVED transition |
 | `hintsUsed` | `Integer` | Yes | If null, hints count is not updated |
@@ -177,7 +181,7 @@ The client always sends the full grid (not a diff). The server overwrites, not m
 
 ### CreateGameFromGridRequest
 
-Single-field record: `List<List<Integer>> originalGrid`. Used by the image import flow.
+Single-field record: `Grid originalGrid`. Used by the image import flow.
 
 ## Observed Design Decisions
 
@@ -194,7 +198,7 @@ Single-field record: `List<List<Integer>> originalGrid`. Used by the image impor
 ## Technical Debt & Inconsistencies
 
 - `GameServiceImpl.createGameFromExistingGrid` sets `difficulty` to the plain string `"imported"`. This conflates the difficulty field with the import source — a semantic mismatch, but acceptable for now.
-- `DynamoDbGameRepository.update()` silently no-ops if the game doesn't exist (null check returns early). Callers receive no indication that the update was dropped.
+- `DynamoDbGameRepository.update()` silently no-ops if the game doesn't exist (null check returns early). Callers receive no indication that the update was dropped. (AEH-EX-009 — deferred)
 - `findInProgress` queries all games for a user then filters in memory. If a user accumulates many games, this scan grows. Acceptable now; a GSI on `status` would fix it at scale.
 - The `ObjectMapper` in `GameItem` is a static field. Jackson ObjectMapper is thread-safe and this is fine, but it's an implicit dependency hidden inside an entity class.
 
@@ -215,9 +219,15 @@ Single-field record: `List<List<Integer>> originalGrid`. Used by the image impor
 - `backend/src/main/java/.../game/GameItem.java`
 - `backend/src/main/java/.../game/GameStatus.java`
 - `backend/src/main/java/.../game/InvalidPuzzleException.java`
-- `backend/src/main/java/.../game/InvalidPuzzleExceptionMapper.java`
+- `backend/src/main/java/.../game/DuplicateDigitsException.java`
+- `backend/src/main/java/.../game/PuzzleHasNoSolutionException.java`
+- `backend/src/main/java/.../game/PuzzleHasMultipleSolutionsException.java`
+- `backend/src/main/java/.../game/GameNotFoundException.java`
+- `backend/src/main/java/.../exception/GameNotFoundExceptionMapper.java`
 - `backend/src/main/java/.../dto/GameState.java`
 - `backend/src/main/java/.../dto/GameUpdateRequest.java`
 - `backend/src/main/java/.../dto/CreateGameFromGridRequest.java`
+- `backend/src/main/java/.../domain/Grid.java`
+- `backend/src/main/java/.../domain/CandidatesGrid.java`
 - Depends on: Puzzle Generation & Validation (generatePuzzle, solveGrid, hasSingleSolution, validatePuzzle)
 - Depended on by: nothing (terminal component for game operations)

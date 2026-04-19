@@ -1,5 +1,6 @@
 package com.sudoku.puzzle;
 
+import com.sudoku.domain.Grid;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
@@ -46,10 +47,11 @@ public class PuzzleGenerator {
         this.random = random;
     }
 
+    // @spec DT-GEN-003
     /**
      * Result of puzzle generation, carrying both the puzzle (with holes) and its unique solution.
      */
-    public record PuzzleResult(List<List<Integer>> puzzle, List<List<Integer>> solution) {}
+    public record PuzzleResult(Grid puzzle, Grid solution) {}
 
     /**
      * Generates a puzzle grid for the requested difficulty.
@@ -71,7 +73,7 @@ public class PuzzleGenerator {
         int[][] puzzle = copyGrid(solution);
         digHoles(puzzle, targetClues);
 
-        return new PuzzleResult(toImmutableList(puzzle), toImmutableList(solution));
+        return new PuzzleResult(Grid.of(toImmutableList(puzzle)), Grid.of(toImmutableList(solution)));
     }
 
     /**
@@ -80,8 +82,9 @@ public class PuzzleGenerator {
      *
      * @return 0 if the puzzle has no solution, 1 if it has exactly one, 2 if it has more than one
      */
-    public int countSolutions(List<List<Integer>> puzzle) {
-        int[][] grid = toArray(puzzle);
+    // @spec DT-GEN-002
+    public int countSolutions(Grid puzzle) {
+        int[][] grid = toArray(puzzle.rows());
         return countSolutions(grid, 0);
     }
 
@@ -92,12 +95,13 @@ public class PuzzleGenerator {
      * @return an {@link Optional} containing the solved grid if exactly one solution exists,
      *         or {@link Optional#empty()} if the puzzle has no solution or contains contradictions
      */
-    public Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle) {
-        int[][] grid = toArray(puzzle);
+    // @spec DT-GEN-001
+    public Optional<Grid> solveGrid(Grid puzzle) {
+        int[][] grid = toArray(puzzle.rows());
         if (!fillBoard(grid)) {
             return Optional.empty();
         }
-        return Optional.of(toImmutableList(grid));
+        return Optional.of(Grid.of(toImmutableList(grid)));
     }
 
     // -------------------------------------------------------------------------

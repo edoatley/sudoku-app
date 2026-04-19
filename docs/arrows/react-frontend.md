@@ -4,7 +4,7 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 
 ## Status
 
-**AUDITED** - 2026-04-18. All source files read and documented. No frontend tests exist (no .test.jsx or e2e files); this is an accepted gap.
+**OK** - 2026-04-19. All active specs implemented.
 
 ## References
 
@@ -15,11 +15,12 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 - docs/llds/react-frontend.md
 
 ### EARS
-- docs/specs/react-frontend-specs.md (30 specs, all [x])
+- docs/specs/react-frontend-specs.md (39 specs, all [x])
+- docs/specs/domain-types-specs.md — DT-UI-001 to DT-UI-009 all [x]
 
 ### Tests
-- No `.test.jsx` files exist under `ui/src/` — accepted gap.
-- No e2e tests exist under `ui/e2e/` — accepted gap.
+- ui/src/api/sudokuApi.test.js — wire wrapping/unwrapping, error fallback, mock mode; 76 unit tests total
+- ui/src/hooks/useSudokuGame.test.js — full game loop with mocked API
 
 ### Code
 - ui/src/App.jsx, ui/src/main.jsx
@@ -28,6 +29,7 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 - ui/src/hooks/usePlayerProfile.js
 - ui/src/components/ (all component files)
 - ui/src/utils/avatarIcons.js
+- ui/src/utils/gridAdapters.js
 - ui/src/mocks/cannedData.js
 
 ## Architecture
@@ -37,10 +39,11 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 **Key Components:**
 1. `useSudokuGame` — owns game state, grid logic, hint escalation, undo, auto-save, timer, localStorage sync
 2. `usePlayerProfile` — owns user identity, avatar, game history
-3. `sudokuApi.js` — all backend communication with mock mode, auth token injection, ForbiddenError handling
-4. `SudokuGrid` / `SudokuCell` — responsive grid rendering with 6-priority highlight system
-5. `HintDialog` — nudge/focus/reveal progressive disclosure; inline on desktop, modal on mobile
-6. `Header` — timer, user menu, game controls, developer submenu
+3. `sudokuApi.js` — all backend communication with mock mode, auth token injection, ForbiddenError handling, grid wire adapter
+4. `gridAdapters.js` — `gridFromWire`/`gridToWire`/`candidatesFromWire`/`candidatesToWire` utility functions
+5. `SudokuGrid` / `SudokuCell` — responsive grid rendering with 6-priority highlight system
+6. `HintDialog` — nudge/focus/reveal progressive disclosure; inline on desktop, modal on mobile
+7. `Header` — timer, user menu, game controls, developer submenu
 
 ## EARS Coverage
 
@@ -54,24 +57,31 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 | Image Import | FE-UI-030 to 033 | 4 | 0 | 0 |
 | Player Profile & History | FE-UI-040 to 043 | 4 | 0 | 0 |
 | Developer Tools | FE-UI-050 to 052 | 3 | 0 | 0 |
+| Wire Adapters | DT-UI-001 to 004 | 4 | 0 | 0 |
+| API Integration | DT-UI-005 to 007 | 3 | 0 | 0 |
+| Error Handling | DT-UI-008 | 1 | 0 | 0 |
+| Mock Data | DT-UI-009 | 1 | 0 | 0 |
 
-**Summary:** 39 of 39 active specs implemented; 0 deferred; 0 gaps.
+**Summary:** 48 of 48 active specs implemented; 0 deferred; 0 gaps.
 
 ## Key Findings
 
 1. **`useSudokuGame` is oversized** — A single hook owns timer, localStorage, auto-save, hint management, undo, and game lifecycle. Decomposing into smaller hooks would improve testability without changing the external interface.
 2. **Game history is localStorage-only** — `recordGame()` stores history locally; no server-side persistence. History is lost on browser storage clear. (FE-UI-042)
-3. **`GameControls.jsx` is a dead stub** — The file exists but returns null. Game controls were moved to the Header hamburger. The file should be deleted.
-4. **Mock mode canned data has null solutionGrid** — `CANNED_PUZZLES` have no solution grids, so mock-mode validation always uses duplicate detection, never solution-comparison. The solution-comparison path cannot be tested in mock mode.
-5. **`completedNumbers` computed outside hook** — Calculated in `App.jsx` via `useMemo`, not inside `useSudokuGame`. The hook doesn't know which digits are "complete" — a subtle coupling.
-6. **`TutorialModal` markdown source unclear** — Fetches `/techniques/{slug}.md` at runtime. It is not verified whether these files are committed to the repo or generated at build time.
+3. **Wire adapter boundary** — `gridAdapters.js` functions are called exclusively in `sudokuApi.js`. Hook state always uses plain arrays; `Grid` wire format never propagates past the API layer. Mock paths also call unwrap helpers since `cannedData.js` is in wire format.
+4. **`completedNumbers` computed outside hook** — Calculated in `App.jsx` via `useMemo`, not inside `useSudokuGame`. The hook doesn't know which digits are "complete" — a subtle coupling.
+5. **`TutorialModal` markdown source** — All 11 files confirmed in `ui/public/techniques/`.
 
 ## Work Required
 
 ### Done
 1. ~~Delete `GameControls.jsx`~~ — deleted; it was a dead stub returning null. (no spec affected)
 2. ~~Verify tutorial markdown files~~ — confirmed all 11 files exist in `ui/public/techniques/`; added source comment in `TutorialModal.jsx`. (FE-UI-015)
+3. ~~Add wire adapters~~ — `gridAdapters.js` created; `sudokuApi.js` wraps/unwraps at boundary. (DT-UI-001 to 009)
+4. ~~Update error handler~~ — `apiFetch` reads `errorBody.message` first, falls back to `errorBody.error`. (DT-UI-008)
+5. ~~Update `cannedData.js`~~ — All grid fields now in `{rows: [...]}` wire format. (DT-UI-009)
+6. ~~Mock mode `solutionGrid: null`~~ — `cannedData.js` now includes `solutionGrid` for canned puzzles; mock mode can exercise solution-comparison validation.
 
 ### Nice to Have
-3. Persist game history to the server (e.g., via a GET /players/me/history endpoint) so it survives browser storage clears. (FE-UI-042)
-4. Decompose `useSudokuGame` into smaller focused hooks (useGameTimer, useHintState, useGamePersistence) to improve testability.
+7. Persist game history to the server (e.g., via a GET /players/me/history endpoint) so it survives browser storage clears. (FE-UI-042)
+8. Decompose `useSudokuGame` into smaller focused hooks (useGameTimer, useHintState, useGamePersistence) to improve testability.

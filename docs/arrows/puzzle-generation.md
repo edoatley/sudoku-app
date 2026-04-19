@@ -4,7 +4,7 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 
 ## Status
 
-**AUDITED** - 2026-04-18. All source files and tests read, annotated, and verified.
+**OK** - 2026-04-19. All active specs implemented.
 
 ## References
 
@@ -16,6 +16,7 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 
 ### EARS
 - docs/specs/puzzle-generation-specs.md (15 specs, all [x])
+- docs/specs/domain-types-specs.md — DT-GEN-001/002/003/004, DT-DTO-001/002/003/006, DT-SVC-001/002 all [x]
 
 ### Tests
 - backend/src/test/java/com/sudoku/puzzle/PuzzleGeneratorTest.java — covers PG-BE-001 to 006; @spec annotations added
@@ -32,7 +33,9 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 - backend/src/main/java/.../puzzle/developer/HintDemoGrids.java
 - backend/src/main/java/.../puzzle/developer/MockSudokuService.java
 - backend/src/main/java/.../game/InvalidPuzzleException.java
-- backend/src/main/java/.../game/InvalidPuzzleExceptionMapper.java
+- backend/src/main/java/.../exception/InvalidPuzzleExceptionMapper.java
+- backend/src/main/java/.../domain/Grid.java
+- backend/src/main/java/.../domain/CandidatesGrid.java
 - backend/src/main/java/.../dto/ (all DTO records)
 
 ## Architecture
@@ -54,8 +57,11 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 | REST Endpoints | PG-API-001 to 004 | 4 | 0 | 0 |
 | Developer Endpoints | PG-DEV-001 to 004 | 4 | 0 | 0 |
 | DTOs | PG-API-010 to 012 | 3 | 0 | 0 |
+| Domain Types (DTOs) | DT-DTO-001/002/003/006 | 4 | 0 | 0 |
+| Domain Types (Generator) | DT-GEN-001/002/003/004 | 4 | 0 | 0 |
+| Domain Types (Service) | DT-SVC-001/002 | 2 | 0 | 0 |
 
-**Summary:** 17 of 17 active specs implemented; 0 deferred; 0 gaps.
+**Summary:** 27 of 27 active specs implemented; 0 deferred; 0 gaps.
 
 ## Key Findings
 
@@ -66,4 +72,10 @@ Randomised puzzle generator, stateless REST endpoints, developer demo infrastruc
 
 ## Work Required
 
-None.
+### Done
+4. ~~`PuzzleGenerator.solveGrid(List<List<Integer>>)`~~ — Changed to `solveGrid(Grid) → Optional<Grid>`. (DT-GEN-001)
+5. ~~`PuzzleGenerator.countSolutions(List<List<Integer>>)`~~ — Changed to `countSolutions(Grid)`. (DT-GEN-002)
+6. ~~`PuzzleResult` raw list fields~~ — Changed to `Grid` for both `puzzle` and `solution`. (DT-GEN-003)
+7. ~~`BoardRequest`/`PuzzleResponse`/`CandidatesResponse` raw list fields~~ — All updated to `Grid`/`CandidatesGrid`. (DT-DTO-001/002/006)
+8. ~~`HintDemoGrids` map type~~ — Changed from `Map<String, List<List<Integer>>>` to `Map<String, Grid>`. Internal only.
+9. ~~`MockSudokuService` grid constants~~ — Updated to `Grid` type.

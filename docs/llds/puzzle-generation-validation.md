@@ -87,7 +87,7 @@ Used in two places:
 
 ### `solveGrid()` Public API
 
-Delegates to `fillBoard()` on a copy of the incoming grid. Returns `Optional<List<List<Integer>>>` — empty if unsolvable.
+Delegates to `fillBoard()` on a copy of the incoming grid. Accepts a `Grid` parameter and returns `Optional<Grid>` — empty if unsolvable.
 
 ## REST API
 
@@ -140,8 +140,8 @@ The universal input for all puzzle operations:
 
 | Field | Type | Nullable | Purpose |
 | --- | --- | --- | --- |
-| `currentGrid` | `List<List<Integer>>` | No | Player's current 9×9 grid (0 = empty) |
-| `solutionGrid` | `List<List<Integer>>` | Yes | Known solution; enables precise validation |
+| `currentGrid` | `Grid` | No | Player's current 9×9 grid (wire format: `{"rows": [...]}`) |
+| `solutionGrid` | `Grid` | Yes | Known solution; enables precise validation |
 | `minRank` | `Integer` | Yes | Skip hint strategies below this rank |
 | `excludedRanks` | `List<Integer>` | Yes | Skip specific strategy ranks (already shown) |
 
@@ -151,8 +151,8 @@ Multiple convenience constructors exist (1-arg through 4-arg) to avoid passing n
 
 | Field | Type | Nullable | Purpose |
 | --- | --- | --- | --- |
-| `originalGrid` | `List<List<Integer>>` | No | Starting puzzle (zeros for empty cells) |
-| `solutionGrid` | `List<List<Integer>>` | No | Unique complete solution |
+| `originalGrid` | `Grid` | No | Starting puzzle (wire format: `{"rows": [...]}`) |
+| `solutionGrid` | `Grid` | No | Unique complete solution |
 | `difficulty` | `String` | No | Label: "easy", "medium", "hard", "expert", or "demo" |
 | `minRank` | `Integer` | Yes | Lowest strategy rank needed to solve (set by DevResource for demo grids, null otherwise) |
 
@@ -180,7 +180,7 @@ Multiple convenience constructors exist (1-arg through 4-arg) to avoid passing n
 
 ```json
 {
-  "candidatesGrid": "Integer[9][9][] — inner array = sorted valid digits; empty for placed cells"
+  "candidatesGrid": "CandidatesGrid — wire format {\"rows\": [[[...],...],...]}; inner array = sorted valid digits; empty for placed cells"
 }
 ```
 
@@ -208,14 +208,14 @@ Loads all 11 demo grids from classpath JSON files at class initialization time (
 
 - Resource path: `/developer/hint-demo-{slug}.json`
 - JSON shape: `{ "slug": "...", "description": "...", "grid": [[...], ...] }`
-- Stored as immutable `Map<String, List<List<Integer>>>`
+- Stored as immutable `Map<String, Grid>` — raw list parsed then wrapped via `Grid.of()` at load time
 - Throws `IllegalStateException` at startup if any file is missing or malformed
 
 Adding a new demo grid requires only dropping a correctly-named JSON file in `src/main/resources/developer/` — no Java changes.
 
 ### MockSudokuService
 
-Provides canned puzzle grids and a duplicate-based validator for use in testing without the full solver. Not CDI-injectable; used directly in test constructors. Contains three hardcoded grids (easy, medium, hard; expert reuses hard).
+Provides canned puzzle grids and a duplicate-based validator for use in testing without the full solver. Not CDI-injectable; used directly in test constructors. Contains three hardcoded grids (easy, medium, hard; expert reuses hard) stored as `Grid` constants.
 
 ## Observed Design Decisions
 
@@ -236,7 +236,7 @@ Provides canned puzzle grids and a duplicate-based validator for use in testing 
 - `PuzzleGenerator.solveGrid()` reuses `fillBoard()` which randomizes digit order — meaning the returned solution is random among all valid solutions. For import validation this is fine (we only care if a solution exists), but it means two calls on the same incomplete grid can return different solutions.
 - `MockSudokuService` implements validation logic that duplicates `SudokuServiceImpl`'s `validateByDuplicates` path. If the validation logic changes, the mock must be updated manually.
 - `PuzzleResponse.minRank` is null for generated puzzles. The field exists only for the dev demo use case. A separate `DemoPuzzleResponse` would be cleaner but adds a type.
-- `digHoles()` operates on a primitive `int[][]` internally but the public API uses `List<List<Integer>>`. The conversion methods (`toArray`, `toImmutableList`) add boilerplate.
+- `digHoles()` operates on a primitive `int[][]` internally and wraps/unwraps via `Grid` only at the public API boundary. The conversion methods add a small amount of boilerplate.
 
 ## Behavioral Quirks
 
@@ -252,7 +252,9 @@ Provides canned puzzle grids and a duplicate-based validator for use in testing 
 - `backend/src/main/java/.../puzzle/developer/HintDemoGrids.java`
 - `backend/src/main/java/.../puzzle/developer/MockSudokuService.java`
 - `backend/src/main/java/.../game/InvalidPuzzleException.java`
-- `backend/src/main/java/.../game/InvalidPuzzleExceptionMapper.java`
+- `backend/src/main/java/.../exception/InvalidPuzzleExceptionMapper.java`
 - `backend/src/main/java/.../dto/` (all DTO records)
+- `backend/src/main/java/.../domain/Grid.java`
+- `backend/src/main/java/.../domain/CandidatesGrid.java`
 - Depends on: Sudoku Logic (Board, Cell), Hint Engine (SudokuService, HintStrategy)
 - Depended on by: Game Lifecycle (GameService uses generatePuzzle, hasSingleSolution, solveGrid)

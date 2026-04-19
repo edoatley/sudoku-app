@@ -1,10 +1,10 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.ActionableCell;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
-import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -54,7 +54,7 @@ class FullHouseStrategyTest {
         List<List<Integer>> grid = mutableCopy(SOLVED_GRID);
         grid.get(0).set(8, 0);
 
-        Board board = Board.fromGrid(grid);
+        Board board = Board.fromGrid(Grid.of((grid)));
         Optional<HintResponse> result = strategy.evaluate(board);
 
         assertTrue(result.isPresent());
@@ -74,7 +74,7 @@ class FullHouseStrategyTest {
         grid.get(3).set(0, 0); // clear (3,0) — was 8
         grid.get(3).set(4, 0); // clear (3,4) — was 6
 
-        Board board = Board.fromGrid(grid);
+        Board board = Board.fromGrid(Grid.of((grid)));
         Optional<HintResponse> result = strategy.evaluate(board);
 
         assertTrue(result.isPresent());
@@ -89,7 +89,7 @@ class FullHouseStrategyTest {
 
     @Test
     void fullHouse_noFullHouses_returnsEmpty() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         Optional<HintResponse> result = strategy.evaluate(board);
 
         assertTrue(result.isEmpty());
@@ -99,7 +99,7 @@ class FullHouseStrategyTest {
     void fullHouse_markdownSlug_and_difficulty() {
         List<List<Integer>> grid = mutableCopy(SOLVED_GRID);
         grid.get(0).set(8, 0);
-        Board board = Board.fromGrid(grid);
+        Board board = Board.fromGrid(Grid.of((grid)));
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("full-house", hint.markdownSlug());

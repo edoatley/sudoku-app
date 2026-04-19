@@ -216,8 +216,12 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 - [ ] Add expert difficulty
 - [ ] Review LLD tech debt
   - [x] NakedPairStrategy - difficulty -> EASY
-  - [ ] Extract `validateByDuplicates` logic into a shared utility
+  - [x] Extract `validateByDuplicates` logic into a shared utility
+  - [ ] Is there a need to seperate the API objects and the domain ones
   - [ ] Proper typed exceptions returned for API layer to return in exception handler
   - [ ] terratest for infrstructure
-  - [ ] UI cleanup - persist game history to server, decompose `useSudokuGame` into smaller focused hooks
+  - [ ] UI cleanup 
+    - [ ] persist game history to server
+    - [ ] decompose `useSudokuGame` into smaller focused hooks
+    - [ ] directory structure
   - [ ] Java, npm etc upgrades

@@ -2,6 +2,7 @@ package com.sudoku.puzzle;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
 import com.sudoku.dto.Coordinate;
@@ -66,23 +67,23 @@ public class SudokuServiceImpl implements SudokuService {
 
     @Override
     public ValidationResponse validatePuzzle(BoardRequest request) {
-        List<List<Integer>> solution = request.solutionGrid();
+        Grid solution = request.solutionGrid();
         if (solution != null) {
             return validateAgainstSolution(request.currentGrid(), solution);
         }
         return validateByDuplicates(request.currentGrid());
     }
 
-    private ValidationResponse validateAgainstSolution(List<List<Integer>> currentGrid, List<List<Integer>> solution) {
+    private ValidationResponse validateAgainstSolution(Grid currentGrid, Grid solution) {
         Set<Coordinate> errorSet = new LinkedHashSet<>();
         boolean hasEmpty = false;
 
         for (int r = 0; r < UNIT_SIZE; r++) {
             for (int c = 0; c < UNIT_SIZE; c++) {
-                int current = currentGrid.get(r).get(c);
+                int current = currentGrid.cell(r, c);
                 if (current == 0) {
                     hasEmpty = true;
-                } else if (current != solution.get(r).get(c)) {
+                } else if (current != solution.cell(r, c)) {
                     errorSet.add(new Coordinate(r, c));
                 }
             }
@@ -92,7 +93,7 @@ public class SudokuServiceImpl implements SudokuService {
         return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
     }
 
-    private ValidationResponse validateByDuplicates(List<List<Integer>> currentGrid) {
+    private ValidationResponse validateByDuplicates(Grid currentGrid) {
         Board board = Board.fromGrid(currentGrid);
         Set<Coordinate> errorSet = BoardUtils.findDuplicatesInBoard(board);
 
@@ -113,7 +114,7 @@ public class SudokuServiceImpl implements SudokuService {
 
     @Override
     public Optional<HintResponse> getHint(BoardRequest request) {
-        Board board = Board.fromGrid(request.currentGrid());
+        Board board = Board.fromGrid(request.currentGrid());  // Grid → Board
         board.calculateAllCandidates();
         int minRank = request.minRank() != null ? request.minRank() : 0;
         List<Integer> excluded = request.excludedRanks() != null ? request.excludedRanks() : List.of();
@@ -138,13 +139,15 @@ public class SudokuServiceImpl implements SudokuService {
         return new CandidatesResponse(board.toCandidatesGrid());
     }
 
+    // @spec DT-SVC-001
     @Override
-    public Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle) {
+    public Optional<Grid> solveGrid(Grid puzzle) {
         return generator.solveGrid(puzzle);
     }
 
+    // @spec DT-SVC-002
     @Override
-    public boolean hasSingleSolution(List<List<Integer>> grid) {
+    public boolean hasSingleSolution(Grid grid) {
         return generator.countSolutions(grid) == 1;
     }
 }

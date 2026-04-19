@@ -1,5 +1,7 @@
 package com.sudoku.game;
 
+import com.sudoku.domain.CandidatesGrid;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.GameState;
@@ -7,7 +9,6 @@ import com.sudoku.dto.GameUpdateRequest;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
 import com.sudoku.puzzle.SudokuService;
-import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,7 @@ class GameServiceImplTest {
 
     private static final String USER_ID = "test-user-123";
 
-    private static final List<List<Integer>> GRID = List.of(
+    private static final Grid GRID = Grid.of(List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
             List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -41,9 +42,9 @@ class GameServiceImplTest {
             List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
             List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-    );
+    ));
 
-    private static final List<List<Integer>> SOLUTION = List.of(
+    private static final Grid SOLUTION = Grid.of(List.of(
             List.of(5, 3, 4, 6, 7, 8, 9, 1, 2),
             List.of(6, 7, 2, 1, 9, 5, 3, 4, 8),
             List.of(1, 9, 8, 3, 4, 2, 5, 6, 7),
@@ -53,10 +54,18 @@ class GameServiceImplTest {
             List.of(9, 6, 1, 5, 3, 7, 2, 8, 4),
             List.of(2, 8, 7, 4, 1, 9, 6, 3, 5),
             List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
-    );
+    ));
 
     private static final ValidationResponse VALID_RESPONSE =
             new ValidationResponse(true, false, List.of());
+
+    private static CandidatesGrid emptyCandidates() {
+        return CandidatesGrid.of(List.of(
+                List.of(List.of()), List.of(List.of()), List.of(List.of()),
+                List.of(List.of()), List.of(List.of()), List.of(List.of()),
+                List.of(List.of()), List.of(List.of()), List.of(List.of())
+        ));
+    }
 
     @BeforeEach
     void setUp() {
@@ -78,7 +87,7 @@ class GameServiceImplTest {
         assertEquals(0, result.timeSpentSeconds());
         assertEquals("IN_PROGRESS", result.status());
         assertNotNull(result.candidates());
-        assertEquals(9, result.candidates().size());
+        assertEquals(9, result.candidates().rows().size());
         verify(gameRepository).save(any(GameState.class));
     }
 
@@ -95,7 +104,7 @@ class GameServiceImplTest {
     @Test
     void loadGame_whenFound_returnsGameState() {
         String gameId = "test-id-123";
-        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, List.of(), 42, "IN_PROGRESS", 0, null, null);
+        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 42, "IN_PROGRESS", 0, null, null);
         when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(expected));
 
         GameState result = gameService.loadGame(USER_ID, gameId);
@@ -104,10 +113,10 @@ class GameServiceImplTest {
     }
 
     @Test
-    void loadGame_whenNotFound_throwsNotFoundException() {
+    void loadGame_whenNotFound_throwsGameNotFoundException() {
         when(gameRepository.findById(USER_ID, "unknown")).thenReturn(Optional.empty());
 
-        assertThrows(NotFoundException.class, () -> gameService.loadGame(USER_ID, "unknown"));
+        assertThrows(GameNotFoundException.class, () -> gameService.loadGame(USER_ID, "unknown"));
     }
 
     @Test
@@ -126,7 +135,7 @@ class GameServiceImplTest {
         assertEquals(SOLUTION, result.solutionGrid());
         assertEquals(0, result.timeSpentSeconds());
         assertEquals("IN_PROGRESS", result.status());
-        assertEquals(9, result.candidates().size());
+        assertEquals(9, result.candidates().rows().size());
         verify(sudokuService, never()).generatePuzzle(anyString());
         verify(gameRepository).save(any(GameState.class));
     }
@@ -154,34 +163,37 @@ class GameServiceImplTest {
         assertNotEquals(game1.gameId(), game2.gameId());
     }
 
+    // @spec GL-BE-004
     @Test
-    void createGameFromExistingGrid_withDuplicateDigits_throwsInvalidPuzzleException() {
+    void createGameFromExistingGrid_withDuplicateDigits_throwsDuplicateDigitsException() {
         ValidationResponse invalidResponse = new ValidationResponse(
                 false, false, List.of(new Coordinate(0, 0), new Coordinate(0, 1)));
         when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(invalidResponse);
 
-        assertThrows(InvalidPuzzleException.class,
+        assertThrows(DuplicateDigitsException.class,
                 () -> gameService.createGameFromExistingGrid(USER_ID, GRID));
         verify(gameRepository, never()).save(any());
     }
 
+    // @spec GL-BE-005
     @Test
-    void createGameFromExistingGrid_withNoSolution_throwsInvalidPuzzleException() {
+    void createGameFromExistingGrid_withNoSolution_throwsPuzzleHasNoSolutionException() {
         when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
         when(sudokuService.solveGrid(GRID)).thenReturn(Optional.empty());
 
-        assertThrows(InvalidPuzzleException.class,
+        assertThrows(PuzzleHasNoSolutionException.class,
                 () -> gameService.createGameFromExistingGrid(USER_ID, GRID));
         verify(gameRepository, never()).save(any());
     }
 
+    // @spec GL-BE-006
     @Test
-    void createGameFromExistingGrid_withMultipleSolutions_throwsInvalidPuzzleException() {
+    void createGameFromExistingGrid_withMultipleSolutions_throwsPuzzleHasMultipleSolutionsException() {
         when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
         when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
         when(sudokuService.hasSingleSolution(GRID)).thenReturn(false);
 
-        assertThrows(InvalidPuzzleException.class,
+        assertThrows(PuzzleHasMultipleSolutionsException.class,
                 () -> gameService.createGameFromExistingGrid(USER_ID, GRID));
         verify(gameRepository, never()).save(any());
     }
@@ -192,7 +204,7 @@ class GameServiceImplTest {
                 false, false, List.of(new Coordinate(0, 0)));
         when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(invalidResponse);
         GameState existing = new GameState(USER_ID, "old-game-id", "easy", GRID, null, GRID,
-                List.of(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+                emptyCandidates(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
 
         assertThrows(InvalidPuzzleException.class,
@@ -204,7 +216,7 @@ class GameServiceImplTest {
     @Test
     void updateGame_delegatesToRepository() {
         String gameId = "test-id-456";
-        GameUpdateRequest request = new GameUpdateRequest(GRID, List.of(), 120, false, null);
+        GameUpdateRequest request = new GameUpdateRequest(GRID, emptyCandidates(), 120, false, null);
 
         gameService.updateGame(USER_ID, gameId, request);
 
@@ -213,7 +225,7 @@ class GameServiceImplTest {
     @Test
     void createGame_whenInProgressGameExists_abandonsItBeforeCreatingNew() {
         GameState existing = new GameState(USER_ID, "old-game-id", "easy", GRID, null, GRID,
-                List.of(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+                emptyCandidates(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
         when(sudokuService.generatePuzzle("medium")).thenReturn(new PuzzleResponse(GRID, null, "medium"));
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
 
@@ -239,7 +251,7 @@ class GameServiceImplTest {
     @Test
     void createGameFromExistingGrid_whenInProgressGameExists_abandonsItBeforeCreatingNew() {
         GameState existing = new GameState(USER_ID, "old-imported-id", "easy", GRID, null, GRID,
-                List.of(), 30, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null);
+                emptyCandidates(), 30, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
         when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
         when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
@@ -267,7 +279,7 @@ class GameServiceImplTest {
 
     @Test
     void findInProgress_whenFound_returnsGame() {
-        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, List.of(), 30, "IN_PROGRESS", 0, null, null);
+        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, emptyCandidates(), 30, "IN_PROGRESS", 0, null, null);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         Optional<GameState> result = gameService.findInProgress(USER_ID);

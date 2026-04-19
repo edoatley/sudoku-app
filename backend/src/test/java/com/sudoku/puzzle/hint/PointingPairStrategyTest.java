@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
@@ -55,7 +56,7 @@ class PointingPairStrategyTest {
         // Digit 7 also appears as a candidate in (1,5) and (1,7) — outside block 0 on row 1.
         // All other cells in block 0 have no candidates, and row 1 cols 3,4,6,8 also have no candidates,
         // so the only eliminations are (1,5) and (1,7).
-        Board board = Board.fromGrid(SPARSE_GRID);
+        Board board = Board.fromGrid(Grid.of((SPARSE_GRID)));
 
         // Clear all auto-computed candidates first by setting every cell to empty set
         for (int r = 0; r < 9; r++) {
@@ -97,7 +98,7 @@ class PointingPairStrategyTest {
     void pointingPair_colLocked_returnsHint() {
         // Digit 3 is a candidate only in cells (0,3) and (1,3) within block 1 (rows 0-2, cols 3-5).
         // Digit 3 also appears in (4,3) and (7,3) — outside block 1 in column 3.
-        Board board = Board.fromGrid(SPARSE_GRID);
+        Board board = Board.fromGrid(Grid.of((SPARSE_GRID)));
 
         for (int r = 0; r < 9; r++) {
             for (int c = 0; c < 9; c++) {
@@ -133,7 +134,7 @@ class PointingPairStrategyTest {
 
     @Test
     void pointingPair_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         assertTrue(strategy.evaluate(board).isEmpty());
@@ -141,7 +142,7 @@ class PointingPairStrategyTest {
 
     @Test
     void pointingPair_metadata() {
-        Board board = Board.fromGrid(SPARSE_GRID);
+        Board board = Board.fromGrid(Grid.of((SPARSE_GRID)));
         for (int r = 0; r < 9; r++) {
             for (int c = 0; c < 9; c++) {
                 board.getCell(r, c).setCandidates(Set.of());

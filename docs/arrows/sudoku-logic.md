@@ -4,7 +4,7 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 
 ## Status
 
-**AUDITED** - 2026-04-18. All domain classes and tests read, annotated, and verified.
+**OK** - 2026-04-19. All 15 active specs implemented.
 
 ## References
 
@@ -16,6 +16,7 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 
 ### EARS
 - docs/specs/sudoku-logic-specs.md (15 specs, all [x])
+- docs/specs/domain-types-specs.md — DT-BOARD-001/002 implemented (Board.fromGrid(Grid), toCandidatesGrid() → CandidatesGrid)
 
 ### Tests
 - backend/src/test/java/com/sudoku/domain/BoardTest.java — covers SL-DATA-001 to 005, SL-PROC-001 to 003; @spec annotations added
@@ -25,6 +26,8 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 - backend/src/main/java/.../domain/SudokuConstants.java
 - backend/src/main/java/.../domain/Cell.java
 - backend/src/main/java/.../domain/Board.java
+- backend/src/main/java/.../domain/Grid.java
+- backend/src/main/java/.../domain/CandidatesGrid.java
 - backend/src/main/java/.../puzzle/hint/BoardUtils.java
 
 ## Architecture
@@ -45,8 +48,9 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 | Cell Model | SL-DATA-006 to 008 | 3 | 0 | 0 |
 | Candidate Calculation | SL-PROC-001 to 003 | 3 | 0 | 0 |
 | Geometry Utilities | SL-PROC-004 to 006 | 3 | 0 | 0 |
+| Board Integration | DT-BOARD-001 to 002 | 2 | 0 | 0 |
 
-**Summary:** 14 of 14 active specs implemented; 0 deferred; 0 gaps.
+**Summary:** 16 of 16 active specs implemented; 0 deferred; 0 gaps.
 
 ## Key Findings
 
@@ -57,4 +61,6 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 ## Work Required
 
 ### Done
-1. ~~`Board.fromGrid()` throws `IllegalArgumentException`~~. Introduced `InvalidGridException` in `com.sudoku.domain`; `fromGrid()` now throws it directly. (SL-DATA-003, SL-DATA-004)
+1. ~~`Board.fromGrid()` throws `IllegalArgumentException`~~ — Introduced `InvalidGridException` in `com.sudoku.domain`; `fromGrid()` now throws it directly. (SL-DATA-003, SL-DATA-004)
+2. ~~`Board.fromGrid(List<List<Integer>>)`~~ — Signature changed to `Board.fromGrid(Grid)`. (DT-BOARD-001)
+3. ~~`toCandidatesGrid()` returns `List<List<List<Integer>>>`~~ — Now returns `CandidatesGrid`. (DT-BOARD-002, SL-PROC-003)

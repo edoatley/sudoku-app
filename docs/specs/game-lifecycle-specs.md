@@ -4,17 +4,17 @@
 
 - [x] **GL-BE-001**: When a player creates a new game, the system shall abandon any existing IN_PROGRESS game for that player before persisting the new one.
 - [x] **GL-BE-002**: When creating a new game by difficulty, the system shall generate a puzzle and persist a GameState with status IN_PROGRESS, a new UUID gameId, and startedAt set to the current UTC timestamp.
-- [x] **GL-BE-003**: When creating a game from an imported grid, the system shall validate for duplicate digits, solvability, and uniqueness (in that order) before abandoning the prior game, throwing InvalidPuzzleException on any failure.
-- [x] **GL-BE-004**: When an imported grid contains duplicate digits, the system shall throw InvalidPuzzleException with a user-readable message identifying the conflict type.
-- [x] **GL-BE-005**: When an imported grid has no valid solution, the system shall throw InvalidPuzzleException with a message indicating the puzzle may have been scanned incorrectly.
-- [x] **GL-BE-006**: When an imported grid has multiple solutions, the system shall throw InvalidPuzzleException with a message stating that a valid Sudoku must have exactly one solution.
+- [x] **GL-BE-003**: When creating a game from an imported grid, the system shall validate for duplicate digits, solvability, and uniqueness (in that order) before abandoning the prior game, throwing a specific InvalidPuzzleException subclass on any failure.
+- [x] **GL-BE-004**: When an imported grid contains duplicate digits, the system shall throw `DuplicateDigitsException`.
+- [x] **GL-BE-005**: When an imported grid has no valid solution, the system shall throw `PuzzleHasNoSolutionException`.
+- [x] **GL-BE-006**: When an imported grid has multiple solutions, the system shall throw `PuzzleHasMultipleSolutionsException`.
 - [x] **GL-API-001**: The system shall expose POST /api/v1/games requiring JWT authentication and returning HTTP 201 with the created GameState.
 - [x] **GL-API-002**: The system shall expose POST /api/v1/games/from-image requiring JWT authentication and returning HTTP 201 on success or HTTP 422 with a JSON error body on invalid puzzle.
 
 ## Game Retrieval & Resumption
 
 - [x] **GL-API-003**: The system shall expose GET /api/v1/games/current requiring JWT authentication and returning the player's IN_PROGRESS GameState, or HTTP 204 if none exists.
-- [x] **GL-API-004**: The system shall expose GET /api/v1/games/{gameId} requiring JWT authentication and returning the GameState for the specified game, or HTTP 404 if not found.
+- [x] **GL-API-004**: The system shall expose GET /api/v1/games/{gameId} requiring JWT authentication; when the game does not exist the system shall throw `GameNotFoundException` (mapped to HTTP 404 by `GameNotFoundExceptionMapper`).
 
 ## Game Progress
 

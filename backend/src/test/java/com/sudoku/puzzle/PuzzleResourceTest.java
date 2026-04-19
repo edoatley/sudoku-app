@@ -1,9 +1,11 @@
 package com.sudoku.puzzle;
 
+import com.sudoku.domain.Grid;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static io.restassured.RestAssured.given;
@@ -14,7 +16,7 @@ import static org.hamcrest.Matchers.*;
 class PuzzleResourceTest {
 
     // Partial easy board (0 = empty) — same as MockSudokuServiceTest.EASY_GRID
-    private static final List<List<Integer>> EASY_GRID = List.of(
+    private static final Grid EASY_GRID = Grid.of(List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
             List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -24,10 +26,10 @@ class PuzzleResourceTest {
             List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
             List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-    );
+    ));
 
     // Fully solved board (no empty cells)
-    private static final List<List<Integer>> SOLVED_GRID = List.of(
+    private static final Grid SOLVED_GRID = Grid.of(List.of(
             List.of(5, 3, 4, 6, 7, 8, 9, 1, 2),
             List.of(6, 7, 2, 1, 9, 5, 3, 4, 8),
             List.of(1, 9, 8, 3, 4, 2, 5, 6, 7),
@@ -37,7 +39,7 @@ class PuzzleResourceTest {
             List.of(9, 6, 1, 5, 3, 7, 2, 8, 4),
             List.of(2, 8, 7, 4, 1, 9, 6, 3, 5),
             List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
-    );
+    ));
 
     // ---- GET /api/v1/puzzles/generate ----
 
@@ -48,8 +50,8 @@ class PuzzleResourceTest {
             .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
-                .body("originalGrid", hasSize(9))
-                .body("originalGrid[0]", hasSize(9))
+                .body("originalGrid.rows", hasSize(9))
+                .body("originalGrid.rows[0]", hasSize(9))
                 .body("difficulty", notNullValue());
     }
 
@@ -62,7 +64,7 @@ class PuzzleResourceTest {
                 .statusCode(200)
                 .contentType(ContentType.JSON)
                 .body("difficulty", equalTo("easy"))
-                .body("originalGrid", hasSize(9));
+                .body("originalGrid.rows", hasSize(9));
     }
 
     @Test
@@ -109,8 +111,7 @@ class PuzzleResourceTest {
     @Test
     void validate_boardWithRowDuplicate_returnsErrorCoordinates() {
         // Row 0: put 5 at col 2 — duplicates (0,0)=5
-        List<List<Integer>> conflicting = mutableCopy(EASY_GRID);
-        conflicting.get(0).set(2, 5);
+        Grid conflicting = withCell(EASY_GRID, 0, 2, 5);
 
         given()
             .contentType(ContentType.JSON)
@@ -127,8 +128,7 @@ class PuzzleResourceTest {
         // Cell (0,2) is empty in EASY_GRID; SOLVED_GRID has 4 there.
         // Fill it with 1 — no duplicate in row/col/block, but wrong answer.
         // Without solutionGrid this would return isValid=true (old bug).
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 1);
+        Grid grid = withCell(EASY_GRID, 0, 2, 1);
 
         given()
             .contentType(ContentType.JSON)
@@ -146,8 +146,7 @@ class PuzzleResourceTest {
     void validate_withSolution_wrongButNoDuplicate_withoutSolution_returnsValid() {
         // Same wrong cell but no solutionGrid supplied — falls back to duplicate detection,
         // which sees no conflict and reports valid. Documents the known limitation.
-        List<List<Integer>> grid = mutableCopy(EASY_GRID);
-        grid.get(0).set(2, 1);
+        Grid grid = withCell(EASY_GRID, 0, 2, 1);
 
         given()
             .contentType(ContentType.JSON)
@@ -226,8 +225,8 @@ class PuzzleResourceTest {
             .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
-                .body("candidatesGrid", hasSize(9))
-                .body("candidatesGrid[0]", hasSize(9));
+                .body("candidatesGrid.rows", hasSize(9))
+                .body("candidatesGrid.rows[0]", hasSize(9));
     }
 
     @Test
@@ -239,23 +238,30 @@ class PuzzleResourceTest {
             .then()
                 .statusCode(200)
                 // cell (0,0) = 5 (filled) → empty candidate list
-                .body("candidatesGrid[0][0]", empty());
+                .body("candidatesGrid.rows[0][0]", empty());
     }
 
     // ---- helpers ----
 
-    private List<List<Integer>> mutableCopy(List<List<Integer>> original) {
-        List<List<Integer>> copy = new java.util.ArrayList<>();
-        for (List<Integer> row : original) {
-            copy.add(new java.util.ArrayList<>(row));
+    private Grid withCell(Grid original, int row, int col, int value) {
+        List<List<Integer>> copy = new ArrayList<>();
+        for (int r = 0; r < original.rows().size(); r++) {
+            List<Integer> origRow = original.rows().get(r);
+            if (r == row) {
+                List<Integer> newRow = new ArrayList<>(origRow);
+                newRow.set(col, value);
+                copy.add(newRow);
+            } else {
+                copy.add(origRow);
+            }
         }
-        return copy;
+        return Grid.of(copy);
     }
 
-    // Simple wrapper so Jackson can serialize the request body
-    record BoardRequestBody(List<List<Integer>> currentGrid) {}
+    // Simple wrapper so Jackson can serialize the request body with {"rows": [...]} format
+    record BoardRequestBody(Grid currentGrid) {}
 
-    record BoardRequestBodyWithSolution(List<List<Integer>> currentGrid, List<List<Integer>> solutionGrid) {}
+    record BoardRequestBodyWithSolution(Grid currentGrid, Grid solutionGrid) {}
 
-    record BoardRequestBodyWithExclusions(List<List<Integer>> currentGrid, List<Integer> excludedRanks) {}
+    record BoardRequestBodyWithExclusions(Grid currentGrid, List<Integer> excludedRanks) {}
 }

@@ -1,14 +1,25 @@
 version: 1
-updated: 2026-04-18
+updated: 2026-04-19
 
 arrows:
+  - id: api-error-handling
+    status: OK
+    lld: docs/llds/api-error-handling.md
+    specs: docs/specs/api-error-handling-specs.md
+    arrow: docs/arrows/api-error-handling.md
+    spec_count: 22
+    implemented: 20
+    deferred: 2
+    gaps: 0
+    next: ~
+
   - id: sudoku-logic
-    status: AUDITED
+    status: OK
     lld: docs/llds/sudoku-logic.md
     specs: docs/specs/sudoku-logic-specs.md
     arrow: docs/arrows/sudoku-logic.md
-    spec_count: 14
-    implemented: 14
+    spec_count: 16
+    implemented: 16
     deferred: 0
     gaps: 0
     next: ~
@@ -25,26 +36,26 @@ arrows:
     next: ~
 
   - id: puzzle-generation
-    status: AUDITED
+    status: OK
     lld: docs/llds/puzzle-generation-validation.md
     specs: docs/specs/puzzle-generation-specs.md
     arrow: docs/arrows/puzzle-generation.md
-    spec_count: 17
-    implemented: 17
+    spec_count: 27
+    implemented: 27
     deferred: 0
     gaps: 0
     next: ~
 
   - id: game-lifecycle
-    status: AUDITED
+    status: OK
     lld: docs/llds/game-lifecycle.md
     specs: docs/specs/game-lifecycle-specs.md
     arrow: docs/arrows/game-lifecycle.md
-    spec_count: 22
-    implemented: 22
-    deferred: 0
+    spec_count: 30
+    implemented: 28
+    deferred: 2
     gaps: 0
-    next: ~
+    next: "Re-evaluate AEH-EX-008/009 when real DynamoDB repository is deployed"
 
   - id: user-management
     status: AUDITED
@@ -80,12 +91,12 @@ arrows:
     next: ~
 
   - id: react-frontend
-    status: AUDITED
+    status: OK
     lld: docs/llds/react-frontend.md
     specs: docs/specs/react-frontend-specs.md
     arrow: docs/arrows/react-frontend.md
-    spec_count: 39
-    implemented: 39
+    spec_count: 48
+    implemented: 48
     deferred: 0
     gaps: 0
     next: ~

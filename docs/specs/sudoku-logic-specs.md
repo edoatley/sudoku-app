@@ -18,7 +18,7 @@
 
 - [x] **SL-PROC-001**: When calculateAllCandidates() is called on a Board, the system shall populate the candidate set of every empty cell with digits 1–9 minus any digit already present in that cell's row, column, or 3×3 block.
 - [x] **SL-PROC-002**: When calculateAllCandidates() is called on a Board, the system shall leave the candidate set of every filled cell empty.
-- [x] **SL-PROC-003**: The system shall serialize candidate sets to a 9×9 list of integer lists via toCandidatesGrid(), with an empty inner list for filled cells.
+- [x] **SL-PROC-003**: The system shall serialize candidate sets via toCandidatesGrid() returning a `CandidatesGrid`, with an empty inner list for filled cells.
 
 ## Geometry Utilities
 

@@ -1,6 +1,9 @@
 package com.sudoku.dto;
 
-import java.util.List;
+import com.sudoku.domain.CandidatesGrid;
+import com.sudoku.domain.Grid;
+
+// @spec DT-DTO-004
 
 /**
  * Payload sent by the frontend when saving the player's in-progress state for a game.
@@ -11,8 +14,8 @@ import java.util.List;
  * DynamoDB via the game service.
  */
 public record GameUpdateRequest(
-        List<List<Integer>> currentGrid,
-        List<List<List<Integer>>> candidates,
+        Grid currentGrid,
+        CandidatesGrid candidates,
         int timeSpentSeconds,
         Boolean isComplete,
         Integer hintsUsed

@@ -1,6 +1,10 @@
 package com.sudoku.dto;
 
+import com.sudoku.domain.Grid;
+
 import java.util.List;
+
+// @spec DT-DTO-001
 
 /**
  * Request body carrying a board state to hint, validate, or solve endpoints.
@@ -14,17 +18,17 @@ import java.util.List;
  * {@code excludedRanks} lists specific strategy ranks to skip (e.g. because the
  * frontend has already shown that technique and wants the next distinct one).
  */
-public record BoardRequest(List<List<Integer>> currentGrid, List<List<Integer>> solutionGrid, Integer minRank, List<Integer> excludedRanks) {
+public record BoardRequest(Grid currentGrid, Grid solutionGrid, Integer minRank, List<Integer> excludedRanks) {
 
-    public BoardRequest(List<List<Integer>> currentGrid) {
+    public BoardRequest(Grid currentGrid) {
         this(currentGrid, null, null, null);
     }
 
-    public BoardRequest(List<List<Integer>> currentGrid, Integer minRank) {
+    public BoardRequest(Grid currentGrid, Integer minRank) {
         this(currentGrid, null, minRank, null);
     }
 
-    public BoardRequest(List<List<Integer>> currentGrid, Integer minRank, List<Integer> excludedRanks) {
+    public BoardRequest(Grid currentGrid, Integer minRank, List<Integer> excludedRanks) {
         this(currentGrid, null, minRank, excludedRanks);
     }
 }
