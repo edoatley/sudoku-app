@@ -7,12 +7,12 @@ import com.sudoku.dto.CandidatesResponse;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.hint.BoardUtils;
 
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 public class MockSudokuService {
 
@@ -70,46 +70,15 @@ public class MockSudokuService {
 
     public ValidationResponse validatePuzzle(BoardRequest request) {
         Board board = Board.fromGrid(request.currentGrid());
-        Set<Coordinate> errorSet = new LinkedHashSet<>();
+        Set<Coordinate> errorSet = BoardUtils.findDuplicatesInBoard(board);
 
-        for (int i = 0; i < 9; i++) {
-            findDuplicates(board.getRow(i), errorSet);
-        }
-        for (int i = 0; i < 9; i++) {
-            findDuplicates(board.getColumn(i), errorSet);
-        }
-        for (int i = 0; i < 9; i++) {
-            findDuplicates(board.getBlock(i), errorSet);
-        }
-
-        boolean hasEmpty = false;
-        outer:
-        for (int r = 0; r < 9; r++) {
-            for (Cell cell : board.getRow(r)) {
-                if (cell.isEmpty()) {
-                    hasEmpty = true;
-                    break outer;
-                }
-            }
-        }
+        boolean hasEmpty = IntStream.range(0, 9)
+                .mapToObj(board::getRow)
+                .flatMap(List::stream)
+                .anyMatch(Cell::isEmpty);
 
         boolean isSolved = errorSet.isEmpty() && !hasEmpty;
         return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
-    }
-
-    private void findDuplicates(List<Cell> unit, Set<Coordinate> errors) {
-        Set<Integer> seen = new HashSet<>();
-        Set<Integer> duplicates = new HashSet<>();
-        for (Cell cell : unit) {
-            if (!cell.isEmpty()) {
-                if (!seen.add(cell.value())) duplicates.add(cell.value());
-            }
-        }
-        for (Cell cell : unit) {
-            if (!cell.isEmpty() && duplicates.contains(cell.value())) {
-                errors.add(new Coordinate(cell.row(), cell.col()));
-            }
-        }
     }
 
     public CandidatesResponse getCandidates(BoardRequest request) {

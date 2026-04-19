@@ -52,7 +52,7 @@ Pure domain model — Board, Cell, candidate calculation, geometry utilities.
 
 1. **Mutable Cell, immutable Board topology** — Board topology fixed at construction; cell values and candidates evolve. This is intentional for performance (hint strategies mutate candidates in place).
 2. **`setValue()` side effect** — Clears candidates on placement. Callers must not rely on candidates after placing a value.
-3. **Duplicate constraint logic** — `Board.calculateAllCandidates()` and `PuzzleGenerator.isPlaceable()` both implement Sudoku constraint checking independently on different data structures. A change to constraint semantics requires updates in both places.
+3. **Duplicate constraint logic** — `Board.calculateAllCandidates()` and `PuzzleGenerator.isPlaceable()` both implement Sudoku constraint checking independently on different data structures. A change to constraint semantics requires updates in both places. Note: the separate duplicate-detection concern (row/col/block violation reporting) has been consolidated into `BoardUtils.findDuplicatesInBoard()`.
 
 ## Work Required
 

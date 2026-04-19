@@ -8,13 +8,13 @@ import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.hint.BoardUtils;
 import com.sudoku.puzzle.hint.HintStrategy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -94,17 +94,7 @@ public class SudokuServiceImpl implements SudokuService {
 
     private ValidationResponse validateByDuplicates(List<List<Integer>> currentGrid) {
         Board board = Board.fromGrid(currentGrid);
-        Set<Coordinate> errorSet = new LinkedHashSet<>();
-
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            findDuplicates(board.getRow(i), errorSet);
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            findDuplicates(board.getColumn(i), errorSet);
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            findDuplicates(board.getBlock(i), errorSet);
-        }
+        Set<Coordinate> errorSet = BoardUtils.findDuplicatesInBoard(board);
 
         boolean hasEmpty = false;
         outer:
@@ -119,21 +109,6 @@ public class SudokuServiceImpl implements SudokuService {
 
         boolean isSolved = errorSet.isEmpty() && !hasEmpty;
         return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
-    }
-
-    private void findDuplicates(List<Cell> unit, Set<Coordinate> errors) {
-        Set<Integer> seen = new HashSet<>();
-        Set<Integer> duplicates = new HashSet<>();
-        for (Cell cell : unit) {
-            if (!cell.isEmpty()) {
-                if (!seen.add(cell.value())) duplicates.add(cell.value());
-            }
-        }
-        for (Cell cell : unit) {
-            if (!cell.isEmpty() && duplicates.contains(cell.value())) {
-                errors.add(new Coordinate(cell.row(), cell.col()));
-            }
-        }
     }
 
     @Override
