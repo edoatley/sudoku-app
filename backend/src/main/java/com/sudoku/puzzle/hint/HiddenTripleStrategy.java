@@ -13,7 +13,6 @@ import java.util.Optional;
 
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
-import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 import static com.sudoku.puzzle.hint.Difficulty.HARD;
 
 /**
@@ -46,22 +45,12 @@ public class HiddenTripleStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i);
-            if (hint.isPresent()) return hint;
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i);
-            if (hint.isPresent()) return hint;
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i);
-            if (hint.isPresent()) return hint;
-        }
-        return Optional.empty();
+        return UnitScanner.scanAll(board, this::checkUnit);
     }
 
-    private Optional<HintResponse> checkUnit(List<Cell> unit, String unitType, int unitIndex) {
+    private Optional<HintResponse> checkUnit(List<Cell> unit, UnitScanner.UnitContext ctx) {
+        String unitType = ctx.type();
+        int unitIndex = ctx.index();
         List<Cell> emptyCells = unit.stream().filter(Cell::isEmpty).toList();
 
         for (int d1 = MIN_DIGIT; d1 <= MAX_DIGIT; d1++) {

@@ -15,7 +15,6 @@ import java.util.Set;
 
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
-import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 import static com.sudoku.puzzle.hint.Difficulty.EASY;
 
 /**
@@ -48,25 +47,10 @@ public class FullHouseStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        // Scan rows 0-8
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i + 1);
-            if (hint.isPresent()) return hint;
-        }
-        // Scan columns 0-8
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i + 1);
-            if (hint.isPresent()) return hint;
-        }
-        // Scan blocks 0-8
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i + 1);
-            if (hint.isPresent()) return hint;
-        }
-        return Optional.empty();
+        return UnitScanner.scanAll(board, this::checkUnit);
     }
 
-    private Optional<HintResponse> checkUnit(List<Cell> unit, String unitType, int unitNumber) {
+    private Optional<HintResponse> checkUnit(List<Cell> unit, UnitScanner.UnitContext ctx) {
         List<Cell> emptyCells = new ArrayList<>();
         Set<Integer> placed = new HashSet<>();
         for (Cell cell : unit) {
@@ -96,7 +80,7 @@ public class FullHouseStrategy implements HintStrategy {
                 getDifficulty(),
                 getDifficultyRank(),
                 "One unit has only a single empty cell remaining.",
-                unitType + " " + unitNumber + " has 8 of 9 cells filled.",
+                ctx.label() + " has 8 of 9 cells filled.",
                 "Cell (" + r + ", " + c + ") must be " + missingDigit + ".",
                 List.of(new Coordinate(r, c)),
                 List.of(),

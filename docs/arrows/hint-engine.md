@@ -4,7 +4,7 @@
 
 ## Status
 
-**AUDITED** - 2026-04-18. All strategy implementations, orchestrator, and tests read, annotated, and verified.
+**OK** - 2026-04-19. All findings from the 2026-04-18 audit resolved.
 
 ## References
 
@@ -15,20 +15,23 @@
 - docs/llds/hint-engine.md
 
 ### EARS
-- docs/specs/hint-engine-specs.md (29 specs, all [x])
+- docs/specs/hint-engine-specs.md (30 specs, all [x])
 
 ### Tests
 - backend/src/test/java/com/sudoku/puzzle/SudokuServiceImplTest.java — covers HE-BE-001 to 007, HE-BE-030 to 034; @spec annotations added
-- backend/src/test/java/com/sudoku/puzzle/hint/BoardUtilsTest.java — covers SL-PROC-004 to 006; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/BoardUtilsTest.java — covers SL-PROC-004 to 006; @spec annotations added
 - backend/src/test/java/com/sudoku/puzzle/hint/*StrategyTest.java (11 files) — covers HE-BE-010 to 020, HE-API-001 to 006; @spec annotations added
+- backend/src/test/java/com/sudoku/puzzle/PuzzleResourceTest.java — covers HTTP mapping of HintResult variants
 
 ### Code
 - backend/src/main/java/.../puzzle/SudokuService.java
 - backend/src/main/java/.../puzzle/SudokuServiceImpl.java
 - backend/src/main/java/.../puzzle/hint/HintStrategy.java
+- backend/src/main/java/.../puzzle/hint/HintResult.java
 - backend/src/main/java/.../puzzle/hint/Difficulty.java
 - backend/src/main/java/.../puzzle/hint/*Strategy.java (11 files)
 - backend/src/main/java/.../puzzle/hint/BoardUtils.java
+- backend/src/main/java/.../puzzle/hint/UnitScanner.java
 
 ## Architecture
 
@@ -39,6 +42,8 @@
 2. `HintStrategy` interface — evaluate(Board) → Optional<HintResponse>; getDifficultyRank(); getSlug()
 3. 11 strategy implementations — ranks 10–110, EASY/MEDIUM/HARD tiers
 4. `HintResponse` record — fully populated on every response; frontend controls stage display
+5. `HintResult` sealed type — `Found`, `PuzzleSolved`, `NoStrategyApplied`; returned by `getHint()` so callers distinguish all three outcomes
+6. `UnitScanner` utility — shared rows→columns→blocks iteration used by 7 unit-based strategies
 
 ## EARS Coverage
 
@@ -52,18 +57,6 @@
 
 **Summary:** 30 of 30 active specs implemented; 0 deferred; 0 gaps.
 
-## Key Findings
-
-1. **Naked Pair label mismatch** — NakedPairStrategy has difficulty=MEDIUM but rank=30, which is below HiddenSingle rank=40 (EASY). Rank ordering is authoritative; the enum label is misleading.
-2. **`Optional.empty()` ambiguity** — `getHint()` returns empty both when the puzzle is already solved and when all strategies are excluded by minRank/excludedRanks. Callers cannot distinguish these cases.
-3. **Unit-scanning boilerplate** — All 11 strategies independently implement the rows→columns→blocks scanning loop. A shared `UnitScanner` abstraction does not exist.
-4. **Test constructor in production class** — `SudokuServiceImpl` has package-private constructors for injecting mock strategies without CDI. Functional but non-production code in production class.
-
 ## Work Required
 
-### Done
-1. ~~Document the Naked Pair rank vs label discrepancy~~. Added explanatory comment in `NakedPairStrategy.java` getDifficulty() block. (HE-BE-012)
-
-### Nice to Have
-2. Return a typed result from `getHint()` distinguishing "no hint found" from "puzzle already solved" to allow callers to handle each case correctly. (HE-BE-007)
-3. Extract shared unit-scanning loop into a `UnitScanner` utility to reduce boilerplate across strategy implementations.
+None.

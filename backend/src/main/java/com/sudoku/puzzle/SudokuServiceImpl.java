@@ -10,6 +10,7 @@ import com.sudoku.dto.HintResponse;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
 import com.sudoku.puzzle.hint.BoardUtils;
+import com.sudoku.puzzle.hint.HintResult;
 import com.sudoku.puzzle.hint.HintStrategy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -46,13 +47,8 @@ public class SudokuServiceImpl implements SudokuService {
                 .toList();
     }
 
-    // Test-only constructor (package-private)
-    SudokuServiceImpl(List<HintStrategy> strategies) {
-        this.generator = new PuzzleGenerator();
-        this.strategies = List.copyOf(strategies);
-    }
-
-    // Test-only constructor with explicit generator (package-private)
+    // Package-private constructor used by SudokuServiceTestFactory in src/test/java.
+    // Strategies must already be sorted by rank.
     SudokuServiceImpl(PuzzleGenerator generator, List<HintStrategy> strategies) {
         this.generator = generator;
         this.strategies = List.copyOf(strategies);
@@ -112,10 +108,18 @@ public class SudokuServiceImpl implements SudokuService {
         return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
     }
 
+    // @spec HE-BE-003, HE-BE-004, HE-BE-005, HE-BE-006, HE-BE-007
     @Override
-    public Optional<HintResponse> getHint(BoardRequest request) {
-        Board board = Board.fromGrid(request.currentGrid());  // Grid → Board
+    public HintResult getHint(BoardRequest request) {
+        Board board = Board.fromGrid(request.currentGrid());
         board.calculateAllCandidates();
+
+        // A solved board has no empty cells and no duplicates — hints are not meaningful.
+        ValidationResponse state = validateByDuplicates(request.currentGrid());
+        if (state.isSolved()) {
+            return new HintResult.PuzzleSolved();
+        }
+
         int minRank = request.minRank() != null ? request.minRank() : 0;
         List<Integer> excluded = request.excludedRanks() != null ? request.excludedRanks() : List.of();
         for (HintStrategy strategy : strategies) {
@@ -126,10 +130,10 @@ public class SudokuServiceImpl implements SudokuService {
                 HintResponse h = hint.get();
                 boolean hasAction = (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty())
                         || (h.solvedCells() != null && !h.solvedCells().isEmpty());
-                if (hasAction) return hint;
+                if (hasAction) return new HintResult.Found(h);
             }
         }
-        return Optional.empty();
+        return new HintResult.NoStrategyApplied();
     }
 
     @Override

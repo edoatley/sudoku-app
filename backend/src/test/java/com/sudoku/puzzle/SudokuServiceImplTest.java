@@ -7,7 +7,9 @@ import com.sudoku.dto.CandidatesResponse;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.hint.Difficulty;
 import com.sudoku.puzzle.hint.FullHouseStrategy;
+import com.sudoku.puzzle.hint.HintResult;
 import com.sudoku.puzzle.hint.NakedPairStrategy;
 import com.sudoku.puzzle.hint.NakedSingleStrategy;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +53,7 @@ class SudokuServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new SudokuServiceImpl(List.of());
+        service = SudokuServiceTestFactory.withNoStrategies();
     }
 
     // ---- getCandidates tests ----
@@ -273,18 +275,17 @@ class SudokuServiceImplTest {
 
     @Test
     void getHint_withMinRank_skipsStrategiesBelowThreshold() {
-        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+        SudokuServiceImpl fullService = SudokuServiceTestFactory.withStrategies(List.of(
                 new FullHouseStrategy(),    // rank 10
                 new NakedSingleStrategy(),  // rank 20
                 new NakedPairStrategy()     // rank 30
         ));
         // minRank 20 should skip FullHouse (rank 10) even if it would fire
-        Optional<HintResponse> hint = fullService.getHint(
-                new BoardRequest(EASY_GRID, 20));
+        HintResult result = fullService.getHint(new BoardRequest(EASY_GRID, 20));
 
         // EASY_GRID has a Naked Single — it should be returned (rank 20 >= minRank 20)
-        assertTrue(hint.isPresent());
-        assertNotEquals("Full House", hint.get().techniqueName(),
+        assertInstanceOf(HintResult.Found.class, result);
+        assertNotEquals("Full House", ((HintResult.Found) result).hint().techniqueName(),
                 "Full House (rank 10) should have been skipped by minRank=20");
     }
 
@@ -292,16 +293,17 @@ class SudokuServiceImplTest {
 
     @Test
     void getHint_easyGrid_returnsNakedSingle() {
-        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+        SudokuServiceImpl fullService = SudokuServiceTestFactory.withStrategies(List.of(
                 new FullHouseStrategy(),
                 new NakedSingleStrategy(),
                 new NakedPairStrategy()
         ));
-        Optional<HintResponse> hint = fullService.getHint(new BoardRequest(EASY_GRID));
+        HintResult result = fullService.getHint(new BoardRequest(EASY_GRID));
 
-        assertTrue(hint.isPresent());
-        assertEquals("Naked Single", hint.get().techniqueName());
-        List<ActionableCell> solvedCells = hint.get().solvedCells();
+        assertInstanceOf(HintResult.Found.class, result);
+        HintResponse hint = ((HintResult.Found) result).hint();
+        assertEquals("Naked Single", hint.techniqueName());
+        List<ActionableCell> solvedCells = hint.solvedCells();
         assertEquals(1, solvedCells.size());
         assertEquals(4, solvedCells.get(0).row());
         assertEquals(4, solvedCells.get(0).col());
@@ -309,15 +311,23 @@ class SudokuServiceImplTest {
     }
 
     @Test
-    void getHint_solvedGrid_returnsEmpty() {
-        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+    void getHint_solvedGrid_returnsPuzzleSolved() {
+        SudokuServiceImpl fullService = SudokuServiceTestFactory.withStrategies(List.of(
                 new FullHouseStrategy(),
                 new NakedSingleStrategy(),
                 new NakedPairStrategy()
         ));
-        Optional<HintResponse> hint = fullService.getHint(new BoardRequest(SOLVED_GRID));
+        HintResult result = fullService.getHint(new BoardRequest(SOLVED_GRID));
 
-        assertTrue(hint.isEmpty());
+        assertInstanceOf(HintResult.PuzzleSolved.class, result);
+    }
+
+    @Test
+    void getHint_noStrategyApplicable_returnsNoStrategyApplied() {
+        SudokuServiceImpl fullService = SudokuServiceTestFactory.withNoStrategies();
+        HintResult result = fullService.getHint(new BoardRequest(EASY_GRID));
+
+        assertInstanceOf(HintResult.NoStrategyApplied.class, result);
     }
 
     @Test
@@ -325,41 +335,43 @@ class SudokuServiceImplTest {
         // A strategy that returns a hint with no eliminations and no solvedCells
         com.sudoku.puzzle.hint.HintStrategy uselessStrategy = new com.sudoku.puzzle.hint.HintStrategy() {
             public int getDifficultyRank() { return 10; }
-            public com.sudoku.puzzle.hint.Difficulty getDifficulty() { return com.sudoku.puzzle.hint.Difficulty.EASY; }
+            public Difficulty getDifficulty() { return Difficulty.EASY; }
             public String getName() { return "Useless"; }
             public String getSlug() { return "useless"; }
             public Optional<HintResponse> evaluate(com.sudoku.domain.Board board) {
                 return Optional.of(new HintResponse(
-                        "Useless", "useless", com.sudoku.puzzle.hint.Difficulty.EASY, 10,
+                        "Useless", "useless", Difficulty.EASY, 10,
                         "nudge", "focus", "reveal",
                         List.of(), List.of(), List.of(), List.of()
                 ));
             }
         };
-        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+        SudokuServiceImpl fullService = SudokuServiceTestFactory.withStrategies(List.of(
                 uselessStrategy,
                 new NakedSingleStrategy()
         ));
-        Optional<HintResponse> hint = fullService.getHint(new BoardRequest(EASY_GRID));
+        HintResult result = fullService.getHint(new BoardRequest(EASY_GRID));
 
-        assertTrue(hint.isPresent());
-        assertEquals("Naked Single", hint.get().techniqueName(), "Should skip useless hint and return Naked Single");
+        assertInstanceOf(HintResult.Found.class, result);
+        assertEquals("Naked Single", ((HintResult.Found) result).hint().techniqueName(),
+                "Should skip useless hint and return Naked Single");
     }
 
     @Test
     void getHint_withExcludedRanks_skipsMatchingStrategy() {
-        SudokuServiceImpl fullService = new SudokuServiceImpl(List.of(
+        SudokuServiceImpl fullService = SudokuServiceTestFactory.withStrategies(List.of(
                 new NakedSingleStrategy(),   // rank 20
                 new NakedPairStrategy()      // rank 30
         ));
         // Exclude Naked Single (rank 20); board has a naked single so without exclusion it would be first
-        Optional<HintResponse> hint = fullService.getHint(
-                new BoardRequest(EASY_GRID, null, List.of(20)));
+        HintResult result = fullService.getHint(new BoardRequest(EASY_GRID, null, List.of(20)));
 
-        // With rank 20 excluded, it should fall through to NakedPair (rank 30) or return empty
+        // With rank 20 excluded, it should fall through to NakedPair (rank 30) or return NoStrategyApplied
         // The important assertion: the returned hint must NOT be Naked Single
-        hint.ifPresent(h -> assertNotEquals("Naked Single", h.techniqueName(),
-                "Naked Single should have been excluded"));
+        if (result instanceof HintResult.Found f) {
+            assertNotEquals("Naked Single", f.hint().techniqueName(),
+                    "Naked Single should have been excluded");
+        }
     }
 
     // ---- helpers ----

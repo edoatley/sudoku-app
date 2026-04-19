@@ -11,7 +11,7 @@
 - [x] **HE-BE-004**: When a hint is requested with a minRank, the system shall skip all strategies with rank strictly less than minRank.
 - [x] **HE-BE-005**: When a hint is requested with excludedRanks, the system shall skip all strategies whose rank appears in that list.
 - [x] **HE-BE-006**: The system shall return the first strategy result that contains at least one eliminated candidate or one solved cell.
-- [x] **HE-BE-007**: If no strategy produces an actionable result after exhausting all eligible strategies, the system shall return an empty result.
+- [x] **HE-BE-007**: The system shall return a typed `HintResult`: `Found` when a strategy produces an actionable result, `PuzzleSolved` when the board has no empty cells and no errors, or `NoStrategyApplied` when all eligible strategies are exhausted without an actionable result.
 
 ## Strategy Implementations
 

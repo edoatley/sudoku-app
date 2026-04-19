@@ -25,7 +25,7 @@ arrows:
     next: ~
 
   - id: hint-engine
-    status: AUDITED
+    status: OK
     lld: docs/llds/hint-engine.md
     specs: docs/specs/hint-engine-specs.md
     arrow: docs/arrows/hint-engine.md

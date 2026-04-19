@@ -205,13 +205,13 @@ class PuzzleResourceTest {
     }
 
     @Test
-    void hint_solvedBoard_returns404() {
+    void hint_solvedBoard_returns204() {
         given()
             .contentType(ContentType.JSON)
             .body(new BoardRequestBody(SOLVED_GRID))
             .when().post("/puzzles/hint")
             .then()
-                .statusCode(404);
+                .statusCode(204);
     }
 
     // ---- POST /api/v1/puzzles/candidates ----
