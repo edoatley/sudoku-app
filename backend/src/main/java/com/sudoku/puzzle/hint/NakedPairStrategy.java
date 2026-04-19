@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
-import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
+import static com.sudoku.puzzle.hint.Difficulty.EASY;
 
 /**
  * Detects pairs of cells in a unit that share exactly the same two candidates,
@@ -37,11 +37,8 @@ public class NakedPairStrategy implements HintStrategy {
     public String getSlug() { return SLUG; }
 
     // @spec HE-BE-012
-    // NOTE: difficulty label is MEDIUM but rank is 30, which sorts *before* Hidden Single (rank 40, EASY).
-    // Rank is authoritative for strategy ordering — the MEDIUM label reflects solving complexity,
-    // not the threshold at which it fires relative to simpler strategies.
     @Override
-    public Difficulty getDifficulty() { return MEDIUM; }
+    public Difficulty getDifficulty() { return EASY; }
 
     @Override
     public int getDifficultyRank() {

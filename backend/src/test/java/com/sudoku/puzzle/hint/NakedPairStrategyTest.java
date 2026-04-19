@@ -98,6 +98,6 @@ class NakedPairStrategyTest {
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("naked-pair", hint.markdownSlug());
-        assertEquals(Difficulty.MEDIUM, hint.difficulty());
+        assertEquals(Difficulty.EASY, hint.difficulty());
     }
 }
