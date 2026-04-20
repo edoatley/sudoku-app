@@ -66,7 +66,7 @@ _MODELS = [
 
 The model list is injected via the `BEDROCK_MODELS` env var (comma-separated), set by Terraform from `local.bedrock_models`. The same list drives the IAM policy, so IAM and code are always in sync. The hardcoded value above is the fallback for local/test runs only.
 
-Currently one model. The cascade and cross-check infrastructure is in place for multi-model operation (see below).
+Comparison testing (2026-04-20) against 5 ground-truth fixtures evaluated Haiku 4.5 and Nemotron Nano 12B v2, with and without PIL preprocessing. Haiku 4.5 without PIL was the only configuration achieving 100% cell accuracy (5/5 exact matches). PIL degraded accuracy on colour-coded puzzles; Nemotron achieved 1/5 exact matches. Single-model is the correct configuration.
 
 ### Prompts
 
@@ -217,9 +217,9 @@ The warmup route (`GET /api/v1/puzzles/import/warmup`) returns 200 immediately w
 
 ## Technical Debt & Inconsistencies
 
-- `_MODELS` contains only one entry. The multi-model cross-check code is fully implemented but untested with multiple live models.
+- `_MODELS` contains only one entry. The multi-model cross-check code remains in place but is not exercised. It can be activated by adding a second model to `local.bedrock_models` in Terraform — but only after validating accuracy against the ground-truth fixtures in `tests/e2e_config.json`.
+- PIL preprocessing (`_downscale_image`) is implemented and unit-tested but the call in `handler()` is deferred. E2e testing (2026-04-20) showed that PIL desaturation causes orange-highlighted cells to be misread — the colour cue for emptiness is lost. Re-enable only after addressing colour preservation.
 - `AWS_REGION_NAME` defaults to `eu-west-2`; Terraform also injects it explicitly via the Lambda environment block.
-- PIL preprocessing (`_downscale_image`) is implemented and unit-tested but the call in `handler()` is deferred (commented out) pending confirmation that preprocessing improves recognition accuracy.
 - Error logging uses `print`-style statements in some places alongside the configured logger. Inconsistent logging approach.
 - The `handler()` function is 70+ lines long and handles parsing, validation, and response building inline. Extracting `_parse_request()` and `_build_response()` helpers would improve readability.
 

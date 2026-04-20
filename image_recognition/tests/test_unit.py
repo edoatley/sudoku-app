@@ -3,8 +3,7 @@ Unit tests for handler.py — pure Python, no AWS calls required.
 
 Tests cover:
   - _parse_grid: valid JSON, markdown fences, embedded JSON, error cases, pipe fallback
-  - _downscale_image: resizes large images, leaves small images unchanged, handles corrupt bytes, RGBA
-  - _recognize_with_bedrock: model cascade, scoring, error handling (boto3 client mocked)
+  - _recognize_with_bedrock: model scoring, error handling (boto3 client mocked)
   - _invoke_model: Bedrock Converse API call (boto3 client mocked)
   - handler(): request validation, success path, 422 and 500 error paths
 """
@@ -136,6 +135,13 @@ class TestParseGrid:
 # ---------------------------------------------------------------------------
 
 
+def _make_jpeg(width: int, height: int) -> bytes:
+    img = Image.new("RGB", (width, height), color=(128, 64, 32))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 def _make_png(width: int = 10, height: int = 10) -> bytes:
     img = Image.new("RGB", (width, height), color=(0, 0, 0))
     buf = io.BytesIO()
@@ -159,76 +165,6 @@ class TestDetectImageFormat:
 
     def test_webp_bytes_detected(self):
         assert handler._detect_image_format(b"RIFF\x00\x00\x00\x00WEBP") == "webp"
-
-
-# ---------------------------------------------------------------------------
-# _downscale_image
-# ---------------------------------------------------------------------------
-
-
-def _make_jpeg(width: int, height: int) -> bytes:
-    img = Image.new("RGB", (width, height), color=(128, 64, 32))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    return buf.getvalue()
-
-
-class TestDownscaleImage:
-
-    def test_large_image_is_resized(self):
-        original = _make_jpeg(1600, 1200)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        assert max(img.size) <= handler._MAX_IMAGE_EDGE
-
-    def test_small_image_is_not_enlarged(self):
-        original = _make_jpeg(400, 300)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        # dimensions should be unchanged (or very close after JPEG round-trip)
-        assert img.width <= 400
-        assert img.height <= 300
-
-    def test_square_image_at_exact_limit_unchanged(self):
-        size = handler._MAX_IMAGE_EDGE
-        original = _make_jpeg(size, size)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        assert max(img.size) == size
-
-    def test_output_is_jpeg(self):
-        original = _make_jpeg(1000, 800)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        assert img.format == "JPEG"
-
-    def test_corrupt_bytes_returns_original(self):
-        corrupt = b"\xff\xd8\xff\x00garbage bytes that are not a valid image"
-        result = handler._downscale_image(corrupt)
-        assert result == corrupt
-
-    def test_output_is_greyscale_normalised_to_rgb(self):
-        """Orange pixels should become grey (R≈G≈B) after downscale."""
-        img = Image.new("RGB", (100, 100), color=(255, 100, 0))  # vivid orange
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG")
-        result = handler._downscale_image(buf.getvalue())
-        out = Image.open(io.BytesIO(result))
-        assert out.mode == "RGB"
-        px = out.getpixel((50, 50))
-        # After full desaturation (Color.enhance(0.0)) all channels are equal;
-        # allow ±5 for JPEG rounding and contrast/sharpness post-processing.
-        assert abs(px[0] - px[1]) <= 5 and abs(px[1] - px[2]) <= 5
-
-    def test_rgba_image_composited_onto_white(self):
-        """RGBA images (with transparency) should be composited onto white and output as JPEG."""
-        img = Image.new("RGBA", (100, 100), color=(0, 0, 255, 128))  # semi-transparent blue
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        result = handler._downscale_image(buf.getvalue())
-        out = Image.open(io.BytesIO(result))
-        assert out.format == "JPEG"
-        assert out.mode == "RGB"
 
 
 # ---------------------------------------------------------------------------

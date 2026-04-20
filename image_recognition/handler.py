@@ -26,17 +26,12 @@ if not logger.handlers:
     logger.addHandler(_handler)
 
 # ---------------------------------------------------------------------------
-# Model cascade — tried in order, first valid result wins.
-# Populated from the BEDROCK_MODELS env var (comma-separated) injected by
-# Terraform, which also generates the matching IAM policy from the same list.
+# Model — populated from the BEDROCK_MODELS env var (comma-separated) injected
+# by Terraform, which also generates the matching IAM policy from the same list.
 # The fallback keeps local/test runs working without any env configuration.
 # ---------------------------------------------------------------------------
 _MODELS_DEFAULT = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
 _MODELS = [m.strip() for m in os.environ.get("BEDROCK_MODELS", _MODELS_DEFAULT).split(",") if m.strip()]
-
-# Downscale to at most this many pixels on the longest edge before sending.
-# Reduces image-token cost and latency with no accuracy loss for grid reading.
-_MAX_IMAGE_EDGE = 800
 
 # A valid Sudoku has at least 17 clues.  We use a lower threshold so that
 # very sparse / near-empty grids trigger a retry with the next model.
@@ -116,9 +111,6 @@ def handler(event: dict, context: object) -> dict:
         if len(image_bytes) > 8 * 1024 * 1024:
             return _error(400, "Image too large — maximum size is 8 MB.")
 
-        # Downscale to reduce image-token cost; re-detect media type after
-        # image_bytes = _downscale_image(image_bytes)  # Deferred: IR-PROC-001–004; re-enable once PIL preprocessing value is confirmed
-        
         client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
         grid, valid, model_name = _recognize_with_bedrock(client, image_bytes)
 
@@ -388,61 +380,6 @@ def _parse_grid(text: str) -> list[list[int]]:
 
     raise ValueError("No JSON object found and no valid pipe-delimited scratchpad in model response.")
 
-
-# ---------------------------------------------------------------------------
-# Image utilities
-# ---------------------------------------------------------------------------
-
-def _downscale_image(image_bytes: bytes) -> bytes:
-    """
-    Downscale the image so its longest edge is at most _MAX_IMAGE_EDGE pixels,
-    then re-encode as a standard JPEG. Removes alpha channels (transparency)
-    which can sometimes confuse Vision-Language Models.
-    
-    Falls back to the original bytes if Pillow is unavailable or decoding fails.
-    """
-    try:
-        try:
-            from PIL import Image
-        except ImportError as exc:
-            # Explicitly log if the library is missing from the Lambda Layer
-            logger.error("Pillow (PIL) is not installed in the Lambda environment. Cannot resize image.")
-            raise exc
-
-        img = Image.open(io.BytesIO(image_bytes))
-        w, h = img.size
-        
-        # Resize if necessary
-        if max(w, h) > _MAX_IMAGE_EDGE:
-            scale = _MAX_IMAGE_EDGE / max(w, h)
-            new_w, new_h = int(w * scale), int(h * scale)
-            
-            # Handle Pillow deprecation of Image.LANCZOS
-            resample_filter = getattr(Image, "Resampling", Image).LANCZOS
-            img = img.resize((new_w, new_h), resample_filter)
-
-        # Convert to RGB, compositing alpha onto white if present
-        if img.mode != "RGB":
-            if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
-                background = Image.new("RGB", img.size, (255, 255, 255))
-                background.paste(img, mask=img.convert('RGBA').split()[3])
-                img = background
-            else:
-                img = img.convert("RGB")
-
-        # Desaturate to greyscale-normalised RGB — removes colour bias so the model
-        # focuses on digit shapes rather than ink/paper colour variation
-        from PIL import ImageEnhance
-        img = ImageEnhance.Color(img).enhance(0.0)
-
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-        return buf.getvalue()
-
-    except Exception as exc:
-        # If anything fails (e.g., corrupt image bytes), fallback to sending the raw bytes to Bedrock
-        logger.warning("Image downscale failed (%s); using original bytes.", exc)
-        return image_bytes
 
 
 def _has_row_col_box_duplicate(grid: list[list[int]]) -> bool:
