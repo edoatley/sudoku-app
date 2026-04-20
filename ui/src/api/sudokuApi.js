@@ -254,6 +254,19 @@ export async function getPlayerProfile() {
   return apiFetch('getPlayerProfile', `${API_URL}/players/me`, {}, true);
 }
 
+// @spec UM-API-002, UM-UI-008
+export async function updatePlayerProfile({ displayName, avatarKey }) {
+  if (MOCK_API) {
+    await delay(200);
+    return { userId: 'mock-user', email: '', displayName, avatarKey, createdAt: '', updatedAt: '' };
+  }
+  return apiFetch('updatePlayerProfile', `${API_URL}/players/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName, avatarKey }),
+  }, true);
+}
+
 export async function getDevData(entity) {
   if (MOCK_API) {
     await delay(200);

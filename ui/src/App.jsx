@@ -69,7 +69,7 @@ function SudokuApp({ user, signOut }) {
   const [forbidden, setForbidden] = useState(false);
   const [forbiddenEmail, setForbiddenEmail] = useState(null);
   const handleForbidden = useCallback((email = null) => { setForbidden(true); setForbiddenEmail(email); }, []);
-  const { avatar, setAvatar, history, recordGame, playerProfile, sessionEmail } = usePlayerProfile(user, { onForbidden: handleForbidden });
+  const { avatar, history, recordGame, playerProfile, sessionEmail, updateProfile } = usePlayerProfile(user, { onForbidden: handleForbidden });
 
   const [colorMode, setColorMode] = useState(
     () => localStorage.getItem('sudoku_colorMode') ?? 'light'
@@ -194,7 +194,7 @@ function SudokuApp({ user, signOut }) {
         user={effectiveUser}
         onSignOut={signOut}
         avatar={avatar}
-        onAvatarChange={setAvatar}
+        onProfileUpdate={updateProfile}
         playerProfile={playerProfile}
         sessionEmail={sessionEmail}
         history={history}

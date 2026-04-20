@@ -12,10 +12,12 @@ package com.sudoku.dto;
  */
 public record ErrorResponse(String code, String message, String detail) {
 
-    public static final String INVALID_GRID    = "INVALID_GRID";
-    public static final String INVALID_PUZZLE  = "INVALID_PUZZLE";
-    public static final String GAME_NOT_FOUND  = "GAME_NOT_FOUND";
-    public static final String INTERNAL_ERROR  = "INTERNAL_ERROR";
+    public static final String INVALID_GRID           = "INVALID_GRID";
+    public static final String INVALID_PUZZLE         = "INVALID_PUZZLE";
+    public static final String GAME_NOT_FOUND         = "GAME_NOT_FOUND";
+    public static final String PLAYER_NOT_FOUND       = "PLAYER_NOT_FOUND";
+    public static final String INVALID_PLAYER_UPDATE  = "INVALID_PLAYER_UPDATE";
+    public static final String INTERNAL_ERROR         = "INTERNAL_ERROR";
 
     /** Convenience constructor — no additional detail to surface. */
     public ErrorResponse(String code, String message) {

@@ -1,5 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getPlayerProfile, getEmailFromSession, ForbiddenError, warmupImageRecognition } from '../api/sudokuApi.js';
+import { getPlayerProfile, updatePlayerProfile, getEmailFromSession, ForbiddenError, warmupImageRecognition } from '../api/sudokuApi.js';
+import { AVATAR_ICONS } from '../utils/avatarIcons.js';
+
+const DEFAULT_AVATAR = 'Person';
+
+function resolveAvatar(avatarKey) {
+  if (!avatarKey) return DEFAULT_AVATAR;
+  return AVATAR_ICONS.some((a) => a.name === avatarKey) ? avatarKey : DEFAULT_AVATAR;
+}
 
 const ENABLE_IMPORT = import.meta.env.VITE_ENABLE_IMPORT === 'true';
 
@@ -29,6 +37,11 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
     if (!user) return;
     getPlayerProfile().then((profile) => {
       setPlayerProfile(profile);
+      if (profile?.avatarKey) {
+        const resolved = resolveAvatar(profile.avatarKey);
+        localStorage.setItem(LS_KEY_AVATAR, resolved);
+        setAvatarState(resolved);
+      }
       if (ENABLE_IMPORT) warmupImageRecognition();
     }).catch(async (err) => {
       if (err instanceof ForbiddenError) {
@@ -41,6 +54,18 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
   const setAvatar = useCallback((iconName) => {
     localStorage.setItem(LS_KEY_AVATAR, iconName);
     setAvatarState(iconName);
+  }, []);
+
+  // @spec UM-UI-004, UM-UI-001, UM-UI-002
+  const updateProfile = useCallback(async ({ displayName, avatarKey }) => {
+    const updated = await updatePlayerProfile({ displayName, avatarKey });
+    setPlayerProfile(updated);
+    if (avatarKey != null) {
+      const resolved = resolveAvatar(avatarKey);
+      localStorage.setItem(LS_KEY_AVATAR, resolved);
+      setAvatarState(resolved);
+    }
+    return updated;
   }, []);
 
   const recordGame = useCallback(({ gameId, difficulty, outcome, elapsedSeconds, hintsUsed }) => {
@@ -63,5 +88,5 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
     });
   }, []);
 
-  return { avatar, setAvatar, history, recordGame, playerProfile, sessionEmail };
+  return { avatar, setAvatar, history, recordGame, playerProfile, sessionEmail, updateProfile };
 }

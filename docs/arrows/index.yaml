@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-04-19
+updated: 2026-04-20
 
 arrows:
   - id: api-error-handling
@@ -58,12 +58,12 @@ arrows:
     next: "Re-evaluate AEH-EX-008/009 when real DynamoDB repository is deployed"
 
   - id: user-management
-    status: AUDITED
+    status: OK
     lld: docs/llds/user-management.md
     specs: docs/specs/user-management-specs.md
     arrow: docs/arrows/user-management.md
-    spec_count: 20
-    implemented: 20
+    spec_count: 34
+    implemented: 34
     deferred: 0
     gaps: 0
     next: ~

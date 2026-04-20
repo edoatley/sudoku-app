@@ -2,7 +2,9 @@ package com.sudoku.player;
 
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
@@ -13,10 +15,10 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 /**
  * REST entry point for player profile management.
  *
- * <p>Provides a single authenticated endpoint that returns the current player's profile,
- * creating it on first access. JWT claims are read directly from the Quarkus
- * {@code SecurityIdentity} so that the profile is always seeded with the player's
- * real email and display name from Cognito, without requiring a separate registration step.
+ * <p>Exposes GET /players/me for lazy profile creation on first access, and
+ * PATCH /players/me for updating display name and avatar. JWT claims are read from
+ * the Quarkus {@code SecurityIdentity} to seed new profiles with the player's
+ * real Cognito identity without a separate registration step.
  */
 @Path("/players")
 @Produces(MediaType.APPLICATION_JSON)
@@ -35,6 +37,15 @@ public class PlayerResource {
         String email       = getClaimAsString("email");
         String displayName = getClaimAsString("name");
         return playerService.getOrCreateProfile(userId, email, displayName);
+    }
+
+    // @spec UM-API-002, UM-BE-003, UM-BE-004, UM-BE-005, UM-BE-006
+    @PATCH
+    @Path("/me")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public PlayerProfile updateMe(@Context SecurityContext sc, PlayerUpdateRequest request) {
+        String userId = sc.getUserPrincipal().getName();
+        return playerService.updateProfile(userId, request);
     }
 
     private String getClaimAsString(String claimName) {

@@ -51,9 +51,23 @@ GET /players/me
   → playerService.getOrCreateProfile(userId, email, displayName)
       → playerRepository.findById(userId)
           if found → return existing profile (unchanged, even if email/name changed)
-          if not found → create new PlayerProfile(userId, email, displayName, now, now)
+          if not found → create new PlayerProfile(userId, email, displayName, avatarKey=null, now, now)
                        → playerRepository.upsert(newProfile)
                        → return new profile
+```
+
+### Profile Update Pattern
+
+```text
+PATCH /players/me { displayName?, avatarKey? }
+  → playerService.updateProfile(userId, request)
+      → validate: both null → InvalidPlayerUpdateException (400)
+      → validate: displayName blank or >50 chars → InvalidPlayerUpdateException (400)
+      → playerRepository.findById(userId)
+          if not found → PlayerNotFoundException (404)
+          if found → merge non-null fields; set updatedAt = now
+                   → playerRepository.upsert(mergedProfile)
+                   → return updated profile
 ```
 
 Email and display name come from JWT claims. Once created, the profile is returned as-is on subsequent calls — there is no profile-update flow in the current implementation.
@@ -69,11 +83,16 @@ This dual approach handles both Quarkus OIDC (which provides `JsonWebToken`) and
 
 ### REST API
 
-| Method | Path | Auth | Response | Notes |
-| --- | --- | --- | --- | --- |
-| GET | `/players/me` | Required | `PlayerProfile` | Creates profile if first visit |
+| Method | Path | Auth | Request body | Response | Notes |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/players/me` | Required | — | `PlayerProfile` | Creates profile if first visit |
+| PATCH | `/players/me` | Required | `PlayerUpdateRequest` | `PlayerProfile` | Both fields optional; at least one required |
 
-No update, delete, or list endpoints exist.
+`PlayerUpdateRequest` is a record with two optional fields:
+- `displayName` — string; trimmed; 1–50 chars when provided
+- `avatarKey` — string; any non-null value accepted (client-defined icon name)
+
+Both null → 400. No-op PATCH (empty payload) → 400.
 
 ## DynamoDB Schema
 
@@ -82,10 +101,11 @@ Table: `SudokuPlayers{suffix}` (name injected via `sudoku.dynamodb.players-table
 | Attribute | DynamoDB Type | Key Role | Notes |
 | --- | --- | --- | --- |
 | `userId` | String | Partition Key | Cognito `sub` claim |
-| `email` | String | — | From Cognito JWT |
-| `displayName` | String | — | From Cognito JWT name claim |
+| `email` | String | — | From Cognito JWT; read-only after creation |
+| `displayName` | String | — | From Cognito JWT name claim; updatable via PATCH |
+| `avatarKey` | String | — | Client-defined icon name; empty string stored as null; updatable via PATCH |
 | `createdAt` | String | — | ISO-8601 UTC |
-| `updatedAt` | String | — | ISO-8601 UTC |
+| `updatedAt` | String | — | ISO-8601 UTC; updated on every PATCH |
 
 No sort key — one profile per user. `upsert` is a DynamoDB `PutItem` (full overwrite).
 
@@ -97,7 +117,7 @@ PlayerProfile (DTO, immutable record)
 PlayerItem (entity, mutable)
 ```
 
-`PlayerItem.from()` substitutes empty string for null email or displayName — DynamoDB does not store null string attributes.
+`PlayerItem.from()` substitutes empty string for null email, displayName, or avatarKey — DynamoDB does not store null string attributes. `toPlayerProfile()` converts empty string back to null for avatarKey so callers receive a clean null rather than an empty string.
 
 ## Email Allowlist Filter
 
@@ -184,15 +204,17 @@ Observes `StartupEvent`, runs only in dev profile, auto-creates DynamoDB tables 
 | `@IfBuildProfile` for DevUserFilter | Compile-time exclusion | Runtime profile check | Zero production cost; dev code literally absent from production artifact |
 | CorsFilter in JAX-RS layer | Custom `ContainerRequestFilter` | Quarkus built-in CORS (`quarkus.http.cors`) | More control over origin matching; allows OPTIONS short-circuit before business logic |
 | `upsert` as full overwrite | DynamoDB `PutItem` | UpdateExpression on specific fields | PlayerProfile has few fields; full overwrite is simpler and correct |
-| No profile update endpoint | Read-only after creation | PATCH /players/me | Personal project; displayName from Cognito JWT is sufficient; profile update deferred |
+| Profile update via PATCH | PATCH /players/me for displayName + avatarKey | Read-only after creation | Users need to personalise their display name and avatar across devices |
+| avatarKey not server-validated | Free string; client defines valid values | Enum allowlist on backend | Icon set is UI-defined; future custom upload will use a different prefix convention |
 
 ## Technical Debt & Inconsistencies
 
-- `PlayerServiceImpl.getOrCreateProfile()` does not update an existing profile even if the user's email or display name has changed in Cognito. The first-created values are frozen.
+- `PlayerServiceImpl.getOrCreateProfile()` does not update email or displayName from JWT claims on subsequent GET calls — the first-created values are frozen for email. Display name and avatar can be changed via PATCH /players/me.
+- `PlayerServiceImpl.updateProfile()` uses read-modify-write (findById → merge → upsert). Two concurrent PATCHes from the same user can race; the last write wins. Acceptable for a single-user personal app but would need conditional writes at scale.
 - `DynamoDbPlayerRepository.upsert()` returns the original `PlayerProfile` unchanged (not the DynamoDB-persisted version). If DynamoDB applies any transformation, the returned value would be stale — though no such transformation currently exists.
 - `AllowedUsersFilter` passes anonymous requests silently. If the OIDC stack fails to populate the `SecurityIdentity` for an authenticated route, the request would slip through the allowlist check. API Gateway's JWT authorizer is the actual enforcement point; this filter is defence-in-depth.
 - `ApiLoggingFilter` buffers the entire request body in memory for logging. For large payloads (e.g., image uploads), this doubles memory usage. Image upload goes through the image recognition Lambda, not this path, so current exposure is low.
-- The production allowlist is hardcoded in `application.properties` rather than injected via an environment variable. Adding a new user requires a code commit.
+- The production allowlist is hardcoded in `application.properties` rather than injected via an environment variable. Adding a new user requires a code commit. [D]
 
 ## Behavioral Quirks
 

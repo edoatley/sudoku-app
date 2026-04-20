@@ -4,9 +4,26 @@
 
 - [x] **UM-BE-001**: When GET /players/me is called for a user with no existing profile, the system shall create a new PlayerProfile using the userId, email, and display name from the JWT claims and persist it to DynamoDB.
 - [x] **UM-BE-002**: When GET /players/me is called for a user with an existing profile, the system shall return the stored profile unchanged, even if JWT claims have changed.
+- [x] **UM-BE-003**: When PATCH /players/me is called with a valid request body, the system shall load the existing PlayerProfile, apply non-null fields from the request, set updatedAt to the current UTC instant, and persist the result via upsert.
+- [x] **UM-BE-004**: When PATCH /players/me is called and no PlayerProfile exists for the authenticated user, the system shall return HTTP 404.
+- [x] **UM-BE-005**: When PATCH /players/me is called with both displayName and avatarKey absent or null, the system shall return HTTP 400 with a JSON error body.
+- [x] **UM-BE-006**: When PATCH /players/me is called with a displayName that is blank or exceeds 50 characters after trimming, the system shall return HTTP 400 with a JSON error body.
 - [x] **UM-API-001**: The system shall expose GET /players/me requiring JWT authentication and returning the player's PlayerProfile.
+- [x] **UM-API-002**: The system shall expose PATCH /players/me requiring JWT authentication, accepting a JSON body with optional displayName and avatarKey fields, and returning the updated PlayerProfile.
 - [x] **UM-DATA-001**: The system shall store player profiles in DynamoDB with userId as the sole partition key (no sort key).
 - [x] **UM-DATA-002**: The system shall store createdAt and updatedAt as ISO-8601 UTC strings on every PlayerProfile.
+- [x] **UM-DATA-003**: The system shall store avatarKey as a nullable string attribute on every PlayerProfile; profiles created before this field existed shall return avatarKey as null.
+
+## Frontend — Profile Update
+
+- [x] **UM-UI-001**: When the user opens the Edit Profile dialog, the system shall initialise the displayName field with playerProfile.displayName and the avatar picker with playerProfile.avatarKey, falling back to 'Person' if avatarKey is null.
+- [x] **UM-UI-002**: When playerProfile.avatarKey is not present in the known avatar icon list, the system shall display the 'Person' avatar icon as a fallback.
+- [x] **UM-UI-003**: While the Edit Profile save is in-flight, the system shall disable the Save button and show a loading indicator.
+- [x] **UM-UI-004**: When the Edit Profile save succeeds, the system shall update playerProfile state and avatar state in the UI and close the dialog.
+- [x] **UM-UI-005**: When the Edit Profile save fails, the system shall display an inline error Alert within the dialog and leave the dialog open.
+- [x] **UM-UI-006**: When the displayName field in Edit Profile is blank, the system shall disable the Save button.
+- [x] **UM-UI-007**: The system shall replace the "Change Avatar" menu item in the account menu with an "Edit Profile" menu item that opens the Edit Profile dialog.
+- [x] **UM-UI-008**: When VITE_MOCK_API is true, the system shall simulate a successful PATCH by merging the submitted fields onto the current mock profile without making a network call.
 
 ## Authentication
 
