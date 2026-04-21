@@ -21,6 +21,7 @@
 - [x] **IR-PROC-010**: The system shall invoke the Bedrock Converse API (not InvokeModel) to support a system prompt alongside the user message.
 - [x] **IR-PROC-011**: The system shall use temperature=0 and maxTokens=2048 for all Bedrock invocations.
 - [x] **IR-PROC-012**: The system shall instruct the model to first transcribe the grid in a pipe-delimited scratchpad, then output the final result as JSON wrapped in `<json>` tags.
+- [x] **IR-PROC-013**: The system prompt shall instruct the model to ignore cell background colour (orange, yellow, tan, grey shading) and treat a cell as empty if no digit is printed in it, regardless of its background colour.
 
 ## Grid Parsing
 

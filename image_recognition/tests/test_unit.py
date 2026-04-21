@@ -149,6 +149,25 @@ def _make_png(width: int = 10, height: int = 10) -> bytes:
     return buf.getvalue()
 
 
+# ---------------------------------------------------------------------------
+# _SYSTEM_PROMPT
+# ---------------------------------------------------------------------------
+
+
+class TestSystemPrompt:
+
+    # @spec IR-PROC-013
+    def test_system_prompt_contains_colour_hint(self):
+        """System prompt must instruct the model to ignore cell background colour."""
+        prompt_lower = handler._SYSTEM_PROMPT.lower()
+        assert "colour" in prompt_lower or "color" in prompt_lower, (
+            "_SYSTEM_PROMPT must contain a colour/color hint for shaded-cell puzzles"
+        )
+        assert "background" in prompt_lower, (
+            "_SYSTEM_PROMPT must mention 'background' so the model ignores cell shading"
+        )
+
+
 class TestDetectImageFormat:
 
     def test_jpeg_bytes_detected(self):

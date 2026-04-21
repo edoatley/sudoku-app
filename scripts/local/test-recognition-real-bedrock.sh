@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# compare-image-recognition-models.sh
-#
-# Runs each Bedrock model independently, with and without PIL preprocessing,
-# against all ground-truth fixtures and produces a comparison matrix.
+# test-recognition-real-bedrock.sh — Run image recognition tests against real Bedrock (sandbox profile).
 #
 # Usage:
-#   bash scripts/local/compare-image-recognition-models.sh
+#   bash scripts/local/test-recognition-real-bedrock.sh [--mode accuracy|compare]
 #
-# Requires:
+# Modes:
+#   accuracy  (default) Run pytest e2e suite including exact grid match for all fixtures in
+#                       tests/e2e_config.json. Fast — one Bedrock call per puzzle.
+#   compare             Run every model × PIL combination against all ground-truth fixtures
+#                       and print an accuracy matrix. Slow — many Bedrock calls.
+#
+# Requires AWS SSO login:
 #   aws sso login --profile sandbox
 
 set -euo pipefail
@@ -16,23 +19,61 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 IR_DIR="${REPO_ROOT}/image_recognition"
 VENV="${IR_DIR}/.venv"
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
 
+# ── Parse arguments ───────────────────────────────────────────────────────────
+MODE="accuracy"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mode)
+      MODE="${2:?--mode requires a value: accuracy|compare}"
+      shift 2
+      ;;
+    *)
+      echo -e "${RED}Unknown argument: $1${RESET}" >&2
+      echo "Usage: $0 [--mode accuracy|compare]" >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "${MODE}" != "accuracy" && "${MODE}" != "compare" ]]; then
+  echo -e "${RED}Invalid mode '${MODE}' — must be 'accuracy' or 'compare'${RESET}" >&2
+  exit 1
+fi
+
+# ── AWS credentials check ─────────────────────────────────────────────────────
 echo -e "\n${BOLD}${CYAN}=== Checking AWS credentials (sandbox profile) ===${RESET}"
 if ! AWS_PROFILE=sandbox aws sts get-caller-identity --output text &>/dev/null; then
-  echo -e "${RED}✗ Not authenticated. Run: aws sso login --profile sandbox${RESET}"
+  echo -e "${RED}✗ AWS sandbox profile not authenticated.${RESET}"
+  echo -e "  Run: ${BOLD}aws sso login --profile sandbox${RESET}"
   exit 1
 fi
 echo -e "${GREEN}✓ Authenticated${RESET}"
 
+# ── Python venv ───────────────────────────────────────────────────────────────
 if [[ ! -f "${VENV}/bin/python" ]]; then
-  echo "Setting up .venv..."
+  echo -e "\n${YELLOW}Setting up .venv...${RESET}"
   python3 -m venv "${VENV}"
   "${VENV}/bin/pip" install -q -r "${IR_DIR}/requirements-dev.txt"
 fi
 
-echo -e "\n${BOLD}${CYAN}=== Model comparison (each model run independently) ===${RESET}\n"
+# ── Mode: accuracy ────────────────────────────────────────────────────────────
+if [[ "${MODE}" == "accuracy" ]]; then
+  echo -e "\n${BOLD}${CYAN}=== Running accuracy tests (pytest e2e) ===${RESET}"
+  echo -e "  Model: Haiku 4.5 | PIL: disabled | Fixtures: tests/e2e_config.json\n"
+
+  (
+    cd "${IR_DIR}"
+    source "${VENV}/bin/activate"
+    AWS_PROFILE=sandbox AWS_REGION_NAME=eu-west-2 \
+      python -m pytest tests/test_e2e_bedrock.py -v -m e2e -s
+  )
+  exit 0
+fi
+
+# ── Mode: compare ─────────────────────────────────────────────────────────────
+echo -e "\n${BOLD}${CYAN}=== Running model comparison matrix ===${RESET}\n"
 
 (
   cd "${IR_DIR}"
@@ -41,7 +82,6 @@ echo -e "\n${BOLD}${CYAN}=== Model comparison (each model run independently) ===
 import json, sys, logging
 from pathlib import Path
 
-# Suppress handler INFO logs — we want our own clean output
 logging.getLogger("handler").setLevel(logging.WARNING)
 
 sys.path.insert(0, ".")
@@ -52,18 +92,23 @@ CONFIG = json.loads(Path("tests/e2e_config.json").read_text())
 PUZZLES = CONFIG["puzzles"]
 
 MODELS = [
-    ("nemotron",  "nvidia.nemotron-nano-12b-v2"),
     ("haiku-4.5", "eu.anthropic.claude-haiku-4-5-20251001-v1:0"),
+    ("nemotron",  "nvidia.nemotron-nano-12b-v2"),
 ]
 PIL_MODES = [("no-PIL", False), ("PIL", True)]
 
 client = boto3.client("bedrock-runtime", region_name="eu-west-2")
 
+GREEN  = '\033[0;32m'
+RED    = '\033[0;31m'
+YELLOW = '\033[1;33m'
+RESET  = '\033[0m'
+BOLD   = '\033[1m'
+CYAN   = '\033[0;36m'
+
+
 def cell_accuracy(actual, expected):
-    """Return (correct_cells, total_clue_cells, wrong_cells_list)."""
-    correct = 0
-    total = 0
-    wrong = []
+    correct, total, wrong = 0, 0, []
     for r in range(9):
         for c in range(9):
             exp = expected[r][c]
@@ -76,31 +121,19 @@ def cell_accuracy(actual, expected):
                     wrong.append((r, c, exp, act))
     return correct, total, wrong
 
+
 def run_single(model_id, image_bytes, pil_enabled):
-    """Run one model on one image, returning (grid, valid, error_str)."""
     h._MODELS = [model_id]
-    if pil_enabled:
-        processed = h._downscale_image(image_bytes)
-    else:
-        processed = image_bytes
+    processed = h._downscale_image(image_bytes) if pil_enabled else image_bytes
     try:
         grid, valid, _ = h._recognize_with_bedrock(client, processed)
         return grid, valid, None
     except Exception as e:
         return None, False, str(e)
 
-# ── Results table ─────────────────────────────────────────────────────────────
-# results[puzzle_name][model_label] = {correct, total, wrong, valid, error}
-results = {}
-
-GREEN  = '\033[0;32m'
-RED    = '\033[0;31m'
-YELLOW = '\033[1;33m'
-RESET  = '\033[0m'
-BOLD   = '\033[1m'
-CYAN   = '\033[0;36m'
 
 col_labels = [f"{name}+{pil}" for name, _ in MODELS for pil, _ in PIL_MODES]
+results = {}
 
 print(f"Running {len(PUZZLES)} puzzles × {len(MODELS)} models × {len(PIL_MODES)} PIL modes "
       f"= {len(PUZZLES)*len(MODELS)*len(PIL_MODES)} calls...\n")
@@ -128,9 +161,10 @@ for puzzle in PUZZLES:
                 results[name][key] = {
                     "grid": grid, "valid": valid,
                     "correct": correct, "total": total, "wrong": wrong,
-                    "exact": len(wrong) == 0
+                    "exact": len(wrong) == 0,
                 }
-                status = f"{GREEN}✓ {correct}/{total}{RESET}" if not wrong else f"{RED}✗ {correct}/{total} ({len(wrong)} errors){RESET}"
+                status = (f"{GREEN}✓ {correct}/{total}{RESET}" if not wrong
+                          else f"{RED}✗ {correct}/{total} ({len(wrong)} errors){RESET}")
                 print(status)
 
 # ── Summary matrix ────────────────────────────────────────────────────────────
@@ -138,7 +172,6 @@ print(f"\n{BOLD}{CYAN}{'='*72}{RESET}")
 print(f"{BOLD}  Accuracy Matrix (correct clue cells / total clue cells){RESET}")
 print(f"{BOLD}{CYAN}{'='*72}{RESET}")
 
-# Header
 hdr = f"{'Puzzle':<14}"
 for lbl in col_labels:
     hdr += f"  {lbl:<18}"
@@ -155,11 +188,9 @@ for puzzle in PUZZLES:
     for lbl in col_labels:
         r = results[name].get(lbl, {})
         if "error" in r:
-            cell = f"{'FAIL':<18}"
-            row += f"  {RED}{cell}{RESET}"
+            row += f"  {RED}{'FAIL':<18}{RESET}"
         elif "no_truth" in r:
-            cell = f"{'(no truth)':<18}"
-            row += f"  {YELLOW}{cell}{RESET}"
+            row += f"  {YELLOW}{'(no truth)':<18}{RESET}"
         else:
             c, t, w = r["correct"], r["total"], r["wrong"]
             pct = int(100 * c / t) if t else 0
@@ -172,7 +203,6 @@ for puzzle in PUZZLES:
     print(row)
 
 print("-" * (14 + 20 * len(col_labels)))
-# Totals row
 tot = f"{'EXACT MATCH':<14}"
 for lbl in col_labels:
     score = f"{exact_counts[lbl]}/{puzzle_count}"
@@ -180,7 +210,7 @@ for lbl in col_labels:
     tot += f"  {color}{score:<18}{RESET}"
 print(f"{BOLD}{tot}{RESET}")
 
-# ── Detailed diffs for any failures ──────────────────────────────────────────
+# ── Detailed diffs ────────────────────────────────────────────────────────────
 any_wrong = False
 for puzzle in PUZZLES:
     name = puzzle["name"]

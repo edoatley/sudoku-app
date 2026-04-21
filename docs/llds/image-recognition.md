@@ -71,7 +71,14 @@ Comparison testing (2026-04-20) against 5 ground-truth fixtures evaluated Haiku 
 ### Prompts
 
 **System prompt:**
-> "You are a precise Sudoku digit extractor. You specialize in spatial mapping. You count columns from left to right (1-9) and rows from top to bottom (1-9). You never skip a cell, even if it is empty. You use visual anchors to stay aligned."
+> "You are a precise Sudoku digit extractor. You specialize in spatial mapping. You count columns from left to right (1-9) and rows from top to bottom (1-9). You never skip a cell, even if it is empty. You use visual anchors to stay aligned. Some puzzles have coloured or shaded cell backgrounds (orange, yellow, tan, grey). Ignore background colour entirely — read only the digit if one is printed in the cell; if no digit is visible, the cell is empty regardless of its background colour."
+
+The colour-cell instruction (IR-PROC-013) addresses two related failure modes observed with puzzle_5.png:
+
+1. The model misread shaded empty cells as containing digits (hallucination from background colour).
+2. The model skipped shaded-but-empty cells when counting columns, shifting remaining digits in the row left by one position — causing duplicates in the extracted grid.
+
+The user prompt fix explicitly states that shaded cells still occupy their column position and each row must have exactly 9 pipe-separated values in the scratchpad. The system prompt adds a general colour-cell rule. Together these resolved puzzle_5 from a consistent 422 (duplicate grid) to a perfect 25/25 cell match. Changes are additive and do not affect black-on-white puzzles. PIL desaturation remains deferred.
 
 **User prompt:** Asks the model to:
 
@@ -213,12 +220,13 @@ The warmup route (`GET /api/v1/puzzles/import/warmup`) returns 200 immediately w
 | Fuzzy return (duplicates allowed) | Return best grid with `validPuzzle=false` | Reject all grids with duplicates | Better UX: Java backend runs own validation; user sees extracted grid even if imperfect |
 | Warmup probe | `GET /api/v1/puzzles/import/warmup` (no auth) | Scheduled EventBridge ping | Frontend-initiated; warms the specific Lambda; no infrastructure overhead |
 | Desaturate before sending | `ImageEnhance.Color(0.0)` | Send colour image | Sudoku digits are shape-based; removing colour reduces irrelevant visual features |
+| Static colour-cell hint | One sentence in system prompt (IR-PROC-013) | Adaptive pixel-based prompt injection | Zero latency, zero dependency; model already handles most colour puzzles correctly — explicit instruction makes it reliable. Adaptive approach deferred as future optimisation. |
 | Temperature 0 | `inferenceConfig: {temperature: 0}` | Default temperature | Digit extraction should be deterministic; randomness only adds errors |
 
 ## Technical Debt & Inconsistencies
 
 - `_MODELS` contains only one entry. The multi-model cross-check code remains in place but is not exercised. It can be activated by adding a second model to `local.bedrock_models` in Terraform — but only after validating accuracy against the ground-truth fixtures in `tests/e2e_config.json`.
-- PIL preprocessing (`_downscale_image`) is implemented and unit-tested but the call in `handler()` is deferred. E2e testing (2026-04-20) showed that PIL desaturation causes orange-highlighted cells to be misread — the colour cue for emptiness is lost. Re-enable only after addressing colour preservation.
+- PIL preprocessing (`_downscale_image`) is implemented and unit-tested but the call in `handler()` is deferred. E2e testing (2026-04-20) showed that PIL desaturation causes orange-highlighted cells to be misread — the colour cue for emptiness is lost. A static colour-cell hint (IR-PROC-013) was added to the system prompt as the first mitigation. Re-enable PIL only after confirming it does not degrade colour-puzzle accuracy.
 - `AWS_REGION_NAME` defaults to `eu-west-2`; Terraform also injects it explicitly via the Lambda environment block.
 - Error logging uses `print`-style statements in some places alongside the configured logger. Inconsistent logging approach.
 - The `handler()` function is 70+ lines long and handles parsing, validation, and response building inline. Extracting `_parse_request()` and `_build_response()` helpers would improve readability.

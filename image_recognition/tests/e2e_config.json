@@ -33,12 +33,12 @@
       "comment": "Screenshot from a Sudoku app — orange selected cell at [0][0] must be blank (previously returned 422 on sudoku-beta)"
     },
     {
-      "name": "CI_Puzzle",
-      "file": "tests/fixtures/CI_Puzzle.jpg",
-      "min_clues": 17,
-      "expected_empty_cells": [],
-      "expected_grid": [[0,2,0,0,3,0,0,4,0],[6,0,0,0,0,0,0,0,3],[0,0,4,0,0,0,5,0,0],[0,0,0,8,0,6,0,0,0],[8,0,0,0,1,0,0,0,6],[0,0,0,7,0,5,0,0,0],[0,0,7,0,0,0,6,0,0],[4,0,0,0,0,0,0,0,8],[0,3,0,0,4,0,0,2,0]],
-      "comment": "Clean black-on-white printed puzzle — no colour highlights"
+      "name": "puzzle_5",
+      "file": "tests/fixtures/puzzle_5.png",
+      "min_clues": 25,
+      "expected_empty_cells": [[0, 0]],
+      "expected_grid": [[0,0,0,1,0,7,5,3,9],[0,0,0,0,9,0,0,0,0],[0,0,0,5,2,0,0,4,0],[0,0,0,2,0,0,0,0,7],[9,0,0,0,0,0,0,0,5],[0,4,5,0,1,0,0,0,0],[0,0,0,0,6,0,0,7,8],[3,6,0,0,0,0,0,0,0],[0,2,0,9,0,0,0,6,3]],
+      "comment": "Colour-coded screenshot — orange selected cell at [0][0] must be blank; tan/beige shading in background boxes"
     }
   ]
 }
