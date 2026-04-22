@@ -106,7 +106,7 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
       </Box>
 
       {/* Inline status for valid/invalid results */}
-      <Collapse in={gameStatus === 'valid' || gameStatus === 'invalid'} sx={{ width: '100%' }}>
+      <Collapse in={gameStatus === 'valid' || gameStatus === 'invalid'} unmountOnExit sx={{ width: '100%' }}>
         <Alert
           data-testid="status-alert"
           severity={gameStatus === 'invalid' ? 'warning' : 'success'}
