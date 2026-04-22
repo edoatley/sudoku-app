@@ -200,6 +200,181 @@ TLS certificates provisioned automatically by Amplify via ACM. No manual certifi
 - `AWSLambdaBasicExecutionRole`
 - `bedrock:InvokeModel` on `eu.anthropic.claude-haiku-4-5-20251001-v1:0` inference-profile ARN and its corresponding foundation-model ARN (required for regional routing)
 
+## Terraform Project Structure
+
+### File Organisation
+
+| File | Contents |
+| --- | --- |
+| `main.tf` | Provider config, `default_tags`, `local` values |
+| `variables.tf` | All input variables |
+| `outputs.tf` | Exported values (zone IDs, API URL, etc.) |
+| `lambda.tf` | Java Lambda function, alias, S3 artifact |
+| `image_recognition_lambda.tf` | Image Recognition Lambda (container image) |
+| `api_gateway.tf` | HTTP API v2, routes, integrations, JWT authorizer, throttling |
+| `dynamodb.tf` | SudokuGames and SudokuPlayers tables |
+| `cognito.tf` | User Pool, App Clients, Google IdP, Cognito domain |
+| `cognito-rc-shared.tf` | Shared RC Cognito pool (rc-shared workspace only) |
+| `amplify.tf` | Amplify app, branch, environment variables |
+| `iam.tf` | Lambda execution roles and inline policies |
+| `domain.tf` | Route53 zones, Amplify domain associations, ACM certificates |
+
+### Naming Convention
+
+All resource names use `local.suffix` (`""` for default, `-{workspace}` for others):
+
+```hcl
+resource "aws_lambda_function" "java" {
+  function_name = "sudoku${local.suffix}"
+  ...
+}
+```
+
+### Tagging
+
+All resources receive default tags via the provider `default_tags` block:
+
+```hcl
+provider "aws" {
+  default_tags {
+    tags = {
+      Project     = "Sudoku"
+      ManagedBy   = "Terraform"
+      Environment = var.environment
+    }
+  }
+}
+```
+
+### Infrastructure Standards
+
+- **API Gateway:** Always use API Gateway v2 (HTTP API). Never use REST API v1.
+- **CORS:** Use the two-step pattern described in the CORS Two-Step Pattern section.
+- **Amplify auto-build:** Always set `enable_auto_build = false` — CI triggers builds explicitly after Terraform has applied correct `VITE_*` variables.
+- **Sensitive variables:** Google credentials and CI secrets are passed as `sensitive = true` Terraform variables, injected via GitHub Actions secrets.
+
+## CI/CD Deployment Pipeline
+
+### Workflow Files
+
+```
+.github/
+  workflows/
+    ci.yml             # Feature/PR/Dependabot branches
+    ci-deploy.yml      # main and rc-* branches: CI gate → build → deploy → smoke tests
+    smoke-tests.yml    # Reusable: API probes + Playwright against live Amplify
+    teardown.yml       # Manual environment teardown (workflow_dispatch)
+    teardown-rc.yml    # Auto teardown on rc-* branch deletion
+    security-audit.yml # Weekly Trivy vulnerability scan
+  actions/
+    configure-aws-oidc/         # Assumes IAM role via OIDC
+    setup-node/                 # Node 22 + npm ci [+ Playwright]
+    setup-java/                 # Java 21 (Temurin) + Maven cache
+    build-lambda-zip/           # Quarkus package + reproducible zip
+    create-localstack-dynamodb/ # Creates DynamoDB tables in LocalStack
+    terraform-validate/         # fmt check, init, validate
+    integration-tests/          # Native quarkus:dev + npm dev + Playwright
+
+scripts/github/
+    amplify-post-deploy.sh    # Post-Terraform: CORS, Cognito, Amplify build trigger
+    api-smoke-tests.sh        # HTTP probes against the live API Gateway
+    resolve-environment.sh    # Derives workspace/environment/is_main from branch name
+    terraform-plan.sh         # Parameterised terraform plan (phase 1 & 2, RC vars)
+```
+
+### Trigger Matrix
+
+| Event | Branch | Workflow |
+| --- | --- | --- |
+| `push` | feature/Dependabot (not main, not rc-*) | `ci.yml` |
+| `pull_request` | any | `ci.yml` |
+| `push` | `main` or `rc-*` | `ci-deploy.yml` |
+| `workflow_dispatch` | any | `teardown.yml` |
+| `delete` (branch) | `rc-*` | `teardown-rc.yml` |
+| schedule (weekly Mon) | — | `security-audit.yml` |
+
+### Job Dependency Chain (ci-deploy.yml)
+
+```
+gate-ui ──┐
+           ├── changes
+gate-backend ──┘    ├── build-backend (if backend changed)
+           │        │
+           └── build-image-recognition
+                         │
+                    deploy (Terraform 2-phase → Lambda → Amplify → Cognito)
+                         │
+                    smoke-test (API probes + Playwright vs live Amplify)
+                         │
+                    notify (step summary + artifact cleanup)
+```
+
+### Deployment Steps
+
+1. **CI gate** — `gate-ui` (lint + unit) and `gate-backend` (Maven + LocalStack) run in parallel
+2. **Detect changes** — `dorny/paths-filter` determines if backend or image recognition files changed
+3. **Build backend** (if backend changed) — Quarkus Lambda zip; uploaded as 1-day artifact
+4. **Build image recognition** — Docker build + ECR push with `{branch}-{sha}` tag
+5. **Terraform deploy** (two phases):
+   - Phase 1: all resources except domain association (avoids 40-min ACM cert wait on every deploy)
+   - Phase 2: full plan including domain
+   - `scripts/github/resolve-environment.sh` derives workspace from branch name
+   - `scripts/github/terraform-plan.sh` handles both phases with RC var-file injection
+   - `scripts/github/amplify-post-deploy.sh` tightens CORS/Cognito, triggers Amplify build
+6. **Smoke tests** — API probes + Playwright against live Amplify URL
+7. **Notify** — step summary with re-run instructions; deletes lambda-zip artifact
+
+### Terraform Workspace Mapping
+
+| Branch | Workspace | Sanitization |
+| --- | --- | --- |
+| `main` | `default` | — |
+| `rc-*` | sanitized branch (max 32 chars) | `tr '/' '-' | tr '.' '-' | cut -c1-32` |
+
+`teardown-rc.yml` uses identical sanitization — workspace names must match exactly or teardown will target the wrong environment.
+
+### Smoke Tests (smoke-tests.yml)
+
+Reusable workflow called after every deploy. Also dispatchable via `workflow_dispatch`.
+
+1. Lambda warm-up (RC only — handles cold starts)
+2. API smoke tests (`api-smoke-tests.sh` — health, generate, 401 rejections)
+3. Wait for Amplify deployment to complete
+4. Wait for custom domain to resolve
+5. AWS OIDC auth + Cognito token acquisition
+6. Image recognition smoke test (POST `/api/v1/puzzles/import` with real fixture)
+7. Playwright integration tests against live Amplify URL
+
+### Required Secrets
+
+| Secret | Purpose |
+| --- | --- |
+| `AWS_DEPLOY_ROLE_ARN` | OIDC role assumption for deploy/teardown |
+| `AMPLIFY_GITHUB_TOKEN` | Amplify GitHub source connection |
+| `GOOGLE_CLIENT_ID` | Cognito Google IdP |
+| `GOOGLE_CLIENT_SECRET` | Cognito Google IdP |
+| `SMOKE_TEST_USER_EMAIL` | Cognito smoke-test user |
+| `SMOKE_TEST_USER_PASSWORD` | Cognito smoke-test user |
+| `LOCALSTACK_AUTH_TOKEN` | LocalStack service auth |
+| `RC_COGNITO_WEB_CLIENT_ID` | RC Terraform var |
+| `RC_COGNITO_SMOKE_CLIENT_ID` | RC Terraform var |
+
+### Integrity Rules
+
+1. **Deploy must be inside the same workflow as CI.** Never create a separate deploy workflow — `needs:` chaining is the only guarantee broken code cannot be deployed.
+2. **Gate jobs must be in `needs:` for the deploy job.** `gate-ui` and `gate-backend` must be directly or transitively required by `deploy`.
+3. **The `if: always() && !failure() && !cancelled()` condition on deploy is load-bearing.** `always()` lets deploy run when `build-backend` is skipped (no backend changes); `!failure()` blocks deploy if any gate fails. Do not change without understanding both sides.
+4. **Workspace name sanitization must stay in sync** between `ci-deploy.yml` and `teardown-rc.yml`. Divergence causes teardown to target a non-existent workspace.
+5. **Integration tests are skipped for Dependabot.** The `integration` job conditions on `is_dependabot == 'false'`; removing this restores expensive Docker builds for all Dependabot PRs.
+6. **JWT tokens must not be passed as shell arguments.** Cognito ID tokens exceed OS `ARG_MAX`. In smoke tests, the Authorization header is written to a temp file and passed via `curl -H @/tmp/auth-header.txt`.
+
+### Adding a New Deployment Environment
+
+1. `resolve-environment.sh` already handles any non-main branch — no changes needed.
+2. Add the new branch pattern to `ci-deploy.yml`'s `on.push.branches`.
+3. Create `.github/workflows/teardown-<type>.yml` following `teardown-rc.yml`.
+4. If the new environment needs different Terraform vars, extend `terraform-plan.sh`.
+
 ## Observed Design Decisions
 
 | Decision | Chosen | Alternatives Considered | Rationale |

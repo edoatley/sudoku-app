@@ -222,6 +222,110 @@ Observes `StartupEvent`, runs only in dev profile, auto-creates DynamoDB tables 
 - In dev profile, `DevUserFilter` always uses `userId = "local-dev-user"` regardless of any request parameter. All dev game data is stored under this single user ID in LocalStack.
 - The CORS filter does not reject requests from non-allowed origins — it simply does not add the CORS headers. Browsers enforce CORS; the filter's job is to signal allowance, not to block.
 
+## Cognito User Pool Provisioning
+
+Cognito is provisioned via Terraform. Key resources:
+
+- `aws_cognito_user_pool` — social-only sign-in (Google); no native username/password; email schema required
+- `aws_cognito_identity_provider` — Google OAuth identity provider with `authorize_scopes = "openid email profile"`
+- `aws_cognito_user_pool_client` — two clients per workspace: `sudoku-web{suffix}` (public SPA, PKCE) and `sudoku-smoke-test{suffix}` (CI tests, client secret)
+- `aws_cognito_user_pool_domain` — hosted UI domain `sudoku-auth{suffix}.auth.eu-west-2.amazoncognito.com`
+
+Google credentials (`google_client_id`, `google_client_secret`) are passed as sensitive Terraform variables — never committed. In CI/CD they are injected via GitHub Actions secrets.
+
+### RC workspace Cognito sharing
+
+All `rc-*` workspaces share a single Cognito pool (`sudoku-rc`) owned by the `rc-shared` workspace. This avoids multiplying Google OAuth redirect URI registrations — one pool means one set of whitelisted URIs.
+
+### Cognito callback URL tightening
+
+Cognito `callback_urls` and `logout_urls` cannot reference the Amplify URL at `terraform apply` time (circular dependency). Baseline wildcards are applied by Terraform; a post-apply CI script tightens them to the exact Amplify URL. `ignore_changes = [callback_urls, logout_urls]` in Terraform state prevents subsequent applies from reverting. See `docs/llds/cloud-platform.md` — CORS Two-Step Pattern.
+
+## Frontend Amplify Auth Bootstrap
+
+### Libraries
+
+```
+@aws-amplify/auth          # Core Auth module
+@aws-amplify/ui-react      # <Authenticator> wrapper component
+aws-amplify                # Hub for auth events
+```
+
+### Bootstrap (main.jsx)
+
+Configure Amplify once before React mounts:
+
+```js
+import { Amplify } from 'aws-amplify';
+Amplify.configure({
+  Auth: {
+    Cognito: {
+      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
+      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
+      loginWith: { oauth: { /* hosted UI config */ } }
+    }
+  }
+});
+```
+
+Wrap the root component with `<Authenticator>`. Unauthenticated users see the Cognito hosted UI. Once authenticated, the child receives `{ user, signOut }`.
+
+`VITE_SKIP_AUTH=true` bypasses the Authenticator entirely — used in test environments only; never set in production.
+
+## Token Management
+
+After login, Cognito issues three tokens:
+
+| Token | Use |
+| --- | --- |
+| **ID token** | Sent as `Authorization: Bearer <id_token>` on every authenticated API call. Contains `sub`, `email`, `name`. |
+| **Access token** | Not used — Cognito User Pool access token is redundant here. |
+| **Refresh token** | Managed automatically by Amplify; rotates on every use. |
+
+Always use the **ID token** as the Bearer. Retrieve it with:
+
+```js
+import { fetchAuthSession } from 'aws-amplify/auth';
+const { tokens } = await fetchAuthSession();
+const idToken = tokens.idToken.toString();
+```
+
+## Route Authorizer Matrix
+
+| Route | Authorizer |
+| --- | --- |
+| `GET /puzzles/generate` | None (public) |
+| `POST /puzzles/validate` | None (public) |
+| `POST /puzzles/hint` | None (public) |
+| `POST /puzzles/candidates` | None (public) |
+| `GET /health` | None (public) |
+| `POST /api/v1/games` | JWT required |
+| `GET /api/v1/games/{gameId}` | JWT required |
+| `PATCH /api/v1/games/{gameId}` | JWT required |
+| `GET /api/v1/games/current` | JWT required |
+| `GET /api/v1/players/me` | JWT required |
+| `PATCH /api/v1/players/me` | JWT required |
+| `POST /api/v1/puzzles/import` | JWT required |
+
+The JWT authorizer is configured at API Gateway level (`identity_sources = ["$request.header.Authorization"]`, `issuer` = Cognito pool URL, `audience` = web client ID). The Lambda never validates the JWT itself.
+
+## Environment Variables Reference
+
+### Frontend (VITE_*)
+
+| Variable | Description |
+| --- | --- |
+| `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID (e.g. `eu-west-2_aBcDeFgHi`) |
+| `VITE_COGNITO_CLIENT_ID` | Web App Client ID |
+| `VITE_COGNITO_DOMAIN` | Hosted UI domain |
+| `VITE_SKIP_AUTH` | `true` in test environments only — bypasses Authenticator |
+
+These are non-secret (safe to embed in frontend bundles). Injected by Terraform into the Amplify build environment.
+
+### Backend (application.properties / Lambda env)
+
+No Cognito-specific env vars needed — the backend trusts API Gateway's injected JWT claims only. OIDC validation is disabled in dev/test profiles (`quarkus.oidc.enabled=false`).
+
 ## References
 
 - `backend/src/main/java/.../player/` (all player files)
@@ -231,5 +335,7 @@ Observes `StartupEvent`, runs only in dev profile, auto-creates DynamoDB tables 
 - `backend/src/main/java/.../cors/CorsFilter.java`
 - `backend/src/main/java/.../logging/ApiLoggingFilter.java`
 - `backend/src/main/resources/application.properties`
+- See also: `docs/llds/cloud-platform.md` (Cognito provisioning, API Gateway JWT Authorizer, IAM)
+- See also: `docs/llds/react-frontend.md` (Amplify Auth bootstrap, `VITE_SKIP_AUTH`)
 - Depends on: nothing (terminal leaf; Cognito auth is external)
 - Depended on by: Game Lifecycle (userId from JWT), Puzzle Generation (public routes bypass auth)

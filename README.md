@@ -166,14 +166,14 @@ CI runs all three test suites on every push. Playwright reports are uploaded as 
 
 | File                                               | Purpose                     |
 |----------------------------------------------------|-----------------------------|
-| [`openapi.yaml`](openapi.yaml)                     | API contract (source of truth) |
-| [`docs/backend.md`](docs/backend.md)               | Backend coding standards    |
-| [`docs/frontend.md`](docs/frontend.md)             | Frontend coding standards   |
-| [`docs/security.md`](docs/security.md)             | Security standards          |
-| [`docs/infrastructure.md`](docs/infrastructure.md) | IaC standards               |
-| [`docs/test-strategy.md`](docs/test-strategy.md)               | Test strategy               |
-| [`docs/user-authentication.md`](docs/user-authentication.md)   | Auth standards (Cognito, JWT, OIDC) |
-| [`CLAUDE.md`](CLAUDE.md)                                       | AI assistant instructions   |
+| [`openapi.yaml`](openapi.yaml)                                       | API contract (source of truth)           |
+| [`docs/standards/java-quarkus.md`](docs/standards/java-quarkus.md)   | Backend coding standards                 |
+| [`docs/llds/react-frontend.md`](docs/llds/react-frontend.md)         | Frontend LLD + coding standards          |
+| [`docs/arrows/security-standards.md`](docs/arrows/security-standards.md) | Security standards (IAM, throttling, IDOR) |
+| [`docs/arrows/testing-strategy.md`](docs/arrows/testing-strategy.md) | Test strategy                            |
+| [`docs/llds/user-management.md`](docs/llds/user-management.md)       | Auth standards (Cognito, JWT, OIDC)      |
+| [`docs/llds/cloud-platform.md`](docs/llds/cloud-platform.md)         | IaC standards + CI/CD pipeline           |
+| [`CLAUDE.md`](CLAUDE.md)                                             | AI assistant instructions                |
 
 ---
 

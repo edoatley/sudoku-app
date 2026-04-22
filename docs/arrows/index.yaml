@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-04-20
+updated: 2026-04-22
 
 arrows:
   - id: api-error-handling
@@ -18,8 +18,8 @@ arrows:
     lld: docs/llds/sudoku-logic.md
     specs: docs/specs/sudoku-logic-specs.md
     arrow: docs/arrows/sudoku-logic.md
-    spec_count: 16
-    implemented: 16
+    spec_count: 14
+    implemented: 14
     deferred: 0
     gaps: 0
     next: ~
@@ -40,8 +40,8 @@ arrows:
     lld: docs/llds/puzzle-generation-validation.md
     specs: docs/specs/puzzle-generation-specs.md
     arrow: docs/arrows/puzzle-generation.md
-    spec_count: 27
-    implemented: 27
+    spec_count: 17
+    implemented: 17
     deferred: 0
     gaps: 0
     next: ~
@@ -51,11 +51,11 @@ arrows:
     lld: docs/llds/game-lifecycle.md
     specs: docs/specs/game-lifecycle-specs.md
     arrow: docs/arrows/game-lifecycle.md
-    spec_count: 30
-    implemented: 28
-    deferred: 2
+    spec_count: 22
+    implemented: 22
+    deferred: 0
     gaps: 0
-    next: "Re-evaluate AEH-EX-008/009 when real DynamoDB repository is deployed"
+    next: ~
 
   - id: user-management
     status: OK
@@ -73,8 +73,8 @@ arrows:
     lld: docs/llds/image-recognition.md
     specs: docs/specs/image-recognition-specs.md
     arrow: docs/arrows/image-recognition.md
-    spec_count: 24
-    implemented: 19
+    spec_count: 25
+    implemented: 20
     deferred: 5
     gaps: 0
     next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)
@@ -95,8 +95,33 @@ arrows:
     lld: docs/llds/react-frontend.md
     specs: docs/specs/react-frontend-specs.md
     arrow: docs/arrows/react-frontend.md
-    spec_count: 48
-    implemented: 48
+    spec_count: 39
+    implemented: 39
     deferred: 0
     gaps: 0
     next: ~
+
+  - id: domain-types
+    status: OK
+    lld: docs/llds/sudoku-logic.md
+    specs: docs/specs/domain-types-specs.md
+    arrow: docs/arrows/domain-types.md
+    spec_count: 36
+    implemented: 36
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: security-standards
+    status: OK
+    lld: ~
+    specs: ~
+    arrow: docs/arrows/security-standards.md
+    notes: Cross-cutting security policy — IAM, throttling, IDOR prevention, input validation
+
+  - id: testing-strategy
+    status: OK
+    lld: ~
+    specs: ~
+    arrow: docs/arrows/testing-strategy.md
+    notes: Cross-cutting test pyramid — unit/integration/E2E, CI structure, environment variable rules

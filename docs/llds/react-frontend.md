@@ -238,6 +238,43 @@ Theme is created with `useMemo` and only recalculated when `colorMode` changes.
 - **Mock data:** `mocks/cannedData.js` provides canned puzzles, hint, validation, game state, and candidates for `VITE_MOCK_API=true` mode; all grid fields are in wire format (`{rows: [...]}`)
 - **Test isolation:** Tests that mock `sudokuApi.js` directly (e.g., `useSudokuGame.test.js`) must provide pre-unwrapped plain arrays since the real adapter code is bypassed
 
+## Implementation Standards
+
+These rules apply to all frontend code. They are referenced here so the LLD is the single source of truth for the React Frontend component.
+
+### UI / Styling
+
+- **Strict MUI:** Use `@mui/material` components for all UI elements. Do not write custom CSS or use Tailwind/Bootstrap. Use the `sx` prop for minor layout adjustments.
+- **Responsive layout:** Use MUI `<Grid>` or `<Stack>`. The Sudoku board must scale on mobile and desktop without breaking the viewport.
+- **Small, focused components:** Keep components single-purpose. Separate the grid visual rendering (`SudokuGrid`, `SudokuCell`) from game logic.
+
+### State Management
+
+- **Hooks only:** Use `useState`, `useEffect`, `useCallback`. Do not introduce Redux, Zustand, or any global state library.
+- **No prop drilling past one level:** Use hook-returned objects passed to immediate children.
+
+### API & Data Fetching
+
+- **Native fetch only:** Do not install Axios. All HTTP calls go through `sudokuApi.js`.
+- **API URL from env:** Always read `import.meta.env.VITE_API_URL` — never hardcode a base URL.
+- **Error handling:** Gracefully handle API failures (cold start timeouts, network errors) and display user-friendly messages via MUI `<Snackbar>` or `<Alert>`.
+
+## Three-Grid State Model
+
+The frontend owns three distinct grid representations:
+
+| State variable | Type | Description |
+| --- | --- | --- |
+| `originalGrid` | `number[][]` | Puzzle as returned by the server (0 = empty). Never mutated after load. |
+| `currentGrid` | `number[][]` | Working copy — updated on every cell edit. |
+| `candidateGrid` | `number[][][]` | Per-cell candidate lists (pencil marks). `[]` means no candidates set. |
+
+`inputMode` (`'normal'` | `'candidate'`) controls whether a cell click writes a digit to `currentGrid` or toggles an entry in `candidateGrid`. Writing a digit always clears that cell's `candidateGrid` entry.
+
+All three grids are stored in localStorage on every state change and restored on mount. Only `currentGrid` and `candidateGrid` are persisted to DynamoDB (via `PATCH /api/v1/games/{gameId}`). `originalGrid` is recovered from the DynamoDB game record.
+
+Wire format: `sudokuApi.js` wraps grids in `{rows: [...]}` (via `gridToWire`) before sending and unwraps responses (via `gridFromWire`) before returning to the hook. Internal state always uses plain arrays.
+
 ## Observed Design Decisions
 
 | Decision | Chosen | Alternatives Considered | Rationale |

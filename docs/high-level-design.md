@@ -241,9 +241,9 @@ Patterns and decisions that only became visible after reading all components tog
 
 ## References
 
-- Low-level designs: `docs/llds/` (8 files)
-- EARS specifications: `docs/specs/` (to be written)
-- Infrastructure standards: `docs/infrastructure.md`
-- Backend standards: `docs/backend.md`
-- Frontend standards: `docs/frontend.md`
-- Security standards: `docs/security.md`
+- Low-level designs: `docs/llds/` (9 files)
+- EARS specifications: `docs/specs/` (10 files)
+- Arrow tracking: `docs/arrows/index.yaml` (11 arrows)
+- Backend standards: `docs/standards/java-quarkus.md`
+- Security standards: `docs/arrows/security-standards.md`
+- Testing strategy: `docs/arrows/testing-strategy.md`

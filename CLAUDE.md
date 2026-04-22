@@ -80,23 +80,23 @@ Provider configured for AWS `eu-west-2`.
 
 ## Backend Coding Standards
 
-**`docs/backend.md` must be followed for all generated backend code.**
+**`docs/standards/java-quarkus.md` must be followed for all generated backend code.**
 
 ## Frontend Coding Standards
 
-**`docs/frontend.md` must be followed for all generated frontend code.**
+**`docs/llds/react-frontend.md` (Implementation Standards section) must be followed for all generated frontend code.**
 
 ## API Usage Standards
 
-**`docs/api-use.md` must be followed for all frontend↔API integration code.**
+**`docs/llds/react-frontend.md` (Three-Grid State Model section) and `docs/specs/` must be followed for all frontend↔API integration code.**
 
 ## Testing Standards
 
-**`docs/test-strategy.md` must be followed for all test code.**
+**`docs/arrows/testing-strategy.md` must be followed for all test code.**
 
 ## User Authentication Standards
 
-**`docs/user-authentication.md` must be followed for all authentication and identity code.**
+**`docs/llds/user-management.md` must be followed for all authentication and identity code.**
 
 ## Architecture Notes
 
