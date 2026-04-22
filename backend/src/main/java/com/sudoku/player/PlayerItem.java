@@ -14,6 +14,7 @@ public class PlayerItem {
     private String userId;
     private String email;
     private String displayName;
+    private String avatarKey;
     private String createdAt;
     private String updatedAt;
 
@@ -28,6 +29,9 @@ public class PlayerItem {
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
 
+    public String getAvatarKey() { return avatarKey; }
+    public void setAvatarKey(String avatarKey) { this.avatarKey = avatarKey; }
+
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 
@@ -39,12 +43,14 @@ public class PlayerItem {
         item.setUserId(profile.userId());
         item.setEmail(profile.email() != null ? profile.email() : "");
         item.setDisplayName(profile.displayName() != null ? profile.displayName() : "");
+        item.setAvatarKey(profile.avatarKey() != null ? profile.avatarKey() : "");
         item.setCreatedAt(profile.createdAt());
         item.setUpdatedAt(profile.updatedAt());
         return item;
     }
 
     public PlayerProfile toPlayerProfile() {
-        return new PlayerProfile(userId, email, displayName, createdAt, updatedAt);
+        String resolvedAvatarKey = (avatarKey != null && !avatarKey.isEmpty()) ? avatarKey : null;
+        return new PlayerProfile(userId, email, displayName, resolvedAvatarKey, createdAt, updatedAt);
     }
 }

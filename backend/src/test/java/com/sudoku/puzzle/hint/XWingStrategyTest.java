@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec HE-BE-018, HE-API-001, HE-API-002, HE-API-003, HE-API-004, HE-API-005, HE-API-006
 class XWingStrategyTest {
 
     private XWingStrategy strategy;
@@ -50,7 +52,7 @@ class XWingStrategyTest {
 
     @Test
     void xWing_rowBased_returnsHint() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         // Clear all candidates first
         for (int r = 0; r < 9; r++) {
             for (int c = 0; c < 9; c++) {
@@ -91,7 +93,7 @@ class XWingStrategyTest {
 
     @Test
     void xWing_columnBased_returnsHint() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         for (int r = 0; r < 9; r++) {
             for (int c = 0; c < 9; c++) {
                 board.getCell(r, c).setCandidates(Set.of());
@@ -122,7 +124,7 @@ class XWingStrategyTest {
 
     @Test
     void xWing_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         Optional<HintResponse> result = strategy.evaluate(board);
@@ -132,7 +134,7 @@ class XWingStrategyTest {
 
     @Test
     void xWing_markdownSlug_and_difficulty() {
-        Board board = Board.fromGrid(BLANK_GRID);
+        Board board = Board.fromGrid(Grid.of((BLANK_GRID)));
         for (int r = 0; r < 9; r++) {
             for (int c = 0; c < 9; c++) {
                 board.getCell(r, c).setCandidates(Set.of());

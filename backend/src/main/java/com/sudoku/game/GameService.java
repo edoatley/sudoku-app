@@ -1,16 +1,17 @@
 package com.sudoku.game;
 
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 
-import java.util.List;
 import java.util.Optional;
 
+// @spec DT-SVC-003
 public interface GameService {
 
     GameState createGame(String userId, String difficulty);
 
-    GameState createGameFromExistingGrid(String userId, List<List<Integer>> originalGrid);
+    GameState createGameFromExistingGrid(String userId, Grid originalGrid);
 
     GameState loadGame(String userId, String gameId);
 

@@ -48,13 +48,17 @@ public class DynamoDbGameRepository implements GameRepository {
         table.putItem(GameItem.from(gameState));
     }
 
+    // @spec AEH-EX-008
     @Override
     public Optional<GameState> findById(String userId, String gameId) {
         GameItem item = table.getItem(Key.builder()
                 .partitionValue(userId)
                 .sortValue(gameId)
                 .build());
-        return Optional.ofNullable(item).map(GameItem::toGameState);
+        if (item == null) {
+            throw new GameNotFoundException(gameId);
+        }
+        return Optional.of(item.toGameState());
     }
 
     @Override
@@ -67,6 +71,7 @@ public class DynamoDbGameRepository implements GameRepository {
                 .map(GameItem::toGameState);
     }
 
+    // @spec AEH-EX-009
     @Override
     public void update(String userId, String gameId, GameUpdateRequest request) {
         GameItem existing = table.getItem(Key.builder()
@@ -74,7 +79,7 @@ public class DynamoDbGameRepository implements GameRepository {
                 .sortValue(gameId)
                 .build());
         if (existing == null) {
-            return;
+            throw new GameNotFoundException(gameId);
         }
         existing.applyUpdate(request, Instant.now().toString());
         table.updateItem(existing);

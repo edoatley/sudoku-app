@@ -4,6 +4,7 @@ import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.hint.HintResult;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -46,9 +47,12 @@ public class PuzzleResource {
     @POST
     @Path("/hint")
     public Response hint(BoardRequest request) {
-        return sudokuService.getHint(request)
-                .map(hint -> Response.ok(hint).build())
-                .orElse(Response.status(Response.Status.NOT_FOUND).build());
+        // @spec HE-BE-007
+        return switch (sudokuService.getHint(request)) {
+            case HintResult.Found f         -> Response.ok(f.hint()).build();
+            case HintResult.PuzzleSolved ignored -> Response.noContent().build();
+            case HintResult.NoStrategyApplied ignored -> Response.status(Response.Status.NOT_FOUND).build();
+        };
     }
 
     @POST

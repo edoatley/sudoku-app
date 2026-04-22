@@ -86,6 +86,14 @@ resource "aws_apigatewayv2_route" "patch_game" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }
 
+resource "aws_apigatewayv2_route" "get_game_current" {
+  api_id             = aws_apigatewayv2_api.sudoku.id
+  route_key          = "GET /api/v1/games/current"
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+}
+
 resource "aws_apigatewayv2_route" "get_player_me" {
   api_id             = aws_apigatewayv2_api.sudoku.id
   route_key          = "GET /api/v1/players/me"

@@ -1,6 +1,8 @@
 package com.sudoku.dto;
 
-import java.util.List;
+import com.sudoku.domain.Grid;
+
+// @spec DT-DTO-003
 
 /**
  * Request body for creating a new game from an externally supplied puzzle grid,
@@ -10,4 +12,4 @@ import java.util.List;
  * an empty cell. The game service validates the grid and persists it as a new game
  * for the authenticated user.
  */
-public record CreateGameFromGridRequest(List<List<Integer>> originalGrid) {}
+public record CreateGameFromGridRequest(Grid originalGrid) {}

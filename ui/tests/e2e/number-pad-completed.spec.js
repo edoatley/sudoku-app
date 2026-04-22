@@ -1,19 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { setupGameRoutes, waitForGrid, CANNED_GAME_ID, EASY_PUZZLE } from './helpers.js';
+import { setupGameRoutes, waitForGrid, CANNED_GAME_ID, EASY_PUZZLE, toWireGrid, toWireCandidates } from './helpers.js';
 
 // Grid where digit 9 appears exactly 9 times (all placed).
 // Original puzzle has 9s at: [1][4], [2][1], [7][5], [8][8]
 // We add 5 more in empty cells:  [0][6], [3][7], [4][6], [5][6], [6][8]
-const GRID_WITH_ALL_NINES = EASY_PUZZLE.originalGrid.map((r) => [...r]);
-GRID_WITH_ALL_NINES[0][6] = 9;
-GRID_WITH_ALL_NINES[3][7] = 9;
-GRID_WITH_ALL_NINES[4][6] = 9;
-GRID_WITH_ALL_NINES[5][6] = 9;
-GRID_WITH_ALL_NINES[6][8] = 9;
+const GRID_WITH_ALL_NINES_ROWS = EASY_PUZZLE.originalGrid.map((r) => [...r]);
+GRID_WITH_ALL_NINES_ROWS[0][6] = 9;
+GRID_WITH_ALL_NINES_ROWS[3][7] = 9;
+GRID_WITH_ALL_NINES_ROWS[4][6] = 9;
+GRID_WITH_ALL_NINES_ROWS[5][6] = 9;
+GRID_WITH_ALL_NINES_ROWS[6][8] = 9;
 
 // A candidate grid that still has a 9 candidate in cell [0][2]
-const CANDIDATES_WITH_NINE = Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
-CANDIDATES_WITH_NINE[0][2] = [9];
+const CANDIDATES_WITH_NINE_ROWS = Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
+CANDIDATES_WITH_NINE_ROWS[0][2] = [9];
+
+// Wire-format versions for API mocks (setupGameRoutes expects {rows:[...]} format)
+const GRID_WITH_ALL_NINES = toWireGrid(GRID_WITH_ALL_NINES_ROWS);
+const CANDIDATES_WITH_NINE = toWireCandidates(CANDIDATES_WITH_NINE_ROWS);
 
 test('number pad — completed digit is disabled in normal mode', async ({ page }) => {
   await setupGameRoutes(page, {
@@ -49,9 +53,10 @@ test('number pad — candidate mode allows removing a lingering candidate of a c
     candidates: CANDIDATES_WITH_NINE,
   });
   // Candidates are loaded from localStorage, not the API response — seed it explicitly
+  // Use the plain array (not wire format) since localStorage stores internal format
   await page.addInitScript((candidates) => {
     localStorage.setItem('sudoku_candidateGrid', JSON.stringify(candidates));
-  }, CANDIDATES_WITH_NINE);
+  }, CANDIDATES_WITH_NINE_ROWS);
   await page.goto('/');
   await waitForGrid(page);
 

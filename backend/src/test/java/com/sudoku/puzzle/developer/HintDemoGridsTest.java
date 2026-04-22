@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * (either directly on the raw grid, or after autocompleting simpler strategies
  * as the DevResource does at runtime).
  */
+// @spec PG-DEV-002, PG-DEV-003
 class HintDemoGridsTest {
 
     // ---- full-house ----
@@ -255,7 +256,7 @@ class HintDemoGridsTest {
     // ---- helpers ----
 
     private Board boardFor(String slug) {
-        List<List<Integer>> grid = HintDemoGrids.forSlug(slug);
+        com.sudoku.domain.Grid grid = HintDemoGrids.forSlug(slug);
         assertNotNull(grid, "Grid must be registered for '" + slug + "'");
         Board board = Board.fromGrid(grid);
         board.calculateAllCandidates();
@@ -266,11 +267,11 @@ class HintDemoGridsTest {
      * Asserts the grid is a well-formed 9×9 board with no duplicate digits
      * in any row, column, or 3×3 block (ignoring empty cells).
      */
-    private void assertValidPartialSudoku(List<List<Integer>> grid) {
+    private void assertValidPartialSudoku(com.sudoku.domain.Grid grid) {
         assertNotNull(grid);
         assertEquals(9, grid.size(), "Grid must have 9 rows");
         for (int r = 0; r < 9; r++) {
-            assertEquals(9, grid.get(r).size(), "Row " + r + " must have 9 columns");
+            assertEquals(9, grid.row(r).size(), "Row " + r + " must have 9 columns");
         }
         Board board = Board.fromGrid(grid);
         for (int i = 0; i < 9; i++) {

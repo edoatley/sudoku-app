@@ -10,15 +10,16 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * or to {@link #ABANDONED} when the player starts a new game while one is already
  * in progress — the server enforces this transition automatically so only one game
  * is ever IN_PROGRESS per player at a time.
- * {@link #IMPORTED} covers games created from an external grid (e.g. via the
- * image-recognition pipeline) where no server-generated solution is available.
+ *
+ * <p>Note: imported games (created via the image-recognition pipeline) start as
+ * {@link #IN_PROGRESS}; their origin is recorded in the {@code difficulty} field
+ * as {@code "imported"}, not as a distinct status value.
  */
 public enum GameStatus {
 
     IN_PROGRESS("IN_PROGRESS"),
     SOLVED("SOLVED"),
-    ABANDONED("ABANDONED"),
-    IMPORTED("imported");
+    ABANDONED("ABANDONED");
 
     private final String value;
 

@@ -11,7 +11,7 @@
  *  - On reload with an invalid/expired gameId, an empty board is shown (no fallback POST)
  */
 import { test, expect } from '@playwright/test';
-import { CANNED_GAME_STATE, CANNED_GAME_ID, waitForGrid } from './helpers.js';
+import { CANNED_GAME_STATE, CANNED_GAME_ID, waitForGrid, toWireGrid } from './helpers.js';
 
 // Near-complete grid: only cell-8-8 is empty (value = 9 to solve)
 const NEAR_COMPLETE_GRID = [
@@ -146,8 +146,8 @@ test.describe('Game lifecycle — API calls', () => {
     await expect.poll(() => patchBodies.length, { timeout: 3000 }).toBeGreaterThan(0);
 
     expect(patchBodies[0]).toMatchObject({
-      currentGrid: expect.any(Array),
-      candidates: expect.any(Array),
+      currentGrid: expect.objectContaining({ rows: expect.any(Array) }),
+      candidates: expect.objectContaining({ rows: expect.any(Array) }),
       timeSpentSeconds: expect.any(Number),
     });
   });
@@ -156,8 +156,8 @@ test.describe('Game lifecycle — API calls', () => {
     const patchBodies = [];
     const nearCompleteState = {
       ...CANNED_GAME_STATE,
-      originalGrid: NEAR_COMPLETE_GRID,
-      currentGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
+      originalGrid: toWireGrid(NEAR_COMPLETE_GRID),
+      currentGrid: toWireGrid(NEAR_COMPLETE_GRID.map((r) => [...r])),
     };
 
     await page.addInitScript((gameId) => {

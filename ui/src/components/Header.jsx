@@ -27,7 +27,7 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import StorageIcon from '@mui/icons-material/Storage';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
-import AvatarPickerDialog from './AvatarPickerDialog.jsx';
+import EditProfileDialog from './EditProfileDialog.jsx';
 import { AVATAR_ICONS } from '../utils/avatarIcons.js';
 import PuzzleHistoryDialog from './PuzzleHistoryDialog.jsx';
 import StatisticsDialog from './StatisticsDialog.jsx';
@@ -66,6 +66,7 @@ const DEMO_TECHNIQUES = [
   { slug: 'y-wing',        label: 'Y-Wing demo' },
 ];
 
+// @spec UM-UI-007
 export default function Header({
   elapsedSeconds,
   timerRunning,
@@ -84,7 +85,7 @@ export default function Header({
   colorMode,
   onToggleColorMode,
   avatar,
-  onAvatarChange,
+  onProfileUpdate,
   playerProfile,
   sessionEmail,
   history,
@@ -92,7 +93,7 @@ export default function Header({
   const [anchorEl, setAnchorEl] = useState(null);
   const [gameMenuAnchorEl, setGameMenuAnchorEl] = useState(null);
   const [devMenuAnchorEl, setDevMenuAnchorEl] = useState(null);
-  const [avatarDialogOpen, setAvatarDialogOpen] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
 
@@ -313,9 +314,9 @@ export default function Header({
                       </Box>
                     </Box>
                   )}
-                  <MenuItem onClick={() => { handleMenuClose(); setAvatarDialogOpen(true); }}>
+                  <MenuItem onClick={() => { handleMenuClose(); setEditProfileOpen(true); }}>
                     <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>Change Avatar</ListItemText>
+                    <ListItemText>Edit Profile</ListItemText>
                   </MenuItem>
                   <MenuItem onClick={() => { handleMenuClose(); setHistoryDialogOpen(true); }}>
                     <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
@@ -353,11 +354,12 @@ export default function Header({
         )}
       </Toolbar>
 
-      <AvatarPickerDialog
-        open={avatarDialogOpen}
+      <EditProfileDialog
+        open={editProfileOpen}
+        playerProfile={playerProfile}
         currentAvatar={avatar}
-        onSelect={(name) => { onAvatarChange?.(name); setAvatarDialogOpen(false); }}
-        onClose={() => setAvatarDialogOpen(false)}
+        onSave={onProfileUpdate}
+        onClose={() => setEditProfileOpen(false)}
       />
       <PuzzleHistoryDialog
         open={historyDialogOpen}

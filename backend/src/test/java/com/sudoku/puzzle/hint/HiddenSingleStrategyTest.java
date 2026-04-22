@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.ActionableCell;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec HE-BE-013, HE-API-001, HE-API-002, HE-API-003, HE-API-004, HE-API-005, HE-API-006
 class HiddenSingleStrategyTest {
 
     private HiddenSingleStrategy strategy;
@@ -49,7 +51,7 @@ class HiddenSingleStrategyTest {
 
     @Test
     void hiddenSingle_syntheticRowPattern_returnsHint() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
 
         // Row 0 empty cells: cols 2, 3, 5, 6, 7, 8.
@@ -92,7 +94,7 @@ class HiddenSingleStrategyTest {
 
     @Test
     void hiddenSingle_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         assertTrue(strategy.evaluate(board).isEmpty());
@@ -100,7 +102,7 @@ class HiddenSingleStrategyTest {
 
     @Test
     void hiddenSingle_metadata() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
 
         board.getCell(0, 2).setCandidates(Set.of(4));

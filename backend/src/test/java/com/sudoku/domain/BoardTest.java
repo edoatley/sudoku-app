@@ -6,9 +6,11 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec SL-DATA-001, SL-DATA-002, SL-DATA-003, SL-DATA-004, SL-DATA-005, SL-PROC-001, SL-PROC-002, SL-PROC-003
+
 class BoardTest {
 
-    private static final List<List<Integer>> EASY_GRID = List.of(
+    private static final Grid EASY_GRID = Grid.of(List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
             List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -18,7 +20,7 @@ class BoardTest {
             List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
             List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-    );
+    ));
 
     // Correct candidates computed by pure row/col/block elimination from EASY_GRID
     private static final List<List<List<Integer>>> EXPECTED_CANDIDATES = List.of(
@@ -42,6 +44,7 @@ class BoardTest {
             List.of(List.of(1,2,3), List.of(1,2,4,5), List.of(1,2,3,4,5), List.of(2,3,5,6), List.of(), List.of(2,6), List.of(1,3,4,6), List.of(), List.of())
     );
 
+    // @spec SL-DATA-001, SL-DATA-002
     @Test
     void fromGridBuildsCellsAtCorrectPositions() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -52,20 +55,23 @@ class BoardTest {
         assertEquals(9, board.getCell(8, 8).value());
     }
 
+    // @spec SL-DATA-003
     @Test
     void fromGridThrowsOnNull() {
-        assertThrows(IllegalArgumentException.class, () -> Board.fromGrid(null));
+        assertThrows(InvalidGridException.class, () -> Board.fromGrid(null));
     }
 
+    // @spec SL-DATA-003
     @Test
     void fromGridThrowsOnWrongRowCount() {
-        List<List<Integer>> bad = EASY_GRID.subList(0, 8);
-        assertThrows(IllegalArgumentException.class, () -> Board.fromGrid(bad));
+        Grid bad = Grid.of(EASY_GRID.rows().subList(0, 8));
+        assertThrows(InvalidGridException.class, () -> Board.fromGrid(bad));
     }
 
+    // @spec SL-DATA-003
     @Test
     void fromGridThrowsOnWrongColumnCount() {
-        List<List<Integer>> bad = List.of(
+        Grid bad = Grid.of(List.of(
                 List.of(5, 3, 0, 0, 7, 0, 0, 0), // only 8 cols
                 List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
                 List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -75,10 +81,28 @@ class BoardTest {
                 List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
                 List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
                 List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-        );
-        assertThrows(IllegalArgumentException.class, () -> Board.fromGrid(bad));
+        ));
+        assertThrows(InvalidGridException.class, () -> Board.fromGrid(bad));
     }
 
+    // @spec SL-DATA-004
+    @Test
+    void fromGridThrowsOnOutOfRangeCellValue() {
+        Grid bad = Grid.of(List.of(
+                List.of(5, 3, 0, 0, 7, 0, 0, 0, 10), // 10 is out of range
+                List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
+                List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
+                List.of(8, 0, 0, 0, 6, 0, 0, 0, 3),
+                List.of(4, 0, 0, 8, 0, 3, 0, 0, 1),
+                List.of(7, 0, 0, 0, 2, 0, 0, 0, 6),
+                List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
+                List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
+                List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
+        ));
+        assertThrows(InvalidGridException.class, () -> Board.fromGrid(bad));
+    }
+
+    // @spec SL-DATA-001, SL-DATA-005
     @Test
     void getRowReturnsCorrectValues() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -90,6 +114,7 @@ class BoardTest {
         assertEquals(7, row0.get(4).value());
     }
 
+    // @spec SL-DATA-001, SL-DATA-005
     @Test
     void getColumnReturnsCorrectValues() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -103,6 +128,7 @@ class BoardTest {
         assertEquals(7, col0.get(5).value()); // row 5, col 0
     }
 
+    // @spec SL-DATA-005
     @Test
     void getBlock0IsTopLeft() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -117,6 +143,7 @@ class BoardTest {
         assertEquals(8, block.get(8).value());
     }
 
+    // @spec SL-DATA-005
     @Test
     void getBlock4IsCentre() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -130,6 +157,7 @@ class BoardTest {
         assertEquals(3, block.get(5).value());
     }
 
+    // @spec SL-DATA-005
     @Test
     void getBlock8IsBottomRight() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -146,6 +174,7 @@ class BoardTest {
         assertEquals(9, block.get(8).value());
     }
 
+    // @spec SL-PROC-001
     @Test
     void calculateAllCandidatesSpotCheckCell0_2() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -155,6 +184,7 @@ class BoardTest {
         assertEquals(java.util.Set.of(1, 2, 4), board.getCell(0, 2).candidates());
     }
 
+    // @spec SL-PROC-002
     @Test
     void calculateAllCandidatesFilledCellHasNoCandidates() {
         Board board = Board.fromGrid(EASY_GRID);
@@ -162,11 +192,12 @@ class BoardTest {
         assertTrue(board.getCell(0, 0).candidates().isEmpty()); // value=5, not empty
     }
 
+    // @spec SL-PROC-003
     @Test
     void toCandidatesGridMatchesMockServiceResponse() {
         Board board = Board.fromGrid(EASY_GRID);
         board.calculateAllCandidates();
-        List<List<List<Integer>>> actual = board.toCandidatesGrid();
-        assertEquals(EXPECTED_CANDIDATES, actual);
+        CandidatesGrid actual = board.toCandidatesGrid();
+        assertEquals(EXPECTED_CANDIDATES, actual.rows());
     }
 }

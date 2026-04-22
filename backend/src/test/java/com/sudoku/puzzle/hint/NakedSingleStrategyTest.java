@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.ActionableCell;
 import com.sudoku.dto.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec HE-BE-011, HE-API-001, HE-API-002, HE-API-003, HE-API-004, HE-API-005, HE-API-006
 class NakedSingleStrategyTest {
 
     private NakedSingleStrategy strategy;
@@ -35,7 +37,7 @@ class NakedSingleStrategyTest {
 
     @Test
     void nakedSingle_easyGrid_returnsFirstNakedSingle() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
 
         Optional<HintResponse> result = strategy.evaluate(board);
@@ -63,7 +65,7 @@ class NakedSingleStrategyTest {
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
                 List.of(0, 0, 0, 0, 0, 0, 0, 0, 0)
         );
-        Board board = Board.fromGrid(emptyGrid);
+        Board board = Board.fromGrid(Grid.of((emptyGrid)));
         board.calculateAllCandidates();
 
         Optional<HintResponse> result = strategy.evaluate(board);
@@ -73,7 +75,7 @@ class NakedSingleStrategyTest {
 
     @Test
     void nakedSingle_markdownSlug_and_difficulty() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();

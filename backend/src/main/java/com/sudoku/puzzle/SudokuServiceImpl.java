@@ -2,19 +2,21 @@ package com.sudoku.puzzle;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.CandidatesResponse;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.hint.BoardUtils;
+import com.sudoku.puzzle.hint.HintResult;
 import com.sudoku.puzzle.hint.HintStrategy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -45,13 +47,8 @@ public class SudokuServiceImpl implements SudokuService {
                 .toList();
     }
 
-    // Test-only constructor (package-private)
-    SudokuServiceImpl(List<HintStrategy> strategies) {
-        this.generator = new PuzzleGenerator();
-        this.strategies = List.copyOf(strategies);
-    }
-
-    // Test-only constructor with explicit generator (package-private)
+    // Package-private constructor used by SudokuServiceTestFactory in src/test/java.
+    // Strategies must already be sorted by rank.
     SudokuServiceImpl(PuzzleGenerator generator, List<HintStrategy> strategies) {
         this.generator = generator;
         this.strategies = List.copyOf(strategies);
@@ -66,23 +63,23 @@ public class SudokuServiceImpl implements SudokuService {
 
     @Override
     public ValidationResponse validatePuzzle(BoardRequest request) {
-        List<List<Integer>> solution = request.solutionGrid();
+        Grid solution = request.solutionGrid();
         if (solution != null) {
             return validateAgainstSolution(request.currentGrid(), solution);
         }
         return validateByDuplicates(request.currentGrid());
     }
 
-    private ValidationResponse validateAgainstSolution(List<List<Integer>> currentGrid, List<List<Integer>> solution) {
+    private ValidationResponse validateAgainstSolution(Grid currentGrid, Grid solution) {
         Set<Coordinate> errorSet = new LinkedHashSet<>();
         boolean hasEmpty = false;
 
         for (int r = 0; r < UNIT_SIZE; r++) {
             for (int c = 0; c < UNIT_SIZE; c++) {
-                int current = currentGrid.get(r).get(c);
+                int current = currentGrid.cell(r, c);
                 if (current == 0) {
                     hasEmpty = true;
-                } else if (current != solution.get(r).get(c)) {
+                } else if (current != solution.cell(r, c)) {
                     errorSet.add(new Coordinate(r, c));
                 }
             }
@@ -92,19 +89,9 @@ public class SudokuServiceImpl implements SudokuService {
         return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
     }
 
-    private ValidationResponse validateByDuplicates(List<List<Integer>> currentGrid) {
+    private ValidationResponse validateByDuplicates(Grid currentGrid) {
         Board board = Board.fromGrid(currentGrid);
-        Set<Coordinate> errorSet = new LinkedHashSet<>();
-
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            findDuplicates(board.getRow(i), errorSet);
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            findDuplicates(board.getColumn(i), errorSet);
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            findDuplicates(board.getBlock(i), errorSet);
-        }
+        Set<Coordinate> errorSet = BoardUtils.findDuplicatesInBoard(board);
 
         boolean hasEmpty = false;
         outer:
@@ -121,25 +108,18 @@ public class SudokuServiceImpl implements SudokuService {
         return new ValidationResponse(errorSet.isEmpty(), isSolved, List.copyOf(errorSet));
     }
 
-    private void findDuplicates(List<Cell> unit, Set<Coordinate> errors) {
-        Set<Integer> seen = new HashSet<>();
-        Set<Integer> duplicates = new HashSet<>();
-        for (Cell cell : unit) {
-            if (!cell.isEmpty()) {
-                if (!seen.add(cell.value())) duplicates.add(cell.value());
-            }
-        }
-        for (Cell cell : unit) {
-            if (!cell.isEmpty() && duplicates.contains(cell.value())) {
-                errors.add(new Coordinate(cell.row(), cell.col()));
-            }
-        }
-    }
-
+    // @spec HE-BE-003, HE-BE-004, HE-BE-005, HE-BE-006, HE-BE-007
     @Override
-    public Optional<HintResponse> getHint(BoardRequest request) {
+    public HintResult getHint(BoardRequest request) {
         Board board = Board.fromGrid(request.currentGrid());
         board.calculateAllCandidates();
+
+        // A solved board has no empty cells and no duplicates — hints are not meaningful.
+        ValidationResponse state = validateByDuplicates(request.currentGrid());
+        if (state.isSolved()) {
+            return new HintResult.PuzzleSolved();
+        }
+
         int minRank = request.minRank() != null ? request.minRank() : 0;
         List<Integer> excluded = request.excludedRanks() != null ? request.excludedRanks() : List.of();
         for (HintStrategy strategy : strategies) {
@@ -150,10 +130,10 @@ public class SudokuServiceImpl implements SudokuService {
                 HintResponse h = hint.get();
                 boolean hasAction = (h.eliminatedCandidates() != null && !h.eliminatedCandidates().isEmpty())
                         || (h.solvedCells() != null && !h.solvedCells().isEmpty());
-                if (hasAction) return hint;
+                if (hasAction) return new HintResult.Found(h);
             }
         }
-        return Optional.empty();
+        return new HintResult.NoStrategyApplied();
     }
 
     @Override
@@ -163,13 +143,15 @@ public class SudokuServiceImpl implements SudokuService {
         return new CandidatesResponse(board.toCandidatesGrid());
     }
 
+    // @spec DT-SVC-001
     @Override
-    public Optional<List<List<Integer>>> solveGrid(List<List<Integer>> puzzle) {
+    public Optional<Grid> solveGrid(Grid puzzle) {
         return generator.solveGrid(puzzle);
     }
 
+    // @spec DT-SVC-002
     @Override
-    public boolean hasSingleSolution(List<List<Integer>> grid) {
+    public boolean hasSingleSolution(Grid grid) {
         return generator.countSolutions(grid) == 1;
     }
 }

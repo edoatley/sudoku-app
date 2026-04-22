@@ -26,15 +26,12 @@ if not logger.handlers:
     logger.addHandler(_handler)
 
 # ---------------------------------------------------------------------------
-# Model cascade — tried in order, first valid result wins.
+# Model — populated from the BEDROCK_MODELS env var (comma-separated) injected
+# by Terraform, which also generates the matching IAM policy from the same list.
+# The fallback keeps local/test runs working without any env configuration.
 # ---------------------------------------------------------------------------
-_MODELS = [
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-]
-
-# Downscale to at most this many pixels on the longest edge before sending.
-# Reduces image-token cost and latency with no accuracy loss for grid reading.
-_MAX_IMAGE_EDGE = 800
+_MODELS_DEFAULT = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+_MODELS = [m.strip() for m in os.environ.get("BEDROCK_MODELS", _MODELS_DEFAULT).split(",") if m.strip()]
 
 # A valid Sudoku has at least 17 clues.  We use a lower threshold so that
 # very sparse / near-empty grids trigger a retry with the next model.
@@ -44,7 +41,7 @@ _MIN_PLAUSIBLE_CLUES = 10
 # Configuration
 # ---------------------------------------------------------------------------
 
-_DEFAULT_REGION = "us-east-1"
+_DEFAULT_REGION = "eu-west-2"
 _AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
 
 # ---------------------------------------------------------------------------
@@ -54,14 +51,24 @@ _AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
 _SYSTEM_PROMPT = (
     "You are a precise Sudoku digit extractor. You specialize in spatial mapping. "
     "You count columns from left to right (1-9) and rows from top to bottom (1-9). "
-    "You never skip a cell, even if it is empty. You use visual anchors to stay aligned."
+    "You never skip a cell, even if it is empty. You use visual anchors to stay aligned. "
+    "Some puzzles have coloured or shaded cell backgrounds (orange, yellow, tan, grey). "
+    "Ignore background colour entirely — read only the digit if one is printed in the cell; "
+    "if no digit is visible, the cell is empty regardless of its background colour. "
+    "A cell is empty if and only if there is no large printed digit inside it. "
+    "Background shading, highlight colour, and small pencil-mark numbers do NOT count as digits."
 )
 
 _USER_PROMPT = (
     "Analyze the image of the Sudoku puzzle.\n\n"
+    "IMPORTANT: Many cells have coloured or shaded backgrounds (orange, tan, grey, yellow). "
+    "Background shading does NOT mean a cell contains a digit — it is purely decorative. "
+    "A cell is EMPTY (output 0) unless it contains a large, clearly printed digit inside it. "
+    "Shaded cells occupy their full grid position — do NOT skip them when counting columns.\n\n"
     "1. In <scratchpad>, transcribe the grid using a pipe-delimited table. Use '.' for empty cells.\n"
-    "   Example: | 5 | . | . | | . | 2 | . | | . | . | 8 |\n"
-    "2. Ensure every row has exactly 9 cells and the 3x3 blocks align vertically.\n"
+    "   Write every cell, including shaded-but-empty ones. Each row must have exactly 9 '|'-separated values.\n"
+    "   Example: | 5 | . | . | . | 2 | . | . | . | 8 |\n"
+    "2. Verify each row has exactly 9 cells. Count carefully — shaded cells still count.\n"
     "3. Output the final result as JSON in <json> tags with the key 'originalGrid'.\n\n"
     "CRITICAL: You MUST wrap your final JSON in <json> and </json> tags. Do not use standard markdown code blocks. Output 0 for empty cells."
 )
@@ -114,9 +121,6 @@ def handler(event: dict, context: object) -> dict:
         if len(image_bytes) > 8 * 1024 * 1024:
             return _error(400, "Image too large — maximum size is 8 MB.")
 
-        # Downscale to reduce image-token cost; re-detect media type after
-        # image_bytes = _downscale_image(image_bytes) # Temporarily bypass to see if PIL is degrading the image too much
-        
         client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
         grid, valid, model_name = _recognize_with_bedrock(client, image_bytes)
 
@@ -386,61 +390,6 @@ def _parse_grid(text: str) -> list[list[int]]:
 
     raise ValueError("No JSON object found and no valid pipe-delimited scratchpad in model response.")
 
-
-# ---------------------------------------------------------------------------
-# Image utilities
-# ---------------------------------------------------------------------------
-
-def _downscale_image(image_bytes: bytes) -> bytes:
-    """
-    Downscale the image so its longest edge is at most _MAX_IMAGE_EDGE pixels,
-    then re-encode as a standard JPEG. Removes alpha channels (transparency)
-    which can sometimes confuse Vision-Language Models.
-    
-    Falls back to the original bytes if Pillow is unavailable or decoding fails.
-    """
-    try:
-        try:
-            from PIL import Image
-        except ImportError as exc:
-            # Explicitly log if the library is missing from the Lambda Layer
-            logger.error("Pillow (PIL) is not installed in the Lambda environment. Cannot resize image.")
-            raise exc
-
-        img = Image.open(io.BytesIO(image_bytes))
-        w, h = img.size
-        
-        # Resize if necessary
-        if max(w, h) > _MAX_IMAGE_EDGE:
-            scale = _MAX_IMAGE_EDGE / max(w, h)
-            new_w, new_h = int(w * scale), int(h * scale)
-            
-            # Handle Pillow deprecation of Image.LANCZOS
-            resample_filter = getattr(Image, "Resampling", Image).LANCZOS
-            img = img.resize((new_w, new_h), resample_filter)
-
-        # Convert to RGB, compositing alpha onto white if present
-        if img.mode != "RGB":
-            if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
-                background = Image.new("RGB", img.size, (255, 255, 255))
-                background.paste(img, mask=img.convert('RGBA').split()[3])
-                img = background
-            else:
-                img = img.convert("RGB")
-
-        # Desaturate to greyscale-normalised RGB — removes colour bias so the model
-        # focuses on digit shapes rather than ink/paper colour variation
-        from PIL import ImageEnhance
-        img = ImageEnhance.Color(img).enhance(0.0)
-
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-        return buf.getvalue()
-
-    except Exception as exc:
-        # If anything fails (e.g., corrupt image bytes), fallback to sending the raw bytes to Bedrock
-        logger.warning("Image downscale failed (%s); using original bytes.", exc)
-        return image_bytes
 
 
 def _has_row_col_box_duplicate(grid: list[list[int]]) -> bool:

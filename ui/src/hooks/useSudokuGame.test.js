@@ -3,6 +3,20 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSudokuGame } from './useSudokuGame.js';
 import { CANNED_GAME_STATE, CANNED_CANDIDATES } from '../mocks/cannedData.js';
 
+// sudokuApi.js (real mode) unwraps {rows:[...]} before returning to consumers.
+// Since sudokuApi is fully mocked here, we must provide pre-unwrapped data
+// so the hook receives plain arrays, matching DT-UI-007.
+const GAME_STATE = {
+  ...CANNED_GAME_STATE,
+  originalGrid: CANNED_GAME_STATE.originalGrid.rows,
+  currentGrid: CANNED_GAME_STATE.currentGrid.rows,
+  candidates: CANNED_GAME_STATE.candidates.rows,
+};
+
+const CANDIDATES = {
+  candidatesGrid: CANNED_CANDIDATES.candidatesGrid.rows,
+};
+
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
 vi.mock('../api/sudokuApi.js', () => {
@@ -58,8 +72,8 @@ async function mountAndSettle(user = null) {
 beforeEach(() => {
   localStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  createGame.mockResolvedValue(CANNED_GAME_STATE);
-  loadGame.mockResolvedValue(CANNED_GAME_STATE);
+  createGame.mockResolvedValue(GAME_STATE);
+  loadGame.mockResolvedValue(GAME_STATE);
   getCurrentGame.mockResolvedValue(null);
   saveGame.mockResolvedValue(undefined);
   validatePuzzle.mockResolvedValue({ isValid: true, isSolved: false, errors: [] });
@@ -73,9 +87,7 @@ beforeEach(() => {
     eliminatedCandidates: [],
     solvedCells: [{ row: 0, col: 2, value: 4 }],
   });
-  getCandidates.mockResolvedValue({
-    candidatesGrid: Array(9).fill(null).map(() => Array(9).fill([])),
-  });
+  getCandidates.mockResolvedValue(CANDIDATES);
 });
 
 afterEach(() => {
@@ -90,28 +102,28 @@ describe('initialisation', () => {
     const { result } = await mountAndSettle();
     expect(createGame).toHaveBeenCalled();
     expect(loadGame).not.toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    expect(result.current.originalGrid).toEqual(GAME_STATE.originalGrid);
     expect(result.current.currentGrid).not.toBeNull();
     expect(result.current.gameStatus).toBe('idle');
   });
 
   it('loads a saved game when localStorage contains a gameId', async () => {
-    localStorage.setItem('sudoku_gameId', CANNED_GAME_STATE.gameId);
+    localStorage.setItem('sudoku_gameId', GAME_STATE.gameId);
     const { result } = await mountAndSettle();
-    expect(loadGame).toHaveBeenCalledWith(CANNED_GAME_STATE.gameId);
+    expect(loadGame).toHaveBeenCalledWith(GAME_STATE.gameId);
     expect(createGame).not.toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
-    expect(result.current.gameId).toBe(CANNED_GAME_STATE.gameId);
+    expect(result.current.originalGrid).toEqual(GAME_STATE.originalGrid);
+    expect(result.current.gameId).toBe(GAME_STATE.gameId);
   });
 
   it('loads in-progress game from server when authenticated user has no saved gameId', async () => {
-    getCurrentGame.mockResolvedValueOnce(CANNED_GAME_STATE);
+    getCurrentGame.mockResolvedValueOnce(GAME_STATE);
     const mockUser = { username: 'test-user' };
     const { result } = await mountAndSettle(mockUser);
     expect(getCurrentGame).toHaveBeenCalled();
     expect(createGame).not.toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
-    expect(result.current.gameId).toBe(CANNED_GAME_STATE.gameId);
+    expect(result.current.originalGrid).toEqual(GAME_STATE.originalGrid);
+    expect(result.current.gameId).toBe(GAME_STATE.gameId);
   });
 
   it('auto-starts a new game when authenticated user has no in-progress game on server', async () => {
@@ -120,7 +132,7 @@ describe('initialisation', () => {
     const { result } = await mountAndSettle(mockUser);
     expect(getCurrentGame).toHaveBeenCalled();
     expect(createGame).toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    expect(result.current.originalGrid).toEqual(GAME_STATE.originalGrid);
   });
 
   it('restores candidates from backend on device-switch load', async () => {
@@ -128,7 +140,7 @@ describe('initialisation', () => {
       Array(9).fill(null).map(() => [1, 2])
     );
     getCurrentGame.mockResolvedValueOnce({
-      ...CANNED_GAME_STATE,
+      ...GAME_STATE,
       candidates: fakeCandidates,
       timeSpentSeconds: 120,
     });
@@ -140,7 +152,7 @@ describe('initialisation', () => {
 
   it('falls back to empty candidates when backend returns null candidates on device-switch', async () => {
     getCurrentGame.mockResolvedValueOnce({
-      ...CANNED_GAME_STATE,
+      ...GAME_STATE,
       candidates: null,
       timeSpentSeconds: 60,
     });
@@ -150,10 +162,10 @@ describe('initialisation', () => {
   });
 
   it('uses backend timeSpentSeconds when greater than localStorage elapsed on same-device reload', async () => {
-    localStorage.setItem('sudoku_gameId', CANNED_GAME_STATE.gameId);
+    localStorage.setItem('sudoku_gameId', GAME_STATE.gameId);
     localStorage.setItem('sudoku_elapsedSeconds', '10');
     loadGame.mockResolvedValueOnce({
-      ...CANNED_GAME_STATE,
+      ...GAME_STATE,
       timeSpentSeconds: 90,
     });
     const { result } = await mountAndSettle();
@@ -164,7 +176,7 @@ describe('initialisation', () => {
     const { result } = await mountAndSettle(null);
     expect(getCurrentGame).not.toHaveBeenCalled();
     expect(createGame).toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    expect(result.current.originalGrid).toEqual(GAME_STATE.originalGrid);
   });
 
   it('shows empty board when saved gameId fails to load (no auto-start fallback)', async () => {
@@ -180,8 +192,8 @@ describe('initialisation', () => {
 
   it('ignores abandoned game in localStorage and fetches current game from API when authenticated', async () => {
     localStorage.setItem('sudoku_gameId', 'abandoned-id');
-    loadGame.mockResolvedValueOnce({ ...CANNED_GAME_STATE, gameId: 'abandoned-id', status: 'ABANDONED' });
-    const activeGame = { ...CANNED_GAME_STATE, gameId: 'active-id', status: 'IN_PROGRESS' };
+    loadGame.mockResolvedValueOnce({ ...GAME_STATE, gameId: 'abandoned-id', status: 'ABANDONED' });
+    const activeGame = { ...GAME_STATE, gameId: 'active-id', status: 'IN_PROGRESS' };
     getCurrentGame.mockResolvedValueOnce(activeGame);
     const mockUser = { username: 'test-user' };
     const { result } = await mountAndSettle(mockUser);
@@ -194,25 +206,25 @@ describe('initialisation', () => {
 
   it('starts new game when abandoned game in localStorage and no active game on server', async () => {
     localStorage.setItem('sudoku_gameId', 'abandoned-id');
-    loadGame.mockResolvedValueOnce({ ...CANNED_GAME_STATE, gameId: 'abandoned-id', status: 'ABANDONED' });
+    loadGame.mockResolvedValueOnce({ ...GAME_STATE, gameId: 'abandoned-id', status: 'ABANDONED' });
     getCurrentGame.mockResolvedValueOnce(null);
     const mockUser = { username: 'test-user' };
     const { result } = await mountAndSettle(mockUser);
     expect(getCurrentGame).toHaveBeenCalled();
     expect(createGame).toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    expect(result.current.originalGrid).toEqual(GAME_STATE.originalGrid);
     // stale id cleared; new game's id is now in localStorage
     expect(localStorage.getItem('sudoku_gameId')).not.toBe('abandoned-id');
   });
 
   it('ignores solved game in localStorage and starts new game when unauthenticated', async () => {
     localStorage.setItem('sudoku_gameId', 'solved-id');
-    loadGame.mockResolvedValueOnce({ ...CANNED_GAME_STATE, gameId: 'solved-id', status: 'SOLVED' });
+    loadGame.mockResolvedValueOnce({ ...GAME_STATE, gameId: 'solved-id', status: 'SOLVED' });
     const { result } = await mountAndSettle(null);
     expect(loadGame).toHaveBeenCalledWith('solved-id');
     expect(getCurrentGame).not.toHaveBeenCalled();
     expect(createGame).toHaveBeenCalled();
-    expect(result.current.originalGrid).toEqual(CANNED_GAME_STATE.originalGrid);
+    expect(result.current.originalGrid).toEqual(GAME_STATE.originalGrid);
     // stale id cleared; new game's id is now in localStorage
     expect(localStorage.getItem('sudoku_gameId')).not.toBe('solved-id');
   });
@@ -595,12 +607,12 @@ const almostSolved = [
 describe('auto-completion', () => {
   it('auto-sends PATCH with isComplete=true when the last cell is filled validly', async () => {
     loadGame.mockResolvedValueOnce({
-      ...CANNED_GAME_STATE,
+      ...GAME_STATE,
       originalGrid: almostSolved,
       currentGrid: almostSolved,
     });
     validatePuzzle.mockResolvedValue({ isValid: true, errors: [] });
-    localStorage.setItem('sudoku_gameId', CANNED_GAME_STATE.gameId);
+    localStorage.setItem('sudoku_gameId', GAME_STATE.gameId);
     const { result } = await mountAndSettle();
 
     await act(async () => result.current.updateCell(8, 8));
@@ -608,7 +620,7 @@ describe('auto-completion', () => {
 
     await waitFor(() =>
       expect(saveGame).toHaveBeenCalledWith(
-        CANNED_GAME_STATE.gameId,
+        GAME_STATE.gameId,
         expect.objectContaining({ isComplete: true })
       )
     );
@@ -617,12 +629,12 @@ describe('auto-completion', () => {
 
   it('does NOT send PATCH with isComplete when the board is filled but invalid', async () => {
     loadGame.mockResolvedValueOnce({
-      ...CANNED_GAME_STATE,
+      ...GAME_STATE,
       originalGrid: almostSolved,
       currentGrid: almostSolved,
     });
     validatePuzzle.mockResolvedValue({ isValid: false, errors: [{ row: 8, col: 8 }] });
-    localStorage.setItem('sudoku_gameId', CANNED_GAME_STATE.gameId);
+    localStorage.setItem('sudoku_gameId', GAME_STATE.gameId);
     const { result } = await mountAndSettle();
 
     act(() => result.current.updateCell(8, 8));
@@ -642,16 +654,16 @@ describe('auto-completion', () => {
 
 describe('fillCandidates', () => {
   it('fetches and populates candidateGrid for empty cells', async () => {
-    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    getCandidates.mockResolvedValueOnce(CANDIDATES);
     const { result } = await mountAndWait();
     await act(async () => result.current.fillCandidates());
 
-    // Row 0 col 2 is empty (0 in CANNED_GAME_STATE.currentGrid), expects [1,2,4,6]
+    // Row 0 col 2 is empty (0 in currentGrid), expects [1,2,4,6]
     expect(result.current.candidateGrid[0][2]).toEqual([1, 2, 4, 6]);
   });
 
   it('does not overwrite candidates for filled cells', async () => {
-    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    getCandidates.mockResolvedValueOnce(CANDIDATES);
     const { result } = await mountAndWait();
     await act(async () => result.current.fillCandidates());
 
@@ -660,7 +672,7 @@ describe('fillCandidates', () => {
   });
 
   it('is undoable — undo restores the previous candidateGrid', async () => {
-    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    getCandidates.mockResolvedValueOnce(CANDIDATES);
     const { result } = await mountAndWait();
     await act(async () => result.current.fillCandidates());
     expect(result.current.candidateGrid[0][2]).toEqual([1, 2, 4, 6]);
@@ -671,7 +683,7 @@ describe('fillCandidates', () => {
   });
 
   it('persists populated candidates to localStorage', async () => {
-    getCandidates.mockResolvedValueOnce(CANNED_CANDIDATES);
+    getCandidates.mockResolvedValueOnce(CANDIDATES);
     const { result } = await mountAndWait();
     await act(async () => result.current.fillCandidates());
 
@@ -686,7 +698,7 @@ describe('access control — ForbiddenError handling', () => {
   it('calls onForbidden when startNewGame receives a 403', async () => {
     const onForbidden = vi.fn();
     // Let the initial auto-start succeed, then return 403 on the explicit call
-    createGame.mockResolvedValueOnce(CANNED_GAME_STATE);
+    createGame.mockResolvedValueOnce(GAME_STATE);
     createGame.mockRejectedValueOnce(new ForbiddenError());
     const { result } = renderHook(() => useSudokuGame(null, { onForbidden }));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -702,7 +714,7 @@ describe('access control — ForbiddenError handling', () => {
   it('does not call onForbidden for non-403 errors', async () => {
     const onForbidden = vi.fn();
     // Let the initial auto-start succeed, then reject on the explicit call
-    createGame.mockResolvedValueOnce(CANNED_GAME_STATE);
+    createGame.mockResolvedValueOnce(GAME_STATE);
     createGame.mockRejectedValueOnce(new Error('HTTP 500'));
     const { result } = renderHook(() => useSudokuGame(null, { onForbidden }));
     await waitFor(() => expect(result.current.isLoading).toBe(false));

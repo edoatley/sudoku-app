@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec HE-BE-015, HE-API-001, HE-API-002, HE-API-003, HE-API-004, HE-API-005, HE-API-006
 class NakedTripleStrategyTest {
 
     private NakedTripleStrategy strategy;
@@ -51,7 +53,7 @@ class NakedTripleStrategyTest {
     void nakedTriple_syntheticRowTriple_returnsHint() {
         // Row 3 has 6 empty cells (cols 3-8); form a naked triple at cols 3,4,5 with union {1,2,3}
         // and ensure cols 6,7,8 contain at least one of those digits so eliminations exist.
-        Board board = Board.fromGrid(NAKED_TRIPLE_GRID);
+        Board board = Board.fromGrid(Grid.of((NAKED_TRIPLE_GRID)));
         board.calculateAllCandidates();
 
         board.getCell(3, 3).setCandidates(Set.of(1, 2));
@@ -83,7 +85,7 @@ class NakedTripleStrategyTest {
 
     @Test
     void nakedTriple_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         Optional<HintResponse> result = strategy.evaluate(board);
@@ -98,7 +100,7 @@ class NakedTripleStrategyTest {
 
     @Test
     void nakedTriple_markdownSlug_and_difficulty() {
-        Board board = Board.fromGrid(NAKED_TRIPLE_GRID);
+        Board board = Board.fromGrid(Grid.of((NAKED_TRIPLE_GRID)));
         board.calculateAllCandidates();
         board.getCell(3, 3).setCandidates(Set.of(1, 2));
         board.getCell(3, 4).setCandidates(Set.of(2, 3));

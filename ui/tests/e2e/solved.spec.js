@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { CANNED_GAME_ID, waitForGrid } from './helpers.js';
+import { CANNED_GAME_ID, waitForGrid, toWireGameState } from './helpers.js';
 
 // Near-complete puzzle: only cell-8-8 is empty (should be 9)
 const NEAR_COMPLETE_GRID = [
@@ -14,15 +14,16 @@ const NEAR_COMPLETE_GRID = [
   [3, 4, 5, 2, 8, 6, 1, 7, 0],
 ];
 
-const NEAR_COMPLETE_GAME_STATE = {
+const NEAR_COMPLETE_GAME_STATE = toWireGameState({
   gameId: CANNED_GAME_ID,
   difficulty: 'easy',
   originalGrid: NEAR_COMPLETE_GRID,
   currentGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
+  solutionGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
   candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
   timeSpentSeconds: 0,
   status: 'IN_PROGRESS',
-};
+});
 
 async function setupRoutes(page) {
   await page.addInitScript((gameId) => {
