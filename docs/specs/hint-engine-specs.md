@@ -36,6 +36,14 @@
 - [x] **HE-API-005**: The system shall return solvedCells as a list of (row, col, value) triples for cells with a definitively forced digit.
 - [x] **HE-API-006**: The system shall include the strategy name, markdown slug, difficulty label, and numeric rank in every hint response.
 
+## Hint Display (UI)
+
+- [x] **HE-UI-001**: When the UI displays a hint text field (nudge, focus, or reveal), it shall convert any 0-based cell coordinate pattern `(r, c)` or `(r,c)` to the 1-based equivalent `(r+1, c+1)`.
+- [x] **HE-UI-002**: When the UI displays a hint text field, it shall convert any 0-based unit reference of the form `Row N`, `Column N`, `row N`, or `column N` (where N is a single digit 0–8) to the 1-based equivalent (N+1).
+- [x] **HE-UI-003**: When the UI displays a hint text field, it shall convert any 0-based multi-unit reference of the form `rows N and M`, `rows N, M and P`, `columns N and M`, or `columns N, M and P` to the 1-based equivalent.
+- [x] **HE-UI-004**: When the UI displays a hint text field, it shall convert any 0-based block reference of the form `Block N` or `block N` to a human-readable name from the sequence: top-left (0), top-middle (1), top-right (2), middle-left (3), centre (4), middle-right (5), bottom-left (6), bottom-middle (7), bottom-right (8).
+- [x] **HE-UI-005**: The coordinate and unit conversion shall be applied only at the display layer and shall not mutate the underlying hint data or any internal state.
+
 ## Supporting Operations
 
 - [x] **HE-BE-030**: When getCandidates() is called, the system shall return the full 9×9 candidate grid computed from the submitted current grid.
