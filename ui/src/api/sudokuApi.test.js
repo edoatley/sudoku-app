@@ -261,4 +261,21 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
     const [, options] = fetchSpy.mock.calls[0];
     expect(options.headers).toMatchObject({ 'Content-Type': 'application/json' });
   });
+
+  it('importPuzzle returns originalGrid as a plain 2D array (not unwrapped via gridFromWire)', async () => {
+    // The image recognition lambda returns originalGrid as a raw 2D array, not {rows:[...]}.
+    // If gridFromWire were applied, originalGrid would become undefined (array has no .rows),
+    // causing createGameFromGrid to send {originalGrid:null} and the backend to reject with
+    // "Grid must be 9 rows".
+    const rawGrid = Array(9).fill(null).map(() => Array(9).fill(0));
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ originalGrid: rawGrid, validPuzzle: true }), { status: 200 }),
+    );
+    const { importPuzzle } = await import('./sudokuApi.js');
+    const file = new File(['fake'], 'puzzle.png', { type: 'image/png' });
+    const result = await importPuzzle(file);
+    expect(result.originalGrid).toEqual(rawGrid);
+    expect(Array.isArray(result.originalGrid)).toBe(true);
+    expect(Array.isArray(result.originalGrid[0])).toBe(true);
+  });
 });

@@ -227,7 +227,9 @@ export async function importPuzzle(imageFile) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64 }),
   }, true);
-  return data ? { ...data, originalGrid: gridFromWire(data.originalGrid) } : data;
+  // The image recognition lambda returns originalGrid as a plain 2D array (not {rows:[...]} wire format),
+  // so no gridFromWire conversion is needed here.
+  return data;
 }
 
 export async function warmupImageRecognition() {
