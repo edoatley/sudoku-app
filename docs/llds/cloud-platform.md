@@ -54,7 +54,7 @@ SnapStart pre-initializes the JVM snapshot on publish, eliminating Java cold sta
 
 | Property | Value |
 | --- | --- |
-| Runtime | Container image (Python 3.11 + Pillow) |
+| Runtime | Container image (Python 3.12 + Pillow) |
 | Memory | 512 MB |
 | Timeout | 60 seconds |
 | Image | ECR `sudoku-image-recognition:{branch}-{sha}` |
@@ -174,7 +174,6 @@ frontend:
 | `VITE_COGNITO_CLIENT_ID` | Web client ID |
 | `VITE_COGNITO_DOMAIN` | Cognito domain |
 | `VITE_MOCK_API` | `"false"` |
-| `VITE_ENABLE_IMPORT` | `"true"` |
 | `VITE_DEV_TOOLS` | `"false"` (default), `"true"` (all others) |
 
 ### DNS & TLS
@@ -199,7 +198,7 @@ TLS certificates provisioned automatically by Amplify via ACM. No manual certifi
 **Image Recognition Lambda role (`SudokuImageRecognitionExecRole{suffix}`):**
 
 - `AWSLambdaBasicExecutionRole`
-- `bedrock:InvokeModel` on Claude Haiku, Nova Pro, Nova Lite, Mistral, Nemotron ARNs (direct + cross-region inference profiles)
+- `bedrock:InvokeModel` on `eu.anthropic.claude-haiku-4-5-20251001-v1:0` inference-profile ARN and its corresponding foundation-model ARN (required for regional routing)
 
 ## Observed Design Decisions
 
@@ -215,12 +214,7 @@ TLS certificates provisioned automatically by Amplify via ACM. No manual certifi
 
 ## Technical Debt & Inconsistencies
 
-- `GET /api/v1/games/current` could conflict with `GET /api/v1/games/{gameId}` if a gameId were the string `"current"`. API Gateway routes most-specific-first so `/games/current` wins — but `"current"` is implicitly reserved as a gameId value with no enforcement.
-- The ECR repository is created by `scripts/bootstrap.sh` outside Terraform. A first-time deploy will fail without it, and this prerequisite is not documented in the Terraform root module.
-- `infra/variables.tf` has required variables (`google_client_id`, `google_client_secret`, `github_token`) with no defaults and no documentation of where to source them.
-- CloudWatch has no alarms or metric filters on Lambda errors — no automated notification when either Lambda starts returning 5xx responses.
-- `VITE_DEV_TOOLS=true` in all non-default workspaces. If an RC workspace is accidentally pointed at production infrastructure, developer tools would be visible to all users.
-- IAM `bedrock:InvokeModel` grants are derived from `local.bedrock_models` in Terraform — inference-profile ARNs and the corresponding foundation-model ARNs (required for regional routing) are both generated from the same list.
+- CloudWatch has no alarms or metric filters on Lambda errors — no automated notification when either Lambda starts returning 5xx responses. (Deferred — separate feature work.)
 
 ## Behavioral Quirks
 

@@ -4,7 +4,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 
 ## Status
 
-**AUDITED** - 2026-04-18. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists).
+**OK** - 2026-04-21. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists).
 
 ## References
 
@@ -15,7 +15,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 - docs/llds/cloud-platform.md
 
 ### EARS
-- docs/specs/cloud-platform-specs.md (18 specs, all [x])
+- docs/specs/cloud-platform-specs.md (22 specs, all [x])
 
 ### Tests
 - No infrastructure tests exist (no Terratest or equivalent). This is an accepted gap.
@@ -56,18 +56,12 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 
 ## Key Findings
 
-1. **ECR outside Terraform** — The `sudoku-image-recognition` ECR repository is created by `scripts/bootstrap.sh`, not Terraform. A first-time deploy will fail without it. (CP-INFRA-012)
-2. **No CloudWatch alarms** — Lambda errors produce log entries but trigger no alert. Silent failures are possible in production.
+1. **ECR outside Terraform** — The `sudoku-image-recognition` ECR repository is created by `scripts/bootstrap.sh`, not Terraform. A first-time deploy will fail without it. Documented in `infra/README.md` Bootstrap section. (CP-INFRA-012)
+2. **No CloudWatch alarms** — Lambda errors produce log entries but trigger no alert. Silent failures are possible in production. (deferred — separate feature work)
 3. **`ignore_changes` drift** — `ignore_changes` on CORS and Cognito callback URLs means `terraform plan` always shows "no changes" for these fields even when live config differs from baseline. Actual config only visible via AWS console or CLI.
-4. **`/games/current` reserved path** — The string "current" is implicitly reserved as a gameId value due to API Gateway route precedence. No enforcement exists to prevent a UUID colliding with this string (astronomically unlikely but undocumented).
-5. **Required variables undocumented** — `google_client_id`, `google_client_secret`, and `github_token` have no defaults and no source documentation in `variables.tf`.
+4. **`/games/current` routing** — `GET /api/v1/games/current` is an explicit JWT-protected route at API Gateway. JAX-RS also routes `/current` to its own method before `/{gameId}` can match. The string "current" is fully protected at both layers; no backend guard is needed.
 
 ## Work Required
-
-### Done
-
-1. ~~ECR bootstrap prerequisite~~: `infra/README.md` Bootstrap section already documents the `scripts/infra/bootstrap.sh` prerequisite and the ECR repository it creates. (CP-INFRA-012)
-2. ~~Variable source documentation~~: Added source location notes to `github_token`, `google_client_id`, and `google_client_secret` descriptions in `infra/variables.tf`.
 
 ### Deferred
 

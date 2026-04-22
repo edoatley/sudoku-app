@@ -209,6 +209,7 @@ class GameResourceTest {
                 .body("code", equalTo("GAME_NOT_FOUND"))
                 .body("message", notNullValue());
     }
+
     @Test
     void getCurrentGame_whenInProgress_returns200WithGame() {
         String gameId = "in-progress-id";

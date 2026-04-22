@@ -20,7 +20,6 @@ Five `VITE_*` flags control feature visibility and are baked into the bundle at 
 | `VITE_MOCK_API` | Replace all API calls with canned data — no backend needed |
 | `VITE_SKIP_AUTH` | Skip Amplify Authenticator — no Cognito needed |
 | `VITE_LOG_API` | Log all requests/responses to browser console |
-| `VITE_ENABLE_IMPORT` | Show "Import from Image" menu item |
 | `VITE_DEV_TOOLS` | Show developer submenu (11 demo techniques + data browser) |
 
 Local dev uses `.env.development` (`MOCK_API=false`, `SKIP_AUTH=false`, `DEV_TOOLS=true`). Tests use `.env.test` (`MOCK_API=true`, `SKIP_AUTH=true`).
@@ -100,7 +99,7 @@ Manages user identity and game history.
 
 **Methods:** `setAvatar(iconName)`, `recordGame({gameId, difficulty, outcome, elapsedSeconds, hintsUsed})`
 
-On mount: calls `getEmailFromSession()` then `getPlayerProfile()`. If VITE_ENABLE_IMPORT, also calls `warmupImageRecognition()` to pre-warm the Python Lambda.
+On mount: calls `getEmailFromSession()` then `getPlayerProfile()`, then unconditionally calls `warmupImageRecognition()` to pre-warm the Python Lambda.
 
 ## Persistence Strategy
 

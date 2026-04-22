@@ -45,7 +45,7 @@
 
 ## Image Import
 
-- [x] **FE-UI-030**: Where VITE_ENABLE_IMPORT is true, the system shall display an "Import from Image" option in the game menu.
+- [x] **FE-UI-030**: The system shall display an "Import from Image" option in the game menu.
 - [x] **FE-UI-031**: The system shall display a file picker accepting image files and show a preview of the selected image before submission.
 - [x] **FE-UI-032**: While the image is being processed, the system shall display a loading indicator with a stage label (uploading / analysing).
 - [x] **FE-UI-033**: When image recognition returns validPuzzle=false, the system shall proceed to import validation in the Java backend which is the authoritative validator.

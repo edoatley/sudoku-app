@@ -9,8 +9,6 @@ function resolveAvatar(avatarKey) {
   return AVATAR_ICONS.some((a) => a.name === avatarKey) ? avatarKey : DEFAULT_AVATAR;
 }
 
-const ENABLE_IMPORT = import.meta.env.VITE_ENABLE_IMPORT === 'true';
-
 const LS_KEY_AVATAR = 'sudoku_avatar';
 const LS_KEY_HISTORY = 'sudoku_gameHistory';
 
@@ -42,7 +40,7 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
         localStorage.setItem(LS_KEY_AVATAR, resolved);
         setAvatarState(resolved);
       }
-      if (ENABLE_IMPORT) warmupImageRecognition();
+      warmupImageRecognition();
     }).catch(async (err) => {
       if (err instanceof ForbiddenError) {
         const email = await getEmailFromSession().catch(() => null);

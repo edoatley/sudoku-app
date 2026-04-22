@@ -5,7 +5,7 @@
 - [x] **AEH-DTO-001**: The system shall represent all API error responses as a JSON object with fields `code` (string), `message` (string), and `detail` (string or null).
 - [x] **AEH-DTO-002**: The system shall provide a two-argument constructor for ErrorResponse that sets `detail` to null.
 - [x] **AEH-DTO-003**: When `detail()` is called on an ErrorResponse with a null detail field, the system shall return an empty string rather than null.
-- [x] **AEH-DTO-004**: The system shall define error code constants `INVALID_GRID`, `INVALID_PUZZLE`, `GAME_NOT_FOUND`, and `INTERNAL_ERROR` as static fields on ErrorResponse.
+- [x] **AEH-DTO-004**: The system shall define error code constants `INVALID_GRID`, `INVALID_PUZZLE`, `GAME_NOT_FOUND`, `PLAYER_NOT_FOUND`, `INVALID_PLAYER_UPDATE`, and `INTERNAL_ERROR` as static fields on ErrorResponse.
 
 ## Exception Hierarchy — Import Validation
 

@@ -30,7 +30,7 @@
 ## Amplify & Frontend Delivery
 
 - [x] **CP-INFRA-040**: The system shall disable Amplify auto-build and trigger builds explicitly via CI after terraform apply.
-- [x] **CP-INFRA-041**: The system shall inject VITE_API_URL, VITE_COGNITO_USER_POOL_ID, VITE_COGNITO_CLIENT_ID, VITE_COGNITO_DOMAIN, VITE_MOCK_API, VITE_ENABLE_IMPORT, and VITE_DEV_TOOLS as Amplify environment variables at build time.
+- [x] **CP-INFRA-041**: The system shall inject VITE_API_URL, VITE_COGNITO_USER_POOL_ID, VITE_COGNITO_CLIENT_ID, VITE_COGNITO_DOMAIN, VITE_MOCK_API, and VITE_DEV_TOOLS as Amplify environment variables at build time.
 - [x] **CP-INFRA-042**: The system shall set VITE_DEV_TOOLS=false in the default (production) workspace and VITE_DEV_TOOLS=true in all other workspaces.
 
 ## DynamoDB

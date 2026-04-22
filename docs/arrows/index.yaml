@@ -80,7 +80,7 @@ arrows:
     next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)
 
   - id: cloud-platform
-    status: AUDITED
+    status: OK
     lld: docs/llds/cloud-platform.md
     specs: docs/specs/cloud-platform-specs.md
     arrow: docs/arrows/cloud-platform.md

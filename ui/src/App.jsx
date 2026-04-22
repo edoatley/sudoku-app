@@ -26,7 +26,6 @@ import DevDataDialog from './components/DevDataDialog.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
-const ENABLE_IMPORT = import.meta.env.VITE_ENABLE_IMPORT === 'true';
 const DEV_TOOLS = import.meta.env.VITE_DEV_TOOLS === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
@@ -202,7 +201,7 @@ function SudokuApp({ user, signOut }) {
         onPause={pauseGame}
         onResume={resumeGame}
         onNewGame={() => setNewGameModalOpen(true)}
-        onImport={ENABLE_IMPORT ? () => setImportModalOpen(true) : null}
+        onImport={() => setImportModalOpen(true)}
         onDemoGame={DEV_TOOLS ? loadDemoGame : null}
         onDevData={DEV_TOOLS ? () => setDevDataOpen(true) : null}
         colorMode={colorMode}
