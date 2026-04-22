@@ -237,6 +237,7 @@ Theme is created with `useMemo` and only recalculated when `colorMode` changes.
 - **localStorage mock:** `test-setup.js` implements in-memory `localStorage`/`sessionStorage` (jsdom 26 does not expose them natively)
 - **Mock data:** `mocks/cannedData.js` provides canned puzzles, hint, validation, game state, and candidates for `VITE_MOCK_API=true` mode; all grid fields are in wire format (`{rows: [...]}`)
 - **Test isolation:** Tests that mock `sudokuApi.js` directly (e.g., `useSudokuGame.test.js`) must provide pre-unwrapped plain arrays since the real adapter code is bypassed
+- **`act()` wrapping:** All code that triggers React state updates must be wrapped in `act()`. Use `await act(async () => ...)` whenever the action may cause async state updates (API calls, event handlers that call async functions). Use synchronous `act(() => ...)` only for purely synchronous updates. Failing to wrap state-inducing code in `act()` produces console warnings and can cause flaky assertions.
 
 ## Implementation Standards
 

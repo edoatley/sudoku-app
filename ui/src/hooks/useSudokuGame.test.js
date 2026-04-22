@@ -536,8 +536,8 @@ describe('pause / resume', () => {
     const { result } = await mountAndWait();
     const beforeHide = result.current.elapsedSeconds;
 
-    // Simulate tab hidden
-    act(() => {
+    // Simulate tab hidden — async because the handler calls saveGame
+    await act(async () => {
       Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     });
@@ -545,8 +545,8 @@ describe('pause / resume', () => {
     const afterHide = result.current.elapsedSeconds;
     expect(afterHide).toBe(beforeHide); // timer should not advance while hidden
 
-    // Simulate tab visible again
-    act(() => {
+    // Simulate tab visible again — async because the handler may update state
+    await act(async () => {
       Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     });
@@ -558,11 +558,12 @@ describe('pause / resume', () => {
     const { result } = await mountAndWait();
     act(() => result.current.pauseGame());
 
-    act(() => {
+    // async because the tab-hidden handler calls saveGame
+    await act(async () => {
       Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     });
-    act(() => {
+    await act(async () => {
       Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     });

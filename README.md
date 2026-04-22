@@ -215,17 +215,13 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 - [ ] Create a league table that shows the different players and how they are doing relative to their peers. Should reward number of puzzles completed, and short times taken 
 - [ ] Add expert difficulty
 - [ ] Review LLD tech debt
-  - [x] NakedPairStrategy - difficulty -> EASY
-  - [x] Extract `validateByDuplicates` logic into a shared utility
-  - [ ] Is there a need to seperate the API objects and the domain ones
-  - [ ] Proper typed exceptions returned for API layer to return in exception handler
-  - [ ] terratest for infrstructure
-  - [ ] UI cleanup 
-    - [ ] persist game history to server
-    - [ ] decompose `useSudokuGame` into smaller focused hooks
-    - [ ] directory structure
-  - [ ] Upgrades
-    - [ ] Java 25
-    - [ ] Python 3.14
-    - [ ] npm
-    - [ ] maven
+- [ ] terratest for infrstructure
+- [ ] UI cleanup 
+  - [ ] persist game history to server
+  - [ ] decompose `useSudokuGame` into smaller focused hooks
+  - [ ] directory structure
+- [ ] Upgrades
+  - [ ] Java 25
+  - [ ] Python 3.14
+  - [ ] npm
+  - [ ] maven
