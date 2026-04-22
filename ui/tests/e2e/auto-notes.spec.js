@@ -2,18 +2,22 @@ import { test, expect } from '@playwright/test';
 import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 // Row 0, col 2 candidates: [1, 2, 4, 6]
+// candidatesGrid uses {rows:[...]} wire format to match what the backend returns
+// (candidatesFromWire in sudokuApi.js converts it to plain array internally)
 const CANNED_CANDIDATES = {
-  candidatesGrid: [
-    [[], [], [1, 2, 4, 6], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-    [[], [], [], [], [], [], [], [], []],
-  ],
+  candidatesGrid: {
+    rows: [
+      [[], [], [1, 2, 4, 6], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+      [[], [], [], [], [], [], [], [], []],
+    ],
+  },
 };
 
 async function setupRoutes(page) {

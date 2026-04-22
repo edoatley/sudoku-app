@@ -52,7 +52,7 @@
 - [x] **DT-UI-003**: The frontend shall provide `candidatesFromWire(wireCandidates)` converting `{rows: [...]}` to a plain array-of-arrays.
 - [x] **DT-UI-004**: The frontend shall provide `candidatesToWire(candidates)` converting a plain array-of-arrays to `{rows: [...]}`.
 - [x] **DT-UI-005**: All outbound API calls in `sudokuApi.js` that send grid data shall wrap the grid using `gridToWire` or `candidatesToWire` before serialization.
-- [x] **DT-UI-006**: All inbound API responses in `sudokuApi.js` that contain grid data shall unwrap using `gridFromWire` or `candidatesFromWire` after parsing.
+- [x] **DT-UI-006**: All inbound API responses in `sudokuApi.js` that contain grid data in `{rows:[...]}` wire format shall unwrap using `gridFromWire` or `candidatesFromWire` after parsing. Exception: the image recognition response (`POST /puzzles/import`) returns `originalGrid` as a plain 2D array and shall be returned as-is without conversion.
 - [x] **DT-UI-007**: Internal hook state (`currentGrid`, `candidateGrid`, `originalGrid`, `solutionGrid`) shall remain as plain array-of-arrays — the `Grid` wire format shall not propagate into component state.
 
 ## Frontend Error Handling
