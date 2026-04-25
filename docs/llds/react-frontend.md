@@ -5,7 +5,7 @@
 
 ## Context and Current State
 
-The React Frontend is the browser-side application: all the UI, state management, API communication, and user interaction logic. It is a React 19 + Vite single-page application styled with Material UI v7, served via AWS Amplify.
+The React Frontend is the browser-side application: all the UI, state management, API communication, and user interaction logic. It is a React 19 + Vite single-page application styled with Material UI v9, served via AWS Amplify.
 
 Files: all `ui/src/` files, `ui/package.json`, `ui/vite.config.js`.
 
@@ -194,7 +194,11 @@ Mock paths also call the unwrap helpers so the hook receives the same plain-arra
 
 ### NumberPad
 
-Two rows of digit buttons (1–5 top, 6–9 bottom). A digit button is disabled in normal mode when that digit appears 9 times in the current grid (the number is complete). Input mode toggle (Normal / Candidate) is a `ToggleButtonGroup`. Action buttons: Undo, Clear, Validate, Hint, Fill Candidates.
+The number pad is split into three composable sub-components rendered as a single `inline-flex` column that inherits the grid's intrinsic width:
+
+- **`NumberPadToolbar`** — spans the full grid width above the grid. Left side: Normal / Candidate mode `ToggleButtonGroup`. Right side (space-between): two `ButtonGroup` rows — Undo + Clear, then Check + Hint + Fill.
+- **`NumberPadInput`** — single row of digit buttons 1–9 below the grid, each with `flex: 1` so they stretch to fill the grid width. A digit button is disabled in normal mode when that digit appears 9 times in `currentGrid`.
+- **`NumberPadStatus`** — `Collapse` `Alert` for validate feedback (valid / invalid).
 
 ### HintDialog
 
@@ -246,7 +250,7 @@ These rules apply to all frontend code. They are referenced here so the LLD is t
 ### UI / Styling
 
 - **Strict MUI:** Use `@mui/material` components for all UI elements. Do not write custom CSS or use Tailwind/Bootstrap. Use the `sx` prop for minor layout adjustments.
-- **Responsive layout:** Use MUI `<Grid>` or `<Stack>`. The Sudoku board must scale on mobile and desktop without breaking the viewport.
+- **Responsive layout:** Use MUI `<Grid>` or `<Stack>`. The Sudoku board must scale on mobile and desktop without breaking the viewport. Note: MUI v9 removed the `item` prop from `<Grid>` — child grid cells are plain `<Grid>` elements with no `item` prop. Breakpoint sizing uses `size={{ xs: 12, sm: 6 }}` instead of `xs={12} sm={6}`.
 - **Small, focused components:** Keep components single-purpose. Separate the grid visual rendering (`SudokuGrid`, `SudokuCell`) from game logic.
 
 ### State Management

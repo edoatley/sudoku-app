@@ -83,7 +83,7 @@ export default function EditProfileDialog({ open, playerProfile, currentAvatar, 
           {AVATAR_ICONS.map(({ name, Component: AvatarIcon, label }) => {
             const selected = selectedAvatar === name;
             return (
-              <Grid item key={name}>
+              <Grid key={name}>
                 <Tooltip title={label} placement="top">
                   <Box
                     sx={{

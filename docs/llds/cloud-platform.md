@@ -40,7 +40,7 @@ suffix     = local.is_default ? "" : "-${terraform.workspace}"
 
 | Property | Value |
 | --- | --- |
-| Runtime | Java 21 |
+| Runtime | Java 25 |
 | Handler | `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest` |
 | Memory | 512 MB |
 | Timeout | 8 seconds |
@@ -54,7 +54,7 @@ SnapStart pre-initializes the JVM snapshot on publish, eliminating Java cold sta
 
 | Property | Value |
 | --- | --- |
-| Runtime | Container image (Python 3.12 + Pillow) |
+| Runtime | Container image (Python 3.14 + Pillow) |
 | Memory | 512 MB |
 | Timeout | 60 seconds |
 | Image | ECR `sudoku-image-recognition:{branch}-{sha}` |
@@ -269,7 +269,7 @@ provider "aws" {
   actions/
     configure-aws-oidc/         # Assumes IAM role via OIDC
     setup-node/                 # Node 22 + npm ci [+ Playwright]
-    setup-java/                 # Java 21 (Temurin) + Maven cache
+    setup-java/                 # Java 25 (Temurin) + Maven cache
     build-lambda-zip/           # Quarkus package + reproducible zip
     create-localstack-dynamodb/ # Creates DynamoDB tables in LocalStack
     terraform-validate/         # fmt check, init, validate

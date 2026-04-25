@@ -97,7 +97,7 @@ npm run test:e2e:ui    # interactive / trace viewer
 Intercept at the HTTP layer — never duplicate validation logic inside the test. The test provides a canned JSON response and asserts on what the UI renders.
 
 ### Known brittle assertions
-- `error-cells.spec.js` asserts `background-color: rgb(239, 83, 80)` (MUI v7 `error.light`). If the MUI theme changes this will break — consider asserting via `aria-invalid` or a `data-error` attribute instead.
+- `error-cells.spec.js` asserts `background-color: rgb(239, 83, 80)` (MUI `error.light` — verified against v9). If the MUI theme changes this will break — consider asserting via `aria-invalid` or a `data-error` attribute instead.
 - `EASY_PUZZLE` in `helpers.js` is a hardcoded 81-cell board. If the generate API contract changes, all specs will break at the same point.
 
 ---
