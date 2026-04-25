@@ -14,7 +14,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 
-const btnSx = { minWidth: { xs: 44, sm: 56 }, height: { xs: 44, sm: 56 }, p: 0, fontSize: '1.15rem' };
+const btnSx = { flex: 1, minWidth: 0, height: { xs: 44, sm: 52 }, p: 0, fontSize: '1.15rem' };
 
 const toolBtnSx = {
   minWidth: 0,
@@ -66,37 +66,25 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
   );
 }
 
-export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, completedNumbers, gameStatus, statusMessage, onCloseStatus }) {
-  return (
-    <Stack spacing={1} alignItems="center">
-      {/* Numbers: 1–5 top row, 6–9 bottom row */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
-          ))}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center' }}>
-          {[6, 7, 8, 9].map((n) => (
-            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
-          ))}
-        </Box>
-      </Box>
+// ── Composable sub-components ────────────────────────────────────────────────
 
-      {/* Mode toggle below numbers */}
+/** Toolbar row: mode toggle left | Undo, Clear | Check, Hint, Fill right */
+export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+      {/* Mode toggle — left */}
       <ToggleButtonGroup
         value={inputMode}
         exclusive
         onChange={(_, val) => { if (val) onModeChange(val); }}
         size="small"
-        sx={{ alignSelf: 'center' }}
       >
-        <ToggleButton value="normal">Normal</ToggleButton>
-        <ToggleButton value="candidate">Candidate</ToggleButton>
+        <ToggleButton value="normal" sx={{ px: 1.5, py: 0.5, fontSize: '0.75rem' }}>Normal</ToggleButton>
+        <ToggleButton value="candidate" sx={{ px: 1.5, py: 0.5, fontSize: '0.75rem' }}>Candidate</ToggleButton>
       </ToggleButtonGroup>
 
-      {/* Toolbar: destructive group | tools group */}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      {/* Action buttons — right */}
+      <Box sx={{ display: 'flex', gap: 1 }}>
         <ButtonGroup variant="outlined" color="inherit" size="small">
           <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
           <ToolButton label="Clear" tooltip="Clear selected cell" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
@@ -107,18 +95,44 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
           <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
         </ButtonGroup>
       </Box>
+    </Box>
+  );
+}
 
-      {/* Inline status for valid/invalid results */}
-      <Collapse in={gameStatus === 'valid' || gameStatus === 'invalid'} unmountOnExit sx={{ width: '100%' }}>
-        <Alert
-          data-testid="status-alert"
-          severity={gameStatus === 'invalid' ? 'warning' : 'success'}
-          onClose={onCloseStatus}
-          sx={{ py: 1, px: 2, fontWeight: 'bold', letterSpacing: 0.4 }}
-        >
-          {statusMessage}
-        </Alert>
-      </Collapse>
+/** Single row of number buttons 1–9, stretched to fill available width */
+export function NumberPadInput({ selectedNumber, inputMode, onNumberSelect, completedNumbers }) {
+  return (
+    <Box sx={{ display: 'flex', gap: 0.75 }}>
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+        <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
+      ))}
+    </Box>
+  );
+}
+
+/** Status alert (valid / invalid feedback) */
+export function NumberPadStatus({ gameStatus, statusMessage, onCloseStatus }) {
+  return (
+    <Collapse in={gameStatus === 'valid' || gameStatus === 'invalid'} unmountOnExit sx={{ width: '100%' }}>
+      <Alert
+        data-testid="status-alert"
+        severity={gameStatus === 'invalid' ? 'warning' : 'success'}
+        onClose={onCloseStatus}
+        sx={{ py: 1, px: 2, fontWeight: 'bold', letterSpacing: 0.4 }}
+      >
+        {statusMessage}
+      </Alert>
+    </Collapse>
+  );
+}
+
+/** Legacy all-in-one component (kept for tests / fallback) */
+export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, completedNumbers, gameStatus, statusMessage, onCloseStatus }) {
+  return (
+    <Stack spacing={1} alignItems="center">
+      <NumberPadToolbar inputMode={inputMode} onModeChange={onModeChange} onClearCell={onClearCell} onUndo={onUndo} canUndo={canUndo} onValidate={onValidate} onHint={onHint} onFillCandidates={onFillCandidates} isLoading={isLoading} />
+      <NumberPadInput selectedNumber={selectedNumber} inputMode={inputMode} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} />
+      <NumberPadStatus gameStatus={gameStatus} statusMessage={statusMessage} onCloseStatus={onCloseStatus} />
     </Stack>
   );
 }
