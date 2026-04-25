@@ -1,8 +1,8 @@
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import Collapse from '@mui/material/Collapse';
-import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -25,9 +25,8 @@ const toolBtnSx = {
   px: 0.5,
   gap: 0.25,
   color: 'text.secondary',
-  borderColor: 'divider',
-  '&:hover': { borderColor: 'text.primary', color: 'text.primary', bgcolor: 'action.hover' },
-  '&.Mui-disabled': { borderColor: 'divider', color: 'action.disabled' },
+  '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+  '&.Mui-disabled': { color: 'action.disabled' },
 };
 
 function NumButton({ n, selectedNumber, onNumberSelect, completedNumbers, inputMode }) {
@@ -48,7 +47,7 @@ function NumButton({ n, selectedNumber, onNumberSelect, completedNumbers, inputM
 function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
   return (
     <Tooltip title={tooltip} arrow>
-      <span>
+      <span style={{ display: 'inline-flex' }}>
         <Button
           aria-label={label}
           variant={active ? 'contained' : 'outlined'}
@@ -90,19 +89,23 @@ export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, o
         exclusive
         onChange={(_, val) => { if (val) onModeChange(val); }}
         size="small"
+        sx={{ alignSelf: 'center' }}
       >
         <ToggleButton value="normal">Normal</ToggleButton>
         <ToggleButton value="candidate">Candidate</ToggleButton>
       </ToggleButtonGroup>
 
       {/* Toolbar: destructive group | tools group */}
-      <Box sx={{ display: 'flex', alignItems: 'stretch', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-        <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon fontSize="small" />} onClick={onUndo} disabled={!canUndo} />
-        <ToolButton label="Clear" tooltip="Clear selected cell" icon={<ClearIcon fontSize="small" />} onClick={onClearCell} />
-        <Divider orientation="vertical" flexItem />
-        <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon fontSize="small" />} onClick={onValidate} disabled={isLoading} />
-        <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon fontSize="small" />} onClick={onHint} disabled={isLoading} />
-        <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon fontSize="small" />} onClick={onFillCandidates} disabled={isLoading} />
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <ButtonGroup variant="outlined" color="inherit" size="small">
+          <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
+          <ToolButton label="Clear" tooltip="Clear selected cell" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
+        </ButtonGroup>
+        <ButtonGroup variant="outlined" color="inherit" size="small">
+          <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
+          <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
+          <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
+        </ButtonGroup>
       </Box>
 
       {/* Inline status for valid/invalid results */}

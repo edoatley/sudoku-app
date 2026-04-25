@@ -2,7 +2,7 @@
 
 **Created:** 2026-04-25  
 **Branch:** `upgrades`  
-**Status:** In progress
+**Status:** Complete
 
 ## Scope
 
@@ -16,7 +16,8 @@ Pure dependency/runtime upgrades. No behaviour changes, no new features.
 | JVM Dockerfile base image | `openjdk-21-runtime:1.24` → `openjdk-25-runtime` |
 | `quarkus-amazon-services-bom` | 3.16.0 → 3.17.0 |
 | Python Lambda base image | `python:3.13` → `python:3.14` |
-| npm packages (11 safe minor/patch, MUI excluded) | see table in LLD |
+| npm packages (11 safe minor/patch) | see table in LLD |
+| `@mui/material` + `@mui/icons-material` | 7.3.9 → 9.0.0 (remove `item` prop from `<Grid>`) |
 
 GitHub Actions version bumps are a **separate follow-up PR** via the `update-github-actions` skill.
 

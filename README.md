@@ -219,8 +219,3 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
   - [ ] persist game history to server
   - [ ] decompose `useSudokuGame` into smaller focused hooks
   - [ ] directory structure
-- [ ] Upgrades
-  - [ ] Java 25
-  - [ ] Python 3.14
-  - [ ] npm
-  - [ ] maven
