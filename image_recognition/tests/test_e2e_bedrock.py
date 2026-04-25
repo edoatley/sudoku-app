@@ -30,8 +30,8 @@ _CONFIG_PATH = Path(__file__).parent / "e2e_config.json"
 _REPO_ROOT = Path(__file__).parent.parent
 
 
-def _load_puzzle_params() -> list[tuple[str, Path, int, list]]:
-    """Return (name, path, min_clues, expected_empty_cells) for every puzzle in e2e_config.json."""
+def _load_puzzle_params() -> list[tuple[str, Path, int, list, list | None]]:
+    """Return (name, path, min_clues, expected_empty_cells, expected_grid) for every puzzle in e2e_config.json."""
     with _CONFIG_PATH.open() as f:
         config = json.load(f)
     result = []
@@ -42,12 +42,13 @@ def _load_puzzle_params() -> list[tuple[str, Path, int, list]]:
             path,
             entry["min_clues"],
             entry.get("expected_empty_cells", []),
+            entry.get("expected_grid"),
         ))
     return result
 
 
 _PUZZLES = _load_puzzle_params()
-_PUZZLE_IDS = [name for name, _, _, _ in _PUZZLES]
+_PUZZLE_IDS = [name for name, _, _, _, _ in _PUZZLES]
 
 
 # ---------------------------------------------------------------------------
@@ -92,15 +93,15 @@ def _make_event(image_b64: str) -> dict:
 @pytest.mark.skipif(not _AWS_AVAILABLE, reason="AWS credentials not available")
 class TestBedrockHandlerE2E:
 
-    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells", _PUZZLES, ids=_PUZZLE_IDS)
-    def test_fixture_image_exists(self, name, path, min_clues, expected_empty_cells):
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_fixture_image_exists(self, name, path, min_clues, expected_empty_cells, expected_grid):
         assert path.exists(), (
             f"{name}: fixture not found at {path}. "
             "Add the image or remove it from tests/e2e_config.json."
         )
 
-    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells", _PUZZLES, ids=_PUZZLE_IDS)
-    def test_handler_returns_200(self, name, path, min_clues, expected_empty_cells):
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_handler_returns_200(self, name, path, min_clues, expected_empty_cells, expected_grid):
         if not path.exists():
             pytest.skip(f"{name}: fixture image not found at {path}")
 
@@ -114,8 +115,8 @@ class TestBedrockHandlerE2E:
             f"{response['body']}"
         )
 
-    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells", _PUZZLES, ids=_PUZZLE_IDS)
-    def test_handler_returns_valid_9x9_grid(self, name, path, min_clues, expected_empty_cells):
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_handler_returns_valid_9x9_grid(self, name, path, min_clues, expected_empty_cells, expected_grid):
         if not path.exists():
             pytest.skip(f"{name}: fixture image not found at {path}")
 
@@ -131,8 +132,8 @@ class TestBedrockHandlerE2E:
         for i, row in enumerate(grid):
             assert len(row) == 9, f"{name}: row {i} has {len(row)} cells, expected 9"
 
-    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells", _PUZZLES, ids=_PUZZLE_IDS)
-    def test_grid_values_are_valid_digits(self, name, path, min_clues, expected_empty_cells):
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_grid_values_are_valid_digits(self, name, path, min_clues, expected_empty_cells, expected_grid):
         if not path.exists():
             pytest.skip(f"{name}: fixture image not found at {path}")
 
@@ -148,8 +149,8 @@ class TestBedrockHandlerE2E:
                     f"{name}: cell [{i}][{j}] = {val!r} is not a valid digit (0–9)"
                 )
 
-    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells", _PUZZLES, ids=_PUZZLE_IDS)
-    def test_grid_has_minimum_clues(self, name, path, min_clues, expected_empty_cells):
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_grid_has_minimum_clues(self, name, path, min_clues, expected_empty_cells, expected_grid):
         if not path.exists():
             pytest.skip(f"{name}: fixture image not found at {path}")
 
@@ -164,8 +165,8 @@ class TestBedrockHandlerE2E:
             f"{name}: only {clue_count} clues detected, expected ≥ {min_clues}"
         )
 
-    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells", _PUZZLES, ids=_PUZZLE_IDS)
-    def test_print_recognized_grid(self, name, path, min_clues, expected_empty_cells, capsys):
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_print_recognized_grid(self, name, path, min_clues, expected_empty_cells, expected_grid, capsys):
         """Pretty-print each grid so results are visible in pytest -v output."""
         if not path.exists():
             pytest.skip(f"{name}: fixture image not found at {path}")
@@ -194,8 +195,8 @@ class TestBedrockHandlerE2E:
         captured = capsys.readouterr()
         assert name in captured.out
 
-    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells", _PUZZLES, ids=_PUZZLE_IDS)
-    def test_orange_cell_is_blank(self, name, path, min_clues, expected_empty_cells):
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_orange_cell_is_blank(self, name, path, min_clues, expected_empty_cells, expected_grid):
         """Regression: cells known to be orange-highlighted must be reported as 0."""
         if not path.exists():
             pytest.skip(f"{name}: fixture image not found at {path}")
@@ -213,3 +214,38 @@ class TestBedrockHandlerE2E:
                 f"{name}: cell [{row}][{col}] expected to be empty (0), "
                 f"got {grid[row][col]}"
             )
+
+    # @spec IR-PROC-013
+    @pytest.mark.parametrize("name,path,min_clues,expected_empty_cells,expected_grid", _PUZZLES, ids=_PUZZLE_IDS)
+    def test_grid_matches_expected(self, name, path, min_clues, expected_empty_cells, expected_grid):
+        """Every clue cell in the extracted grid must exactly match the ground-truth expected_grid."""
+        if not path.exists():
+            pytest.skip(f"{name}: fixture image not found at {path}")
+        if expected_grid is None:
+            pytest.skip(f"{name}: no expected_grid configured")
+
+        import handler
+
+        event = _make_event(_encode_image(path))
+        response = handler.handler(event, None)
+        assert response["statusCode"] == 200, (
+            f"{name}: handler returned {response['statusCode']} — {response['body']}"
+        )
+        grid = json.loads(response["body"])["originalGrid"]
+
+        wrong = [
+            (r, c, expected_grid[r][c], grid[r][c])
+            for r in range(9)
+            for c in range(9)
+            if expected_grid[r][c] != 0 and grid[r][c] != expected_grid[r][c]
+        ]
+        clue_count = sum(expected_grid[r][c] != 0 for r in range(9) for c in range(9))
+        correct = clue_count - len(wrong)
+
+        diff_lines = "\n".join(
+            f"  [{r}][{c}]: expected {exp}, got {act}"
+            for r, c, exp, act in wrong
+        )
+        assert not wrong, (
+            f"{name}: {len(wrong)} cell(s) wrong ({correct}/{clue_count} correct):\n{diff_lines}"
+        )

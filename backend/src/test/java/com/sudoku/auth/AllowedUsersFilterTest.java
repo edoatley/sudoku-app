@@ -15,6 +15,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
+// @spec UM-BE-010, UM-BE-011, UM-BE-012, UM-BE-020, UM-BE-021, UM-BE-022
 class AllowedUsersFilterTest {
 
     // A Principal that also implements JsonWebToken so we can test the cast path.

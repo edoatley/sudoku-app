@@ -3,8 +3,7 @@ Unit tests for handler.py — pure Python, no AWS calls required.
 
 Tests cover:
   - _parse_grid: valid JSON, markdown fences, embedded JSON, error cases, pipe fallback
-  - _downscale_image: resizes large images, leaves small images unchanged, handles corrupt bytes, RGBA
-  - _recognize_with_bedrock: model cascade, scoring, error handling (boto3 client mocked)
+  - _recognize_with_bedrock: model scoring, error handling (boto3 client mocked)
   - _invoke_model: Bedrock Converse API call (boto3 client mocked)
   - handler(): request validation, success path, 422 and 500 error paths
 """
@@ -136,11 +135,37 @@ class TestParseGrid:
 # ---------------------------------------------------------------------------
 
 
+def _make_jpeg(width: int, height: int) -> bytes:
+    img = Image.new("RGB", (width, height), color=(128, 64, 32))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 def _make_png(width: int = 10, height: int = 10) -> bytes:
     img = Image.new("RGB", (width, height), color=(0, 0, 0))
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# _SYSTEM_PROMPT
+# ---------------------------------------------------------------------------
+
+
+class TestSystemPrompt:
+
+    # @spec IR-PROC-013
+    def test_system_prompt_contains_colour_hint(self):
+        """System prompt must instruct the model to ignore cell background colour."""
+        prompt_lower = handler._SYSTEM_PROMPT.lower()
+        assert "colour" in prompt_lower or "color" in prompt_lower, (
+            "_SYSTEM_PROMPT must contain a colour/color hint for shaded-cell puzzles"
+        )
+        assert "background" in prompt_lower, (
+            "_SYSTEM_PROMPT must mention 'background' so the model ignores cell shading"
+        )
 
 
 class TestDetectImageFormat:
@@ -159,76 +184,6 @@ class TestDetectImageFormat:
 
     def test_webp_bytes_detected(self):
         assert handler._detect_image_format(b"RIFF\x00\x00\x00\x00WEBP") == "webp"
-
-
-# ---------------------------------------------------------------------------
-# _downscale_image
-# ---------------------------------------------------------------------------
-
-
-def _make_jpeg(width: int, height: int) -> bytes:
-    img = Image.new("RGB", (width, height), color=(128, 64, 32))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    return buf.getvalue()
-
-
-class TestDownscaleImage:
-
-    def test_large_image_is_resized(self):
-        original = _make_jpeg(1600, 1200)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        assert max(img.size) <= handler._MAX_IMAGE_EDGE
-
-    def test_small_image_is_not_enlarged(self):
-        original = _make_jpeg(400, 300)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        # dimensions should be unchanged (or very close after JPEG round-trip)
-        assert img.width <= 400
-        assert img.height <= 300
-
-    def test_square_image_at_exact_limit_unchanged(self):
-        size = handler._MAX_IMAGE_EDGE
-        original = _make_jpeg(size, size)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        assert max(img.size) == size
-
-    def test_output_is_jpeg(self):
-        original = _make_jpeg(1000, 800)
-        result = handler._downscale_image(original)
-        img = Image.open(io.BytesIO(result))
-        assert img.format == "JPEG"
-
-    def test_corrupt_bytes_returns_original(self):
-        corrupt = b"\xff\xd8\xff\x00garbage bytes that are not a valid image"
-        result = handler._downscale_image(corrupt)
-        assert result == corrupt
-
-    def test_output_is_greyscale_normalised_to_rgb(self):
-        """Orange pixels should become grey (R≈G≈B) after downscale."""
-        img = Image.new("RGB", (100, 100), color=(255, 100, 0))  # vivid orange
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG")
-        result = handler._downscale_image(buf.getvalue())
-        out = Image.open(io.BytesIO(result))
-        assert out.mode == "RGB"
-        px = out.getpixel((50, 50))
-        # After full desaturation (Color.enhance(0.0)) all channels are equal;
-        # allow ±5 for JPEG rounding and contrast/sharpness post-processing.
-        assert abs(px[0] - px[1]) <= 5 and abs(px[1] - px[2]) <= 5
-
-    def test_rgba_image_composited_onto_white(self):
-        """RGBA images (with transparency) should be composited onto white and output as JPEG."""
-        img = Image.new("RGBA", (100, 100), color=(0, 0, 255, 128))  # semi-transparent blue
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        result = handler._downscale_image(buf.getvalue())
-        out = Image.open(io.BytesIO(result))
-        assert out.format == "JPEG"
-        assert out.mode == "RGB"
 
 
 # ---------------------------------------------------------------------------
@@ -273,6 +228,33 @@ class TestHasRowColBoxDuplicate:
         grid = self._clean_grid()
         # entire grid is zeros — must not trigger
         assert not handler._has_row_col_box_duplicate(grid)
+
+
+# ---------------------------------------------------------------------------
+# handler() — request validation (no AWS calls)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# handler() — warmup probe (IR-API-002)
+# ---------------------------------------------------------------------------
+
+
+class TestHandlerWarmup:
+
+    def test_warmup_returns_200(self):
+        response = handler.handler({"rawPath": "/api/v1/puzzles/import/warmup"}, None)
+        assert response["statusCode"] == 200
+
+    def test_warmup_does_not_invoke_bedrock(self):
+        with patch("handler.boto3") as mock_boto3:
+            handler.handler({"rawPath": "/api/v1/puzzles/import/warmup"}, None)
+            mock_boto3.client.assert_not_called()
+
+    def test_non_warmup_path_not_intercepted(self):
+        """A path that doesn't end with /warmup falls through to normal validation."""
+        response = handler.handler({"rawPath": "/api/v1/puzzles/import"}, None)
+        assert response["statusCode"] == 400  # no body → normal validation kicks in
 
 
 # ---------------------------------------------------------------------------

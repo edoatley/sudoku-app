@@ -16,7 +16,7 @@ import { useSudokuGame } from './hooks/useSudokuGame.js';
 import { usePlayerProfile } from './hooks/usePlayerProfile.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
 import StatusBar from './components/StatusBar.jsx';
-import NumberPad from './components/NumberPad.jsx';
+import { NumberPadToolbar, NumberPadInput, NumberPadStatus } from './components/NumberPad.jsx';
 import HintDialog from './components/HintDialog.jsx';
 import Header from './components/Header.jsx';
 import PauseOverlay from './components/PauseOverlay.jsx';
@@ -26,7 +26,6 @@ import DevDataDialog from './components/DevDataDialog.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
-const ENABLE_IMPORT = import.meta.env.VITE_ENABLE_IMPORT === 'true';
 const DEV_TOOLS = import.meta.env.VITE_DEV_TOOLS === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
@@ -69,7 +68,7 @@ function SudokuApp({ user, signOut }) {
   const [forbidden, setForbidden] = useState(false);
   const [forbiddenEmail, setForbiddenEmail] = useState(null);
   const handleForbidden = useCallback((email = null) => { setForbidden(true); setForbiddenEmail(email); }, []);
-  const { avatar, setAvatar, history, recordGame, playerProfile, sessionEmail } = usePlayerProfile(user, { onForbidden: handleForbidden });
+  const { avatar, history, recordGame, playerProfile, sessionEmail, updateProfile } = usePlayerProfile(user, { onForbidden: handleForbidden });
 
   const [colorMode, setColorMode] = useState(
     () => localStorage.getItem('sudoku_colorMode') ?? 'light'
@@ -194,7 +193,7 @@ function SudokuApp({ user, signOut }) {
         user={effectiveUser}
         onSignOut={signOut}
         avatar={avatar}
-        onAvatarChange={setAvatar}
+        onProfileUpdate={updateProfile}
         playerProfile={playerProfile}
         sessionEmail={sessionEmail}
         history={history}
@@ -202,7 +201,7 @@ function SudokuApp({ user, signOut }) {
         onPause={pauseGame}
         onResume={resumeGame}
         onNewGame={() => setNewGameModalOpen(true)}
-        onImport={ENABLE_IMPORT ? () => setImportModalOpen(true) : null}
+        onImport={() => setImportModalOpen(true)}
         onDemoGame={DEV_TOOLS ? loadDemoGame : null}
         onDevData={DEV_TOOLS ? () => setDevDataOpen(true) : null}
         colorMode={colorMode}
@@ -215,14 +214,23 @@ function SudokuApp({ user, signOut }) {
           ) : isPaused ? (
             <PauseOverlay onResume={resumeGame} />
           ) : currentGrid ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1, md: 2 }, width: '100%' }}>
-              {/* Grid + controls row */}
-              <Box sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', md: 'row' },
-                gap: { xs: 1, md: 2 },
-                alignItems: { xs: 'center', md: 'flex-start' },
-              }}>
+            /* Outer box centres the game column on the page */
+            <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {/* Game column — width driven by the grid, everything else matches it */}
+              <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
+                {/* Toolbar row: mode toggle left, action buttons right */}
+                <NumberPadToolbar
+                  inputMode={inputMode}
+                  onModeChange={setInputMode}
+                  onClearCell={clearCell}
+                  onUndo={undoLastMove}
+                  canUndo={canUndo}
+                  onValidate={requestValidation}
+                  onHint={requestHint}
+                  onFillCandidates={fillCandidates}
+                  isLoading={isLoading}
+                />
+                {/* Grid */}
                 <SudokuGrid
                   originalGrid={originalGrid}
                   currentGrid={currentGrid}
@@ -233,33 +241,31 @@ function SudokuApp({ user, signOut }) {
                   selectedNumber={selectedNumber}
                   onCellClick={updateCell}
                 />
-                <NumberPad
+                {/* Number buttons below grid — stretch to grid width */}
+                <NumberPadInput
                   selectedNumber={selectedNumber}
                   inputMode={inputMode}
                   onNumberSelect={handleNumberSelect}
-                  onModeChange={setInputMode}
-                  onClearCell={clearCell}
-                  onUndo={undoLastMove}
-                  canUndo={canUndo}
-                  onValidate={requestValidation}
-                  onHint={requestHint}
-                  onFillCandidates={fillCandidates}
-                  isLoading={isLoading}
                   completedNumbers={completedNumbers}
+                />
+                {/* Validation status */}
+                <NumberPadStatus
                   gameStatus={gameStatus}
                   statusMessage={statusMessage}
                   onCloseStatus={clearStatus}
                 />
               </Box>
-              {/* Hint panel below the board */}
-              <HintDialog
-                open={!!activeHint}
-                hint={activeHint}
-                stage={hintStage}
-                onAdvance={advanceHint}
-                onDismiss={dismissHint}
-                onAlternateHint={requestAlternateHint}
-              />
+              {/* Hint panel — full width below */}
+              <Box sx={{ width: '100%', mt: 1 }}>
+                <HintDialog
+                  open={!!activeHint}
+                  hint={activeHint}
+                  stage={hintStage}
+                  onAdvance={advanceHint}
+                  onDismiss={dismissHint}
+                  onAlternateHint={requestAlternateHint}
+                />
+              </Box>
             </Box>
           ) : null}
         </Stack>

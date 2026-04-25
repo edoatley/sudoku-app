@@ -14,7 +14,6 @@ import java.util.Optional;
 
 import static com.sudoku.domain.SudokuConstants.MAX_DIGIT;
 import static com.sudoku.domain.SudokuConstants.MIN_DIGIT;
-import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 import static com.sudoku.puzzle.hint.Difficulty.EASY;
 
 /**
@@ -47,22 +46,10 @@ public class HiddenSingleStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row", i + 1);
-            if (hint.isPresent()) return hint;
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column", i + 1);
-            if (hint.isPresent()) return hint;
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block", i + 1);
-            if (hint.isPresent()) return hint;
-        }
-        return Optional.empty();
+        return UnitScanner.scanAll(board, this::checkUnit);
     }
 
-    private Optional<HintResponse> checkUnit(List<Cell> unit, String unitType, int unitNumber) {
+    private Optional<HintResponse> checkUnit(List<Cell> unit, UnitScanner.UnitContext ctx) {
         for (int digit = MIN_DIGIT; digit <= MAX_DIGIT; digit++) {
             List<Cell> matches = new ArrayList<>();
             for (Cell cell : unit) {
@@ -86,7 +73,7 @@ public class HiddenSingleStrategy implements HintStrategy {
                         getDifficulty(),
                         getDifficultyRank(),
                         "A digit appears as a candidate in exactly one cell within a unit.",
-                        unitType + " " + unitNumber + " has digit " + digit + " as a candidate in only one cell.",
+                        ctx.label() + " has digit " + digit + " as a candidate in only one cell.",
                         "Cell (" + r + ", " + c + ") must be " + digit + ".",
                         highlights,
                         List.of(),

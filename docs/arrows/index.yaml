@@ -1,0 +1,127 @@
+version: 1
+updated: 2026-04-22
+
+arrows:
+  - id: api-error-handling
+    status: OK
+    lld: docs/llds/api-error-handling.md
+    specs: docs/specs/api-error-handling-specs.md
+    arrow: docs/arrows/api-error-handling.md
+    spec_count: 22
+    implemented: 20
+    deferred: 2
+    gaps: 0
+    next: ~
+
+  - id: sudoku-logic
+    status: OK
+    lld: docs/llds/sudoku-logic.md
+    specs: docs/specs/sudoku-logic-specs.md
+    arrow: docs/arrows/sudoku-logic.md
+    spec_count: 14
+    implemented: 14
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: hint-engine
+    status: OK
+    lld: docs/llds/hint-engine.md
+    specs: docs/specs/hint-engine-specs.md
+    arrow: docs/arrows/hint-engine.md
+    spec_count: 30
+    implemented: 30
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: puzzle-generation
+    status: OK
+    lld: docs/llds/puzzle-generation-validation.md
+    specs: docs/specs/puzzle-generation-specs.md
+    arrow: docs/arrows/puzzle-generation.md
+    spec_count: 17
+    implemented: 17
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: game-lifecycle
+    status: OK
+    lld: docs/llds/game-lifecycle.md
+    specs: docs/specs/game-lifecycle-specs.md
+    arrow: docs/arrows/game-lifecycle.md
+    spec_count: 22
+    implemented: 22
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: user-management
+    status: OK
+    lld: docs/llds/user-management.md
+    specs: docs/specs/user-management-specs.md
+    arrow: docs/arrows/user-management.md
+    spec_count: 34
+    implemented: 34
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: image-recognition
+    status: OK
+    lld: docs/llds/image-recognition.md
+    specs: docs/specs/image-recognition-specs.md
+    arrow: docs/arrows/image-recognition.md
+    spec_count: 25
+    implemented: 20
+    deferred: 5
+    gaps: 0
+    next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)
+
+  - id: cloud-platform
+    status: OK
+    lld: docs/llds/cloud-platform.md
+    specs: docs/specs/cloud-platform-specs.md
+    arrow: docs/arrows/cloud-platform.md
+    spec_count: 22
+    implemented: 22
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: react-frontend
+    status: OK
+    lld: docs/llds/react-frontend.md
+    specs: docs/specs/react-frontend-specs.md
+    arrow: docs/arrows/react-frontend.md
+    spec_count: 39
+    implemented: 39
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: domain-types
+    status: OK
+    lld: docs/llds/sudoku-logic.md
+    specs: docs/specs/domain-types-specs.md
+    arrow: docs/arrows/domain-types.md
+    spec_count: 36
+    implemented: 36
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: security-standards
+    status: OK
+    lld: ~
+    specs: ~
+    arrow: docs/arrows/security-standards.md
+    notes: Cross-cutting security policy — IAM, throttling, IDOR prevention, input validation
+
+  - id: testing-strategy
+    status: OK
+    lld: ~
+    specs: ~
+    arrow: docs/arrows/testing-strategy.md
+    notes: Cross-cutting test pyramid — unit/integration/E2E, CI structure, environment variable rules

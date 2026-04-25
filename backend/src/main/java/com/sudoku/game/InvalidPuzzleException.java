@@ -1,14 +1,15 @@
 package com.sudoku.game;
 
+// @spec AEH-EX-001
+
 /**
- * Thrown when an imported sudoku grid is structurally invalid or has no unique solution.
+ * Base class for all puzzle validity failures on import.
  *
- * <p>This exception is raised in the service layer and translated to an HTTP 422 response
- * by {@link InvalidPuzzleExceptionMapper}. Keeping the exception free of JAX-RS types
- * ensures the service layer remains independent of the HTTP boundary.
+ * <p>Subclasses carry a fixed, user-readable message set in their own no-arg constructor.
+ * The HTTP 422 mapper in {@code com.sudoku.exception} handles this type and all subclasses.
  */
-public class InvalidPuzzleException extends RuntimeException {
-    public InvalidPuzzleException(String message) {
+public abstract class InvalidPuzzleException extends RuntimeException {
+    protected InvalidPuzzleException(String message) {
         super(message);
     }
 }

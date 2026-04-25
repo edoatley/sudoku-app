@@ -122,7 +122,7 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 | `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID |
 | `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID |
 | `VITE_COGNITO_DOMAIN` | Cognito hosted UI domain |
-| `VITE_ENABLE_IMPORT` | `false` on `default`, `true` on `rc-*` |
+| `VITE_DEV_TOOLS` | `false` on `default`, `true` on all others |
 
 ### Cognito
 

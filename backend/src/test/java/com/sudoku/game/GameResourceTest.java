@@ -1,12 +1,13 @@
 package com.sudoku.game;
 
+import com.sudoku.domain.CandidatesGrid;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.GameState;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.when;
  * <p>The real DynamoDB integration is exercised separately by the Docker Compose integration tests.
  */
 @QuarkusTest
+// @spec GL-API-001, GL-API-002, GL-API-003, GL-API-004, GL-API-005
 class GameResourceTest {
 
     @InjectMock
@@ -36,7 +38,7 @@ class GameResourceTest {
 
     private static final String USER_ID = "local-dev-user";
 
-    private static final List<List<Integer>> GRID = List.of(
+    private static final List<List<Integer>> GRID_ROWS = List.of(
             List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
             List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
             List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -48,12 +50,14 @@ class GameResourceTest {
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
     );
 
-    private static List<List<List<Integer>>> emptyCandidates() {
-        return List.of(
-                List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of(),
-                List.of(), List.of(), List.of()
-        );
+    private static final Grid GRID = Grid.of(GRID_ROWS);
+
+    private static CandidatesGrid emptyCandidates() {
+        return CandidatesGrid.of(List.of(
+                List.of(List.of()), List.of(List.of()), List.of(List.of()),
+                List.of(List.of()), List.of(List.of()), List.of(List.of()),
+                List.of(List.of()), List.of(List.of()), List.of(List.of())
+        ));
     }
 
     @Test
@@ -71,9 +75,9 @@ class GameResourceTest {
                 .body("userId", equalTo(USER_ID))
                 .body("gameId", notNullValue())
                 .body("difficulty", equalTo("easy"))
-                .body("originalGrid", hasSize(9))
-                .body("currentGrid", hasSize(9))
-                .body("candidates", hasSize(9))
+                .body("originalGrid.rows", hasSize(9))
+                .body("currentGrid.rows", hasSize(9))
+                .body("candidates.rows", hasSize(9))
                 .body("timeSpentSeconds", equalTo(0))
                 .body("status", equalTo("IN_PROGRESS"));
     }
@@ -131,7 +135,7 @@ class GameResourceTest {
                 .contentType(ContentType.JSON)
                 .body(Map.of(
                         "currentGrid", GRID,
-                        "candidates", Collections.emptyList(),
+                        "candidates", emptyCandidates(),
                         "timeSpentSeconds", 60,
                         "isComplete", false
                 ))
@@ -175,7 +179,7 @@ class GameResourceTest {
                 .contentType(ContentType.JSON)
                 .body(Map.of(
                         "currentGrid", GRID,
-                        "candidates", Collections.emptyList(),
+                        "candidates", emptyCandidates(),
                         "timeSpentSeconds", 300,
                         "isComplete", true
                 ))
@@ -193,15 +197,19 @@ class GameResourceTest {
     }
 
     @Test
-    void getGame_unknownId_returns404() {
+    void getGame_unknownId_returns404WithErrorBody() {
         when(gameRepository.findById(eq(USER_ID), anyString())).thenReturn(Optional.empty());
 
         given()
         .when()
                 .get("/games/{gameId}", "00000000-0000-0000-0000-000000000000")
         .then()
-                .statusCode(404);
+                .statusCode(404)
+                .contentType(ContentType.JSON)
+                .body("code", equalTo("GAME_NOT_FOUND"))
+                .body("message", notNullValue());
     }
+
     @Test
     void getCurrentGame_whenInProgress_returns200WithGame() {
         String gameId = "in-progress-id";
@@ -281,16 +289,16 @@ class GameResourceTest {
                 .statusCode(201)
                 .contentType(ContentType.JSON)
                 .body("difficulty", equalTo("imported"))
-                .body("originalGrid", hasSize(9))
-                .body("currentGrid", hasSize(9))
+                .body("originalGrid.rows", hasSize(9))
+                .body("currentGrid.rows", hasSize(9))
                 .body("solutionGrid", notNullValue())
-                .body("solutionGrid", hasSize(9));
+                .body("solutionGrid.rows", hasSize(9));
     }
 
     @Test
     void postGamesFromImage_withDuplicateDigitsInGrid_returns422WithErrorMessage() {
         // Row 0 has two 5s — violates sudoku row constraint
-        List<List<Integer>> invalidGrid = List.of(
+        Grid invalidGrid = Grid.of(List.of(
                 List.of(5, 5, 0, 0, 7, 0, 0, 0, 0),
                 List.of(6, 0, 0, 1, 9, 0, 0, 0, 0),
                 List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
@@ -300,7 +308,7 @@ class GameResourceTest {
                 List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
                 List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
                 List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
-        );
+        ));
 
         given()
                 .contentType(ContentType.JSON)
@@ -310,8 +318,8 @@ class GameResourceTest {
         .then()
                 .statusCode(422)
                 .contentType(ContentType.JSON)
-                .body("error", notNullValue())
-                .body("error", containsString("duplicate"));
+                .body("code", equalTo("INVALID_PUZZLE"))
+                .body("message", containsString("duplicate"));
     }
 
 }

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupGameRoutes, waitForGrid } from './helpers.js';
+import { setupGameRoutes, waitForGrid, toWireGameState } from './helpers.js';
 
 const HARD_PUZZLE = {
   difficulty: 'hard',
@@ -17,15 +17,16 @@ const HARD_PUZZLE = {
 };
 
 function makeGameState(puzzle) {
-  return {
+  return toWireGameState({
     gameId: crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-000000000001',
     difficulty: puzzle.difficulty,
     originalGrid: puzzle.originalGrid,
     currentGrid: puzzle.originalGrid.map((r) => [...r]),
+    solutionGrid: puzzle.originalGrid.map((r) => [...r]),
     candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
     timeSpentSeconds: 0,
     status: 'IN_PROGRESS',
-  };
+  });
 }
 
 test('new-game — selecting Hard difficulty and starting a new game loads the puzzle', async ({ page }) => {

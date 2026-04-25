@@ -1,5 +1,7 @@
 package com.sudoku.game;
 
+import com.sudoku.domain.CandidatesGrid;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.BoardRequest;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
@@ -7,13 +9,13 @@ import com.sudoku.dto.ValidationResponse;
 import com.sudoku.puzzle.SudokuService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.NotFoundException;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.IntStream;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 
@@ -45,11 +47,7 @@ public class GameServiceImpl implements GameService {
     public GameState createGame(String userId, String difficulty) {
         abandonAnyInProgressGame(userId);
         var puzzle = sudokuService.generatePuzzle(difficulty);
-        List<List<List<Integer>>> emptyCandidates = IntStream.range(0, UNIT_SIZE)
-                .mapToObj(r -> IntStream.range(0, UNIT_SIZE)
-                        .mapToObj(c -> List.<Integer>of())
-                        .toList())
-                .toList();
+        CandidatesGrid emptyCandidates = emptyCandidates();
 
         GameState gameState = new GameState(
                 userId,
@@ -57,7 +55,7 @@ public class GameServiceImpl implements GameService {
                 puzzle.difficulty(),
                 puzzle.originalGrid(),
                 puzzle.solutionGrid(),
-                puzzle.originalGrid().stream().map(List::copyOf).toList(),
+                puzzle.originalGrid(),
                 emptyCandidates,
                 0,
                 GameStatus.IN_PROGRESS.getValue(),
@@ -69,43 +67,37 @@ public class GameServiceImpl implements GameService {
         return gameState;
     }
 
+    // @spec DT-SVC-003
     @Override
-    public GameState createGameFromExistingGrid(String userId, List<List<Integer>> originalGrid) {
+    public GameState createGameFromExistingGrid(String userId, Grid originalGrid) {
         // Stage 1: duplicate clue check — reuses existing validateByDuplicates path
+        // @spec GL-BE-003, GL-BE-004
         ValidationResponse validation = sudokuService.validatePuzzle(new BoardRequest(originalGrid));
         if (!validation.isValid()) {
-            throw new InvalidPuzzleException(
-                    "Puzzle contains duplicate digits — check rows, columns, and boxes for conflicts");
+            throw new DuplicateDigitsException();
         }
 
         // Stage 2: uniqueness — must have exactly one solution
-        Optional<List<List<Integer>>> solution = sudokuService.solveGrid(originalGrid);
+        // @spec GL-BE-005, GL-BE-006
+        Optional<Grid> solution = sudokuService.solveGrid(originalGrid);
         if (solution.isEmpty()) {
-            throw new InvalidPuzzleException(
-                    "Puzzle has no valid solution — it may have been scanned incorrectly");
+            throw new PuzzleHasNoSolutionException();
         }
         if (!sudokuService.hasSingleSolution(originalGrid)) {
-            throw new InvalidPuzzleException(
-                    "Puzzle has multiple solutions — a valid sudoku must have exactly one solution");
+            throw new PuzzleHasMultipleSolutionsException();
         }
 
         // Validation passed — now safe to abandon any existing in-progress game
         abandonAnyInProgressGame(userId);
 
-        List<List<List<Integer>>> emptyCandidates = IntStream.range(0, UNIT_SIZE)
-                .mapToObj(r -> IntStream.range(0, UNIT_SIZE)
-                        .mapToObj(c -> List.<Integer>of())
-                        .toList())
-                .toList();
-
         GameState gameState = new GameState(
                 userId,
                 UUID.randomUUID().toString(),
-                GameStatus.IMPORTED.getValue(),
+                "imported",
                 originalGrid,
                 solution.get(),
-                originalGrid.stream().map(List::copyOf).toList(),
-                emptyCandidates,
+                originalGrid,
+                emptyCandidates(),
                 0,
                 GameStatus.IN_PROGRESS.getValue(),
                 0,
@@ -116,10 +108,11 @@ public class GameServiceImpl implements GameService {
         return gameState;
     }
 
+    // @spec GL-API-004 — GameNotFoundException thrown by repository if not found
     @Override
     public GameState loadGame(String userId, String gameId) {
         return gameRepository.findById(userId, gameId)
-                .orElseThrow(() -> new NotFoundException("Game not found: " + gameId));
+                .orElseThrow(() -> new GameNotFoundException(gameId)); // defensive; repo throws first
     }
 
 
@@ -139,6 +132,18 @@ public class GameServiceImpl implements GameService {
      * game is persisted. This is done server-side so the client never has to orchestrate
      * the transition.
      */
+    private CandidatesGrid emptyCandidates() {
+        List<List<List<Integer>>> rows = new ArrayList<>(UNIT_SIZE);
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            List<List<Integer>> row = new ArrayList<>(UNIT_SIZE);
+            for (int c = 0; c < UNIT_SIZE; c++) {
+                row.add(List.of());
+            }
+            rows.add(Collections.unmodifiableList(row));
+        }
+        return CandidatesGrid.of(Collections.unmodifiableList(rows));
+    }
+
     private void abandonAnyInProgressGame(String userId) {
         gameRepository.findInProgress(userId)
                 .ifPresent(existing -> gameRepository.abandonGame(userId, existing.gameId()));

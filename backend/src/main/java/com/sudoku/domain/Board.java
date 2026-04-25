@@ -33,20 +33,21 @@ public final class Board {
         this.cells = cells;
     }
 
-    public static Board fromGrid(List<List<Integer>> grid) {
-        if (grid == null || grid.size() != UNIT_SIZE) {
-            throw new IllegalArgumentException("Grid must be 9 rows");
+    // @spec SL-DATA-001, SL-DATA-002, SL-DATA-003, SL-DATA-004, DT-BOARD-001
+    public static Board fromGrid(Grid grid) {
+        if (grid == null || grid.rows() == null || grid.size() != UNIT_SIZE) {
+            throw new InvalidGridException("Grid must be 9 rows");
         }
         Cell[][] cells = new Cell[UNIT_SIZE][UNIT_SIZE];
         for (int r = 0; r < UNIT_SIZE; r++) {
-            List<Integer> row = grid.get(r);
+            List<Integer> row = grid.row(r);
             if (row == null || row.size() != UNIT_SIZE) {
-                throw new IllegalArgumentException("Each row must have 9 columns, row " + r + " is invalid");
+                throw new InvalidGridException("Each row must have 9 columns, row " + r + " is invalid");
             }
             for (int c = 0; c < UNIT_SIZE; c++) {
                 Integer val = row.get(c);
                 if (val == null || val < 0 || val > MAX_DIGIT) {
-                    throw new IllegalArgumentException("Cell value must be in [0,9], got: " + val + " at (" + r + "," + c + ")");
+                    throw new InvalidGridException("Cell value must be in [0,9], got: " + val + " at (" + r + "," + c + ")");
                 }
                 cells[r][c] = new Cell(r, c, val);
             }
@@ -54,10 +55,12 @@ public final class Board {
         return new Board(cells);
     }
 
+    // @spec SL-DATA-001
     public Cell getCell(int row, int col) {
         return cells[row][col];
     }
 
+    // @spec SL-DATA-001, SL-DATA-005
     public List<Cell> getRow(int rowIndex) {
         List<Cell> row = new ArrayList<>(UNIT_SIZE);
         for (int c = 0; c < UNIT_SIZE; c++) {
@@ -66,12 +69,14 @@ public final class Board {
         return Collections.unmodifiableList(row);
     }
 
+    // @spec SL-DATA-001, SL-DATA-005
     public List<Cell> getColumn(int colIndex) {
         return Collections.unmodifiableList(
             IntStream.range(0, UNIT_SIZE).mapToObj(r -> cells[r][colIndex]).toList()
         );
     }
 
+    // @spec SL-DATA-005
     public List<Cell> getBlock(int blockIndex) {
         int startRow = (blockIndex / BOX_SIZE) * BOX_SIZE;
         int startCol = (blockIndex % BOX_SIZE) * BOX_SIZE;
@@ -84,6 +89,7 @@ public final class Board {
         return Collections.unmodifiableList(block);
     }
 
+    // @spec SL-PROC-001, SL-PROC-002
     public void calculateAllCandidates() {
         for (int r = 0; r < UNIT_SIZE; r++) {
             for (int c = 0; c < UNIT_SIZE; c++) {
@@ -100,7 +106,8 @@ public final class Board {
         }
     }
 
-    public List<List<List<Integer>>> toCandidatesGrid() {
+    // @spec SL-PROC-003, DT-BOARD-002
+    public CandidatesGrid toCandidatesGrid() {
         List<List<List<Integer>>> grid = new ArrayList<>(UNIT_SIZE);
         for (int r = 0; r < UNIT_SIZE; r++) {
             List<List<Integer>> row = new ArrayList<>(UNIT_SIZE);
@@ -116,7 +123,7 @@ public final class Board {
             }
             grid.add(Collections.unmodifiableList(row));
         }
-        return Collections.unmodifiableList(grid);
+        return CandidatesGrid.of(Collections.unmodifiableList(grid));
     }
 
     private Set<Integer> collectUsedDigits(int row, int col) {

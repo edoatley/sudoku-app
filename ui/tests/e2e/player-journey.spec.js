@@ -12,7 +12,7 @@
  * 9.  Player clicks Finish → no grid shown; hamburger menu needed for next game
  */
 import { test, expect } from '@playwright/test';
-import { CANNED_GAME_ID } from './helpers.js';
+import { CANNED_GAME_ID, toWireGameState } from './helpers.js';
 
 // ─── Puzzle fixtures ──────────────────────────────────────────────────────────
 
@@ -49,31 +49,39 @@ const MEDIUM_SOLVED = [
 ];
 
 // State returned by POST /games when starting a fresh game (no cells pre-filled)
-const GAME_STATE_FRESH = {
+const GAME_STATE_FRESH = toWireGameState({
   gameId: CANNED_GAME_ID,
   difficulty: 'medium',
   originalGrid: MEDIUM_ORIGINAL,
   currentGrid: MEDIUM_ORIGINAL.map((r) => [...r]),
+  solutionGrid: MEDIUM_ORIGINAL.map((r) => [...r]),
   candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
   timeSpentSeconds: 0,
   status: 'IN_PROGRESS',
-};
+});
 
-const GAME_STATE_PARTIAL = {
+const GAME_STATE_PARTIAL = toWireGameState({
   gameId: CANNED_GAME_ID,
   difficulty: 'medium',
   originalGrid: MEDIUM_ORIGINAL,
   currentGrid: MEDIUM_PARTIAL,
+  solutionGrid: MEDIUM_ORIGINAL.map((r) => [...r]),
   candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
   timeSpentSeconds: 47,
   status: 'IN_PROGRESS',
-};
+});
 
 // State returned on resume (GET): near-complete, one cell left
-const GAME_STATE_RESUME = {
-  ...GAME_STATE_PARTIAL,
+const GAME_STATE_RESUME = toWireGameState({
+  gameId: CANNED_GAME_ID,
+  difficulty: 'medium',
+  originalGrid: MEDIUM_ORIGINAL,
   currentGrid: MEDIUM_SOLVED,
-};
+  solutionGrid: MEDIUM_SOLVED.map((r) => [...r]),
+  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  timeSpentSeconds: 47,
+  status: 'IN_PROGRESS',
+});
 
 const ELAPSED_AT_PAUSE = 47; // seconds stored in localStorage
 
@@ -178,7 +186,7 @@ test('full player journey: new user → play → pause → resume → complete �
   // The sync should contain the player's progress (no isComplete flag)
   const syncPatch = session1Patches[session1Patches.length - 1];
   expect(syncPatch).toMatchObject({
-    currentGrid: expect.any(Array),
+    currentGrid: expect.objectContaining({ rows: expect.any(Array) }),
     timeSpentSeconds: expect.any(Number),
   });
   expect(syncPatch.isComplete).toBeFalsy();

@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec HE-BE-017, HE-API-001, HE-API-002, HE-API-003, HE-API-004, HE-API-005, HE-API-006
 class HiddenTripleStrategyTest {
 
     private HiddenTripleStrategy strategy;
@@ -49,7 +51,7 @@ class HiddenTripleStrategyTest {
 
     @Test
     void hiddenTriple_syntheticRowTriple_returnsHint() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
 
         // Force a hidden triple of digits 1, 2, 3 in row 0:
@@ -84,7 +86,7 @@ class HiddenTripleStrategyTest {
 
     @Test
     void hiddenTriple_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         Optional<HintResponse> result = strategy.evaluate(board);
@@ -94,7 +96,7 @@ class HiddenTripleStrategyTest {
 
     @Test
     void hiddenTriple_markdownSlug_and_difficulty() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
         board.getCell(0, 2).setCandidates(Set.of(1, 2, 4));
         board.getCell(0, 3).setCandidates(Set.of(4, 8));

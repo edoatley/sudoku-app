@@ -1,0 +1,64 @@
+# React Frontend — EARS Specifications
+
+## Game Interaction
+
+- [x] **FE-UI-001**: The system shall display a 9×9 Sudoku grid with bold borders at every third row and column boundary.
+- [x] **FE-UI-002**: When a player selects a cell, the system shall highlight all cells in the same row, column, and 3×3 block.
+- [x] **FE-UI-003**: When a player selects a cell, the system shall highlight all other cells containing the same digit.
+- [x] **FE-UI-004**: When a player selects a number in normal input mode and then selects an empty cell, the system shall place that digit in the cell.
+- [x] **FE-UI-005**: When a player selects a number in candidate input mode and then selects a cell, the system shall toggle that digit in the cell's candidate set.
+- [x] **FE-UI-006**: The system shall disable digit buttons in normal mode for any digit that already appears 9 times in the current grid.
+- [x] **FE-UI-007**: The system shall display candidate digits as a 3×3 mini-grid within cells that have no placed value.
+- [x] **FE-UI-008**: When the player triggers undo, the system shall restore the grid to the state before the most recent cell edit.
+
+## Hint UX
+
+- [x] **FE-UI-010**: When a hint is received, the system shall display the nudge text and highlight the relevant cells without revealing the solution.
+- [x] **FE-UI-011**: When the player clicks "Show Me" from the nudge stage, the system shall advance to the focus stage and display the focus text.
+- [x] **FE-UI-012**: When the player clicks "Show Me" from the focus stage, the system shall advance to the reveal stage, display the reveal text, and apply the hint's eliminations and solved cells to the grid.
+- [x] **FE-UI-013**: The system shall display a "Try Different Hint" button at the nudge and focus stages that requests a new hint excluding the current technique's rank.
+- [x] **FE-UI-014**: Where the screen width is medium or larger, the system shall display the hint as an inline panel below the grid rather than a modal dialog.
+- [x] **FE-UI-015**: When the player clicks the help icon on a hint, the system shall open a tutorial modal fetching and rendering the technique's markdown explanation.
+
+## Persistence & Resume
+
+- [x] **FE-BE-001**: The system shall persist gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds, and hintsUsed to localStorage on every state change.
+- [x] **FE-BE-002**: When the application loads, the system shall restore game state from localStorage if a saved game exists, without making an API call.
+- [x] **FE-BE-003**: When the application loads and no localStorage game exists, the system shall call GET /api/v1/games/current to resume a server-side active game.
+- [x] **FE-BE-004**: The system shall auto-save currentGrid, candidates, timeSpentSeconds, and hintsUsed to DynamoDB every 60 seconds while a game is in progress.
+- [x] **FE-BE-005**: When the browser tab becomes hidden, the system shall save the current game state and pause the timer.
+- [x] **FE-BE-006**: When the browser tab becomes visible again, the system shall resume the timer.
+- [x] **FE-BE-007**: When the authenticated user changes, the system shall clear all localStorage game data and perform a fresh game check.
+
+## Timer & Pause
+
+- [x] **FE-UI-020**: While a game is in progress and not paused, the system shall increment the elapsed time display every second.
+- [x] **FE-UI-021**: When the player pauses the game, the system shall display a pause overlay covering the grid and stop the timer.
+- [x] **FE-UI-022**: After 3 minutes of inactivity (no cell or number input), the system shall automatically pause the game.
+
+## Authentication
+
+- [x] **FE-BE-010**: The system shall attach the Cognito ID token as a Bearer token on all authenticated API requests.
+- [x] **FE-BE-011**: When an API call returns HTTP 403, the system shall display a forbidden-access screen and stop further API calls.
+- [x] **FE-BE-012**: Where VITE_SKIP_AUTH is false, the system shall wrap the application in the Amplify Authenticator and require login before displaying the game.
+- [x] **FE-BE-013**: Where VITE_MOCK_API is true, the system shall return canned data for all API calls without making network requests.
+
+## Image Import
+
+- [x] **FE-UI-030**: The system shall display an "Import from Image" option in the game menu.
+- [x] **FE-UI-031**: The system shall display a file picker accepting image files and show a preview of the selected image before submission.
+- [x] **FE-UI-032**: While the image is being processed, the system shall display a loading indicator with a stage label (uploading / analysing).
+- [x] **FE-UI-033**: When image recognition returns validPuzzle=false, the system shall proceed to import validation in the Java backend which is the authoritative validator.
+
+## Player Profile & History
+
+- [x] **FE-UI-040**: The system shall display the player's avatar in the header and allow selection from a predefined set of icons.
+- [x] **FE-UI-041**: The system shall persist the selected avatar to localStorage under the key sudoku_avatar.
+- [x] **FE-UI-042**: The system shall record up to 10 completed games in localStorage and display them in the Puzzle History dialog.
+- [x] **FE-UI-043**: The system shall display game statistics grouped by difficulty (total, wins, losses, average time) in the Statistics dialog.
+
+## Developer Tools
+
+- [x] **FE-UI-050**: Where VITE_DEV_TOOLS is true, the system shall display a developer submenu in the game menu with entries for all 11 hint technique demos.
+- [x] **FE-UI-051**: Where VITE_DEV_TOOLS is true, the system shall display a Data Browser option allowing inspection of DynamoDB game and player records.
+- [x] **FE-UI-052**: When a demo technique is selected, the system shall load the pre-baked demo grid with the technique's minRank set so simpler strategies are skipped.

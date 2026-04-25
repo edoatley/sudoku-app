@@ -166,14 +166,14 @@ CI runs all three test suites on every push. Playwright reports are uploaded as 
 
 | File                                               | Purpose                     |
 |----------------------------------------------------|-----------------------------|
-| [`openapi.yaml`](openapi.yaml)                     | API contract (source of truth) |
-| [`docs/backend.md`](docs/backend.md)               | Backend coding standards    |
-| [`docs/frontend.md`](docs/frontend.md)             | Frontend coding standards   |
-| [`docs/security.md`](docs/security.md)             | Security standards          |
-| [`docs/infrastructure.md`](docs/infrastructure.md) | IaC standards               |
-| [`docs/test-strategy.md`](docs/test-strategy.md)               | Test strategy               |
-| [`docs/user-authentication.md`](docs/user-authentication.md)   | Auth standards (Cognito, JWT, OIDC) |
-| [`CLAUDE.md`](CLAUDE.md)                                       | AI assistant instructions   |
+| [`openapi.yaml`](openapi.yaml)                                       | API contract (source of truth)           |
+| [`docs/standards/java-quarkus.md`](docs/standards/java-quarkus.md)   | Backend coding standards                 |
+| [`docs/llds/react-frontend.md`](docs/llds/react-frontend.md)         | Frontend LLD + coding standards          |
+| [`docs/arrows/security-standards.md`](docs/arrows/security-standards.md) | Security standards (IAM, throttling, IDOR) |
+| [`docs/arrows/testing-strategy.md`](docs/arrows/testing-strategy.md) | Test strategy                            |
+| [`docs/llds/user-management.md`](docs/llds/user-management.md)       | Auth standards (Cognito, JWT, OIDC)      |
+| [`docs/llds/cloud-platform.md`](docs/llds/cloud-platform.md)         | IaC standards + CI/CD pipeline           |
+| [`CLAUDE.md`](CLAUDE.md)                                             | AI assistant instructions                |
 
 ---
 
@@ -206,5 +206,16 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 
 ## TODO
 
-- [ ] Hints need to cycle or resend request to API
+- [ ] Hints rotation? Need to cycle or resend request to API so user does not get no hints
+- [ ] Improved error handling. Aim to give the user clearewr and understandable errors - for example not a 422 if puzzle import failed and 404 if no hints - these are not user friendly. Also make the error messages visually better
 - [ ] More strategies: XY-Chain, Remote Pairs
+- [ ] New mode to manually type in a puzzle (can be used when an import fails)
+- [ ] Make the score history more visually appealing and convey more useful information
+- [ ] Create a league table that shows the different players and how they are doing relative to their peers. Should reward number of puzzles completed, and short times taken 
+- [ ] Add expert difficulty
+- [ ] Review LLD tech debt
+- [ ] terratest for infrstructure
+- [ ] UI cleanup 
+  - [ ] persist game history to server
+  - [ ] decompose `useSudokuGame` into smaller focused hooks
+  - [ ] directory structure

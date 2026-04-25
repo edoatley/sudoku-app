@@ -13,14 +13,16 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import CloseIcon from '@mui/icons-material/Close';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlined';
 import TutorialModal from './TutorialModal.jsx';
+import { formatHintText } from '../utils/hintDisplay.js';
 
+// @spec HE-UI-001, HE-UI-002, HE-UI-003, HE-UI-004, HE-UI-005
 function stageText(hint, stage) {
   if (!hint) return '';
-  if (stage === 'nudge') return hint.nudge;
-  if (stage === 'focus') return hint.focus;
-  return hint.reveal;
+  if (stage === 'nudge') return formatHintText(hint.nudge);
+  if (stage === 'focus') return formatHintText(hint.focus);
+  return formatHintText(hint.reveal);
 }
 
 function HintActions({ stage, onAdvance, onDismiss, onAlternateHint }) {

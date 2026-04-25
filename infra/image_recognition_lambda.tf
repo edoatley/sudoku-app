@@ -38,7 +38,7 @@ resource "aws_iam_role_policy_attachment" "image_recognition_basic_execution" {
 
 resource "aws_iam_policy" "image_recognition_bedrock" {
   name        = "SudokuImageRecognitionBedrockPolicy${local.suffix}"
-  description = "Grants the image recognition Lambda permission to call Nova Pro and Nova Lite via Bedrock Converse"
+  description = "Grants the image recognition Lambda permission to invoke Bedrock inference profiles listed in local.bedrock_models"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -46,18 +46,12 @@ resource "aws_iam_policy" "image_recognition_bedrock" {
       {
         Effect = "Allow"
         Action = ["bedrock:InvokeModel"]
-        Resource = [
-          # Foundation-model ARNs (direct invocation — Mistral, Nemotron)
-          "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
-          "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:*::foundation-model/mistral.magistral-small-2509",
-          "arn:aws:bedrock:*::foundation-model/nvidia.nemotron-nano-12b-v2",
-          "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
-          # Cross-region inference-profile ARNs (what the Lambda code actually calls for us.* and global.* model IDs)
-          "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-pro-v1:0",
-          "arn:aws:bedrock:*:*:inference-profile/us.amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:*:*:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0",
-        ]
+        Resource = concat(
+          # Inference-profile ARNs — what the Lambda code actually calls
+          [for model in local.bedrock_models : "arn:aws:bedrock:*:*:inference-profile/${model}"],
+          # Foundation-model ARNs — required by Bedrock when the profile routes to a regional endpoint
+          [for model in local.bedrock_models : "arn:aws:bedrock:*::foundation-model/${replace(model, "/^(eu|us|ap)\\./", "")}"]
+        )
       }
     ]
   })
@@ -80,6 +74,13 @@ resource "aws_lambda_function" "image_recognition" {
   architectures = ["x86_64"]
   memory_size   = 512
   timeout       = 60 # Bedrock inference can take ~20 s; cold start on a container image adds ~20 s on top
+
+  environment {
+    variables = {
+      AWS_REGION_NAME = "eu-west-2"
+      BEDROCK_MODELS  = join(",", local.bedrock_models)
+    }
+  }
 
   tracing_config {
     mode = "PassThrough"

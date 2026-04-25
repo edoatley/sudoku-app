@@ -1,6 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
+import com.sudoku.domain.Grid;
 import com.sudoku.dto.CoordinateCandidate;
 import com.sudoku.dto.Coordinate;
 import com.sudoku.dto.HintResponse;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec HE-BE-012, HE-API-001, HE-API-002, HE-API-003, HE-API-004, HE-API-005, HE-API-006
 class NakedPairStrategyTest {
 
     private NakedPairStrategy strategy;
@@ -49,7 +51,7 @@ class NakedPairStrategyTest {
 
     @Test
     void nakedPair_syntheticRowPair_returnsHint() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
 
         // Patch two cells in row 0 to have the same 2-candidate set
@@ -80,7 +82,7 @@ class NakedPairStrategyTest {
 
     @Test
     void nakedPair_solvedBoard_returnsEmpty() {
-        Board board = Board.fromGrid(SOLVED_GRID);
+        Board board = Board.fromGrid(Grid.of((SOLVED_GRID)));
         board.calculateAllCandidates();
 
         Optional<HintResponse> result = strategy.evaluate(board);
@@ -90,13 +92,13 @@ class NakedPairStrategyTest {
 
     @Test
     void nakedPair_markdownSlug_and_difficulty() {
-        Board board = Board.fromGrid(EASY_GRID);
+        Board board = Board.fromGrid(Grid.of((EASY_GRID)));
         board.calculateAllCandidates();
         board.getCell(0, 3).setCandidates(Set.of(2, 6));
         board.getCell(0, 7).setCandidates(Set.of(2, 6));
 
         HintResponse hint = strategy.evaluate(board).orElseThrow();
         assertEquals("naked-pair", hint.markdownSlug());
-        assertEquals(Difficulty.MEDIUM, hint.difficulty());
+        assertEquals(Difficulty.EASY, hint.difficulty());
     }
 }

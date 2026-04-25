@@ -12,9 +12,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
-import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
-import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
+import static com.sudoku.puzzle.hint.Difficulty.EASY;
 
 /**
  * Detects pairs of cells in a unit that share exactly the same two candidates,
@@ -36,8 +34,9 @@ public class NakedPairStrategy implements HintStrategy {
     @Override
     public String getSlug() { return SLUG; }
 
+    // @spec HE-BE-012
     @Override
-    public Difficulty getDifficulty() { return MEDIUM; }
+    public Difficulty getDifficulty() { return EASY; }
 
     @Override
     public int getDifficultyRank() {
@@ -46,25 +45,10 @@ public class NakedPairStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        // Scan rows 0-8
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getRow(i));
-            if (hint.isPresent()) return hint;
-        }
-        // Scan columns 0-8
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getColumn(i));
-            if (hint.isPresent()) return hint;
-        }
-        // Scan blocks 0-8
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getBlock(i));
-            if (hint.isPresent()) return hint;
-        }
-        return Optional.empty();
+        return UnitScanner.scanAll(board, this::checkUnit);
     }
 
-    private Optional<HintResponse> checkUnit(List<Cell> unit) {
+    private Optional<HintResponse> checkUnit(List<Cell> unit, UnitScanner.UnitContext ctx) {
         List<Cell> twoCandCells = new ArrayList<>();
         for (Cell cell : unit) {
             if (cell.isEmpty() && cell.candidates().size() == 2) {

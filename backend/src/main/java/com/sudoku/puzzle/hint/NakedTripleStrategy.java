@@ -14,7 +14,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
-import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 import static com.sudoku.puzzle.hint.Difficulty.MEDIUM;
 
 /**
@@ -48,22 +47,11 @@ public class NakedTripleStrategy implements HintStrategy {
 
     @Override
     public Optional<HintResponse> evaluate(Board board) {
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getRow(i), "Row " + i);
-            if (hint.isPresent()) return hint;
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getColumn(i), "Column " + i);
-            if (hint.isPresent()) return hint;
-        }
-        for (int i = 0; i < UNIT_SIZE; i++) {
-            Optional<HintResponse> hint = checkUnit(board.getBlock(i), "Block " + i);
-            if (hint.isPresent()) return hint;
-        }
-        return Optional.empty();
+        return UnitScanner.scanAll(board, this::checkUnit);
     }
 
-    private Optional<HintResponse> checkUnit(List<Cell> unit, String unitLabel) {
+    private Optional<HintResponse> checkUnit(List<Cell> unit, UnitScanner.UnitContext ctx) {
+        String unitLabel = ctx.label();
         List<Cell> emptyCells = new ArrayList<>();
         for (Cell cell : unit) {
             if (cell.isEmpty() && cell.candidates().size() >= 1 && cell.candidates().size() <= 3) {

@@ -2,6 +2,7 @@ package com.sudoku.puzzle.developer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sudoku.domain.Grid;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -43,11 +44,11 @@ public final class HintDemoGrids {
             "y-wing",
     };
 
-    private static final Map<String, List<List<Integer>>> GRIDS;
+    private static final Map<String, Grid> GRIDS;
 
     static {
         ObjectMapper mapper = new ObjectMapper();
-        Map<String, List<List<Integer>>> grids = new LinkedHashMap<>();
+        Map<String, Grid> grids = new LinkedHashMap<>();
         for (String slug : KNOWN_SLUGS) {
             String path = "/developer/hint-demo-" + slug + ".json";
             try (InputStream is = HintDemoGrids.class.getResourceAsStream(path)) {
@@ -56,15 +57,15 @@ public final class HintDemoGrids {
                 }
                 JsonNode root = mapper.readTree(is);
                 JsonNode gridNode = root.get("grid");
-                List<List<Integer>> grid = new ArrayList<>(9);
+                List<List<Integer>> rows = new ArrayList<>(9);
                 for (JsonNode rowNode : gridNode) {
                     List<Integer> row = new ArrayList<>(9);
                     for (JsonNode cell : rowNode) {
                         row.add(cell.intValue());
                     }
-                    grid.add(Collections.unmodifiableList(row));
+                    rows.add(Collections.unmodifiableList(row));
                 }
-                grids.put(slug, Collections.unmodifiableList(grid));
+                grids.put(slug, Grid.of(Collections.unmodifiableList(rows)));
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to load demo grid for slug '" + slug + "'", e);
             }
@@ -77,7 +78,7 @@ public final class HintDemoGrids {
     /**
      * Returns the demo grid for the given technique slug, or {@code null} if unknown.
      */
-    public static List<List<Integer>> forSlug(String slug) {
+    public static Grid forSlug(String slug) {
         return GRIDS.get(slug);
     }
 

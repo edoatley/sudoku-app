@@ -19,7 +19,7 @@ export default function AvatarPickerDialog({ open, currentAvatar, onSelect, onCl
             const { name, Component: AvatarIcon, label } = iconEntry;
             const selected = currentAvatar === name;
             return (
-              <Grid item key={name}>
+              <Grid key={name}>
                 <Tooltip title={label} placement="top">
                   <Box
                     sx={{

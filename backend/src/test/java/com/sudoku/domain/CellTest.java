@@ -6,8 +6,10 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// @spec SL-DATA-006, SL-DATA-007, SL-DATA-008
 class CellTest {
 
+    // @spec SL-DATA-006
     @Test
     void constructorSetsFieldsCorrectly() {
         Cell cell = new Cell(3, 5, 7);
@@ -18,30 +20,35 @@ class CellTest {
         assertTrue(cell.candidates().isEmpty());
     }
 
+    // @spec SL-DATA-008
     @Test
     void isEmptyTrueForValueZero() {
         Cell cell = new Cell(0, 0, 0);
         assertTrue(cell.isEmpty());
     }
 
+    // @spec SL-DATA-001
     @Test
     void constructorRejectsInvalidRow() {
         assertThrows(IllegalArgumentException.class, () -> new Cell(-1, 0, 0));
         assertThrows(IllegalArgumentException.class, () -> new Cell(9, 0, 0));
     }
 
+    // @spec SL-DATA-001
     @Test
     void constructorRejectsInvalidCol() {
         assertThrows(IllegalArgumentException.class, () -> new Cell(0, -1, 0));
         assertThrows(IllegalArgumentException.class, () -> new Cell(0, 9, 0));
     }
 
+    // @spec SL-DATA-002
     @Test
     void constructorRejectsInvalidValue() {
         assertThrows(IllegalArgumentException.class, () -> new Cell(0, 0, -1));
         assertThrows(IllegalArgumentException.class, () -> new Cell(0, 0, 10));
     }
 
+    // @spec SL-DATA-006
     @Test
     void setCandidatesAndRetrieve() {
         Cell cell = new Cell(0, 0, 0);
@@ -49,6 +56,7 @@ class CellTest {
         assertEquals(Set.of(1, 3, 7), cell.candidates());
     }
 
+    // @spec SL-DATA-006
     @Test
     void candidatesIsUnmodifiable() {
         Cell cell = new Cell(0, 0, 0);
@@ -56,6 +64,7 @@ class CellTest {
         assertThrows(UnsupportedOperationException.class, () -> cell.candidates().add(9));
     }
 
+    // @spec SL-DATA-006
     @Test
     void removeCandidateRemovesDigit() {
         Cell cell = new Cell(0, 0, 0);
@@ -64,6 +73,7 @@ class CellTest {
         assertEquals(Set.of(1, 3), cell.candidates());
     }
 
+    // @spec SL-DATA-007
     @Test
     void setValueClearsCandidates() {
         Cell cell = new Cell(0, 0, 0);
@@ -74,6 +84,7 @@ class CellTest {
         assertTrue(cell.candidates().isEmpty());
     }
 
+    // @spec SL-DATA-002
     @Test
     void setValueRejectsInvalidValue() {
         Cell cell = new Cell(0, 0, 0);
@@ -81,6 +92,7 @@ class CellTest {
         assertThrows(IllegalArgumentException.class, () -> cell.setValue(-1));
     }
 
+    // @spec SL-DATA-006
     @Test
     void setCandidatesDefensivelyCopies() {
         Cell cell = new Cell(0, 0, 0);
