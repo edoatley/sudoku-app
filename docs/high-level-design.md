@@ -29,7 +29,7 @@ The system is divided into 8 components by domain concept:
                 ▼                               ▼
 ┌───────────────────────────┐     ┌─────────────────────────────┐
 │     Java Lambda           │     │   Image Recognition Lambda  │
-│     (Quarkus, SnapStart)  │     │   (Python 3.11, Bedrock)    │
+│     (Quarkus, SnapStart)  │     │   (Python 3.14, Bedrock)    │
 │                           │     │                             │
 │  ┌─────────────────────┐  │     │  • Preprocess image         │
 │  │  User Management    │  │     │  • Claude Haiku OCR         │

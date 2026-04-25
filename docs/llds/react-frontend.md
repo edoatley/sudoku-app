@@ -194,7 +194,11 @@ Mock paths also call the unwrap helpers so the hook receives the same plain-arra
 
 ### NumberPad
 
-Two rows of digit buttons (1–5 top, 6–9 bottom). A digit button is disabled in normal mode when that digit appears 9 times in the current grid (the number is complete). Input mode toggle (Normal / Candidate) is a `ToggleButtonGroup`. Action buttons: Undo, Clear, Validate, Hint, Fill Candidates.
+The number pad is split into three composable sub-components rendered as a single `inline-flex` column that inherits the grid's intrinsic width:
+
+- **`NumberPadToolbar`** — spans the full grid width above the grid. Left side: Normal / Candidate mode `ToggleButtonGroup`. Right side (space-between): two `ButtonGroup` rows — Undo + Clear, then Check + Hint + Fill.
+- **`NumberPadInput`** — single row of digit buttons 1–9 below the grid, each with `flex: 1` so they stretch to fill the grid width. A digit button is disabled in normal mode when that digit appears 9 times in `currentGrid`.
+- **`NumberPadStatus`** — `Collapse` `Alert` for validate feedback (valid / invalid).
 
 ### HintDialog
 

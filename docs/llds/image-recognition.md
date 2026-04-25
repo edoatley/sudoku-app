@@ -5,7 +5,7 @@
 
 ## Context and Current State
 
-The Image Recognition component accepts a photo of a Sudoku puzzle and returns a 9×9 grid of digits. It runs as a separate AWS Lambda function written in Python 3.11, invoked via API Gateway. It uses Amazon Bedrock's Converse API to call Claude Haiku as the OCR engine, with image preprocessing to improve model accuracy and reduce token cost.
+The Image Recognition component accepts a photo of a Sudoku puzzle and returns a 9×9 grid of digits. It runs as a separate AWS Lambda function written in Python 3.14, invoked via API Gateway. It uses Amazon Bedrock's Converse API to call Claude Haiku as the OCR engine, with image preprocessing to improve model accuracy and reduce token cost.
 
 Files: `image_recognition/handler.py`, `image_recognition/requirements.txt`.
 
@@ -202,7 +202,7 @@ The warmup route (`GET /api/v1/puzzles/import/warmup`) returns 200 immediately w
 
 ## Infrastructure
 
-- **Runtime:** Python 3.11, container image (ECR)
+- **Runtime:** Python 3.14, container image (ECR)
 - **Memory:** 512 MB
 - **Timeout:** 60 seconds (Bedrock inference ~20s + cold start ~20s)
 - **IAM:** `bedrock:InvokeModel` on Claude Haiku + Nova Pro + Nova Lite + Mistral + Nemotron ARNs (IAM pre-grants multiple models even though only Haiku is in the current code cascade)
