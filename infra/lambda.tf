@@ -59,7 +59,7 @@ resource "aws_lambda_function" "sudoku" {
   s3_key           = aws_s3_object.lambda_zip.key
   source_code_hash = filebase64sha256(var.lambda_zip_path)
 
-  runtime       = "java21"
+  runtime       = "java25"
   handler       = "io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest"
   architectures = ["x86_64"]
   memory_size   = 512
