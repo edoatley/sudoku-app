@@ -173,6 +173,21 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
     );
   });
 
+  it('getHint returns null on 404 (NoStrategyApplied) instead of throwing', async () => {
+    // @spec HE-UI-010 — 404 from /puzzles/hint means all eligible strategies exhausted;
+    // callers use null to trigger the fallback retry with a clean exclusion list.
+    fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+    const { getHint } = await import('./sudokuApi.js');
+    const result = await getHint(Array(9).fill(Array(9).fill(0)), null, [20, 40]);
+    expect(result).toBeNull();
+  });
+
+  it('getHint still throws on other non-OK statuses', async () => {
+    fetchSpy.mockResolvedValue(new Response('Server Error', { status: 500 }));
+    const { getHint } = await import('./sudokuApi.js');
+    await expect(getHint([])).rejects.toThrow('HTTP 500');
+  });
+
   it('getCandidates POSTs to the correct endpoint', async () => {
     fetchSpy.mockResolvedValue(
       new Response(JSON.stringify({ candidatesGrid: { rows: [] } }), { status: 200 }),

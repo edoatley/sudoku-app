@@ -178,6 +178,29 @@ Calls `PuzzleGenerator.countSolutions()` capped at 2. Returns `true` only if cou
 - Strategy implementations repeat the unit-scanning loop (rows → columns → blocks) in each class. A shared `UnitScanner` abstraction would reduce duplication but doesn't exist yet.
 - `getHint()` returns `Optional.empty()` both when the puzzle is already solved (no moves needed) and when no applicable strategy exists above `minRank`. Callers cannot distinguish these cases.
 
+## Hint Exhaustion Fallback (UI)
+
+When `excludedHintRanks` accumulates across multiple hint calls, the backend can return `NoStrategyApplied` (HTTP 404) even though valid hints exist for the current board — because all applicable strategies have been excluded for variety. The UI handles this with a two-call fallback:
+
+```text
+getHint(grid, minRank, excludedRanks)
+  ├─ 200 Found        → show hint, append rank to excludedRanks
+  ├─ 204 PuzzleSolved → show "puzzle solved"
+  └─ null (404)       → if excludedRanks is non-empty:
+                          retry: getHint(grid, minRank, [])
+                            ├─ 200 Found  → show hint, RESET excludedRanks to [new rank]
+                            ├─ 204/null   → "no hints available"
+                            └─ null (404) → "no hints available"
+                        else (exclusions already empty):
+                          "no hints available"
+```
+
+**Why this works:** A 404 with a non-empty exclusion list means "nothing left in the excluded set", not "board is unsolvable". Retrying without exclusions asks the backend to find the easiest applicable strategy from scratch, which always succeeds on a valid in-progress puzzle. After the fallback succeeds, `excludedHintRanks` is reset to contain only the newly returned rank — stale exclusions from the previous cycle are discarded.
+
+**404 as null:** `getHint()` in `sudokuApi.js` treats HTTP 404 from `/puzzles/hint` as `null` rather than throwing an error. This is intentional: `NoStrategyApplied` is a business outcome, not an infrastructure failure. Other endpoints still throw on 404.
+
+**Implementation:** `fetchHintWithFallback(excluded)` in `useSudokuGame.js` encapsulates the two-call logic. Both `requestHint` and `requestAlternateHint` delegate to it.
+
 ## Behavioral Quirks
 
 - Y-Wing visibility uses `BoardUtils.isVisible()` which considers a cell visible to itself. Strategies must guard against pivot == pincer comparisons (they do, via index checks).

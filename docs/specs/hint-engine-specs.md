@@ -44,6 +44,14 @@
 - [x] **HE-UI-004**: When the UI displays a hint text field, it shall convert any 0-based block reference of the form `Block N` or `block N` to a human-readable name from the sequence: top-left (0), top-middle (1), top-right (2), middle-left (3), centre (4), middle-right (5), bottom-left (6), bottom-middle (7), bottom-right (8).
 - [x] **HE-UI-005**: The coordinate and unit conversion shall be applied only at the display layer and shall not mutate the underlying hint data or any internal state.
 
+## Hint Exhaustion Fallback (UI)
+
+- [x] **HE-UI-010**: When the UI receives a null response from a hint request (HTTP 404 NoStrategyApplied or 204 PuzzleSolved), it shall treat it as a no-hint signal rather than an error, so the fallback path can be applied without surfacing an HTTP error to the user.
+- [x] **HE-UI-011**: When a hint request returns null and the exclusion list is non-empty, the UI shall immediately retry the request with an empty exclusion list to obtain the easiest applicable hint for the current board state.
+- [x] **HE-UI-012**: When the fallback retry succeeds, the UI shall reset the exclusion list to contain only the rank returned by the retry, discarding all previously accumulated exclusions.
+- [x] **HE-UI-013**: When a hint request returns null and the exclusion list is already empty, the UI shall not retry and shall display a "No more hints available" message.
+- [x] **HE-UI-014**: When both the initial and fallback hint requests return null, the UI shall display a "No more hints available" message without surfacing an HTTP error.
+
 ## Supporting Operations
 
 - [x] **HE-BE-030**: When getCandidates() is called, the system shall return the full 9×9 candidate grid computed from the submitted current grid.

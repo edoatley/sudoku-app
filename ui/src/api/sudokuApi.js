@@ -30,7 +30,7 @@ export async function getEmailFromSession() {
   return session.tokens?.idToken?.payload?.email ?? null;
 }
 
-async function apiFetch(label, url, options = {}, authenticated = false) {
+async function apiFetch(label, url, options = {}, authenticated = false, nullStatuses = []) {
   if (LOG_API) {
     const body = options.body ? JSON.parse(options.body) : undefined;
     console.group(`[API] ${options.method ?? 'GET'} ${label}`);
@@ -45,6 +45,10 @@ async function apiFetch(label, url, options = {}, authenticated = false) {
 
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
+    if (nullStatuses.includes(res.status)) {
+      if (LOG_API) { console.log(`← ${res.status} (treated as no-content)`); console.groupEnd(); }
+      return null;
+    }
     if (LOG_API) {
       console.log('← error:', res.status);
       console.groupEnd();
@@ -132,11 +136,13 @@ export async function getHint(currentGrid, minRank = null, excludedRanks = null)
   const body = { currentGrid: gridToWire(currentGrid) };
   if (minRank != null) body.minRank = minRank;
   if (excludedRanks?.length > 0) body.excludedRanks = excludedRanks;
+  // @spec HE-UI-010 — 404 means NoStrategyApplied (all eligible strategies exhausted); treat as null,
+  // not an error, so callers can retry with a clean exclusion list rather than surfacing an HTTP error.
   return apiFetch('getHint', `${API_URL}/puzzles/hint`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
+  }, false, [404]);
 }
 
 export async function getCandidates(currentGrid) {
