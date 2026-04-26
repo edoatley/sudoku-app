@@ -124,8 +124,8 @@ arrows:
     lld: docs/llds/keyboard-input.md
     specs: docs/specs/keyboard-input-specs.md
     arrow: docs/arrows/keyboard-input.md
-    spec_count: 19
-    implemented: 19
+    spec_count: 25
+    implemented: 25
     deferred: 0
     gaps: 0
     next: ~

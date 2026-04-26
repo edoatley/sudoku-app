@@ -109,14 +109,14 @@ export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo,
       {/* Action buttons — right */}
       <Box sx={{ display: 'flex', gap: 1 }}>
         <ButtonGroup variant="outlined" color="inherit" size="small">
-          <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
+          <ToolButton label="Undo" tooltip="Undo last move (U)" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
           <ToolButton label="Clear" tooltip="Clear cell (Del or 0)" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
         </ButtonGroup>
         <ButtonGroup variant="outlined" color="inherit" size="small">
-          <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
-          <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
-          <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
-          <ToolButton label="Help" tooltip="Controls &amp; keyboard shortcuts" icon={<HelpIcon sx={{ fontSize: 20 }} />} onClick={onHelp} />
+          <ToolButton label="Check" tooltip="Validate puzzle (C)" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
+          <ToolButton label="Hint" tooltip="Get a hint (H)" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
+          <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates (F)" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
+          <ToolButton label="Help" tooltip="Controls &amp; keyboard shortcuts (? or /)" icon={<HelpIcon sx={{ fontSize: 20 }} />} onClick={onHelp} />
         </ButtonGroup>
       </Box>
     </Box>

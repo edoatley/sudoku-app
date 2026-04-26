@@ -4,7 +4,7 @@ Keyboard entry for cell selection, digit placement, arrow navigation, clear, and
 
 ## Status
 
-**OK** — 2026-04-26. All 19 active specs implemented.
+**OK** — 2026-04-26. All 25 active specs implemented.
 
 ## References
 
@@ -44,9 +44,17 @@ Keyboard entry for cell selection, digit placement, arrow navigation, clear, and
 | `1`–`9` | Enter digit / toggle candidate |
 | `0`, `Delete`, `Backspace` | Clear cell |
 | `ArrowUp/Down/Left/Right` | Move selection (clamped at grid edges) |
+| `Space` | Toggle Normal ↔ Candidate mode |
 | `Escape` | Deselect cell |
+| `U` | Undo last move |
+| `C` | Check / validate the board |
+| `H` | Request a hint |
+| `F` | Fill all valid candidates |
+| `?` / `/` | Open help/controls page |
+| `P` | Toggle pause / resume |
 
 All keys suppressed when: `isModalOpen`, `!currentGrid || gameStatus === 'solved'`, or `isPaused`.
+`P` (pause toggle) is exempt from the `isPaused` guard so the player can resume via keyboard.
 Digit/clear keys additionally suppressed on given cells.
 
 ## EARS Coverage
@@ -59,8 +67,9 @@ Digit/clear keys additionally suppressed on given cells.
 | Mode toggle | KBD-041 | 1 | 0 | 0 |
 | Guard conditions | KBD-030 to KBD-034 | 5 | 0 | 0 |
 | User discoverability | KBD-040 | 1 | 0 | 0 |
+| Toolbar shortcuts | KBD-050 to KBD-055 | 6 | 0 | 0 |
 
-**Summary:** 19 of 19 active specs implemented; 0 deferred; 0 gaps.
+**Summary:** 25 of 25 active specs implemented; 0 deferred; 0 gaps.
 
 ## Key Findings
 

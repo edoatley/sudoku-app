@@ -22,6 +22,12 @@ function makeProps(overrides = {}) {
     onClear: vi.fn(),
     onSelectCell: vi.fn(),
     onToggleMode: vi.fn(),
+    onUndo: vi.fn(),
+    onCheck: vi.fn(),
+    onHint: vi.fn(),
+    onFill: vi.fn(),
+    onHelp: vi.fn(),
+    onPause: vi.fn(),
     ...overrides,
   };
 }
@@ -297,5 +303,104 @@ describe('guard conditions', () => {
     unmount();
     pressKey('5');
     expect(props.onDigit).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Toolbar shortcuts ────────────────────────────────────────────────────────
+
+describe('toolbar shortcuts', () => {
+  // @spec KBD-050
+  it('calls onUndo on U key', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    pressKey('u');
+    expect(props.onUndo).toHaveBeenCalled();
+  });
+
+  // @spec KBD-050
+  it('calls onUndo on uppercase U key', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    pressKey('U');
+    expect(props.onUndo).toHaveBeenCalled();
+  });
+
+  // @spec KBD-051
+  it('calls onCheck on C key', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    pressKey('c');
+    expect(props.onCheck).toHaveBeenCalled();
+  });
+
+  // @spec KBD-052
+  it('calls onHint on H key', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    pressKey('h');
+    expect(props.onHint).toHaveBeenCalled();
+  });
+
+  // @spec KBD-053
+  it('calls onFill on F key', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    pressKey('f');
+    expect(props.onFill).toHaveBeenCalled();
+  });
+
+  // @spec KBD-054
+  it('calls onHelp on ? key', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    pressKey('?');
+    expect(props.onHelp).toHaveBeenCalled();
+  });
+
+  // @spec KBD-054
+  it('calls onHelp on / key', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    pressKey('/');
+    expect(props.onHelp).toHaveBeenCalled();
+  });
+
+  // @spec KBD-055
+  it('calls onPause on P key when not paused', () => {
+    const props = makeProps({ isPaused: false });
+    renderHook(() => useKeyboardInput(props));
+    pressKey('p');
+    expect(props.onPause).toHaveBeenCalled();
+  });
+
+  // @spec KBD-055
+  it('calls onPause on P key even when game is paused', () => {
+    const props = makeProps({ isPaused: true });
+    renderHook(() => useKeyboardInput(props));
+    pressKey('p');
+    expect(props.onPause).toHaveBeenCalled();
+  });
+
+  // @spec KBD-055
+  it('does not call onPause when modal is open', () => {
+    const props = makeProps({ isModalOpen: true });
+    renderHook(() => useKeyboardInput(props));
+    pressKey('p');
+    expect(props.onPause).not.toHaveBeenCalled();
+  });
+
+  it('suppresses toolbar shortcuts when paused (except p)', () => {
+    const props = makeProps({ isPaused: true });
+    renderHook(() => useKeyboardInput(props));
+    pressKey('u');
+    pressKey('c');
+    pressKey('h');
+    pressKey('f');
+    pressKey('?');
+    expect(props.onUndo).not.toHaveBeenCalled();
+    expect(props.onCheck).not.toHaveBeenCalled();
+    expect(props.onHint).not.toHaveBeenCalled();
+    expect(props.onFill).not.toHaveBeenCalled();
+    expect(props.onHelp).not.toHaveBeenCalled();
   });
 });

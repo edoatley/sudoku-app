@@ -173,6 +173,12 @@ function SudokuApp({ user, signOut }) {
     onClear: clearCell,
     onSelectCell: setSelectedCell,
     onToggleMode: setInputMode,
+    onUndo: undoLastMove,
+    onCheck: requestValidation,
+    onHint: requestHint,
+    onFill: fillCandidates,
+    onHelp: () => setHelpOpen(true),
+    onPause: isPaused ? resumeGame : pauseGame,
   });
 
   const handleNewGameConfirm = (selectedDifficulty) => {

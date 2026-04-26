@@ -39,6 +39,12 @@ No keyboard is attached. The `useKeyboardInput` hook still mounts but will simpl
 | `ArrowRight` | Cell selected, game in progress, not paused | Move selection one column right (clamp at col 8) |
 | `Space` | Game in progress, not paused | Toggle input mode between normal and candidate |
 | `Escape` | Game in progress, not paused | Deselect (set `selectedCell` to null) |
+| `U` | Game in progress, not paused, not modal | Undo last move |
+| `C` | Game in progress, not paused, not modal | Check / validate the board |
+| `H` | Game in progress, not paused, not modal | Request a hint |
+| `F` | Game in progress, not paused, not modal | Fill all valid candidates |
+| `?` / `/` | Game in progress, not paused, not modal | Open help/controls page |
+| `P` | Game in progress, not modal | Toggle pause / resume (works when already paused) |
 | All other keys | Any | Ignored |
 
 Arrow keys are **clamped** (not wrapping): pressing Up on row 0 does nothing. This matches most desktop Sudoku apps and is less surprising than wrap-around.

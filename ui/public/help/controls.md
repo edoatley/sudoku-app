@@ -41,19 +41,25 @@ Clearing removes both the placed digit and all candidates.
 | `Arrow keys` | Move selection up / down / left / right |
 | `Space` | Toggle Normal ↔ Candidate mode |
 | `Escape` | Deselect current cell |
+| `U` | Undo last move |
+| `C` | Check / validate the board |
+| `H` | Request a hint |
+| `F` | Fill all valid candidates |
+| `?` or `/` | Open this help page |
+| `P` | Pause / resume the game |
 
 > Arrow keys are clamped at the grid edges — the selection stops at row 0, row 8, column 0, or column 8.
 
 ## Toolbar Buttons
 
-| Button | Action |
-|---|---|
-| **Undo** | Undo the last cell edit |
-| **Clear** | Clear the selected cell (Del or 0) |
-| **Check** | Validate the current board and highlight any errors |
-| **Hint** | Request a solving hint |
-| **Fill** | Fetch and fill in all valid candidates for every empty cell |
-| **?** | Open this help page |
+| Button | Shortcut | Action |
+|---|---|---|
+| **Undo** | `U` | Undo the last cell edit |
+| **Clear** | `Del` / `0` | Clear the selected cell |
+| **Check** | `C` | Validate the current board and highlight any errors |
+| **Hint** | `H` | Request a solving hint |
+| **Fill** | `F` | Fetch and fill in all valid candidates for every empty cell |
+| **?** | `?` or `/` | Open this help page |
 
 ## Hints
 

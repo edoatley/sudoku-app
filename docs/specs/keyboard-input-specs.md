@@ -36,3 +36,12 @@
 ## User Discoverability
 
 - [x] **KBD-040**: The system shall display a tooltip on the Clear button reading "Clear cell (Del or 0)" so that keyboard shortcuts for clearing are discoverable.
+
+## Toolbar Shortcuts
+
+- [x] **KBD-050**: When a player presses `U` and the game is in progress and not paused and not modal-blocked, the system shall trigger undo of the last move.
+- [x] **KBD-051**: When a player presses `C` and the game is in progress and not paused and not modal-blocked, the system shall trigger board validation (check).
+- [x] **KBD-052**: When a player presses `H` and the game is in progress and not paused and not modal-blocked, the system shall request a hint.
+- [x] **KBD-053**: When a player presses `F` and the game is in progress and not paused and not modal-blocked, the system shall trigger fill-candidates for all empty cells.
+- [x] **KBD-054**: When a player presses `?` or `/` and the game is in progress and not paused and not modal-blocked, the system shall open the help/controls page.
+- [x] **KBD-055**: When a player presses `P` and the game is in progress and not modal-blocked, the system shall toggle pause/resume regardless of whether the game is currently paused.
