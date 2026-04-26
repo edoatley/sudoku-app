@@ -64,7 +64,7 @@ The listener suppresses all key handling when any of the following are true:
 | `isModalOpen === true` | Prevents digits/arrows firing while modals are open (NewGameModal, ImportModal, dialogs) |
 | `!currentGrid` | No game loaded — keys have no target |
 | `gameStatus === 'solved'` | Game complete — grid is read-only |
-| `isPaused === true` | Paused means no actions; arrow navigation is also suppressed |
+| `isPaused === true` | Paused means no actions; arrow navigation is also suppressed. **Exception:** `P` is checked before this guard so the player can resume via keyboard. |
 
 `isModalOpen` is a single boolean OR-ed from all modal open states in `SudokuApp`. The hook has no knowledge of which modals exist.
 
@@ -85,6 +85,12 @@ useKeyboardInput({
   onClear,         // (row, col) => void          — clearCell(row, col)
   onSelectCell,    // ({ row, col } | null) => void — setSelectedCell
   onToggleMode,    // (mode: 'normal' | 'candidate') => void — setInputMode
+  onUndo,          // () => void — undoLastMove
+  onCheck,         // () => void — requestValidation
+  onHint,          // () => void — requestHint
+  onFill,          // () => void — fillCandidates
+  onHelp,          // () => void — setHelpOpen(true)
+  onPause,         // () => void — pauseGame or resumeGame (caller toggles based on isPaused)
 })
 ```
 
@@ -99,6 +105,10 @@ useEffect(() => {
   function handleKeyDown(e) {
     if (isModalOpen) return;
     if (!currentGrid || gameStatus === 'solved') return;
+
+    // P toggles pause/resume — exempt from isPaused guard so player can resume via keyboard
+    if (e.key === 'p' || e.key === 'P') { onPause(); return; }
+
     if (isPaused) return;
 
     // Space toggles mode (works without a selected cell)
@@ -108,10 +118,14 @@ useEffect(() => {
       return;
     }
 
-    if (e.key === 'Escape') {
-      onSelectCell(null);
-      return;
-    }
+    if (e.key === 'Escape') { onSelectCell(null); return; }
+
+    // Toolbar shortcuts (work without a selected cell)
+    if (e.key === 'u' || e.key === 'U') { onUndo(); return; }
+    if (e.key === 'c' || e.key === 'C') { onCheck(); return; }
+    if (e.key === 'h' || e.key === 'H') { onHint(); return; }
+    if (e.key === 'f' || e.key === 'F') { onFill(); return; }
+    if (e.key === '?' || e.key === '/') { e.preventDefault(); onHelp(); return; }
 
     if (!selectedCell) return;
     const { row, col } = selectedCell;
@@ -134,10 +148,7 @@ useEffect(() => {
 
     // Digit entry (1–9)
     const digit = parseInt(e.key, 10);
-    if (digit >= 1 && digit <= 9) {
-      onDigit(row, col, digit);
-      return;
-    }
+    if (digit >= 1 && digit <= 9) { onDigit(row, col, digit); return; }
 
     // Clear: 0 key, Delete, or Backspace
     if (e.key === '0' || e.key === 'Delete' || e.key === 'Backspace') {
@@ -149,7 +160,8 @@ useEffect(() => {
   document.addEventListener('keydown', handleKeyDown);
   return () => document.removeEventListener('keydown', handleKeyDown);
 }, [selectedCell, inputMode, originalGrid, currentGrid, gameStatus, isPaused,
-    isModalOpen, onDigit, onClear, onSelectCell, onToggleMode]);
+    isModalOpen, onDigit, onClear, onSelectCell, onToggleMode,
+    onUndo, onCheck, onHint, onFill, onHelp, onPause]);
 ```
 
 ## Integration in `SudokuApp`
@@ -180,6 +192,12 @@ useKeyboardInput({
   onClear: clearCell,
   onSelectCell: setSelectedCell,
   onToggleMode: setInputMode,
+  onUndo: undoLastMove,
+  onCheck: requestValidation,
+  onHint: requestHint,
+  onFill: fillCandidates,
+  onHelp: () => setHelpOpen(true),
+  onPause: isPaused ? resumeGame : pauseGame,  // caller toggles so P works while paused
 });
 ```
 

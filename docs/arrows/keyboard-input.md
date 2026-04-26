@@ -15,10 +15,10 @@ Keyboard entry for cell selection, digit placement, arrow navigation, clear, and
 - docs/llds/keyboard-input.md
 
 ### EARS
-- docs/specs/keyboard-input-specs.md (19 specs, all [x])
+- docs/specs/keyboard-input-specs.md (25 specs, all [x])
 
 ### Tests
-- ui/src/hooks/useKeyboardInput.test.js — 19 KBD specs; document keydown events via fireEvent
+- ui/src/hooks/useKeyboardInput.test.js — 41 tests covering all 25 KBD specs; document keydown events via fireEvent
 
 ### Code
 - ui/src/hooks/useKeyboardInput.js
@@ -30,7 +30,7 @@ Keyboard entry for cell selection, digit placement, arrow navigation, clear, and
 
 ## Architecture
 
-**Purpose:** Allow players to interact with the Sudoku grid entirely via keyboard on desktop — digit entry, candidate toggling, arrow navigation, clear, and deselect — without changing the mobile touch experience.
+**Purpose:** Allow players to interact with the Sudoku grid entirely via keyboard on desktop — digit entry, candidate toggling, arrow navigation, clear, deselect, mode toggle, and toolbar shortcuts (undo, check, hint, fill, help, pause) — without changing the mobile touch experience.
 
 **Key Components:**
 1. `useKeyboardInput` — pure side-effect hook; global `document` keydown listener; translates keys into `onDigit` / `onClear` / `onSelectCell` calls
