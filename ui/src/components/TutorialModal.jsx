@@ -12,6 +12,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import CloseIcon from '@mui/icons-material/Close';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 function slugToTitle(slug) {
   if (!slug) return '';
@@ -64,7 +65,7 @@ export default function TutorialModal({ open, slug, src, title, onClose }) {
           </Box>
         )}
         {error && <Alert severity="error">{error}</Alert>}
-        {!loading && !error && <ReactMarkdown>{content}</ReactMarkdown>}
+        {!loading && !error && <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>}
       </DialogContent>
     </Dialog>
   );
