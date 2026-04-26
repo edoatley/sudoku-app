@@ -4,7 +4,7 @@ Keyboard entry for cell selection, digit placement, arrow navigation, clear, and
 
 ## Status
 
-**OK** — 2026-04-26. All 18 active specs implemented.
+**OK** — 2026-04-26. All 19 active specs implemented.
 
 ## References
 
@@ -15,16 +15,18 @@ Keyboard entry for cell selection, digit placement, arrow navigation, clear, and
 - docs/llds/keyboard-input.md
 
 ### EARS
-- docs/specs/keyboard-input-specs.md (to be created)
+- docs/specs/keyboard-input-specs.md (19 specs, all [x])
 
 ### Tests
-- ui/src/hooks/useKeyboardInput.test.js (to be created)
+- ui/src/hooks/useKeyboardInput.test.js — 19 KBD specs; document keydown events via fireEvent
 
 ### Code
-- ui/src/hooks/useKeyboardInput.js (to be created)
-- ui/src/hooks/useSudokuGame.js — `setSelectedCell` added to return; `clearCell(row, col)` signature updated
-- ui/src/components/SudokuApp.jsx — composes `useKeyboardInput`; derives `isModalOpen`
-- ui/src/components/NumberPad.jsx — tooltip added to Clear button for `0` key discoverability
+- ui/src/hooks/useKeyboardInput.js
+- ui/src/hooks/useSudokuGame.js — `setSelectedCell` and `writeCellValue` added to return; `clearCell(row, col)` signature updated
+- ui/src/App.jsx — composes `useKeyboardInput`; derives `isModalOpen`; manages `helpOpen` state
+- ui/src/components/NumberPad.jsx — Clear button tooltip; Help (`?`) button; mode toggle icons
+- ui/src/components/TutorialModal.jsx — `src` and `title` props added
+- ui/public/help/controls.md — controls reference page
 
 ## Architecture
 
@@ -44,7 +46,7 @@ Keyboard entry for cell selection, digit placement, arrow navigation, clear, and
 | `ArrowUp/Down/Left/Right` | Move selection (clamped at grid edges) |
 | `Escape` | Deselect cell |
 
-All keys suppressed when: `isModalOpen`, `gameStatus !== 'IN_PROGRESS'`, or `isPaused`.
+All keys suppressed when: `isModalOpen`, `!currentGrid || gameStatus === 'solved'`, or `isPaused`.
 Digit/clear keys additionally suppressed on given cells.
 
 ## EARS Coverage
@@ -71,12 +73,4 @@ Digit/clear keys additionally suppressed on given cells.
 
 ## Work Required
 
-### To Do
-1. Write EARS specs — `docs/specs/keyboard-input-specs.md`
-2. Create `ui/src/hooks/useKeyboardInput.js`
-3. Add `setSelectedCell` to `useSudokuGame` return value
-4. Update `clearCell` to accept explicit `(row, col)` params; update NumberPad caller
-5. Compose `useKeyboardInput` in `SudokuApp` with `isModalOpen`
-6. Add tooltip to Clear button in `NumberPadToolbar`
-7. Write `ui/src/hooks/useKeyboardInput.test.js`
-8. Update `react-frontend` arrow: EARS coverage table, spec count, key findings
+All items complete.

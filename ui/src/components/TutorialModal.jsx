@@ -22,15 +22,19 @@ function stripFrontmatter(text) {
   return text.replace(/^---[\s\S]*?---\n?/, '');
 }
 
-export default function TutorialModal({ open, slug, onClose }) {
+export default function TutorialModal({ open, slug, src, title, onClose }) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!slug || !open) return;
+    if (!open) return;
+    const url = src ?? `/techniques/${slug}.md`;
+    if (!url) return;
     let cancelled = false;
-    fetch(`/techniques/${slug}.md`)
+    setLoading(true);
+    setError(null);
+    fetch(url)
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load tutorial (${res.status})`);
         return res.text();
@@ -38,12 +42,12 @@ export default function TutorialModal({ open, slug, onClose }) {
       .then((text) => { if (!cancelled) { setContent(stripFrontmatter(text)); setLoading(false); } })
       .catch((err) => { if (!cancelled) { setError(err.message); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [slug, open]);
+  }, [slug, src, open]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ m: 0, p: 2, pr: 6 }}>
-        {slugToTitle(slug)}
+        {title ?? slugToTitle(slug)}
         <IconButton
           onClick={onClose}
           size="small"

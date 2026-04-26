@@ -2,7 +2,7 @@
 
 **Created**: 2026-04-26
 **Branch**: rc-keyboard-entry
-**Status**: Ready to implement
+**Status**: Complete
 
 ## References
 
@@ -12,12 +12,12 @@
 
 ## Definition of Done
 
-- [ ] All 18 KBD specs marked `[x]` in `docs/specs/keyboard-input-specs.md`
-- [ ] `useKeyboardInput.test.js` passes with coverage of all 18 specs
-- [ ] No regressions in `useSudokuGame.test.js`
-- [ ] `npm run lint` passes clean
-- [ ] Manual smoke test: digit entry, candidate toggle, arrow nav, clear, deselect, guard conditions (pause, modal, solved)
-- [ ] Arrow: `docs/arrows/keyboard-input.md` updated to 18/18 implemented, status OK
+- [x] All 19 KBD specs marked `[x]` in `docs/specs/keyboard-input-specs.md`
+- [x] `useKeyboardInput.test.js` passes with coverage of all 19 specs
+- [x] No regressions in `useSudokuGame.test.js`
+- [x] `npm run lint` passes clean
+- [x] Manual smoke test: digit entry, candidate toggle, arrow nav, clear, deselect, guard conditions (pause, modal, solved)
+- [x] Arrow: `docs/arrows/keyboard-input.md` updated to 19/19 implemented, status OK
 
 ---
 

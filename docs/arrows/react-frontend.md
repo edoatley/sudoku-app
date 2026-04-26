@@ -21,7 +21,7 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 ### Tests
 - ui/src/api/sudokuApi.test.js — wire wrapping/unwrapping, error fallback, mock mode; 76 unit tests total
 - ui/src/hooks/useSudokuGame.test.js — full game loop with mocked API
-- ui/src/hooks/useKeyboardInput.test.js — all 18 KBD specs; document keydown events via fireEvent
+- ui/src/hooks/useKeyboardInput.test.js — all 19 KBD specs; document keydown events via fireEvent
 
 ### Code
 - ui/src/App.jsx, ui/src/main.jsx
@@ -73,8 +73,8 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 2. **Game history is localStorage-only** — `recordGame()` stores history locally; no server-side persistence. History is lost on browser storage clear. (FE-UI-042)
 3. **Wire adapter boundary** — `gridAdapters.js` functions are called exclusively in `sudokuApi.js`. Hook state always uses plain arrays; `Grid` wire format never propagates past the API layer. Mock paths also call unwrap helpers since `cannedData.js` is in wire format.
 4. **`completedNumbers` computed outside hook** — Calculated in `App.jsx` via `useMemo`, not inside `useSudokuGame`. The hook doesn't know which digits are "complete" — a subtle coupling.
-5. **`TutorialModal` markdown source** — All 11 files confirmed in `ui/public/techniques/`.
-6. **`isModalOpen` derived in `App.jsx`** — Keyboard suppression requires knowing when any modal/hint is open. A single boolean OR of `newGameModalOpen || importModalOpen || devDataOpen || gameStatus === 'solved' || !!activeHint` is passed to `useKeyboardInput`; the hook has no knowledge of which modals exist.
+5. **`TutorialModal` markdown source** — All 11 technique files confirmed in `ui/public/techniques/`. `TutorialModal` extended with `src` and `title` props to serve non-technique pages (e.g. `ui/public/help/controls.md`).
+6. **`isModalOpen` derived in `App.jsx`** — Keyboard suppression requires knowing when any modal/hint is open. A single boolean OR of `newGameModalOpen || importModalOpen || devDataOpen || helpOpen || gameStatus === 'solved' || !!activeHint` is passed to `useKeyboardInput`; the hook has no knowledge of which modals exist.
 
 ## Work Required
 

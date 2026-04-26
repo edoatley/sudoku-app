@@ -24,6 +24,7 @@ import PauseOverlay from './components/PauseOverlay.jsx';
 import NewGameModal from './components/NewGameModal.jsx';
 import ImportModal from './components/ImportModal.jsx';
 import DevDataDialog from './components/DevDataDialog.jsx';
+import TutorialModal from './components/TutorialModal.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
@@ -99,6 +100,7 @@ function SudokuApp({ user, signOut }) {
   const [newGameModalOpen, setNewGameModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [devDataOpen, setDevDataOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const {
     originalGrid,
@@ -155,7 +157,7 @@ function SudokuApp({ user, signOut }) {
   }, [currentGrid]);
 
   // @spec KBD-032, KBD-033 — suppress keyboard input while any modal or hint panel is open
-  const isModalOpen = newGameModalOpen || importModalOpen || devDataOpen
+  const isModalOpen = newGameModalOpen || importModalOpen || devDataOpen || helpOpen
     || gameStatus === 'solved'
     || !!activeHint;
 
@@ -251,6 +253,7 @@ function SudokuApp({ user, signOut }) {
                   onHint={requestHint}
                   onFillCandidates={fillCandidates}
                   isLoading={isLoading}
+                  onHelp={() => setHelpOpen(true)}
                 />
                 {/* Grid */}
                 <SudokuGrid
@@ -314,6 +317,8 @@ function SudokuApp({ user, signOut }) {
       {DEV_TOOLS && (
         <DevDataDialog open={devDataOpen} onClose={() => setDevDataOpen(false)} />
       )}
+
+      <TutorialModal open={helpOpen} src="/help/controls.md" title="How to Play" onClose={() => setHelpOpen(false)} />
 
       <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">
         <DialogTitle>Congratulations!</DialogTitle>

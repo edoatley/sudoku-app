@@ -15,6 +15,7 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import HelpIcon from '@mui/icons-material/Help';
 
 const btnSx = { flex: 1, minWidth: 0, height: { xs: 44, sm: 52 }, p: 0, fontSize: '1.15rem' };
 
@@ -59,7 +60,7 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
           sx={active ? { ...toolBtnSx, color: 'primary.contrastText', borderColor: 'primary.main', bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } } : toolBtnSx}
         >
           {icon}
-          <Typography variant="caption" lineHeight={1} sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+          <Typography variant="caption" sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 1 }}>
             {label}
           </Typography>
         </Button>
@@ -70,8 +71,8 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
 
 // ── Composable sub-components ────────────────────────────────────────────────
 
-/** Toolbar row: mode toggle left | Undo, Clear | Check, Hint, Fill right */
-export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading }) {
+/** Toolbar row: mode toggle left | Undo, Clear | Check, Hint, Fill, Help right */
+export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, onHelp }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
       {/* Mode toggle — left */}
@@ -115,6 +116,7 @@ export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo,
           <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
           <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
           <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
+          <ToolButton label="Help" tooltip="Controls &amp; keyboard shortcuts" icon={<HelpIcon sx={{ fontSize: 20 }} />} onClick={onHelp} />
         </ButtonGroup>
       </Box>
     </Box>

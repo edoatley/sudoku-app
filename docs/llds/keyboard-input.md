@@ -1,7 +1,7 @@
 # Keyboard Input
 
 **Created**: 2026-04-26
-**Status**: In Progress
+**Status**: Complete
 
 ## Context and Current State
 
@@ -37,6 +37,7 @@ No keyboard is attached. The `useKeyboardInput` hook still mounts but will simpl
 | `ArrowDown` | Cell selected, game in progress, not paused | Move selection one row down (clamp at row 8) |
 | `ArrowLeft` | Cell selected, game in progress, not paused | Move selection one column left (clamp at col 0) |
 | `ArrowRight` | Cell selected, game in progress, not paused | Move selection one column right (clamp at col 8) |
+| `Space` | Game in progress, not paused | Toggle input mode between normal and candidate |
 | `Escape` | Game in progress, not paused | Deselect (set `selectedCell` to null) |
 | All other keys | Any | Ignored |
 
@@ -77,6 +78,7 @@ useKeyboardInput({
   onDigit,         // (row, col, digit) => void  — writeCellValue(row, col, n)
   onClear,         // (row, col) => void          — clearCell(row, col)
   onSelectCell,    // ({ row, col } | null) => void — setSelectedCell
+  onToggleMode,    // (mode: 'normal' | 'candidate') => void — setInputMode
 })
 ```
 
@@ -92,6 +94,13 @@ useEffect(() => {
     if (isModalOpen) return;
     if (!currentGrid || gameStatus === 'solved') return;
     if (isPaused) return;
+
+    // Space toggles mode (works without a selected cell)
+    if (e.key === ' ') {
+      e.preventDefault();
+      onToggleMode(inputMode === 'normal' ? 'candidate' : 'normal');
+      return;
+    }
 
     if (e.key === 'Escape') {
       onSelectCell(null);
@@ -133,8 +142,8 @@ useEffect(() => {
 
   document.addEventListener('keydown', handleKeyDown);
   return () => document.removeEventListener('keydown', handleKeyDown);
-}, [selectedCell, inputMode, originalGrid, gameStatus, isPaused, isModalOpen,
-    onDigit, onClear, onSelectCell]);
+}, [selectedCell, inputMode, originalGrid, currentGrid, gameStatus, isPaused,
+    isModalOpen, onDigit, onClear, onSelectCell, onToggleMode]);
 ```
 
 ## Integration in `SudokuApp`
@@ -148,20 +157,23 @@ useEffect(() => {
 
 ```js
 const {
-  selectedCell, inputMode, originalGrid, gameStatus, isPaused,
+  selectedCell, inputMode, originalGrid, currentGrid, gameStatus, isPaused,
   writeCellValue, clearCell, setSelectedCell,
   // ... rest of game state
 } = useSudokuGame(user, { onGameComplete, onForbidden });
 
-const isModalOpen = newGameOpen || importOpen || avatarPickerOpen
-  || statisticsOpen || historyOpen || /* any other modal */;
+// helpOpen is managed in App.jsx alongside newGameModalOpen / importModalOpen
+const isModalOpen = newGameModalOpen || importModalOpen || devDataOpen || helpOpen
+  || gameStatus === 'solved'
+  || !!activeHint;   // HintDialog — inline on desktop, modal on mobile
 
 useKeyboardInput({
-  selectedCell, inputMode, originalGrid, gameStatus, isPaused,
+  selectedCell, inputMode, originalGrid, currentGrid, gameStatus, isPaused,
   isModalOpen,
   onDigit: writeCellValue,
   onClear: clearCell,
   onSelectCell: setSelectedCell,
+  onToggleMode: setInputMode,
 });
 ```
 
@@ -211,10 +223,12 @@ When `onSelectCell(null)` fires (Escape), `selectedCell` becomes null and all hi
 
 ## References
 
-- `ui/src/hooks/useKeyboardInput.js` (to be created)
-- `ui/src/hooks/useKeyboardInput.test.js` (to be created)
-- `ui/src/hooks/useSudokuGame.js` — `setSelectedCell` added to return; `clearCell` signature updated
-- `ui/src/components/SudokuApp.jsx` — composes `useKeyboardInput`; derives `isModalOpen`
-- `ui/src/components/NumberPad.jsx` / `NumberPadToolbar` — tooltip added to Clear button
+- `ui/src/hooks/useKeyboardInput.js`
+- `ui/src/hooks/useKeyboardInput.test.js`
+- `ui/src/hooks/useSudokuGame.js` — `setSelectedCell` added to return; `clearCell(row, col)` signature updated; `writeCellValue` added to return
+- `ui/src/App.jsx` — composes `useKeyboardInput`; derives `isModalOpen`; manages `helpOpen` state
+- `ui/src/components/NumberPad.jsx` — Clear button tooltip updated; Help (`?`) button added; mode toggle icons added
+- `ui/src/components/TutorialModal.jsx` — extended with `src` and `title` props for non-technique markdown pages
+- `ui/public/help/controls.md` — keyboard shortcut and controls reference page
 - Depends on: `docs/llds/react-frontend.md`
 - Depended on by: nothing (leaf hook)
