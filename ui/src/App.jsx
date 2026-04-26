@@ -13,6 +13,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { useSudokuGame } from './hooks/useSudokuGame.js';
+import { useKeyboardInput } from './hooks/useKeyboardInput.js';
 import { usePlayerProfile } from './hooks/usePlayerProfile.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
 import StatusBar from './components/StatusBar.jsx';
@@ -129,6 +130,8 @@ function SudokuApp({ user, signOut }) {
     advanceHint,
     dismissHint,
     selectedCell,
+    setSelectedCell,
+    writeCellValue,
     fillCandidates,
     clearStatus,
     finishGame,
@@ -150,6 +153,25 @@ function SudokuApp({ user, signOut }) {
     }
     return new Set(Object.entries(counts).filter(([, c]) => c === 9).map(([n]) => Number(n)));
   }, [currentGrid]);
+
+  // @spec KBD-032, KBD-033 — suppress keyboard input while any modal or hint panel is open
+  const isModalOpen = newGameModalOpen || importModalOpen || devDataOpen
+    || gameStatus === 'solved'
+    || !!activeHint;
+
+  useKeyboardInput({
+    selectedCell,
+    inputMode,
+    originalGrid,
+    currentGrid,
+    gameStatus,
+    isPaused,
+    isModalOpen,
+    onDigit: writeCellValue,
+    onClear: clearCell,
+    onSelectCell: setSelectedCell,
+    onToggleMode: setInputMode,
+  });
 
   const handleNewGameConfirm = (selectedDifficulty) => {
     setNewGameModalOpen(false);
@@ -222,7 +244,7 @@ function SudokuApp({ user, signOut }) {
                 <NumberPadToolbar
                   inputMode={inputMode}
                   onModeChange={setInputMode}
-                  onClearCell={clearCell}
+                  onClearCell={() => selectedCell && clearCell(selectedCell.row, selectedCell.col)}
                   onUndo={undoLastMove}
                   canUndo={canUndo}
                   onValidate={requestValidation}

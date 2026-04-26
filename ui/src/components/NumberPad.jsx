@@ -13,6 +13,8 @@ import UndoIcon from '@mui/icons-material/Undo';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
+import EditIcon from '@mui/icons-material/Edit';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 
 const btnSx = { flex: 1, minWidth: 0, height: { xs: 44, sm: 52 }, p: 0, fontSize: '1.15rem' };
 
@@ -73,21 +75,41 @@ export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo,
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
       {/* Mode toggle — left */}
-      <ToggleButtonGroup
-        value={inputMode}
-        exclusive
-        onChange={(_, val) => { if (val) onModeChange(val); }}
-        size="small"
-      >
-        <ToggleButton value="normal" sx={{ px: 1.5, py: 0.5, fontSize: '0.75rem' }}>Normal</ToggleButton>
-        <ToggleButton value="candidate" sx={{ px: 1.5, py: 0.5, fontSize: '0.75rem' }}>Candidate</ToggleButton>
-      </ToggleButtonGroup>
+      <Tooltip title="Toggle mode (Space)" arrow>
+        <ToggleButtonGroup
+          value={inputMode}
+          exclusive
+          onChange={(_, val) => { if (val) onModeChange(val); }}
+          size="small"
+        >
+          <ToggleButton
+            value="normal"
+            sx={{
+              px: 1.5, py: 0.5, fontSize: '0.75rem', gap: 0.5,
+              '&.Mui-selected': { bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } },
+            }}
+          >
+            <EditIcon sx={{ fontSize: 15 }} />
+            Normal
+          </ToggleButton>
+          <ToggleButton
+            value="candidate"
+            sx={{
+              px: 1.5, py: 0.5, fontSize: '0.75rem', gap: 0.5,
+              '&.Mui-selected': { bgcolor: 'success.main', color: 'success.contrastText', '&:hover': { bgcolor: 'success.dark' } },
+            }}
+          >
+            <EditNoteIcon sx={{ fontSize: 15 }} />
+            Candidate
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Tooltip>
 
       {/* Action buttons — right */}
       <Box sx={{ display: 'flex', gap: 1 }}>
         <ButtonGroup variant="outlined" color="inherit" size="small">
           <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
-          <ToolButton label="Clear" tooltip="Clear selected cell" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
+          <ToolButton label="Clear" tooltip="Clear cell (Del or 0)" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
         </ButtonGroup>
         <ButtonGroup variant="outlined" color="inherit" size="small">
           <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />

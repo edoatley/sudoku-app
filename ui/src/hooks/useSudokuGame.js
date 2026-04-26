@@ -606,9 +606,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     });
   }, []);
 
-  const clearCell = useCallback(() => {
-    if (!selectedCell) return;
-    const { row, col } = selectedCell;
+  const clearCell = useCallback((row, col) => {
+    if (row == null || col == null) return;
     if (originalGrid[row][col] !== 0) return;
     setCurrentGrid(prev => {
       const next = prev.map(r => [...r]);
@@ -625,7 +624,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       next.delete(`${row},${col}`);
       return next;
     });
-  }, [selectedCell, originalGrid]);
+  }, [originalGrid]);
 
   const clearStatus = useCallback(() => {
     setStatusMessage(null);
@@ -748,6 +747,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     inputMode,
     selectedNumber,
     selectedCell,
+    setSelectedCell,
+    writeCellValue,
     setInputMode,
     setSelectedNumber,
     handleNumberSelect,

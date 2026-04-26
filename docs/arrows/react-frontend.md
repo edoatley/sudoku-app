@@ -21,11 +21,13 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 ### Tests
 - ui/src/api/sudokuApi.test.js — wire wrapping/unwrapping, error fallback, mock mode; 76 unit tests total
 - ui/src/hooks/useSudokuGame.test.js — full game loop with mocked API
+- ui/src/hooks/useKeyboardInput.test.js — all 18 KBD specs; document keydown events via fireEvent
 
 ### Code
 - ui/src/App.jsx, ui/src/main.jsx
 - ui/src/api/sudokuApi.js
 - ui/src/hooks/useSudokuGame.js
+- ui/src/hooks/useKeyboardInput.js
 - ui/src/hooks/usePlayerProfile.js
 - ui/src/components/ (all component files)
 - ui/src/utils/avatarIcons.js
@@ -38,12 +40,13 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 
 **Key Components:**
 1. `useSudokuGame` — owns game state, grid logic, hint escalation, undo, auto-save, timer, localStorage sync
-2. `usePlayerProfile` — owns user identity, avatar, game history
-3. `sudokuApi.js` — all backend communication with mock mode, auth token injection, ForbiddenError handling, grid wire adapter
-4. `gridAdapters.js` — `gridFromWire`/`gridToWire`/`candidatesFromWire`/`candidatesToWire` utility functions
-5. `SudokuGrid` / `SudokuCell` — responsive grid rendering with 6-priority highlight system
-6. `HintDialog` — nudge/focus/reveal progressive disclosure; inline on desktop, modal on mobile
-7. `Header` — timer, user menu, game controls, developer submenu
+2. `useKeyboardInput` — pure side-effect hook; global `document` keydown listener; first decomposition of `useSudokuGame`
+3. `usePlayerProfile` — owns user identity, avatar, game history
+4. `sudokuApi.js` — all backend communication with mock mode, auth token injection, ForbiddenError handling, grid wire adapter
+5. `gridAdapters.js` — `gridFromWire`/`gridToWire`/`candidatesFromWire`/`candidatesToWire` utility functions
+6. `SudokuGrid` / `SudokuCell` — responsive grid rendering with 6-priority highlight system
+7. `HintDialog` — nudge/focus/reveal progressive disclosure; inline on desktop, modal on mobile
+8. `Header` — timer, user menu, game controls, developer submenu
 
 ## EARS Coverage
 
@@ -66,11 +69,12 @@ Browser SPA — game UI, hint UX, state hooks, API client, localStorage + Dynamo
 
 ## Key Findings
 
-1. **`useSudokuGame` is oversized** — A single hook owns timer, localStorage, auto-save, hint management, undo, and game lifecycle. Decomposing into smaller hooks would improve testability without changing the external interface.
+1. **`useSudokuGame` decomposition started** — `useKeyboardInput` is the first hook extracted from `useSudokuGame`. Required two small interface changes: `setSelectedCell` added to the return value; `clearCell` updated to accept explicit `(row, col)` params instead of reading from closure.
 2. **Game history is localStorage-only** — `recordGame()` stores history locally; no server-side persistence. History is lost on browser storage clear. (FE-UI-042)
 3. **Wire adapter boundary** — `gridAdapters.js` functions are called exclusively in `sudokuApi.js`. Hook state always uses plain arrays; `Grid` wire format never propagates past the API layer. Mock paths also call unwrap helpers since `cannedData.js` is in wire format.
 4. **`completedNumbers` computed outside hook** — Calculated in `App.jsx` via `useMemo`, not inside `useSudokuGame`. The hook doesn't know which digits are "complete" — a subtle coupling.
 5. **`TutorialModal` markdown source** — All 11 files confirmed in `ui/public/techniques/`.
+6. **`isModalOpen` derived in `App.jsx`** — Keyboard suppression requires knowing when any modal/hint is open. A single boolean OR of `newGameModalOpen || importModalOpen || devDataOpen || gameStatus === 'solved' || !!activeHint` is passed to `useKeyboardInput`; the hook has no knowledge of which modals exist.
 
 ## Work Required
 
