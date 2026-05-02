@@ -333,15 +333,13 @@ describe('clearCell', () => {
     act(() => result.current.updateCell(0, 2));
     act(() => result.current.handleNumberSelect(4));
     expect(result.current.currentGrid[0][2]).toBe(4);
-    // selectedCell is still {row:0, col:2} — clearCell uses it
-    act(() => result.current.clearCell());
+    act(() => result.current.clearCell(0, 2));
     expect(result.current.currentGrid[0][2]).toBe(0);
   });
 
   it('does not clear a given cell', async () => {
     const { result } = await mountAndWait();
-    act(() => result.current.updateCell(0, 0)); // given cell (value = 5)
-    act(() => result.current.clearCell());
+    act(() => result.current.clearCell(0, 0)); // given cell (value = 5)
     expect(result.current.currentGrid[0][0]).toBe(5);
   });
 });
@@ -474,6 +472,105 @@ describe('hintsUsed and excludedHintRanks', () => {
       null,
       expect.arrayContaining([20])
     );
+  });
+
+  it('requestHint retries with empty exclusions when first call returns null and exclusions are non-empty', async () => {
+    // @spec HE-UI-011 — fallback retry when NoStrategyApplied with non-empty excludedRanks
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint()); // builds up excludedHintRanks = [20]
+
+    const fullHouseHint = {
+      techniqueName: 'Full House',
+      strategyRank: 10,
+      nudge: 'nudge',
+      focus: 'focus',
+      reveal: 'reveal',
+      highlightCells: [],
+      eliminatedCandidates: [],
+      solvedCells: [{ row: 2, col: 2, value: 7 }],
+    };
+    getHint.mockResolvedValueOnce(null);       // first call: null with exclusions
+    getHint.mockResolvedValueOnce(fullHouseHint); // retry call: clean slate
+
+    await act(async () => result.current.requestHint());
+
+    // Fallback call should have been with empty exclusions
+    const calls = getHint.mock.calls;
+    const retryCall = calls[calls.length - 1];
+    expect(retryCall[2]).toEqual([]);
+
+    // After fallback succeeds the new hint is shown
+    expect(result.current.activeHint.techniqueName).toBe('Full House');
+  });
+
+  it('requestHint next call after fallback excludes only the fallback rank', async () => {
+    // @spec HE-UI-011 — after a reset, the exclusion list starts fresh from the new rank
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint()); // excludedHintRanks = [20]
+
+    const fullHouseHint = {
+      techniqueName: 'Full House',
+      strategyRank: 10,
+      nudge: 'nudge', focus: 'focus', reveal: 'reveal',
+      highlightCells: [], eliminatedCandidates: [],
+      solvedCells: [{ row: 2, col: 2, value: 7 }],
+    };
+    getHint.mockResolvedValueOnce(null);          // exhausted with [20]
+    getHint.mockResolvedValueOnce(fullHouseHint); // retry: clean slate → rank 10
+    getHint.mockResolvedValueOnce(fullHouseHint); // third call (below)
+
+    await act(async () => result.current.requestHint()); // fallback fires, sets excluded=[10]
+    await act(async () => result.current.requestHint()); // third call
+
+    // Third call should exclude only rank 10 (not the old rank 20)
+    const calls = getHint.mock.calls;
+    const thirdCall = calls[calls.length - 1];
+    expect(thirdCall[2]).toEqual([10]);
+    expect(thirdCall[2]).not.toContain(20);
+  });
+
+  it('requestHint shows no-hints message when both calls return null', async () => {
+    // @spec HE-UI-011 — genuinely no applicable strategy even with clean slate
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint()); // builds excludedHintRanks = [20]
+
+    getHint.mockResolvedValueOnce(null); // first call returns null
+    getHint.mockResolvedValueOnce(null); // retry also returns null
+
+    await act(async () => result.current.requestHint());
+    expect(result.current.statusMessage).toBe('No more hints available.');
+  });
+
+  it('requestHint does not retry when exclusions are empty and call returns null', async () => {
+    // With no exclusions, null means PuzzleSolved (204) — no retry needed
+    const { result } = await mountAndWait();
+    getHint.mockResolvedValueOnce(null);
+    await act(async () => result.current.requestHint());
+    expect(getHint).toHaveBeenCalledTimes(1);
+    expect(result.current.statusMessage).toBe('No more hints available.');
+  });
+
+  it('requestAlternateHint retries with empty exclusions when first call returns null', async () => {
+    // @spec HE-UI-011 — same fallback applies to requestAlternateHint
+    const { result } = await mountAndWait();
+    await act(async () => result.current.requestHint()); // excludedHintRanks = [20]
+
+    const fullHouseHint = {
+      techniqueName: 'Full House',
+      strategyRank: 10,
+      nudge: 'nudge', focus: 'focus', reveal: 'reveal',
+      highlightCells: [], eliminatedCandidates: [], solvedCells: [],
+    };
+    getHint.mockResolvedValueOnce(null);
+    getHint.mockResolvedValueOnce(fullHouseHint);
+
+    await act(async () => result.current.requestAlternateHint());
+
+    // Fallback call should have been with empty exclusions
+    const calls = getHint.mock.calls;
+    const retryCall = calls[calls.length - 1];
+    expect(retryCall[2]).toEqual([]);
+    expect(result.current.activeHint.techniqueName).toBe('Full House');
   });
 
   it('hintsUsed resets to 0 on startNewGame', async () => {

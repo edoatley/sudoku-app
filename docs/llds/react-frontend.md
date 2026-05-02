@@ -251,6 +251,7 @@ These rules apply to all frontend code. They are referenced here so the LLD is t
 
 - **Strict MUI:** Use `@mui/material` components for all UI elements. Do not write custom CSS or use Tailwind/Bootstrap. Use the `sx` prop for minor layout adjustments.
 - **Responsive layout:** Use MUI `<Grid>` or `<Stack>`. The Sudoku board must scale on mobile and desktop without breaking the viewport. Note: MUI v9 removed the `item` prop from `<Grid>` — child grid cells are plain `<Grid>` elements with no `item` prop. Breakpoint sizing uses `size={{ xs: 12, sm: 6 }}` instead of `xs={12} sm={6}`.
+- **MUI icon imports — use direct file paths only:** Always import icons as `import FooIcon from '@mui/icons-material/Foo'`. Never use named imports from the package root (`import { Foo } from '@mui/icons-material'`) — they fail to resolve under Vite's `"module"/"browser"` export conditions. Before using an icon, verify the file exists: `ls node_modules/@mui/icons-material/Foo.js`. Not all logical icon names exist as files — outlined/rounded/sharp variants may be absent (e.g. `HelpOutline` does not exist; use `Help` instead). When in doubt, check the directory first.
 - **Small, focused components:** Keep components single-purpose. Separate the grid visual rendering (`SudokuGrid`, `SudokuCell`) from game logic.
 
 ### State Management

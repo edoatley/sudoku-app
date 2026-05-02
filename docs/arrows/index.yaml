@@ -119,6 +119,17 @@ arrows:
     arrow: docs/arrows/security-standards.md
     notes: Cross-cutting security policy — IAM, throttling, IDOR prevention, input validation
 
+  - id: keyboard-input
+    status: OK
+    lld: docs/llds/keyboard-input.md
+    specs: docs/specs/keyboard-input-specs.md
+    arrow: docs/arrows/keyboard-input.md
+    spec_count: 25
+    implemented: 25
+    deferred: 0
+    gaps: 0
+    next: ~
+
   - id: testing-strategy
     status: OK
     lld: ~

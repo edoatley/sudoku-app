@@ -13,6 +13,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { useSudokuGame } from './hooks/useSudokuGame.js';
+import { useKeyboardInput } from './hooks/useKeyboardInput.js';
 import { usePlayerProfile } from './hooks/usePlayerProfile.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
 import StatusBar from './components/StatusBar.jsx';
@@ -23,6 +24,7 @@ import PauseOverlay from './components/PauseOverlay.jsx';
 import NewGameModal from './components/NewGameModal.jsx';
 import ImportModal from './components/ImportModal.jsx';
 import DevDataDialog from './components/DevDataDialog.jsx';
+import TutorialModal from './components/TutorialModal.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
@@ -98,6 +100,7 @@ function SudokuApp({ user, signOut }) {
   const [newGameModalOpen, setNewGameModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [devDataOpen, setDevDataOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const {
     originalGrid,
@@ -129,6 +132,8 @@ function SudokuApp({ user, signOut }) {
     advanceHint,
     dismissHint,
     selectedCell,
+    setSelectedCell,
+    writeCellValue,
     fillCandidates,
     clearStatus,
     finishGame,
@@ -150,6 +155,31 @@ function SudokuApp({ user, signOut }) {
     }
     return new Set(Object.entries(counts).filter(([, c]) => c === 9).map(([n]) => Number(n)));
   }, [currentGrid]);
+
+  // @spec KBD-032, KBD-033 — suppress keyboard input while any modal or hint panel is open
+  const isModalOpen = newGameModalOpen || importModalOpen || devDataOpen || helpOpen
+    || gameStatus === 'solved'
+    || !!activeHint;
+
+  useKeyboardInput({
+    selectedCell,
+    inputMode,
+    originalGrid,
+    currentGrid,
+    gameStatus,
+    isPaused,
+    isModalOpen,
+    onDigit: writeCellValue,
+    onClear: clearCell,
+    onSelectCell: setSelectedCell,
+    onToggleMode: setInputMode,
+    onUndo: undoLastMove,
+    onCheck: requestValidation,
+    onHint: requestHint,
+    onFill: fillCandidates,
+    onHelp: () => setHelpOpen(true),
+    onPause: isPaused ? resumeGame : pauseGame,
+  });
 
   const handleNewGameConfirm = (selectedDifficulty) => {
     setNewGameModalOpen(false);
@@ -222,13 +252,14 @@ function SudokuApp({ user, signOut }) {
                 <NumberPadToolbar
                   inputMode={inputMode}
                   onModeChange={setInputMode}
-                  onClearCell={clearCell}
+                  onClearCell={() => selectedCell && clearCell(selectedCell.row, selectedCell.col)}
                   onUndo={undoLastMove}
                   canUndo={canUndo}
                   onValidate={requestValidation}
                   onHint={requestHint}
                   onFillCandidates={fillCandidates}
                   isLoading={isLoading}
+                  onHelp={() => setHelpOpen(true)}
                 />
                 {/* Grid */}
                 <SudokuGrid
@@ -292,6 +323,8 @@ function SudokuApp({ user, signOut }) {
       {DEV_TOOLS && (
         <DevDataDialog open={devDataOpen} onClose={() => setDevDataOpen(false)} />
       )}
+
+      <TutorialModal open={helpOpen} src="/help/controls.md" title="How to Play" onClose={() => setHelpOpen(false)} />
 
       <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">
         <DialogTitle>Congratulations!</DialogTitle>

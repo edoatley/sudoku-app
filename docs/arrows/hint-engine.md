@@ -4,7 +4,7 @@
 
 ## Status
 
-**OK** - 2026-04-19. All findings from the 2026-04-18 audit resolved.
+**OK** - 2026-04-26. Added hint exhaustion fallback (HE-UI-010 to 014): 404 treated as null in getHint, two-call retry in fetchHintWithFallback, exclusion list reset after fallback succeeds.
 
 ## References
 
@@ -22,6 +22,8 @@
 - backend/src/test/java/com/sudoku/puzzle/BoardUtilsTest.java — covers SL-PROC-004 to 006; @spec annotations added
 - backend/src/test/java/com/sudoku/puzzle/hint/*StrategyTest.java (11 files) — covers HE-BE-010 to 020, HE-API-001 to 006; @spec annotations added
 - backend/src/test/java/com/sudoku/puzzle/PuzzleResourceTest.java — covers HTTP mapping of HintResult variants
+- ui/src/api/sudokuApi.test.js — covers HE-UI-010 (404→null, other statuses still throw)
+- ui/src/hooks/useSudokuGame.test.js — covers HE-UI-011 to 014 (fallback retry, rank reset, no-retry on empty exclusions, both-null message)
 
 ### Code
 - backend/src/main/java/.../puzzle/SudokuService.java
@@ -32,6 +34,8 @@
 - backend/src/main/java/.../puzzle/hint/*Strategy.java (11 files)
 - backend/src/main/java/.../puzzle/hint/BoardUtils.java
 - backend/src/main/java/.../puzzle/hint/UnitScanner.java
+- ui/src/api/sudokuApi.js — getHint (404→null via nullStatuses)
+- ui/src/hooks/useSudokuGame.js — fetchHintWithFallback, requestHint, requestAlternateHint
 
 ## Architecture
 
@@ -53,9 +57,11 @@
 | Hint Request | HE-BE-003 to 007 | 5 | 0 | 0 |
 | Strategy Implementations | HE-BE-010 to 020 | 11 | 0 | 0 |
 | Hint Response Structure | HE-API-001 to 006 | 6 | 0 | 0 |
+| Hint Display (UI) | HE-UI-001 to 005 | 5 | 0 | 0 |
+| Hint Exhaustion Fallback (UI) | HE-UI-010 to 014 | 5 | 0 | 0 |
 | Supporting Operations | HE-BE-030 to 035 | 6 | 0 | 0 |
 
-**Summary:** 30 of 30 active specs implemented; 0 deferred; 0 gaps.
+**Summary:** 40 of 40 active specs implemented; 0 deferred; 0 gaps.
 
 ## Work Required
 
