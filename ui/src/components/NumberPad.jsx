@@ -4,8 +4,6 @@ import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import Collapse from '@mui/material/Collapse';
 import Stack from '@mui/material/Stack';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -14,7 +12,23 @@ import FactCheckIcon from '@mui/icons-material/FactCheck';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 
-const btnSx = { flex: 1, minWidth: 0, height: { xs: 44, sm: 52 }, p: 0, fontSize: '1.15rem' };
+// @spec FE-UI-006, FE-MOB-002, FE-MOB-003
+const numBtnSx = {
+  flex: 1,
+  minWidth: 0,
+  height: { xs: 48, sm: 52 },
+  p: 0,
+  fontSize: { xs: '1.1rem', sm: '1.15rem' },
+};
+
+// Smaller buttons for the candidate row
+const candBtnSx = {
+  flex: 1,
+  minWidth: 0,
+  height: { xs: 36, sm: 40 },
+  p: 0,
+  fontSize: { xs: '0.85rem', sm: '0.9rem' },
+};
 
 const toolBtnSx = {
   minWidth: 0,
@@ -29,15 +43,33 @@ const toolBtnSx = {
   '&.Mui-disabled': { color: 'action.disabled' },
 };
 
+// @spec FE-UI-005, FE-MOB-003
+function CandidateNumButton({ n, selectedNumber, onNumberSelect, inputMode }) {
+  const active = inputMode === 'candidate' && selectedNumber === n;
+  return (
+    <Button
+      variant={active ? 'contained' : 'outlined'}
+      color="secondary"
+      onClick={() => {
+        onNumberSelect(active ? null : n, 'candidate');
+      }}
+      sx={candBtnSx}
+    >
+      {n}
+    </Button>
+  );
+}
+
+// @spec FE-UI-004, FE-UI-006, FE-MOB-002
 function NumButton({ n, selectedNumber, onNumberSelect, completedNumbers, inputMode }) {
-  const active = selectedNumber === n;
+  const active = inputMode === 'normal' && selectedNumber === n;
   const completed = inputMode === 'normal' && completedNumbers?.has(n);
   return (
     <Button
       variant={active ? 'contained' : 'outlined'}
-      onClick={() => onNumberSelect(active ? null : n)}
+      onClick={() => onNumberSelect(active ? null : n, 'normal')}
       disabled={completed}
-      sx={btnSx}
+      sx={numBtnSx}
     >
       {n}
     </Button>
@@ -68,44 +100,75 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
 
 // ── Composable sub-components ────────────────────────────────────────────────
 
-/** Toolbar row: mode toggle left | Undo, Clear | Check, Hint, Fill right */
-export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading }) {
+/** Toolbar row: action buttons only — Undo, Clear | Check, Hint, Fill */
+// @spec FE-UI-008, FE-MOB-001
+export function NumberPadToolbar({ onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-      {/* Mode toggle — left */}
-      <ToggleButtonGroup
-        value={inputMode}
-        exclusive
-        onChange={(_, val) => { if (val) onModeChange(val); }}
-        size="small"
-      >
-        <ToggleButton value="normal" sx={{ px: 1.5, py: 0.5, fontSize: '0.75rem' }}>Normal</ToggleButton>
-        <ToggleButton value="candidate" sx={{ px: 1.5, py: 0.5, fontSize: '0.75rem' }}>Candidate</ToggleButton>
-      </ToggleButtonGroup>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
+      <ButtonGroup variant="outlined" color="inherit" size="small">
+        <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
+        <ToolButton label="Clear" tooltip="Clear selected cell" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
+      </ButtonGroup>
+      <ButtonGroup variant="outlined" color="inherit" size="small">
+        <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
+        <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
+        <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
+      </ButtonGroup>
+    </Box>
+  );
+}
 
-      {/* Action buttons — right */}
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <ButtonGroup variant="outlined" color="inherit" size="small">
-          <ToolButton label="Undo" tooltip="Undo last move" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
-          <ToolButton label="Clear" tooltip="Clear selected cell" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
-        </ButtonGroup>
-        <ButtonGroup variant="outlined" color="inherit" size="small">
-          <ToolButton label="Check" tooltip="Validate puzzle" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
-          <ToolButton label="Hint" tooltip="Get a hint" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
-          <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
-        </ButtonGroup>
+/**
+ * Candidate digit row (1–9), always shown above the normal number row.
+ * Tapping a candidate button also switches inputMode to 'candidate'.
+ * @spec FE-UI-005, FE-MOB-003
+ */
+export function CandidateRow({ selectedNumber, inputMode, onNumberSelect }) {
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.25 }}>
+        Candidate
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+          <CandidateNumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} inputMode={inputMode} />
+        ))}
       </Box>
     </Box>
   );
 }
 
-/** Single row of number buttons 1–9, stretched to fill available width */
+/**
+ * Normal digit row(s) 1–9.
+ * On mobile (xs): splits into two rows — 1–5 then 6–9.
+ * On sm+: single row.
+ * @spec FE-UI-004, FE-UI-006, FE-MOB-002
+ */
 export function NumberPadInput({ selectedNumber, inputMode, onNumberSelect, completedNumbers }) {
+  const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   return (
-    <Box sx={{ display: 'flex', gap: 0.75 }}>
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-        <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
-      ))}
+    <Box>
+      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.25 }}>
+        Normal
+      </Typography>
+      {/* Single row on sm+; two rows on xs */}
+      <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.75 }}>
+        {nums.map((n) => (
+          <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
+        ))}
+      </Box>
+      <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexDirection: 'column', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
+          ))}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {[6, 7, 8, 9].map((n) => (
+            <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
+          ))}
+        </Box>
+      </Box>
     </Box>
   );
 }
@@ -129,8 +192,9 @@ export function NumberPadStatus({ gameStatus, statusMessage, onCloseStatus }) {
 /** Legacy all-in-one component (kept for tests / fallback) */
 export default function NumberPad({ selectedNumber, inputMode, onNumberSelect, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, completedNumbers, gameStatus, statusMessage, onCloseStatus }) {
   return (
-    <Stack spacing={1} alignItems="center">
-      <NumberPadToolbar inputMode={inputMode} onModeChange={onModeChange} onClearCell={onClearCell} onUndo={onUndo} canUndo={canUndo} onValidate={onValidate} onHint={onHint} onFillCandidates={onFillCandidates} isLoading={isLoading} />
+    <Stack spacing={1} alignItems="stretch">
+      <NumberPadToolbar onModeChange={onModeChange} onClearCell={onClearCell} onUndo={onUndo} canUndo={canUndo} onValidate={onValidate} onHint={onHint} onFillCandidates={onFillCandidates} isLoading={isLoading} />
+      <CandidateRow selectedNumber={selectedNumber} inputMode={inputMode} onNumberSelect={onNumberSelect} />
       <NumberPadInput selectedNumber={selectedNumber} inputMode={inputMode} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} />
       <NumberPadStatus gameStatus={gameStatus} statusMessage={statusMessage} onCloseStatus={onCloseStatus} />
     </Stack>

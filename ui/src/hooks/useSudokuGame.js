@@ -310,9 +310,9 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const writeCellValue = useCallback((row, col, number) => {
+  const writeCellValue = useCallback((row, col, number, modeOverride) => {
     if (originalGrid && originalGrid[row][col] !== 0) return;
-    if (inputMode === 'normal') {
+    if ((modeOverride ?? inputMode) === 'normal') {
       const prevValue = currentGridRef.current?.[row][col] ?? 0;
       const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
       setHistory((h) => [...h, { type: 'normal', row, col, prevValue, prevCandidates }]);
@@ -390,10 +390,11 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     }
   }, [selectedCell, selectedNumber, writeCellValue]);
 
-  const handleNumberSelect = useCallback((n) => {
+  const handleNumberSelect = useCallback((n, modeOverride) => {
     if (n === null) { setSelectedNumber(null); return; }
+    if (modeOverride) setInputMode(modeOverride);
     if (selectedCell) {
-      writeCellValue(selectedCell.row, selectedCell.col, n);
+      writeCellValue(selectedCell.row, selectedCell.col, n, modeOverride);
       setSelectedNumber(null);
     } else {
       setSelectedNumber(n);

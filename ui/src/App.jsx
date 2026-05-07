@@ -16,7 +16,7 @@ import { useSudokuGame } from './hooks/useSudokuGame.js';
 import { usePlayerProfile } from './hooks/usePlayerProfile.js';
 import SudokuGrid from './components/SudokuGrid.jsx';
 import StatusBar from './components/StatusBar.jsx';
-import { NumberPadToolbar, NumberPadInput, NumberPadStatus } from './components/NumberPad.jsx';
+import { NumberPadToolbar, CandidateRow, NumberPadInput, NumberPadStatus } from './components/NumberPad.jsx';
 import HintDialog from './components/HintDialog.jsx';
 import Header from './components/Header.jsx';
 import PauseOverlay from './components/PauseOverlay.jsx';
@@ -218,10 +218,8 @@ function SudokuApp({ user, signOut }) {
             <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               {/* Game column — width driven by the grid, everything else matches it */}
               <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
-                {/* Toolbar row: mode toggle left, action buttons right */}
+                {/* Toolbar row: action buttons only */}
                 <NumberPadToolbar
-                  inputMode={inputMode}
-                  onModeChange={setInputMode}
                   onClearCell={clearCell}
                   onUndo={undoLastMove}
                   canUndo={canUndo}
@@ -241,7 +239,13 @@ function SudokuApp({ user, signOut }) {
                   selectedNumber={selectedNumber}
                   onCellClick={updateCell}
                 />
-                {/* Number buttons below grid — stretch to grid width */}
+                {/* Candidate digit row — tapping switches to candidate mode */}
+                <CandidateRow
+                  selectedNumber={selectedNumber}
+                  inputMode={inputMode}
+                  onNumberSelect={handleNumberSelect}
+                />
+                {/* Normal digit row(s) — tapping switches to normal mode */}
                 <NumberPadInput
                   selectedNumber={selectedNumber}
                   inputMode={inputMode}
