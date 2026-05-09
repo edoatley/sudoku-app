@@ -113,7 +113,6 @@ function SudokuApp({ user, signOut }) {
     gameStatus,
     inputMode,
     selectedNumber,
-    setInputMode,
     handleNumberSelect,
     startNewGame,
     startNewGameFromImage,
