@@ -163,9 +163,9 @@ test('full player journey: new user → play → pause → resume → complete �
   // 2. Player fills a couple of cells (originalGrid[0][0] and [0][1] are 0 so editable)
   // Use cell-first pattern to avoid stale selectedCell issues between fills
   await page.getByTestId('cell-0-0').click();
-  await page.getByRole('button', { name: '4', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
   await page.getByTestId('cell-0-1').click();
-  await page.getByRole('button', { name: '3', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '3', exact: true }).click();
 
   await expect(page.getByTestId('cell-0-0')).toContainText('4');
   await expect(page.getByTestId('cell-0-1')).toContainText('3');
@@ -219,7 +219,7 @@ test('full player journey: new user → play → pause → resume → complete �
   await expect(page.locator('[class*="MuiChip-root"]').filter({ hasText: /\d{2}:\d{2}/ }).first()).toBeVisible();
 
   // 7. Player fills the final cell ([8][8] = 0 in MEDIUM_SOLVED)
-  await page.getByRole('button', { name: '9', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '9', exact: true }).click();
   await page.getByTestId('cell-8-8').click();
 
   // 8. Congratulations dialog appears with time taken

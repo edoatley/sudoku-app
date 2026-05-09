@@ -132,8 +132,8 @@ test.describe('Game persistence (real backend + DynamoDB via LocalStack)', () =>
     await page.goto('/');
     await waitForGrid(page);
 
-    // Enter a value in an empty cell
-    await page.getByRole('button', { name: '4', exact: true }).click();
+    // Enter a value in an empty cell (scope to normal pad to avoid ambiguity with candidate row)
+    await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
     await page.getByTestId('cell-0-2').click();
 
     // Simulate tab hide to trigger immediate sync

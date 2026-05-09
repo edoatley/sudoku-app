@@ -18,7 +18,7 @@ test('undo restores a normal-mode fill', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: '4', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
   await expect(page.getByTestId('cell-0-2')).toContainText('4');
 
@@ -31,7 +31,7 @@ test('undo re-disables after undoing the only move', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: '4', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
 
   const undoBtn = page.getByRole('button', { name: 'undo' });
@@ -46,8 +46,7 @@ test('undo restores candidates in candidate mode', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: 'Candidate' }).click();
-  await page.getByRole('button', { name: '3', exact: true }).click();
+  await page.getByTestId('numberpad-candidate').getByRole('button', { name: '3', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
 
   // Candidate 3 should now be visible in cell-0-2

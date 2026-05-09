@@ -125,7 +125,7 @@ export function NumberPadToolbar({ onClearCell, onUndo, canUndo, onValidate, onH
  */
 export function CandidateRow({ selectedNumber, inputMode, onNumberSelect }) {
   return (
-    <Box>
+    <Box data-testid="numberpad-candidate">
       <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.25 }}>
         Candidate
       </Typography>
@@ -147,7 +147,7 @@ export function CandidateRow({ selectedNumber, inputMode, onNumberSelect }) {
 export function NumberPadInput({ selectedNumber, inputMode, onNumberSelect, completedNumbers }) {
   const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   return (
-    <Box>
+    <Box data-testid="numberpad-normal">
       <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.25 }}>
         Normal
       </Typography>
