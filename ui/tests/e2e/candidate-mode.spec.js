@@ -6,8 +6,10 @@ test('candidate mode — adding a candidate shows it as a small number in the ce
   await page.goto('/');
   await waitForGrid(page);
 
-  // Select 4 from candidate row (switches to candidate mode automatically)
-  await page.getByTestId('numberpad-candidate').getByRole('button', { name: '4', exact: true }).click();
+  // Select number 4
+  await page.getByRole('button', { name: '4', exact: true }).click();
+  // Switch to Candidate mode
+  await page.getByRole('button', { name: 'Candidate' }).click();
   // Click empty cell at row 0, col 2
   await page.getByTestId('cell-0-2').click();
 
@@ -20,8 +22,8 @@ test('candidate mode — normal mode fills the cell with the selected number', a
   await page.goto('/');
   await waitForGrid(page);
 
-  // Select number 4 from normal row — Normal mode is the default
-  await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
+  // Select number 4 — Normal mode is the default
+  await page.getByRole('button', { name: '4', exact: true }).click();
   // Click empty cell at row 0, col 2
   await page.getByTestId('cell-0-2').click();
 

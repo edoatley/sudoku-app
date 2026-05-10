@@ -27,8 +27,8 @@ test('number pad — completed digit is disabled in normal mode', async ({ page 
   await page.goto('/');
   await waitForGrid(page);
 
-  // Normal mode is the default; 9 appears 9 times so the normal pad button should be disabled
-  const nineButton = page.getByTestId('numberpad-normal').getByRole('button', { name: '9', exact: true });
+  // Normal mode is the default; 9 appears 9 times so the button should be disabled
+  const nineButton = page.getByRole('button', { name: '9', exact: true });
   await expect(nineButton).toBeDisabled();
 });
 
@@ -40,8 +40,10 @@ test('number pad — completed digit is enabled in candidate mode', async ({ pag
   await page.goto('/');
   await waitForGrid(page);
 
-  // Candidate row button for 9 is always enabled regardless of completion count
-  const nineButton = page.getByTestId('numberpad-candidate').getByRole('button', { name: '9', exact: true });
+  // Switch to candidate mode — all buttons must be enabled regardless of counts
+  await page.getByRole('button', { name: 'Candidate' }).click();
+
+  const nineButton = page.getByRole('button', { name: '9', exact: true });
   await expect(nineButton).toBeEnabled();
 });
 
@@ -58,28 +60,31 @@ test('number pad — candidate mode allows removing a lingering candidate of a c
   await page.goto('/');
   await waitForGrid(page);
 
-  // cell-0-2 has a 9 candidate; use candidate row to click 9 (switches to candidate mode)
+  // cell-0-2 has a 9 candidate; in normal mode the 9 button is disabled
+  // Switch to candidate mode so we can click 9
+  await page.getByRole('button', { name: 'Candidate' }).click();
+
+  // Select cell first, then press 9 — this toggles the existing candidate off
   await page.getByTestId('cell-0-2').click();
-  await page.getByTestId('numberpad-candidate').getByRole('button', { name: '9', exact: true }).click();
+  await page.getByRole('button', { name: '9', exact: true }).click();
 
   // Once the only candidate is removed the cell reverts to empty (no CandidateDisplay)
   await expect(page.getByTestId('cell-0-2')).toHaveText('');
 });
 
-test('number pad — clicking candidate row switches to candidate mode; clicking normal row switches back', async ({ page }) => {
-  await setupGameRoutes(page);
+test('number pad — switching back to normal mode re-disables the completed digit', async ({ page }) => {
+  await setupGameRoutes(page, {
+    currentGrid: GRID_WITH_ALL_NINES,
+    candidates: CANDIDATES_WITH_NINE,
+  });
   await page.goto('/');
   await waitForGrid(page);
 
-  // Clicking candidate row selects in candidate mode — cell gets a mini candidate digit
-  await page.getByTestId('numberpad-candidate').getByRole('button', { name: '4', exact: true }).click();
-  await page.getByTestId('cell-0-2').click();
-  await expect(page.getByTestId('cell-0-2')).toContainText('4');
+  // Go to candidate mode — 9 is enabled
+  await page.getByRole('button', { name: 'Candidate' }).click();
+  await expect(page.getByRole('button', { name: '9', exact: true })).toBeEnabled();
 
-  await page.getByRole('button', { name: 'Undo' }).click();
-
-  // Clicking normal row switches back — cell gets a full placed digit
-  await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
-  await page.getByTestId('cell-0-2').click();
-  await expect(page.getByTestId('cell-0-2')).toContainText('4');
+  // Switch back to normal mode — 9 should be disabled again
+  await page.getByRole('button', { name: 'Normal' }).click();
+  await expect(page.getByRole('button', { name: '9', exact: true })).toBeDisabled();
 });

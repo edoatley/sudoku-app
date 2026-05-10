@@ -61,7 +61,6 @@
 
 - [x] **FE-MOB-001**: The system shall display action buttons (Undo, Clear, Check, Hint, Fill) in a single toolbar row at all viewport sizes without overflow.
 - [x] **FE-MOB-002**: The system shall display normal digit buttons (1–9) in a single row on viewports wider than the `sm` breakpoint, and in two rows (1–5, then 6–9) on narrower viewports.
-- [x] **FE-MOB-003**: The system shall display candidate digit buttons (1–9) as a separate row above the normal digit row at all viewport sizes; tapping a candidate button shall switch input mode to candidate.
 - [x] **FE-MOB-004**: The system shall size the 9×9 grid so that all cells, borders, and container padding fit within the viewport width on mobile without horizontal overflow.
 
 ## Developer Tools

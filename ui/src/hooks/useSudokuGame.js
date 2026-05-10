@@ -310,9 +310,9 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const writeCellValue = useCallback((row, col, number, modeOverride) => {
+  const writeCellValue = useCallback((row, col, number) => {
     if (originalGrid && originalGrid[row][col] !== 0) return;
-    if ((modeOverride ?? inputMode) === 'normal') {
+    if (inputMode === 'normal') {
       const prevValue = currentGridRef.current?.[row][col] ?? 0;
       const prevCandidates = [...(candidateGridRef.current?.[row][col] ?? [])];
       setHistory((h) => [...h, { type: 'normal', row, col, prevValue, prevCandidates }]);
@@ -390,11 +390,10 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     }
   }, [selectedCell, selectedNumber, writeCellValue]);
 
-  const handleNumberSelect = useCallback((n, modeOverride) => {
+  const handleNumberSelect = useCallback((n) => {
     if (n === null) { setSelectedNumber(null); return; }
-    if (modeOverride) setInputMode(modeOverride);
     if (selectedCell) {
-      writeCellValue(selectedCell.row, selectedCell.col, n, modeOverride);
+      writeCellValue(selectedCell.row, selectedCell.col, n);
       setSelectedNumber(null);
     } else {
       setSelectedNumber(n);
@@ -438,11 +437,24 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     }
   }, [currentGrid, pauseTimer, onForbidden]);
 
+  // @spec HE-UI-011 — fetch a hint, retrying with no exclusions if the first call finds nothing.
+  // When excludedHintRanks is non-empty and the backend returns null (NoStrategyApplied), the
+  // exclusion list is the likely cause. A second call with an empty exclusion list gives the backend
+  // a clean slate to find the easiest applicable technique for the current board state.
+  // Returns { hint, didReset } where didReset signals that the exclusion list was cleared.
+  const fetchHintWithFallback = useCallback(async (excluded) => {
+    const hint = await getHint(currentGrid, hintMinRank, excluded);
+    if (hint !== null) return { hint, didReset: false };
+    if (excluded.length === 0) return { hint: null, didReset: false };
+    const retryHint = await getHint(currentGrid, hintMinRank, []);
+    return { hint: retryHint, didReset: true };
+  }, [currentGrid, hintMinRank]);
+
   const requestHint = useCallback(async () => {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const hint = await getHint(currentGrid, hintMinRank, excludedHintRanks);
+      const { hint, didReset } = await fetchHintWithFallback(excludedHintRanks);
       if (!hint) {
         setExcludedHintRanks([]);
         setStatusMessage('No more hints available.');
@@ -450,9 +462,12 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       }
       setHintsUsed((n) => n + 1);
       if (hint.strategyRank != null) {
-        setExcludedHintRanks((prev) =>
-          prev.includes(hint.strategyRank) ? prev : [...prev, hint.strategyRank]
+        const nextExcluded = didReset ? [hint.strategyRank] : (
+          excludedHintRanks.includes(hint.strategyRank)
+            ? excludedHintRanks
+            : [...excludedHintRanks, hint.strategyRank]
         );
+        setExcludedHintRanks(nextExcluded);
       }
       setActiveHint(hint);
       setHintStage('nudge');
@@ -464,22 +479,25 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, hintMinRank, excludedHintRanks, onForbidden]);
+  }, [currentGrid, fetchHintWithFallback, excludedHintRanks, onForbidden]);
 
   const requestAlternateHint = useCallback(async () => {
     if (!currentGrid) return;
     setIsLoading(true);
     try {
-      const hint = await getHint(currentGrid, hintMinRank, excludedHintRanks);
+      const { hint, didReset } = await fetchHintWithFallback(excludedHintRanks);
       if (!hint) {
         setExcludedHintRanks([]);
         setStatusMessage('No more alternate hints. Starting over from the easiest.');
         return;
       }
       if (hint.strategyRank != null) {
-        setExcludedHintRanks((prev) =>
-          prev.includes(hint.strategyRank) ? prev : [...prev, hint.strategyRank]
+        const nextExcluded = didReset ? [hint.strategyRank] : (
+          excludedHintRanks.includes(hint.strategyRank)
+            ? excludedHintRanks
+            : [...excludedHintRanks, hint.strategyRank]
         );
+        setExcludedHintRanks(nextExcluded);
       }
       setActiveHint(hint);
       setHintStage('nudge');
@@ -491,7 +509,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, hintMinRank, excludedHintRanks, onForbidden]);
+  }, [currentGrid, fetchHintWithFallback, excludedHintRanks, onForbidden]);
 
   const advanceHint = useCallback(() => {
     if (!activeHint) return;
@@ -607,9 +625,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     });
   }, []);
 
-  const clearCell = useCallback(() => {
-    if (!selectedCell) return;
-    const { row, col } = selectedCell;
+  const clearCell = useCallback((row, col) => {
+    if (row == null || col == null) return;
     if (originalGrid[row][col] !== 0) return;
     setCurrentGrid(prev => {
       const next = prev.map(r => [...r]);
@@ -626,7 +643,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       next.delete(`${row},${col}`);
       return next;
     });
-  }, [selectedCell, originalGrid]);
+  }, [originalGrid]);
 
   const clearStatus = useCallback(() => {
     setStatusMessage(null);
@@ -749,6 +766,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     inputMode,
     selectedNumber,
     selectedCell,
+    setSelectedCell,
+    writeCellValue,
     setInputMode,
     setSelectedNumber,
     handleNumberSelect,
