@@ -126,6 +126,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setHintMinRank(null);
       setHintsUsed(0);
       setExcludedHintRanks([]);
+      setDifficulty(activeDiff);
       lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0, 0);
       startTimer();
     } catch (err) {
