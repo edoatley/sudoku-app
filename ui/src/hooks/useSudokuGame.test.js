@@ -333,15 +333,13 @@ describe('clearCell', () => {
     act(() => result.current.updateCell(0, 2));
     act(() => result.current.handleNumberSelect(4));
     expect(result.current.currentGrid[0][2]).toBe(4);
-    // selectedCell is still {row:0, col:2} — clearCell uses it
-    act(() => result.current.clearCell());
+    act(() => result.current.clearCell(0, 2));
     expect(result.current.currentGrid[0][2]).toBe(0);
   });
 
   it('does not clear a given cell', async () => {
     const { result } = await mountAndWait();
-    act(() => result.current.updateCell(0, 0)); // given cell (value = 5)
-    act(() => result.current.clearCell());
+    act(() => result.current.clearCell(0, 0)); // given cell (value = 5)
     expect(result.current.currentGrid[0][0]).toBe(5);
   });
 });
