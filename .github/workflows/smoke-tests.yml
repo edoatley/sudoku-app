@@ -92,11 +92,18 @@ jobs:
           API_URL: ${{ inputs.api_gateway_url }}
         run: |
           API_BASE="${API_URL%/}"
-          echo "Waiting for Lambda to be ready..."
-          for i in $(seq 1 15); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${API_BASE}/api/v1/health")
-            [ "${STATUS}" = "200" ] && echo "Lambda ready (attempt ${i})" && break
-            echo "  attempt ${i}: got ${STATUS}, retrying in 5s..."
+          # Poll /health until it returns 200 with status:"ok" — the Lambda
+          # returns 503 with status:"warming" for ~30 s after a cold start.
+          echo "Waiting for Lambda to finish warming up..."
+          for i in $(seq 1 24); do
+            BODY=$(curl -s -o /tmp/health_warmup.json -w "%{http_code}" --max-time 10 "${API_BASE}/api/v1/health" || echo "000")
+            STATUS="${BODY}"
+            if [ "${STATUS}" = "200" ] && grep -q '"status":"ok"' /tmp/health_warmup.json 2>/dev/null; then
+              echo "Lambda warm (attempt ${i})"
+              break
+            fi
+            WARMUP_STATUS=$(grep -o '"status":"[^"]*"' /tmp/health_warmup.json 2>/dev/null || echo "unknown")
+            echo "  attempt ${i}/24: HTTP ${STATUS} ${WARMUP_STATUS} — retrying in 5s..."
             sleep 5
           done
 
