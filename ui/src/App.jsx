@@ -246,8 +246,8 @@ function SudokuApp({ user, signOut }) {
           ) : currentGrid ? (
             /* Outer box centres the game column on the page */
             <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {/* Game column — width driven by the grid, everything else matches it */}
-              <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'stretch', gap: 1 }}>
+              {/* Game column — full width on mobile (grid fills it), inline-fit on desktop */}
+              <Box sx={{ display: { xs: 'flex', sm: 'inline-flex' }, flexDirection: 'column', alignItems: 'stretch', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
                 {/* Toolbar row: mode toggle left, action buttons right */}
                 <NumberPadToolbar
                   inputMode={inputMode}
