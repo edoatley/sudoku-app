@@ -24,7 +24,8 @@
     "aws-amplify": "^6.16.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "overrides": {
     "lodash": "^4.18.1"

@@ -212,7 +212,6 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 - [ ] Make the score history more visually appealing and convey more useful information
 - [ ] Create a league table that shows the different players and how they are doing relative to their peers. Should reward number of puzzles completed, and short times taken 
 - [ ] Add expert difficulty
-- [ ] Review LLD tech debt
 - [ ] terratest for infrstructure
 - [ ] UI cleanup 
   - [ ] persist game history to server

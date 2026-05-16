@@ -151,7 +151,7 @@ export default function Header({
                 anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
               >
                 <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', mb: 0.5 }}>
-                  <Typography variant="overline" color="text.secondary" lineHeight={1.5}>
+                  <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.5 }}>
                     Game
                   </Typography>
                 </Box>

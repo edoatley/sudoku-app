@@ -16,6 +16,9 @@ import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import HelpIcon from '@mui/icons-material/Help';
+import EditIcon from '@mui/icons-material/Edit';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import HelpIcon from '@mui/icons-material/Help';
 
 const btnSx = { flex: 1, minWidth: 0, height: { xs: 44, sm: 52 }, p: 0, fontSize: '1.15rem' };
 
@@ -60,6 +63,7 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
           sx={active ? { ...toolBtnSx, color: 'primary.contrastText', borderColor: 'primary.main', bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } } : toolBtnSx}
         >
           {icon}
+          <Typography variant="caption" sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 1 }}>
           <Typography variant="caption" sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 1 }}>
             {label}
           </Typography>
@@ -133,8 +137,14 @@ export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo,
         <ButtonGroup variant="outlined" color="inherit" size="small">
           <ToolButton label="Undo" tooltip="Undo last move (U)" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
           <ToolButton label="Clear" tooltip="Clear cell (Del or 0)" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
+          <ToolButton label="Undo" tooltip="Undo last move (U)" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
+          <ToolButton label="Clear" tooltip="Clear cell (Del or 0)" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
         </ButtonGroup>
         <ButtonGroup variant="outlined" color="inherit" size="small">
+          <ToolButton label="Check" tooltip="Validate puzzle (C)" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
+          <ToolButton label="Hint" tooltip="Get a hint (H)" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
+          <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates (F)" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
+          <ToolButton label="Help" tooltip="Controls &amp; keyboard shortcuts (? or /)" icon={<HelpIcon sx={{ fontSize: 20 }} />} onClick={onHelp} />
           <ToolButton label="Check" tooltip="Validate puzzle (C)" icon={<FactCheckIcon sx={{ fontSize: 20 }} />} onClick={onValidate} disabled={isLoading} />
           <ToolButton label="Hint" tooltip="Get a hint (H)" icon={<LightbulbIcon sx={{ fontSize: 20 }} />} onClick={onHint} disabled={isLoading} />
           <ToolButton label="Fill" tooltip="Fetch and fill in all valid candidates (F)" icon={<LibraryAddIcon sx={{ fontSize: 20 }} />} onClick={onFillCandidates} disabled={isLoading} />
