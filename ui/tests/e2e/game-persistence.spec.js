@@ -104,7 +104,7 @@ test.describe('Game lifecycle — API calls', () => {
     await page.goto('/');
     await waitForGrid(page);
 
-    await page.getByRole('button', { name: '4', exact: true }).click();
+    await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
     await page.getByTestId('cell-0-2').click();
     await expect(page.getByTestId('cell-0-2')).toContainText('4');
 
@@ -181,7 +181,7 @@ test.describe('Game lifecycle — API calls', () => {
     await waitForGrid(page);
 
     // Fill the last cell — auto-completion fires without needing Check button
-    await page.getByRole('button', { name: '9', exact: true }).click();
+    await page.getByTestId('numberpad-normal').getByRole('button', { name: '9', exact: true }).click();
     await page.getByTestId('cell-8-8').click();
 
     // Wait for the completion PATCH (auto-triggered by filling the last cell)

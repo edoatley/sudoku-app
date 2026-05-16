@@ -57,6 +57,12 @@
 - [x] **FE-UI-042**: The system shall record up to 10 completed games in localStorage and display them in the Puzzle History dialog.
 - [x] **FE-UI-043**: The system shall display game statistics grouped by difficulty (total, wins, losses, average time) in the Statistics dialog.
 
+## Mobile Layout
+
+- [x] **FE-MOB-001**: The system shall display action buttons (Undo, Clear, Check, Hint, Fill) in a single toolbar row at all viewport sizes without overflow.
+- [x] **FE-MOB-002**: The system shall display normal digit buttons (1–9) in a single row on viewports wider than the `sm` breakpoint, and in two rows (1–5, then 6–9) on narrower viewports.
+- [x] **FE-MOB-004**: The system shall size the 9×9 grid so that all cells, borders, and container padding fit within the viewport width on mobile without horizontal overflow.
+
 ## Developer Tools
 
 - [x] **FE-UI-050**: Where VITE_DEV_TOOLS is true, the system shall display a developer submenu in the game menu with entries for all 11 hint technique demos.

@@ -73,41 +73,63 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
 
 /** Toolbar row: mode toggle left | Undo, Clear | Check, Hint, Fill, Help right */
 export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo, canUndo, onValidate, onHint, onFillCandidates, isLoading, onHelp }) {
+  const isNormal = inputMode === 'normal';
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-      {/* Mode toggle — left */}
+      {/* Mode toggle — left.
+          xs: compact single-button showing current mode; tap cycles to the other.
+          sm+: full two-segment toggle group. */}
       <Tooltip title="Toggle mode (Space)" arrow>
-        <ToggleButtonGroup
-          value={inputMode}
-          exclusive
-          onChange={(_, val) => { if (val) onModeChange(val); }}
-          size="small"
-        >
-          <ToggleButton
-            value="normal"
+        <Box>
+          {/* Compact single-state button for mobile */}
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => onModeChange(isNormal ? 'candidate' : 'normal')}
+            startIcon={isNormal ? <EditIcon sx={{ fontSize: 15 }} /> : <EditNoteIcon sx={{ fontSize: 15 }} />}
             sx={{
-              px: 1.5, py: 0.5, fontSize: '0.75rem', gap: 0.5,
-              '&.Mui-selected': { bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } },
+              display: { xs: 'inline-flex', sm: 'none' },
+              bgcolor: isNormal ? 'primary.main' : 'success.main',
+              '&:hover': { bgcolor: isNormal ? 'primary.dark' : 'success.dark' },
+              px: 1, py: 0.5, fontSize: '0.75rem', whiteSpace: 'nowrap', minWidth: 0,
             }}
           >
-            <EditIcon sx={{ fontSize: 15 }} />
-            Normal
-          </ToggleButton>
-          <ToggleButton
-            value="candidate"
-            sx={{
-              px: 1.5, py: 0.5, fontSize: '0.75rem', gap: 0.5,
-              '&.Mui-selected': { bgcolor: 'success.main', color: 'success.contrastText', '&:hover': { bgcolor: 'success.dark' } },
-            }}
+            {isNormal ? 'Normal' : 'Candidate'}
+          </Button>
+          {/* Full two-segment toggle for sm+ */}
+          <ToggleButtonGroup
+            value={inputMode}
+            exclusive
+            onChange={(_, val) => { if (val) onModeChange(val); }}
+            size="small"
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
           >
-            <EditNoteIcon sx={{ fontSize: 15 }} />
-            Candidate
-          </ToggleButton>
-        </ToggleButtonGroup>
+            <ToggleButton
+              value="normal"
+              sx={{
+                px: 1.5, py: 0.5, fontSize: '0.75rem', gap: 0.5,
+                '&.Mui-selected': { bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } },
+              }}
+            >
+              <EditIcon sx={{ fontSize: 15 }} />
+              Normal
+            </ToggleButton>
+            <ToggleButton
+              value="candidate"
+              sx={{
+                px: 1.5, py: 0.5, fontSize: '0.75rem', gap: 0.5,
+                '&.Mui-selected': { bgcolor: 'success.main', color: 'success.contrastText', '&:hover': { bgcolor: 'success.dark' } },
+              }}
+            >
+              <EditNoteIcon sx={{ fontSize: 15 }} />
+              Candidate
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
       </Tooltip>
 
       {/* Action buttons — right */}
-      <Box sx={{ display: 'flex', gap: 1 }}>
+      <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 1 } }}>
         <ButtonGroup variant="outlined" color="inherit" size="small">
           <ToolButton label="Undo" tooltip="Undo last move (U)" icon={<UndoIcon sx={{ fontSize: 20 }} />} onClick={onUndo} disabled={!canUndo} />
           <ToolButton label="Clear" tooltip="Clear cell (Del or 0)" icon={<ClearIcon sx={{ fontSize: 20 }} />} onClick={onClearCell} />
@@ -123,13 +145,25 @@ export function NumberPadToolbar({ inputMode, onModeChange, onClearCell, onUndo,
   );
 }
 
-/** Single row of number buttons 1–9, stretched to fill available width */
+/** Single row of number buttons 1–9 (sm+); 5+4 split on xs */
 export function NumberPadInput({ selectedNumber, inputMode, onNumberSelect, completedNumbers }) {
+  const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const numProps = (n) => ({ key: n, n, selectedNumber, onNumberSelect, completedNumbers, inputMode });
   return (
-    <Box sx={{ display: 'flex', gap: 0.75 }}>
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-        <NumButton key={n} n={n} selectedNumber={selectedNumber} onNumberSelect={onNumberSelect} completedNumbers={completedNumbers} inputMode={inputMode} />
-      ))}
+    <Box data-testid="numberpad-normal">
+      {/* Single row on sm+ */}
+      <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.75 }}>
+        {nums.map((n) => <NumButton {...numProps(n)} />)}
+      </Box>
+      {/* Two rows on xs: 1–5 then 6–9 */}
+      <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexDirection: 'column', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {[1, 2, 3, 4, 5].map((n) => <NumButton {...numProps(n)} />)}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {[6, 7, 8, 9].map((n) => <NumButton {...numProps(n)} />)}
+        </Box>
+      </Box>
     </Box>
   );
 }

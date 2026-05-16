@@ -31,7 +31,8 @@ resource "aws_iam_policy" "sudoku_dynamodb" {
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:UpdateItem",
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:Scan"
         ]
         Resource = aws_dynamodb_table.sudoku_games.arn
       }
@@ -56,7 +57,8 @@ resource "aws_iam_policy" "sudoku_players_dynamodb" {
         Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:Scan"
         ]
         Resource = aws_dynamodb_table.sudoku_players.arn
       }

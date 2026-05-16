@@ -48,7 +48,7 @@ test('solved state shows congratulations dialog', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: '9', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '9', exact: true }).click();
   await page.getByTestId('cell-8-8').click();
 
   const dialog = page.getByTestId('congrats-dialog');
@@ -62,7 +62,7 @@ test('solved dialog disappears and clears grid after Finish', async ({ page }) =
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: '9', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '9', exact: true }).click();
   await page.getByTestId('cell-8-8').click();
 
   await expect(page.getByTestId('congrats-dialog')).toBeVisible();

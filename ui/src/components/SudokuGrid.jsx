@@ -37,7 +37,7 @@ export default function SudokuGrid({ originalGrid, currentGrid, candidateGrid, e
       // On desktop (md+): fill height minus header (~56px) minus numberpad (~220px) minus gaps (~32px)
       // Cap at 756px (≈ 20cm at 96dpi). The CSS min() picks the smaller of the two constraints.
       '--sudoku-cell-size': {
-        xs: 'min(calc((100vw - 16px) / 9), 84px)',
+        xs: 'min(calc((100vw - 47px) / 9), 84px)',
         md: 'min(calc((100vh - 308px) / 9), 84px)',
       },
     }}>

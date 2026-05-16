@@ -7,7 +7,7 @@ test('clear button removes a user-entered value from the selected cell', async (
   await waitForGrid(page);
 
   // Enter 4 into empty cell at row 0, col 2
-  await page.getByRole('button', { name: '4', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
   await expect(page.getByTestId('cell-0-2')).toContainText('4');
 

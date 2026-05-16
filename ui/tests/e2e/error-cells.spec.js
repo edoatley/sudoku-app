@@ -20,7 +20,7 @@ test('single error cell gets error background', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: '5', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '5', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
 
   await page.getByRole('button', { name: 'Check' }).click();
@@ -38,7 +38,7 @@ test('multiple error cells all highlighted', async ({ page }) => {
   await page.goto('/');
   await waitForGrid(page);
 
-  await page.getByRole('button', { name: '5', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '5', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
 
   await page.getByRole('button', { name: 'Check' }).click();
@@ -57,13 +57,13 @@ test('error background clears when new value entered in error cell', async ({ pa
   await waitForGrid(page);
 
   // Trigger error on cell-0-2
-  await page.getByRole('button', { name: '5', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '5', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
   await page.getByRole('button', { name: 'Check' }).click();
   await expect(page.getByTestId('cell-0-2')).toHaveCSS('background-color', 'rgb(239, 83, 80)');
 
   // Enter a new value — error state should clear
-  await page.getByRole('button', { name: '4', exact: true }).click();
+  await page.getByTestId('numberpad-normal').getByRole('button', { name: '4', exact: true }).click();
   await page.getByTestId('cell-0-2').click();
 
   await expect(page.getByTestId('cell-0-2')).not.toHaveCSS('background-color', 'rgb(239, 83, 80)');

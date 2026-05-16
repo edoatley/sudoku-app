@@ -118,7 +118,7 @@ export default function Header({
 
   return (
     <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
-      <Toolbar sx={{ justifyContent: 'space-between' }}>
+      <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 1, sm: 2 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {!minimal && (
             <>
@@ -214,7 +214,7 @@ export default function Header({
         </Box>
 
         {!minimal && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
             {gameStarted && (
               <Chip
                 icon={timerRunning ? <TimerOutlinedIcon /> : <PauseIcon />}
