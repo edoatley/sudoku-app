@@ -43,6 +43,14 @@ test.describe('Validate board', () => {
     await page.goto('/');
     await waitForGrid(page);
 
+    // Force a brand-new game so the board has no user entries and no stale
+    // server-side game state. The smoke test user's current game in DynamoDB
+    // may have user-entered errors that would cause Check to report conflicts.
+    await page.getByRole('button', { name: /game menu/i }).click();
+    await page.getByRole('menuitem', { name: /new game/i }).click();
+    await page.getByRole('button', { name: /start/i }).click();
+    await waitForGrid(page);
+
     await page.getByRole('button', { name: 'Check' }).click();
 
     // Should not see an error/warning alert (valid partial board)

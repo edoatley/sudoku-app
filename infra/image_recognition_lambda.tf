@@ -64,27 +64,33 @@ resource "aws_iam_role_policy_attachment" "image_recognition_bedrock" {
 
 # ── Lambda function ───────────────────────────────────────────────────────────
 
-resource "aws_lambda_function" "image_recognition" {
-  function_name = "sudoku-image-recognition${local.suffix}"
-  role          = aws_iam_role.image_recognition_lambda_exec.arn
+module "image_recognition_lambda" {
+  source  = "terraform-aws-modules/lambda/aws"
+  version = "~> 7.0"
 
-  package_type = "Image"
-  image_uri    = var.image_recognition_image_uri
+  function_name = "sudoku-image-recognition${local.suffix}"
+  description   = "Sudoku image recognition (Bedrock-backed, container)"
+
+  # Use existing IAM role — avoids a destroy+create cycle for a role rename
+  create_role = false
+  lambda_role = aws_iam_role.image_recognition_lambda_exec.arn
+
+  package_type   = "Image"
+  image_uri      = var.image_recognition_image_uri
+  create_package = false
 
   architectures = ["x86_64"]
   memory_size   = 512
   timeout       = 60 # Bedrock inference can take ~20 s; cold start on a container image adds ~20 s on top
+  tracing_mode  = "PassThrough"
 
-  environment {
-    variables = {
-      AWS_REGION_NAME = "eu-west-2"
-      BEDROCK_MODELS  = join(",", local.bedrock_models)
-    }
+  environment_variables = {
+    AWS_REGION_NAME = "eu-west-2"
+    BEDROCK_MODELS  = join(",", local.bedrock_models)
   }
 
-  tracing_config {
-    mode = "PassThrough"
-  }
+  use_existing_cloudwatch_log_group = false
+  cloudwatch_logs_retention_in_days = local.is_default ? 7 : 3
 
   # checkov:skip=CKV_AWS_116: Synchronous HTTP API invocation — DLQ only applies to async Lambda invocations
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit
@@ -92,41 +98,14 @@ resource "aws_lambda_function" "image_recognition" {
   # checkov:skip=CKV_AWS_50: X-Ray active tracing costs money; PassThrough is sufficient for a personal project
 }
 
-resource "aws_cloudwatch_log_group" "image_recognition_lambda" {
-  name              = "/aws/lambda/${aws_lambda_function.image_recognition.function_name}"
-  retention_in_days = local.is_default ? 7 : 3
-
-  # checkov:skip=CKV_AWS_338: 7-day retention is intentional to minimise log storage cost
-  # checkov:skip=CKV_AWS_158: KMS CMK encryption costs ~$1/month; AWS-managed encryption is sufficient
-}
-
+# Permission kept standalone — the module's allowed_triggers targets the published
+# version qualifier, but the image recognition Lambda is unversioned/unaliased and
+# this bespoke resource matches the original behaviour exactly.
 resource "aws_lambda_permission" "image_recognition_api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.image_recognition.function_name
+  function_name = module.image_recognition_lambda.lambda_function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.sudoku.execution_arn}/*/*"
+  source_arn    = "${module.api_gateway.api_execution_arn}/*/*"
 }
 
-# ── API Gateway integration + route ──────────────────────────────────────────
-
-resource "aws_apigatewayv2_integration" "image_recognition" {
-  api_id                 = aws_apigatewayv2_api.sudoku.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.image_recognition.invoke_arn
-  payload_format_version = "2.0"
-}
-
-resource "aws_apigatewayv2_route" "post_puzzles_import" {
-  api_id             = aws_apigatewayv2_api.sudoku.id
-  route_key          = "POST /api/v1/puzzles/import"
-  target             = "integrations/${aws_apigatewayv2_integration.image_recognition.id}"
-  authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
-}
-
-resource "aws_apigatewayv2_route" "get_puzzles_import_warmup" {
-  api_id    = aws_apigatewayv2_api.sudoku.id
-  route_key = "GET /api/v1/puzzles/import/warmup"
-  target    = "integrations/${aws_apigatewayv2_integration.image_recognition.id}"
-}

@@ -23,7 +23,7 @@ resource "aws_amplify_app" "sudoku" {
   EOT
 
   environment_variables = {
-    VITE_API_URL              = "${trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")}/api/v1"
+    VITE_API_URL              = "${module.api_gateway.api_endpoint}/api/v1"
     VITE_MOCK_API             = "false"
     VITE_COGNITO_USER_POOL_ID = local.cognito_user_pool_id
     VITE_COGNITO_CLIENT_ID    = local.cognito_web_client_id
