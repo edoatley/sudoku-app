@@ -90,10 +90,10 @@ module "lambda" {
     COGNITO_CLIENT_ID    = local.cognito_web_client_id
   }
 
-  # No explicit log group exists for the Java Lambda today; the module creates one
-  # by default. Set use_existing_cloudwatch_log_group = false (the default) so the
-  # module owns the log group going forward.
-  use_existing_cloudwatch_log_group = false
+  # Lambda auto-creates /aws/lambda/<name> on first invocation, so the log group
+  # already exists in AWS before Terraform runs. Tell the module to adopt it rather
+  # than trying to create a new one.
+  use_existing_cloudwatch_log_group = true
 
   # checkov:skip=CKV_AWS_116: Synchronous HTTP API invocation — DLQ only applies to async Lambda invocations
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit for this public API
