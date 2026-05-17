@@ -40,6 +40,11 @@ test.describe('Generate puzzle', () => {
 
 test.describe('Validate board', () => {
   test('valid partial board shows no error alert', async ({ page }) => {
+    // Clear any saved game so the app generates a fresh puzzle with no user entries.
+    // Without this, a previously modified game in localStorage could have errors,
+    // causing Check to report conflicts on the restored board.
+    await page.goto('/');
+    await page.evaluate(() => localStorage.removeItem('sudoku_gameId'));
     await page.goto('/');
     await waitForGrid(page);
 
