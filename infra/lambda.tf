@@ -51,13 +51,23 @@ resource "aws_s3_object" "lambda_zip" {
   etag   = filemd5(var.lambda_zip_path)
 }
 
-resource "aws_lambda_function" "sudoku" {
-  function_name = "sudoku${local.suffix}"
-  role          = aws_iam_role.lambda_exec.arn
+module "lambda" {
+  source  = "terraform-aws-modules/lambda/aws"
+  version = "~> 7.0"
 
-  s3_bucket        = local.lambda_zip_bucket_id
-  s3_key           = aws_s3_object.lambda_zip.key
-  source_code_hash = filebase64sha256(var.lambda_zip_path)
+  function_name = "sudoku${local.suffix}"
+  description   = "Sudoku game API (Quarkus/Java)"
+
+  # Use existing IAM role — avoids a destroy+create cycle for a role rename
+  create_role = false
+  lambda_role = aws_iam_role.lambda_exec.arn
+
+  # Deployment package already uploaded to S3
+  create_package = false
+  s3_existing_package = {
+    bucket = local.lambda_zip_bucket_id
+    key    = aws_s3_object.lambda_zip.key
+  }
 
   runtime       = "java25"
   handler       = "io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest"
@@ -66,43 +76,44 @@ resource "aws_lambda_function" "sudoku" {
   timeout       = 8
   publish       = true
 
-  environment {
-    variables = {
-      CORS_ALLOWED_ORIGINS = "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},http://localhost:5173"
-      DYNAMODB_TABLE_NAME  = aws_dynamodb_table.sudoku_games.name
-      PLAYERS_TABLE_NAME   = aws_dynamodb_table.sudoku_players.name
-      COGNITO_ISSUER_URL   = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
-      COGNITO_CLIENT_ID    = local.cognito_web_client_id
-    }
-  }
-
-  snap_start {
-    apply_on = "PublishedVersions"
-  }
-
-  tracing_config {
-    mode = "PassThrough" # X-Ray traces only when upstream sends trace header — zero cost
-  }
+  snap_start = true
+  tracing_mode = "PassThrough"
 
   # reserved_concurrent_executions not set — account limit is 10 total, reserving any would
   # exhaust the 10-unit unreserved minimum AWS requires, causing a deployment error.
+
+  environment_variables = {
+    CORS_ALLOWED_ORIGINS = "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},http://localhost:5173"
+    DYNAMODB_TABLE_NAME  = aws_dynamodb_table.sudoku_games.name
+    PLAYERS_TABLE_NAME   = aws_dynamodb_table.sudoku_players.name
+    COGNITO_ISSUER_URL   = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
+    COGNITO_CLIENT_ID    = local.cognito_web_client_id
+  }
+
+  # No explicit log group exists for the Java Lambda today; the module creates one
+  # by default. Set use_existing_cloudwatch_log_group = false (the default) so the
+  # module owns the log group going forward.
+  use_existing_cloudwatch_log_group = false
 
   # checkov:skip=CKV_AWS_116: Synchronous HTTP API invocation — DLQ only applies to async Lambda invocations
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit for this public API
   # checkov:skip=CKV_AWS_272: Single-developer project — AWS Signer code-signing setup not warranted
 }
 
+# Alias and permission are kept standalone because the module (v7) does not
+# manage aliases, and the permission must target the alias qualifier, not the
+# published version that the module's allowed_triggers would target.
 resource "aws_lambda_alias" "live" {
   name             = "live"
-  function_name    = aws_lambda_function.sudoku.function_name
-  function_version = aws_lambda_function.sudoku.version
+  function_name    = module.lambda.lambda_function_name
+  function_version = module.lambda.lambda_function_version
 }
 
 resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.sudoku.function_name
+  function_name = module.lambda.lambda_function_name
   qualifier     = aws_lambda_alias.live.name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.sudoku.execution_arn}/*/*"
+  source_arn    = "${module.api_gateway.api_execution_arn}/*/*"
 }

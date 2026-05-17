@@ -1,11 +1,11 @@
 output "api_gateway_url" {
   description = "API Gateway HTTP v2 invoke URL."
-  value       = trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")
+  value       = module.api_gateway.api_endpoint
 }
 
 output "api_gateway_api_id" {
   description = "API Gateway HTTP v2 API ID (used by the deploy workflow to tighten CORS post-apply)."
-  value       = aws_apigatewayv2_api.sudoku.id
+  value       = module.api_gateway.api_id
 }
 
 output "amplify_app_url" {
@@ -43,12 +43,12 @@ output "route53_beta_zone_id" {
 
 output "lambda_function_name" {
   description = "Lambda function name."
-  value       = aws_lambda_function.sudoku.function_name
+  value       = module.lambda.lambda_function_name
 }
 
 output "lambda_function_arn" {
   description = "Lambda function ARN."
-  value       = aws_lambda_function.sudoku.arn
+  value       = module.lambda.lambda_function_arn
 }
 
 output "amplify_app_id" {
@@ -84,7 +84,7 @@ output "cognito_smoke_test_client_secret" {
 
 output "image_recognition_lambda_function_name" {
   description = "Image recognition Lambda function name."
-  value       = aws_lambda_function.image_recognition.function_name
+  value       = module.image_recognition_lambda.lambda_function_name
 }
 
 output "image_recognition_ecr_repository_url" {
