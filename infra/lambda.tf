@@ -76,7 +76,7 @@ module "lambda" {
   timeout       = 8
   publish       = true
 
-  snap_start = true
+  snap_start   = true
   tracing_mode = "PassThrough"
 
   # reserved_concurrent_executions not set — account limit is 10 total, reserving any would
