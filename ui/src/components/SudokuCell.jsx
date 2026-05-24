@@ -23,7 +23,17 @@ function getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRe
   return 'background.paper';
 }
 
-function CandidateDisplay({ candidates, useWhite }) {
+// Backgrounds that are always light-coloured regardless of colour mode.
+// Candidate text on these needs a dark colour to maintain WCAG AA contrast.
+const LIGHT_BG_TOKENS = new Set(['#e8eaf6', '#fffde7', 'error.light', 'warning.light', 'primary.light']);
+
+function getCandidateColor(bg, isSelected, isError, isHighlight) {
+  if (isSelected && !isError && !isHighlight) return 'white';
+  if (LIGHT_BG_TOKENS.has(bg)) return 'rgba(0, 0, 0, 0.7)';
+  return 'text.primary';
+}
+
+function CandidateDisplay({ candidates, color }) {
   return (
     <Box
       sx={{
@@ -43,7 +53,7 @@ function CandidateDisplay({ candidates, useWhite }) {
             justifyContent: 'center',
             fontSize: 'calc(var(--sudoku-cell-size, 44px) * 0.22)',
             lineHeight: 1,
-            color: candidates.includes(n) ? (useWhite ? 'white' : 'text.primary') : 'transparent',
+            color: candidates.includes(n) ? color : 'transparent',
             fontWeight: 'bold',
           }}
         >
@@ -58,6 +68,7 @@ export default function SudokuCell({ row, col, value, isGiven, isError, isHighli
   const bg = getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRegionHighlight, isGiven);
   const hasCandidates = candidates.length > 0;
   const displayValue = value === 0 ? '' : String(value);
+  const candidateColor = getCandidateColor(bg, isSelected, isError, isHighlight);
 
   return (
     <Box
@@ -78,7 +89,7 @@ export default function SudokuCell({ row, col, value, isGiven, isError, isHighli
       }}
     >
       {hasCandidates ? (
-        <CandidateDisplay candidates={candidates} useWhite={isSelected && !isError && !isHighlight} />
+        <CandidateDisplay candidates={candidates} color={candidateColor} />
       ) : (
         displayValue
       )}
