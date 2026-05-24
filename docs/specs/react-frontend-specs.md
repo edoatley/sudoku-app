@@ -9,6 +9,7 @@
 - [x] **FE-UI-005**: When a player selects a number in candidate input mode and then selects a cell, the system shall toggle that digit in the cell's candidate set.
 - [x] **FE-UI-006**: The system shall disable digit buttons in normal mode for any digit that already appears 9 times in the current grid.
 - [x] **FE-UI-007**: The system shall display candidate digits as a 3×3 mini-grid within cells that have no placed value.
+- [x] **FE-UI-008a**: The system shall render candidate digit text in a colour that meets WCAG AA contrast (≥ 4.5:1) against the cell background in both light and dark colour modes.
 - [x] **FE-UI-008**: When the player triggers undo, the system shall restore the grid to the state before the most recent cell edit.
 
 ## Hint UX
