@@ -1,5 +1,39 @@
 {
   "enabledPlugins": {
     "frontend-design@claude-code-plugins": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(sed:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:coverage)",
+      "Bash(npm run test:e2e)",
+      "Bash(npm run test:unit)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(terraform validate *)",
+      "Bash(terraform show *)",
+      "Bash(terraform workspace list)",
+      "Bash(terraform fmt -check *)",
+      "Bash(terraform -chdir=* output *)",
+      "Bash(./mvnw test *)",
+      "Bash(JAVA_HOME=* ./mvnw *)",
+      "Bash(aws logs describe-log-groups *)",
+      "Bash(aws logs filter-log-events *)",
+      "Bash(aws logs describe-log-streams *)",
+      "Bash(aws lambda list-functions *)",
+      "Bash(aws lambda get-function *)",
+      "Bash(aws lambda get-function-configuration *)",
+      "Bash(aws apigatewayv2 get-routes *)",
+      "Bash(aws apigatewayv2 get-route *)",
+      "Bash(aws apigatewayv2 get-integration *)",
+      "Bash(aws apigatewayv2 get-integrations *)",
+      "Bash(aws cognito-idp describe-user-pool-client *)",
+      "Bash(aws cloudformation list-stacks *)"
+    ],
+    "mode": "auto"
   }
 }

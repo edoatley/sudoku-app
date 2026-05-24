@@ -68,6 +68,16 @@ describe('sudokuApi — mock mode (VITE_MOCK_API=true)', () => {
     expect(result).toEqual(CANNED_CANDIDATES);
   });
 
+  // @spec GH-UI-002
+  it('getGameHistory returns empty array without calling fetch in mock mode', async () => {
+    const { getGameHistory } = await import('./sudokuApi.js');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const result = await getGameHistory();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result).toEqual([]);
+    fetchSpy.mockRestore();
+  });
+
   it('createGame returns plain-array grids with the requested difficulty', async () => {
     const { createGame } = await import('./sudokuApi.js');
     const result = await createGame('hard');
@@ -275,6 +285,31 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
     await validatePuzzle([]);
     const [, options] = fetchSpy.mock.calls[0];
     expect(options.headers).toMatchObject({ 'Content-Type': 'application/json' });
+  });
+
+  // @spec GH-UI-001
+  it('getGameHistory GETs the correct endpoint and returns entries', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ entries: [{ gameId: 'g1', difficulty: 'easy', outcome: 'won', endedAt: '2026-05-24T10:00:00Z', elapsedSeconds: 300, hintsUsed: 0 }] }), { status: 200 }),
+    );
+    const { getGameHistory } = await import('./sudokuApi.js');
+    const result = await getGameHistory(10);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'http://test-api/v1/games/history?limit=10',
+      expect.any(Object),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].gameId).toBe('g1');
+  });
+
+  // @spec GH-UI-001
+  it('getGameHistory returns empty array when entries is missing', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    );
+    const { getGameHistory } = await import('./sudokuApi.js');
+    const result = await getGameHistory();
+    expect(result).toEqual([]);
   });
 
   it('importPuzzle returns originalGrid as a plain 2D array (not unwrapped via gridFromWire)', async () => {

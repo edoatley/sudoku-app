@@ -136,3 +136,14 @@ arrows:
     specs: ~
     arrow: docs/arrows/testing-strategy.md
     notes: Cross-cutting test pyramid — unit/integration/E2E, CI structure, environment variable rules
+
+  - id: game-history
+    status: OK
+    lld: docs/llds/game-history.md
+    specs: docs/specs/game-history-specs.md
+    arrow: docs/arrows/game-history.md
+    spec_count: 17
+    implemented: 17
+    deferred: 0
+    gaps: 0
+    next: ~

@@ -1,16 +1,19 @@
 package com.sudoku.game;
 
 import com.sudoku.dto.CreateGameFromGridRequest;
+import com.sudoku.dto.GameHistoryResponse;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -76,5 +79,14 @@ public class GameResource {
         String userId = securityContext.getUserPrincipal().getName();
         gameService.updateGame(userId, gameId, request);
         return Response.ok().build();
+    }
+
+    // @spec GH-API-001, GH-API-002, GH-API-003
+    @GET
+    @Path("/history")
+    public GameHistoryResponse getGameHistory(
+            @QueryParam("limit") @DefaultValue("20") int limit) {
+        String userId = securityContext.getUserPrincipal().getName();
+        return gameService.getGameHistory(userId, Math.min(limit, 100)); // @spec GH-BE-003
     }
 }

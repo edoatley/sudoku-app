@@ -55,7 +55,7 @@
 
 - [x] **FE-UI-040**: The system shall display the player's avatar in the header and allow selection from a predefined set of icons.
 - [x] **FE-UI-041**: The system shall persist the selected avatar to localStorage under the key sudoku_avatar.
-- [x] **FE-UI-042**: The system shall record up to 10 completed games in localStorage under key `sudoku_gameHistory` and display them in the Puzzle History dialog, showing each entry's difficulty, outcome, date, elapsed time (won games only), hints used, and provisional score.
+- [x] **FE-UI-042**: The system shall record up to 10 completed games in localStorage under key `sudoku_gameHistory` and display them in the Puzzle History dialog, showing each entry's difficulty, outcome, date, elapsed time (won games only), hints used, and provisional score. When authenticated, the dialog fetches from the backend on open and on refresh (→ GH-UI-003, GH-UI-005).
 - [x] **FE-UI-042a**: When the Puzzle History dialog contains one or more entries, the system shall display a summary banner showing: total wins, win rate (when ≥3 games played), best completion time (when ≥1 win exists), current win streak (when streak ≥1), and average score (when ≥1 win exists).
 - [x] **FE-UI-042b**: The system shall compute a provisional per-game score for won games based on difficulty base score, elapsed time, and hints used. (TODO: replace with server-side scoring system.)
 - [x] **FE-UI-043**: The system shall display game statistics grouped by difficulty (total, wins, losses, average time) in the Statistics dialog.

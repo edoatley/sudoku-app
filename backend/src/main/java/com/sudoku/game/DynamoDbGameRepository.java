@@ -1,5 +1,6 @@
 package com.sudoku.game;
 
+import com.sudoku.dto.GameHistoryEntry;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import jakarta.annotation.PostConstruct;
@@ -12,6 +13,8 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -83,6 +86,26 @@ public class DynamoDbGameRepository implements GameRepository {
         }
         existing.applyUpdate(request, Instant.now().toString());
         table.updateItem(existing);
+    }
+
+    // @spec GH-BE-001, GH-BE-004
+    @Override
+    public List<GameHistoryEntry> findHistory(String userId, int limit) {
+        return table.query(QueryConditional.keyEqualTo(Key.builder().partitionValue(userId).build()))
+                .items()
+                .stream()
+                .filter(item -> !GameStatus.IN_PROGRESS.getValue().equals(item.getStatus()))
+                .filter(item -> item.getEndedAt() != null)
+                .sorted(Comparator.comparing(GameItem::getEndedAt).reversed())
+                .limit(limit)
+                .map(item -> new GameHistoryEntry(
+                        item.getGameId(),
+                        item.getDifficulty(),
+                        GameStatus.SOLVED.getValue().equals(item.getStatus()) ? "won" : "abandoned",
+                        item.getEndedAt(),
+                        item.getTimeSpentSeconds(),
+                        item.getHintsUsed()))
+                .toList();
     }
 
     @Override

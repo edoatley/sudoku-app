@@ -5,11 +5,14 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Paper from '@mui/material/Paper';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleOutlineIcon  from '@mui/icons-material/CheckCircleOutlined';
 import CancelOutlinedIcon      from '@mui/icons-material/CancelOutlined';
 import TimerOutlinedIcon       from '@mui/icons-material/TimerOutlined';
@@ -197,12 +200,20 @@ function GameCard({ entry }) {
   );
 }
 
-export default function PuzzleHistoryDialog({ open, history, onClose }) {
+// @spec GH-UI-005
+export default function PuzzleHistoryDialog({ open, history, onClose, onRefresh, loading }) {
   const summary = computeSummary(history);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Puzzle History</DialogTitle>
+      <DialogTitle>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Puzzle History
+          <IconButton size="small" onClick={onRefresh} disabled={loading} aria-label="Refresh history">
+            {loading ? <CircularProgress size={18} /> : <RefreshIcon fontSize="small" />}
+          </IconButton>
+        </Box>
+      </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
         {history.length === 0 ? (
           <Typography color="text.secondary" align="center" sx={{ py: 2 }}>

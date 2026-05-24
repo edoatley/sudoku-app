@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -89,12 +89,20 @@ export default function Header({
   playerProfile,
   sessionEmail,
   history,
+  onRefreshHistory,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [gameMenuAnchorEl, setGameMenuAnchorEl] = useState(null);
   const [devMenuAnchorEl, setDevMenuAnchorEl] = useState(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const handleRefreshHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    await onRefreshHistory?.();
+    setHistoryLoading(false);
+  }, [onRefreshHistory]);
   const [statsDialogOpen, setStatsDialogOpen] = useState(false);
 
   const handleAvatarClick = (e) => setAnchorEl(e.currentTarget);
@@ -318,7 +326,7 @@ export default function Header({
                     <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Edit Profile</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuClose(); setHistoryDialogOpen(true); }}>
+                  <MenuItem onClick={() => { handleMenuClose(); setHistoryDialogOpen(true); handleRefreshHistory(); }}>
                     <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Puzzle History</ListItemText>
                   </MenuItem>
@@ -365,6 +373,8 @@ export default function Header({
         open={historyDialogOpen}
         history={history ?? []}
         onClose={() => setHistoryDialogOpen(false)}
+        onRefresh={handleRefreshHistory}
+        loading={historyLoading}
       />
       <StatisticsDialog
         open={statsDialogOpen}

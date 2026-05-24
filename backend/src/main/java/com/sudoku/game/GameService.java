@@ -1,6 +1,7 @@
 package com.sudoku.game;
 
 import com.sudoku.domain.Grid;
+import com.sudoku.dto.GameHistoryResponse;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 
@@ -18,4 +19,7 @@ public interface GameService {
     Optional<GameState> findInProgress(String userId);
 
     void updateGame(String userId, String gameId, GameUpdateRequest request);
+
+    // @spec GH-SVC-001
+    GameHistoryResponse getGameHistory(String userId, int limit);
 }

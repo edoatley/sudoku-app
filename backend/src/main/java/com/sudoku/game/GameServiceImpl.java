@@ -3,6 +3,7 @@ package com.sudoku.game;
 import com.sudoku.domain.CandidatesGrid;
 import com.sudoku.domain.Grid;
 import com.sudoku.dto.BoardRequest;
+import com.sudoku.dto.GameHistoryResponse;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import com.sudoku.dto.ValidationResponse;
@@ -124,6 +125,12 @@ public class GameServiceImpl implements GameService {
     @Override
     public void updateGame(String userId, String gameId, GameUpdateRequest request) {
         gameRepository.update(userId, gameId, request);
+    }
+
+    // @spec GH-SVC-001
+    @Override
+    public GameHistoryResponse getGameHistory(String userId, int limit) {
+        return new GameHistoryResponse(gameRepository.findHistory(userId, limit));
     }
 
     /**

@@ -1,8 +1,10 @@
 package com.sudoku.game;
 
+import com.sudoku.dto.GameHistoryEntry;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -37,4 +39,12 @@ public interface GameRepository {
      * @param gameId  the game to abandon
      */
     void abandonGame(String userId, String gameId);
+
+    /**
+     * Returns completed (SOLVED or ABANDONED) games for the user, ordered by
+     * {@code endedAt} descending, capped at {@code limit}. IN_PROGRESS games are excluded.
+     *
+     * @spec GH-BE-001
+     */
+    List<GameHistoryEntry> findHistory(String userId, int limit);
 }

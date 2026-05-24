@@ -1,5 +1,7 @@
-// @spec FE-UI-042, FE-UI-042a, FE-UI-042b
-import { describe, it, expect } from 'vitest';
+// @spec FE-UI-042, FE-UI-042a, FE-UI-042b, GH-UI-005
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import PuzzleHistoryDialog from './PuzzleHistoryDialog.jsx';
 
 // Re-export helpers under test by extracting the logic here.
 // The functions are module-private in PuzzleHistoryDialog.jsx, so we
@@ -161,5 +163,35 @@ describe('computeSummary', () => {
       ];
       expect(computeSummary(history).avgScore).toBe(100);
     });
+  });
+});
+
+// ── Render tests for refresh button (GH-UI-005) ────────────────────────────────
+
+describe('PuzzleHistoryDialog — refresh button', () => {
+  const baseProps = {
+    open: true,
+    history: [],
+    onClose: vi.fn(),
+  };
+
+  // @spec GH-UI-005
+  it('renders a refresh button in the title area', () => {
+    render(<PuzzleHistoryDialog {...baseProps} onRefresh={vi.fn()} loading={false} />);
+    expect(screen.getByRole('button', { name: /refresh history/i })).toBeTruthy();
+  });
+
+  // @spec GH-UI-005
+  it('calls onRefresh when refresh button is clicked', () => {
+    const onRefresh = vi.fn();
+    render(<PuzzleHistoryDialog {...baseProps} onRefresh={onRefresh} loading={false} />);
+    fireEvent.click(screen.getByRole('button', { name: /refresh history/i }));
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
+  // @spec GH-UI-005
+  it('disables the refresh button while loading', () => {
+    render(<PuzzleHistoryDialog {...baseProps} onRefresh={vi.fn()} loading={true} />);
+    expect(screen.getByRole('button', { name: /refresh history/i }).disabled).toBe(true);
   });
 });

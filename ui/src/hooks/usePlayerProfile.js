@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getPlayerProfile, updatePlayerProfile, getEmailFromSession, ForbiddenError, warmupImageRecognition } from '../api/sudokuApi.js';
+import { getPlayerProfile, updatePlayerProfile, getEmailFromSession, getGameHistory, ForbiddenError, warmupImageRecognition } from '../api/sudokuApi.js';
 import { AVATAR_ICONS } from '../utils/avatarIcons.js';
 
 const DEFAULT_AVATAR = 'Person';
@@ -86,5 +86,27 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
     });
   }, []);
 
-  return { avatar, setAvatar, history, recordGame, playerProfile, sessionEmail, updateProfile };
+  // @spec GH-UI-003, GH-UI-004, GH-UI-006
+  const fetchHistory = useCallback(async () => {
+    try {
+      const entries = await getGameHistory(20);
+      const mapped = entries.map(e => ({
+        id: e.gameId,
+        difficulty: e.difficulty,
+        outcome: e.outcome,
+        elapsedSeconds: e.elapsedSeconds,
+        hintsUsed: e.hintsUsed,
+        completedAt: e.endedAt,
+      }));
+      setHistory(mapped);
+      try {
+        localStorage.setItem(LS_KEY_HISTORY, JSON.stringify(mapped.slice(0, 10)));
+      // eslint-disable-next-line no-unused-vars
+      } catch (_) { /* storage full */ }
+    } catch {
+      // GH-UI-004: silently retain existing localStorage history on any failure
+    }
+  }, []);
+
+  return { avatar, setAvatar, history, recordGame, fetchHistory, playerProfile, sessionEmail, updateProfile };
 }
