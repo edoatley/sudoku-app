@@ -53,7 +53,7 @@ resource "aws_s3_object" "lambda_zip" {
 
 module "lambda" {
   source  = "terraform-aws-modules/lambda/aws"
-  version = "~> 7.0"
+  version = "~> 8.8"
 
   function_name = "sudoku${local.suffix}"
   description   = "Sudoku game API (Quarkus/Java)"
