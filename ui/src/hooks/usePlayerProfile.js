@@ -26,6 +26,14 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
   const [playerProfile, setPlayerProfile] = useState(null);
   const [sessionEmail, setSessionEmail] = useState(null);
 
+  // @spec FE-BE-007
+  useEffect(() => {
+    if (user) return;
+    setHistory([]);
+    try { localStorage.removeItem(LS_KEY_HISTORY); } catch { /**/ }
+    setSessionEmail(null);
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     getEmailFromSession().then(setSessionEmail).catch(() => null);
