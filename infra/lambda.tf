@@ -53,7 +53,7 @@ resource "aws_s3_object" "lambda_zip" {
 
 module "lambda" {
   source  = "terraform-aws-modules/lambda/aws"
-  version = "~> 7.0"
+  version = "~> 8.8"
 
   function_name = "sudoku${local.suffix}"
   description   = "Sudoku game API (Quarkus/Java)"
@@ -90,10 +90,10 @@ module "lambda" {
     COGNITO_CLIENT_ID    = local.cognito_web_client_id
   }
 
-  # Lambda auto-creates /aws/lambda/<name> on first invocation, so the log group
-  # already exists in AWS before Terraform runs. Tell the module to adopt it rather
-  # than trying to create a new one.
-  use_existing_cloudwatch_log_group = true
+  # For the default workspace the Lambda has been invoked before and auto-created
+  # its log group; tell the module to adopt it. For RC environments the Lambda is
+  # brand-new so there is no existing log group — let the module create it.
+  use_existing_cloudwatch_log_group = local.is_default
 
   # checkov:skip=CKV_AWS_116: Synchronous HTTP API invocation — DLQ only applies to async Lambda invocations
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit for this public API

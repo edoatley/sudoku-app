@@ -6,3 +6,5 @@ backend/target
 .DS_Store
 image_recognition/.coverage
 test-results/
+.agent
+

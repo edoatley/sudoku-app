@@ -14,7 +14,7 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
 # ignore_changes block, so the post-deploy script must re-tighten CORS each run.
 module "api_gateway" {
   source  = "terraform-aws-modules/apigateway-v2/aws"
-  version = "~> 5.0"
+  version = "~> 6.1"
 
   name          = "sudoku${local.suffix}"
   protocol_type = "HTTP"

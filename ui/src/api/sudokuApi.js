@@ -283,6 +283,16 @@ export async function getDevData(entity) {
   return apiFetch(`getDevData/${entity}`, `${API_URL}/dev/data/${encodeURIComponent(entity)}`);
 }
 
+// @spec GH-UI-001, GH-UI-002
+export async function getGameHistory(limit = 20) {
+  if (MOCK_API) {
+    await delay(200);
+    return [];
+  }
+  const data = await apiFetch('getGameHistory', `${API_URL}/games/history?limit=${limit}`, {}, true);
+  return data?.entries ?? [];
+}
+
 export async function createGameFromGrid(originalGrid) {
   if (MOCK_API) {
     await delay(300);

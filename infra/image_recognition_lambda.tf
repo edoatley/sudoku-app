@@ -66,7 +66,7 @@ resource "aws_iam_role_policy_attachment" "image_recognition_bedrock" {
 
 module "image_recognition_lambda" {
   source  = "terraform-aws-modules/lambda/aws"
-  version = "~> 7.0"
+  version = "~> 8.8"
 
   function_name = "sudoku-image-recognition${local.suffix}"
   description   = "Sudoku image recognition (Bedrock-backed, container)"
