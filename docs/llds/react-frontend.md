@@ -53,7 +53,13 @@ All application state lives in two custom hooks. No global state library (Redux,
 
 ### `useSudokuGame(user, { onGameComplete, onForbidden })`
 
-The largest hook — owns the complete game loop.
+The main game hook — owns the complete game loop. Internally composed of three focused sub-hooks:
+
+- **`useGameTimer`** — timer state (`elapsedSeconds`, `timerRunning`, `isPaused`) and all interval/pause/resume logic
+- **`useHintSystem`** — hint state (`activeHint`, `hintStage`, `hintsUsed`, `excludedHintRanks`) and hint request/advance/dismiss logic
+- **`useGameSync`** — auto-save interval (60s), visibility-change handler, and `syncToBackend`
+
+`useSudokuGame` remains the sole public API — consumers and tests are unaffected by the internal decomposition.
 
 **State exposed:**
 
@@ -295,9 +301,7 @@ Wire format: `sudokuApi.js` wraps grids in `{rows: [...]}` (via `gridToWire`) be
 
 ## Technical Debt & Inconsistencies
 
-- `useSudokuGame` is a very large hook. Several concerns (timer, localStorage sync, auto-save, hint management) could each be extracted into smaller hooks without changing the external interface.
 - `TutorialModal` fetches markdown from `/techniques/{slug}.md` — confirmed that all 11 files exist in `ui/public/techniques/`.
-- `usePlayerProfile.recordGame()` stores the last 10 games in localStorage only — there is no API endpoint to persist game history server-side. History is lost if the user clears their browser storage.
 
 ## Behavioral Quirks
 
@@ -309,7 +313,7 @@ Wire format: `sudokuApi.js` wraps grids in `{rows: [...]}` (via `gridToWire`) be
 
 - `ui/src/App.jsx`, `ui/src/main.jsx`
 - `ui/src/api/sudokuApi.js`
-- `ui/src/hooks/useSudokuGame.js`, `ui/src/hooks/usePlayerProfile.js`
+- `ui/src/hooks/useSudokuGame.js`, `ui/src/hooks/useGameTimer.js`, `ui/src/hooks/useHintSystem.js`, `ui/src/hooks/useGameSync.js`, `ui/src/hooks/usePlayerProfile.js`
 - `ui/src/components/` (all component files)
 - `ui/src/utils/avatarIcons.js`
 - `ui/src/utils/gridAdapters.js`

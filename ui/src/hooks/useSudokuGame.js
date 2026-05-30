@@ -1,5 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { validatePuzzle, getHint, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid, ForbiddenError } from '../api/sudokuApi.js';
+import { validatePuzzle, getCandidates, createGame, loadGame, saveGame, getCurrentGame, importPuzzle, createGameFromGrid, getDemoGrid, ForbiddenError } from '../api/sudokuApi.js';
+import { useGameTimer } from './useGameTimer.js';
+import { useHintSystem } from './useHintSystem.js';
+import { useGameSync } from './useGameSync.js';
 
 const LS_KEY_GAME_ID = 'sudoku_gameId';
 const LS_KEY_CURRENT_GRID = 'sudoku_currentGrid';
@@ -34,9 +37,6 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   const [candidateGrid, setCandidateGrid] = useState(null);
   const [difficulty, setDifficulty] = useState('easy');
   const [errorCells, setErrorCells] = useState(new Set());
-  const [activeHint, setActiveHint] = useState(null);
-  const [hintStage, setHintStage] = useState('nudge');
-  const [highlightCells, setHighlightCells] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [gameStatus, setGameStatus] = useState('idle');
@@ -44,55 +44,79 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   const [selectedNumber, setSelectedNumber] = useState(null);
   const [selectedCell, setSelectedCell] = useState(null);
   const [history, setHistory] = useState([]);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
-  const timerRef = useRef(null);
   const [gameId, setGameId] = useState(null);
   const [solutionGrid, setSolutionGrid] = useState(null);
   const [hintMinRank, setHintMinRank] = useState(null);
-  const [hintsUsed, setHintsUsed] = useState(0);
-  const [excludedHintRanks, setExcludedHintRanks] = useState([]);
+  const [importStage, setImportStage] = useState(null);
   const prevUserIdRef = useRef(user?.username ?? null);
-  const [isSyncing, setIsSyncing] = useState(false);
+
   const gameIdRef = useRef(null);
   gameIdRef.current = gameId;
+  const currentGridRef = useRef(null);
+  currentGridRef.current = currentGrid;
+  const candidateGridRef = useRef(null);
+  candidateGridRef.current = candidateGrid;
+  const solutionGridRef = useRef(null);
+  solutionGridRef.current = solutionGrid;
+  const difficultyRef = useRef(difficulty);
+  difficultyRef.current = difficulty;
+  const hintMinRankRef = useRef(null);
+  hintMinRankRef.current = hintMinRank;
+
+  const {
+    elapsedSeconds,
+    timerRunning,
+    isPaused,
+    setIsPaused,
+    startTimer,
+    pauseTimer,
+    pauseGame,
+    resumeGame,
+    resumeTimerIfActive,
+    restoreTimer,
+  } = useGameTimer();
+
   const elapsedSecondsRef = useRef(0);
   elapsedSecondsRef.current = elapsedSeconds;
 
-  const [isPaused, setIsPaused] = useState(false);
-  const [importStage, setImportStage] = useState(null);
-  const isPausedRef = useRef(false);
-  isPausedRef.current = isPaused;
+  const {
+    activeHint,
+    hintStage,
+    highlightCells,
+    hintsUsed,
+    setHintsUsed,
+    resetHintState,
+    requestHint,
+    requestAlternateHint,
+    advanceHint,
+    dismissHint,
+  } = useHintSystem({
+    currentGridRef,
+    hintMinRankRef,
+    onForbidden,
+    setStatusMessage,
+    setGameStatus,
+    setIsLoading,
+    setCandidateGrid,
+    setCurrentGrid,
+  });
 
-  const startTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setElapsedSeconds(0);
-    setTimerRunning(true);
-    setIsPaused(false);
-    timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
-  }, []);
+  const hintsUsedRef = useRef(0);
+  hintsUsedRef.current = hintsUsed;
 
-  const pauseTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setTimerRunning(false);
-  }, []);
+  const gameActiveRef = useRef(false);
+  gameActiveRef.current = !!currentGrid && !isPaused;
 
-  const pauseGame = useCallback(() => {
-    pauseTimer();
-    setIsPaused(true);
-  }, [pauseTimer]);
-
-  const resumeGame = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setIsPaused(false);
-    setTimerRunning(true);
-    timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
-  }, []);
-
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  const { isSyncing } = useGameSync({
+    gameIdRef,
+    currentGridRef,
+    candidateGridRef,
+    elapsedSecondsRef,
+    hintsUsedRef,
+    pauseTimer,
+    resumeTimerIfActive,
+    gameActiveRef,
+  });
 
   // Clear localStorage game state when the authenticated user changes
   useEffect(() => {
@@ -107,13 +131,11 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     const activeDiff = diff ?? difficulty;
     setIsLoading(true);
     setErrorCells(new Set());
-    setActiveHint(null);
-    setHintStage('nudge');
-    setHighlightCells([]);
     setStatusMessage(null);
     setGameStatus('idle');
     setSelectedCell(null);
     setSelectedNumber(null);
+    resetHintState();
     try {
       const data = await createGame(activeDiff, signal);
       const emptyGrid = emptyCandidate();
@@ -124,8 +146,6 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCandidateGrid(emptyGrid);
       setHistory([]);
       setHintMinRank(null);
-      setHintsUsed(0);
-      setExcludedHintRanks([]);
       setDifficulty(activeDiff);
       lsSave(data.gameId, data.currentGrid, emptyGrid, activeDiff, 0, 0);
       startTimer();
@@ -137,17 +157,12 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty, startTimer, onForbidden]);
+  }, [difficulty, startTimer, onForbidden, resetHintState]);
 
   useEffect(() => {
     const controller = new AbortController();
 
     const applyLoadedGame = (data, savedCandidates, savedElapsed, savedHints) => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      setIsPaused(false);
       setGameId(data.gameId);
       setOriginalGrid(data.originalGrid);
       setSolutionGrid(data.solutionGrid);
@@ -155,10 +170,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCandidateGrid(savedCandidates);
       setDifficulty(data.difficulty);
       setHistory([]);
-      setElapsedSeconds(savedElapsed);
       setHintsUsed(savedHints);
-      setTimerRunning(true);
-      timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+      restoreTimer(savedElapsed);
       setIsLoading(false);
     };
 
@@ -238,57 +251,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const currentGridRef = useRef(null);
-  currentGridRef.current = currentGrid;
-  const candidateGridRef = useRef(null);
-  candidateGridRef.current = candidateGrid;
-  const solutionGridRef = useRef(null);
-  solutionGridRef.current = solutionGrid;
-  const difficultyRef = useRef(difficulty);
-  difficultyRef.current = difficulty;
-  const hintsUsedRef = useRef(0);
-  hintsUsedRef.current = hintsUsed;
-
-  const syncToBackend = useCallback(() => {
-    const gid = gameIdRef.current;
-    const grid = currentGridRef.current;
-    const candidates = candidateGridRef.current;
-    if (!gid || !grid) return;
-    try {
-      localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSecondsRef.current));
-      localStorage.setItem(LS_KEY_HINTS_USED, String(hintsUsedRef.current));
-    // eslint-disable-next-line no-unused-vars
-    } catch (_) { /* storage full */ }
-    setIsSyncing(true);
-    saveGame(gid, { currentGrid: grid, candidates: candidates ?? [], timeSpentSeconds: elapsedSecondsRef.current, hintsUsed: hintsUsedRef.current })
-      .finally(() => setIsSyncing(false));
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(syncToBackend, 60_000);
-    return () => clearInterval(interval);
-  }, [syncToBackend]);
-
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        syncToBackend();
-        pauseTimer();
-      } else if (document.visibilityState === 'visible') {
-        if (gameActiveRef.current && !isPausedRef.current) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          setTimerRunning(true);
-          timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [syncToBackend, pauseTimer]);
-
   const inactivityRef = useRef(null);
-  const gameActiveRef = useRef(false);
-  gameActiveRef.current = !!currentGrid && !isPaused;
 
   useEffect(() => {
     const INACTIVITY_MS = 3 * 60 * 1000;
@@ -377,7 +340,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
         return next;
       });
     }
-  }, [inputMode, originalGrid, pauseTimer]);
+  }, [inputMode, originalGrid, pauseTimer, elapsedSecondsRef]);
 
   const updateCell = useCallback((row, col) => {
     if (selectedCell?.row === row && selectedCell?.col === col && selectedNumber === null) {
@@ -436,134 +399,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentGrid, pauseTimer, onForbidden]);
-
-  // @spec HE-UI-011 — fetch a hint, retrying with no exclusions if the first call finds nothing.
-  // When excludedHintRanks is non-empty and the backend returns null (NoStrategyApplied), the
-  // exclusion list is the likely cause. A second call with an empty exclusion list gives the backend
-  // a clean slate to find the easiest applicable technique for the current board state.
-  // Returns { hint, didReset } where didReset signals that the exclusion list was cleared.
-  const fetchHintWithFallback = useCallback(async (excluded) => {
-    const hint = await getHint(currentGrid, hintMinRank, excluded);
-    if (hint !== null) return { hint, didReset: false };
-    if (excluded.length === 0) return { hint: null, didReset: false };
-    const retryHint = await getHint(currentGrid, hintMinRank, []);
-    return { hint: retryHint, didReset: true };
-  }, [currentGrid, hintMinRank]);
-
-  const requestHint = useCallback(async () => {
-    if (!currentGrid) return;
-    setIsLoading(true);
-    try {
-      const { hint, didReset } = await fetchHintWithFallback(excludedHintRanks);
-      if (!hint) {
-        setExcludedHintRanks([]);
-        setStatusMessage('No more hints available.');
-        return;
-      }
-      setHintsUsed((n) => n + 1);
-      if (hint.strategyRank != null) {
-        const nextExcluded = didReset ? [hint.strategyRank] : (
-          excludedHintRanks.includes(hint.strategyRank)
-            ? excludedHintRanks
-            : [...excludedHintRanks, hint.strategyRank]
-        );
-        setExcludedHintRanks(nextExcluded);
-      }
-      setActiveHint(hint);
-      setHintStage('nudge');
-      setHighlightCells([]);
-    } catch (err) {
-      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
-      setStatusMessage(`Hint failed: ${err.message}`);
-      setGameStatus('error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentGrid, fetchHintWithFallback, excludedHintRanks, onForbidden]);
-
-  const requestAlternateHint = useCallback(async () => {
-    if (!currentGrid) return;
-    setIsLoading(true);
-    try {
-      const { hint, didReset } = await fetchHintWithFallback(excludedHintRanks);
-      if (!hint) {
-        setExcludedHintRanks([]);
-        setStatusMessage('No more alternate hints. Starting over from the easiest.');
-        return;
-      }
-      if (hint.strategyRank != null) {
-        const nextExcluded = didReset ? [hint.strategyRank] : (
-          excludedHintRanks.includes(hint.strategyRank)
-            ? excludedHintRanks
-            : [...excludedHintRanks, hint.strategyRank]
-        );
-        setExcludedHintRanks(nextExcluded);
-      }
-      setActiveHint(hint);
-      setHintStage('nudge');
-      setHighlightCells([]);
-    } catch (err) {
-      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
-      setStatusMessage(`Hint failed: ${err.message}`);
-      setGameStatus('error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentGrid, fetchHintWithFallback, excludedHintRanks, onForbidden]);
-
-  const advanceHint = useCallback(() => {
-    if (!activeHint) return;
-    if (hintStage === 'nudge') {
-      setHintStage('focus');
-      setHighlightCells(activeHint.highlightCells);
-    } else if (hintStage === 'focus') {
-      setHintStage('reveal');
-      if (activeHint.focusCandidates?.length > 0) {
-        setCandidateGrid((prev) => {
-          const next = prev.map((r) => r.map((c) => [...c]));
-          for (const { row, col, value } of activeHint.focusCandidates) {
-            if (!next[row][col].includes(value)) {
-              next[row][col].push(value);
-            }
-          }
-          return next;
-        });
-      }
-      if (activeHint.eliminatedCandidates?.length > 0) {
-        setCandidateGrid((prev) => {
-          const next = prev.map((r) => r.map((c) => [...c]));
-          for (const { row, col, value } of activeHint.eliminatedCandidates) {
-            const idx = next[row][col].indexOf(value);
-            if (idx !== -1) next[row][col].splice(idx, 1);
-          }
-          return next;
-        });
-      }
-      if (activeHint.solvedCells?.length > 0) {
-        setCurrentGrid((prev) => {
-          const next = prev.map((r) => [...r]);
-          for (const { row, col, value } of activeHint.solvedCells) {
-            next[row][col] = value;
-          }
-          return next;
-        });
-        setCandidateGrid((prev) => {
-          const next = prev.map((r) => r.map((c) => [...c]));
-          for (const { row, col } of activeHint.solvedCells) {
-            next[row][col] = [];
-          }
-          return next;
-        });
-      }
-    }
-  }, [activeHint, hintStage]);
-
-  const dismissHint = useCallback(() => {
-    setActiveHint(null);
-    setHintStage('nudge');
-    setHighlightCells([]);
-  }, []);
+  }, [currentGrid, solutionGrid, pauseTimer, onForbidden, elapsedSecondsRef]);
 
   const fillCandidates = useCallback(async () => {
     if (!currentGrid) return;
@@ -669,24 +505,21 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     setCandidateGrid(null);
     setHistory([]);
     setErrorCells(new Set());
-    setElapsedSeconds(0);
     setGameStatus('idle');
     setStatusMessage(null);
     setSelectedCell(null);
     setSelectedNumber(null);
-  }, [pauseTimer, gameStatus, onGameComplete, hintsUsed]);
+  }, [pauseTimer, setIsPaused, gameStatus, onGameComplete, hintsUsed, elapsedSecondsRef]);
 
   const startNewGameFromImage = useCallback(async (imageFile) => {
     setIsLoading(true);
     setImportStage('uploading');
     setErrorCells(new Set());
-    setActiveHint(null);
-    setHintStage('nudge');
-    setHighlightCells([]);
     setStatusMessage(null);
     setGameStatus('idle');
     setSelectedCell(null);
     setSelectedNumber(null);
+    resetHintState();
     try {
       const { originalGrid: importedGrid } = await importPuzzle(imageFile);
       setImportStage('analysing');
@@ -699,8 +532,6 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCandidateGrid(emptyGrid);
       setHistory([]);
       setHintMinRank(null);
-      setHintsUsed(0);
-      setExcludedHintRanks([]);
       lsSave(data.gameId, data.currentGrid, emptyGrid, 'imported', 0, 0);
       startTimer();
     } catch (err) {
@@ -711,18 +542,16 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setIsLoading(false);
       setImportStage(null);
     }
-  }, [startTimer, onForbidden]);
+  }, [startTimer, onForbidden, resetHintState]);
 
   const loadDemoGame = useCallback(async (technique) => {
     setIsLoading(true);
     setErrorCells(new Set());
-    setActiveHint(null);
-    setHintStage('nudge');
-    setHighlightCells([]);
     setStatusMessage(null);
     setGameStatus('idle');
     setSelectedCell(null);
     setSelectedNumber(null);
+    resetHintState();
     try {
       const data = await getDemoGrid(technique);
       const emptyGrid = emptyCandidate();
@@ -733,8 +562,6 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       setCandidateGrid(emptyGrid);
       setHistory([]);
       setHintMinRank(data.minRank ?? null);
-      setHintsUsed(0);
-      setExcludedHintRanks([]);
       lsClear();
       startTimer();
     } catch (err) {
@@ -744,7 +571,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [startTimer, onForbidden]);
+  }, [startTimer, onForbidden, resetHintState]);
 
   const handleSetDifficulty = useCallback((diff) => {
     setDifficulty(diff);
