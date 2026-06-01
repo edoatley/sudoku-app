@@ -1,5 +1,5 @@
 # Builds the Vite app and serves it with `vite preview` for integration testing.
-FROM node:25-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 
 # 1. Cache dependencies separately
@@ -23,7 +23,7 @@ ENV VITE_DEV_TOOLS=$VITE_DEV_TOOLS
 COPY . .
 RUN npm run build
 
-FROM node:25-slim
+FROM node:26-slim
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
