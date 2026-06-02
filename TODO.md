@@ -9,7 +9,7 @@
 
 - [ ] More strategies: XY-Chain, Remote Pairs (README.md#L210)
 - [ ] Manual puzzle entry mode — fallback when import fails (README.md#L211)
-- [ ] League table — rank players by puzzles completed and time taken (README.md#L213)
+- [x] League table — rank players by puzzles completed and time taken (README.md#L213)
 - [ ] Add expert difficulty level — backend complete (PuzzleGenerator supports it); UI NewGameModal needs expert option added (README.md#L214)
 
 ## Error Handling

@@ -37,6 +37,7 @@ public class GameItem {
     private int hintsUsed;
     private String startedAt;
     private String endedAt;
+    private int score;
 
     // --- composite key ---
 
@@ -82,6 +83,9 @@ public class GameItem {
     public String getEndedAt() { return endedAt; }
     public void setEndedAt(String endedAt) { this.endedAt = endedAt; }
 
+    public int getScore() { return score; }
+    public void setScore(int score) { this.score = score; }
+
     // --- factory methods ---
 
     static GameItem from(GameState state) {
@@ -98,6 +102,7 @@ public class GameItem {
         item.setHintsUsed(state.hintsUsed());
         item.setStartedAt(state.startedAt());
         item.setEndedAt(state.endedAt());
+        item.setScore(state.score());
         return item;
     }
 
@@ -114,7 +119,8 @@ public class GameItem {
                 status,
                 hintsUsed,
                 startedAt,
-                endedAt
+                endedAt,
+                score
         );
     }
 
@@ -134,9 +140,11 @@ public class GameItem {
         setCurrentGrid(toJson(request.currentGrid().rows()));
         setCandidates(toJson(request.candidates().rows()));
         setTimeSpentSeconds(request.timeSpentSeconds());
+        // @spec LT-BE-002, LT-BE-004
         if (Boolean.TRUE.equals(request.isComplete())) {
             setStatus(GameStatus.SOLVED.getValue());
             setEndedAt(now);
+            setScore(ScoringConstants.computeScore(difficulty, request.timeSpentSeconds(), getHintsUsed()));
         } else {
             setStatus(GameStatus.IN_PROGRESS.getValue());
         }

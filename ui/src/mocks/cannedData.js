@@ -125,3 +125,52 @@ export const CANNED_CANDIDATES = {
     ],
   },
 };
+
+export const CANNED_LEADERBOARD = {
+  entries: [
+    {
+      userId: 'edoatley-id',
+      displayName: 'Ed',
+      avatarKey: 'SportsBasketball',
+      rank: 1,
+      totalWins: 12,
+      totalGames: 15,
+      avgScore: 187,
+      avgElapsedSeconds: 230,
+      bestTimeByDifficulty: { easy: 95, medium: 230, hard: 720 },
+    },
+    {
+      userId: 'hanoatley-id',
+      displayName: 'Hannah',
+      avatarKey: 'DirectionsRun',
+      rank: 2,
+      totalWins: 8,
+      totalGames: 10,
+      avgScore: 154,
+      avgElapsedSeconds: 310,
+      bestTimeByDifficulty: { easy: 110, medium: 310 },
+    },
+    {
+      userId: 'edoatley2-id',
+      displayName: 'Ed2',
+      avatarKey: 'Person',
+      rank: 3,
+      totalWins: 5,
+      totalGames: 7,
+      avgScore: 120,
+      avgElapsedSeconds: 420,
+      bestTimeByDifficulty: { medium: 420 },
+    },
+    {
+      userId: 'icloud-id',
+      displayName: 'Ed (iCloud)',
+      avatarKey: 'Person',
+      rank: 4,
+      totalWins: 2,
+      totalGames: 4,
+      avgScore: 85,
+      avgElapsedSeconds: 540,
+      bestTimeByDifficulty: { easy: 200 },
+    },
+  ],
+};

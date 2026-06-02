@@ -1,5 +1,5 @@
 // @spec DT-UI-005, DT-UI-006, DT-UI-007, DT-UI-008
-import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, CANNED_GAME_STATE } from '../mocks/cannedData.js';
+import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, CANNED_GAME_STATE, CANNED_LEADERBOARD } from '../mocks/cannedData.js';
 import { gridFromWire, gridToWire, candidatesFromWire, candidatesToWire } from '../utils/gridAdapters.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -306,4 +306,13 @@ export async function createGameFromGrid(originalGrid) {
     body: JSON.stringify({ originalGrid: gridToWire(originalGrid) }),
   }, true);
   return unwrapGameState(data);
+}
+
+// @spec LT-UI-001, LT-UI-002
+export async function getLeaderboard() {
+  if (MOCK_API) {
+    await delay(200);
+    return CANNED_LEADERBOARD;
+  }
+  return apiFetch('getLeaderboard', `${API_URL}/leaderboard`, {}, true);
 }

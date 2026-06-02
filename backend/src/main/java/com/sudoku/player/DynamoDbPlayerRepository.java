@@ -9,6 +9,7 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -44,5 +45,11 @@ public class DynamoDbPlayerRepository implements PlayerRepository {
     public PlayerProfile upsert(PlayerProfile profile) {
         table.putItem(PlayerItem.from(profile));
         return profile;
+    }
+
+    // @spec LT-BE-014
+    @Override
+    public List<PlayerItem> findAll() {
+        return table.scan().items().stream().toList();
     }
 }

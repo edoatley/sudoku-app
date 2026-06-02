@@ -104,7 +104,8 @@ public class DynamoDbGameRepository implements GameRepository {
                         GameStatus.SOLVED.getValue().equals(item.getStatus()) ? "won" : "abandoned",
                         item.getEndedAt(),
                         item.getTimeSpentSeconds(),
-                        item.getHintsUsed()))
+                        item.getHintsUsed(),
+                        item.getScore()))
                 .toList();
     }
 

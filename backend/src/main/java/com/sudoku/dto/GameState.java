@@ -3,7 +3,7 @@ package com.sudoku.dto;
 import com.sudoku.domain.CandidatesGrid;
 import com.sudoku.domain.Grid;
 
-// @spec DT-DTO-005, DT-DTO-007
+// @spec DT-DTO-005, DT-DTO-007, LT-BE-006
 
 /**
  * Complete persisted state of a single player's game, returned from the game API and
@@ -17,6 +17,9 @@ import com.sudoku.domain.Grid;
  * <p>{@code solutionGrid} is always non-null — every persisted game has a known solution.
  * {@code startedAt} is set when the game is created; {@code endedAt} is set when the
  * game transitions to {@code SOLVED}. Both are ISO-8601 UTC strings.
+ *
+ * <p>{@code score} is computed server-side when the game transitions to SOLVED;
+ * it is 0 for IN_PROGRESS and ABANDONED games.
  */
 public record GameState(
         String userId,
@@ -30,5 +33,6 @@ public record GameState(
         String status,
         int hintsUsed,
         String startedAt,
-        String endedAt
+        String endedAt,
+        int score
 ) {}

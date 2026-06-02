@@ -147,3 +147,25 @@ arrows:
     deferred: 0
     gaps: 0
     next: ~
+
+  - id: navigation
+    status: OK
+    lld: docs/llds/navigation.md
+    specs: docs/specs/navigation-specs.md
+    arrow: docs/arrows/navigation.md
+    spec_count: 20
+    implemented: 20
+    deferred: 0
+    gaps: 0
+    next: ~
+
+  - id: league-table
+    status: OK
+    lld: docs/llds/league-table.md
+    specs: docs/specs/league-table-specs.md
+    arrow: docs/arrows/league-table.md
+    spec_count: 31
+    implemented: 31
+    deferred: 0
+    gaps: 0
+    next: ~

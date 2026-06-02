@@ -70,3 +70,28 @@ resource "aws_iam_role_policy_attachment" "sudoku_players_dynamodb" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = aws_iam_policy.sudoku_players_dynamodb.arn
 }
+
+resource "aws_iam_policy" "sudoku_leaderboard_dynamodb" {
+  name        = "SudokuLeaderboardPolicy${local.suffix}"
+  description = "Grants the Sudoku Lambda DynamoDB access to the SudokuLeaderboard table"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.sudoku_leaderboard.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "sudoku_leaderboard_dynamodb" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = aws_iam_policy.sudoku_leaderboard_dynamodb.arn
+}
