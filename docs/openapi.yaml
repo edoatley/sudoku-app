@@ -3,7 +3,7 @@ info:
   title: Serverless Sudoku API
   version: 1.0.0
   description: >
-    The API contract for the Serverless Sudoku application. 
+    The API contract for the Serverless Sudoku application.
     This API is completely stateless. The client is responsible for maintaining the current board state.
 servers:
   - url: http://localhost:8080/api/v1
@@ -19,6 +19,8 @@ tags:
     description: Endpoints for managing game state
   - name: Players
     description: Endpoints for player profile management
+  - name: Leaderboard
+    description: Endpoints for the league leaderboard
   - name: Developer
     description: Developer-only endpoints for local testing. Not exposed in production.
 
@@ -107,6 +109,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HintResponse'
+        '204':
+          description: Puzzle is already solved — no hint needed.
         '404':
           description: No logical next step found (board might be invalid or requires guessing, which we want to avoid).
 
@@ -190,6 +194,29 @@ paths:
         '204':
           description: No current game in progress.
 
+  /games/history:
+    get:
+      tags:
+        - Games
+      summary: Get the player's game history
+      description: Returns a list of the authenticated user's completed games, most recent first.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          required: false
+          description: Maximum number of history entries to return. Defaults to 20, max 100.
+      responses:
+        '200':
+          description: Game history retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameHistoryResponse'
+
   /games/{gameId}:
     get:
       tags:
@@ -217,7 +244,7 @@ paths:
       tags:
         - Games
       summary: Auto-save game progress
-      description: Updates the current grid, notes, and time spent.
+      description: Updates the current grid, notes, time spent, and hint count.
       parameters:
         - name: gameId
           in: path
@@ -234,6 +261,83 @@ paths:
       responses:
         '200':
           description: Game saved successfully.
+
+  /leaderboard:
+    get:
+      tags:
+        - Leaderboard
+      summary: Get the league leaderboard
+      description: Returns the ranked leaderboard of all players with their aggregated statistics.
+      responses:
+        '200':
+          description: Leaderboard retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+
+  /players/me:
+    get:
+      tags:
+        - Players
+      summary: Get the current player's profile
+      description: Returns the authenticated user's profile, including display name and account timestamps.
+      responses:
+        '200':
+          description: Player profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerProfile'
+        '404':
+          description: Player profile not found.
+
+    patch:
+      tags:
+        - Players
+      summary: Update the current player's profile
+      description: Updates the authenticated user's display name and/or avatar. At least one field must be provided.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerUpdateRequest'
+      responses:
+        '200':
+          description: Player profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerProfile'
+        '400':
+          description: No valid fields provided for update.
+
+  /dev/hint-demo:
+    get:
+      tags:
+        - Developer
+      summary: Get a demo grid for a hint technique (dev only)
+      description: Returns a puzzle grid pre-configured so the named hint technique is immediately applicable. Only available locally; not routed in production.
+      security: []
+      parameters:
+        - in: query
+          name: technique
+          required: true
+          schema:
+            type: string
+          description: The markdown slug of the target strategy (e.g. "naked-pair").
+      responses:
+        '200':
+          description: Demo puzzle grid returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PuzzleResponse'
+        '400':
+          description: technique query parameter is missing.
+        '404':
+          description: Unknown technique slug.
 
   /dev/data/games:
     get:
@@ -265,22 +369,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/PlayerDataList'
 
-  /players/me:
-    get:
-      tags:
-        - Players
-      summary: Get the current player's profile
-      description: Returns the authenticated user's profile, including display name and account timestamps.
-      responses:
-        '200':
-          description: Player profile retrieved successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlayerProfile'
-        '404':
-          description: Player profile not found.
-
 components:
   securitySchemes:
     CognitoJWT:
@@ -297,10 +385,13 @@ components:
         - gameId
         - difficulty
         - originalGrid
+        - solutionGrid
         - currentGrid
         - candidates
         - timeSpentSeconds
         - status
+        - hintsUsed
+        - score
       properties:
         userId:
           type: string
@@ -312,6 +403,9 @@ components:
           $ref: '#/components/schemas/Difficulty'
         originalGrid:
           $ref: '#/components/schemas/Grid'
+        solutionGrid:
+          $ref: '#/components/schemas/Grid'
+          description: The complete solution to the puzzle.
         currentGrid:
           $ref: '#/components/schemas/Grid'
         candidates:
@@ -322,6 +416,12 @@ components:
         status:
           type: string
           enum: [IN_PROGRESS, SOLVED, ABANDONED]
+        hintsUsed:
+          type: integer
+          description: Number of hints the player has requested for this game.
+        score:
+          type: integer
+          description: Server-computed score when the game reaches SOLVED status; 0 for IN_PROGRESS and ABANDONED games.
         startedAt:
           type: string
           format: date-time
@@ -335,11 +435,14 @@ components:
       example:
         gameId: "123e4567-e89b-12d3-a456-426614174000"
         difficulty: "medium"
-        originalGrid: [[5,3,0...]] # Truncated for brevity
-        currentGrid: [[5,3,4...]] 
-        candidates: [[[], [], [1,2]]] 
+        originalGrid: [[5,3,0]] # Truncated for brevity
+        solutionGrid: [[5,3,4]]
+        currentGrid: [[5,3,4]]
+        candidates: [[[], [], [1,2]]]
         timeSpentSeconds: 145
         status: "IN_PROGRESS"
+        hintsUsed: 2
+        score: 0
 
     GameUpdateRequest:
       type: object
@@ -357,6 +460,150 @@ components:
         isComplete:
           type: boolean
           description: Pass true if the user just filled the final correct square.
+        hintsUsed:
+          type: integer
+          description: Total number of hints the player has used so far.
+
+    GameHistoryResponse:
+      type: object
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          description: List of completed games, most recent first.
+          items:
+            $ref: '#/components/schemas/GameHistoryEntry'
+
+    GameHistoryEntry:
+      type: object
+      required:
+        - gameId
+        - difficulty
+        - outcome
+        - endedAt
+        - elapsedSeconds
+        - hintsUsed
+        - score
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        outcome:
+          type: string
+          description: How the game ended (e.g. SOLVED, ABANDONED).
+        endedAt:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp when the game ended.
+        elapsedSeconds:
+          type: integer
+          description: Total time spent on the puzzle in seconds.
+        hintsUsed:
+          type: integer
+          description: Number of hints used during the game.
+        score:
+          type: integer
+          description: Final score for the game.
+
+    LeaderboardResponse:
+      type: object
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+
+    LeaderboardEntry:
+      type: object
+      required:
+        - userId
+        - displayName
+        - rank
+        - totalWins
+        - totalGames
+        - avgScore
+      properties:
+        userId:
+          type: string
+          description: Unique identifier for the player.
+        displayName:
+          type: string
+          description: The player's display name.
+        avatarKey:
+          type: string
+          nullable: true
+          description: S3 key for the player's avatar image.
+        rank:
+          type: integer
+          description: Player's current rank on the leaderboard.
+        totalWins:
+          type: integer
+          description: Total number of puzzles solved.
+        totalGames:
+          type: integer
+          description: Total number of games played.
+        avgScore:
+          type: integer
+          description: Average score across all solved games.
+        avgElapsedSeconds:
+          type: integer
+          nullable: true
+          description: Average time to solve a puzzle in seconds. Null if no games solved.
+        bestTimeByDifficulty:
+          type: object
+          description: Best (lowest) solve time in seconds, keyed by difficulty level.
+          additionalProperties:
+            type: integer
+
+    PlayerProfile:
+      type: object
+      required:
+        - userId
+        - email
+        - displayName
+        - createdAt
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          description: Unique identifier for the player (from Cognito sub claim).
+        email:
+          type: string
+          format: email
+          description: The player's email address.
+        displayName:
+          type: string
+          description: The player's display name.
+        avatarKey:
+          type: string
+          nullable: true
+          description: S3 key for the player's avatar image.
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the player profile was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the player profile was last updated.
+
+    PlayerUpdateRequest:
+      type: object
+      description: At least one field must be non-null and non-blank.
+      properties:
+        displayName:
+          type: string
+          nullable: true
+          description: New display name for the player.
+        avatarKey:
+          type: string
+          nullable: true
+          description: New S3 key for the player's avatar image.
 
     Difficulty:
       type: string
@@ -386,6 +633,10 @@ components:
       properties:
         originalGrid:
           $ref: '#/components/schemas/Grid'
+        solutionGrid:
+          $ref: '#/components/schemas/Grid'
+          nullable: true
+          description: The complete solution grid. Null for demo puzzles.
         difficulty:
           $ref: '#/components/schemas/Difficulty'
         minRank:
@@ -399,6 +650,10 @@ components:
       properties:
         currentGrid:
           $ref: '#/components/schemas/Grid'
+        solutionGrid:
+          $ref: '#/components/schemas/Grid'
+          nullable: true
+          description: Optional solution grid for more precise validation.
         minRank:
           type: integer
           description: Optional minimum strategy rank to filter hints (hints below this rank are skipped).
@@ -530,7 +785,7 @@ components:
       example:
         row: 4
         col: 2
-    
+
     CandidatesResponse:
       type: object
       required:
@@ -579,7 +834,7 @@ components:
       example:
         row: 4
         col: 8
-        value: 3 
+        value: 3
 
     ActionableCell:
       type: object
@@ -620,34 +875,6 @@ components:
           type: string
           description: Name of the service.
           example: "sudoku-api"
-
-    PlayerProfile:
-      type: object
-      required:
-        - userId
-        - email
-        - displayName
-        - createdAt
-        - updatedAt
-      properties:
-        userId:
-          type: string
-          description: Unique identifier for the player (from Cognito sub claim).
-        email:
-          type: string
-          format: email
-          description: The player's email address.
-        displayName:
-          type: string
-          description: The player's display name.
-        createdAt:
-          type: string
-          format: date-time
-          description: ISO 8601 timestamp when the player profile was created.
-        updatedAt:
-          type: string
-          format: date-time
-          description: ISO 8601 timestamp when the player profile was last updated.
 
     CreateGameFromGridRequest:
       type: object
