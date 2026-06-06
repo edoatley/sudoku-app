@@ -8,6 +8,7 @@ import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import com.sudoku.dto.PuzzleResponse;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.leaderboard.LeaderboardRepository;
 import com.sudoku.puzzle.SudokuService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ class GameServiceImplTest {
 
     private SudokuService sudokuService;
     private GameRepository gameRepository;
+    private LeaderboardRepository leaderboardRepository;
     private GameServiceImpl gameService;
 
     private static final String USER_ID = "test-user-123";
@@ -71,7 +73,8 @@ class GameServiceImplTest {
     void setUp() {
         sudokuService = mock(SudokuService.class);
         gameRepository = mock(GameRepository.class);
-        gameService = new GameServiceImpl(sudokuService, gameRepository);
+        leaderboardRepository = mock(LeaderboardRepository.class);
+        gameService = new GameServiceImpl(sudokuService, gameRepository, leaderboardRepository);
     }
 
     @Test
@@ -104,7 +107,7 @@ class GameServiceImplTest {
     @Test
     void loadGame_whenFound_returnsGameState() {
         String gameId = "test-id-123";
-        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 42, "IN_PROGRESS", 0, null, null);
+        GameState expected = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 42, "IN_PROGRESS", 0, null, null, 0);
         when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(expected));
 
         GameState result = gameService.loadGame(USER_ID, gameId);
@@ -204,7 +207,7 @@ class GameServiceImplTest {
                 false, false, List.of(new Coordinate(0, 0)));
         when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(invalidResponse);
         GameState existing = new GameState(USER_ID, "old-game-id", "easy", GRID, null, GRID,
-                emptyCandidates(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+                emptyCandidates(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null, 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
 
         assertThrows(InvalidPuzzleException.class,
@@ -225,7 +228,7 @@ class GameServiceImplTest {
     @Test
     void createGame_whenInProgressGameExists_abandonsItBeforeCreatingNew() {
         GameState existing = new GameState(USER_ID, "old-game-id", "easy", GRID, null, GRID,
-                emptyCandidates(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+                emptyCandidates(), 90, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null, 0);
         when(sudokuService.generatePuzzle("medium")).thenReturn(new PuzzleResponse(GRID, null, "medium"));
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
 
@@ -251,7 +254,7 @@ class GameServiceImplTest {
     @Test
     void createGameFromExistingGrid_whenInProgressGameExists_abandonsItBeforeCreatingNew() {
         GameState existing = new GameState(USER_ID, "old-imported-id", "easy", GRID, null, GRID,
-                emptyCandidates(), 30, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null);
+                emptyCandidates(), 30, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null, 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(existing));
         when(sudokuService.validatePuzzle(any(BoardRequest.class))).thenReturn(VALID_RESPONSE);
         when(sudokuService.solveGrid(GRID)).thenReturn(Optional.of(SOLUTION));
@@ -279,7 +282,7 @@ class GameServiceImplTest {
 
     @Test
     void findInProgress_whenFound_returnsGame() {
-        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, emptyCandidates(), 30, "IN_PROGRESS", 0, null, null);
+        GameState inProgress = new GameState(USER_ID, "game-ip-1", "easy", GRID, null, GRID, emptyCandidates(), 30, "IN_PROGRESS", 0, null, null, 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         Optional<GameState> result = gameService.findInProgress(USER_ID);

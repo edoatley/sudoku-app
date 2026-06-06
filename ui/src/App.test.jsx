@@ -1,4 +1,4 @@
-// @spec FE-UI-042
+// @spec FE-UI-042, NAV-STATE-001, NAV-STATE-002, NAV-STATE-004, NAV-STATE-005, NAV-KBD-001
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import App from './App.jsx';
@@ -26,7 +26,23 @@ vi.mock('./hooks/usePlayerProfile.js', () => ({
 
 // Stub every child component that would require heavy setup
 vi.mock('./components/SudokuGrid.jsx', () => ({ default: () => <div data-testid="grid" /> }));
-vi.mock('./components/Header.jsx', () => ({ default: () => <div data-testid="header" /> }));
+vi.mock('./components/Header.jsx', () => ({
+  default: ({ onNavigate }) => (
+    <div data-testid="header">
+      <button data-testid="nav-profile"     onClick={() => onNavigate('profile')}>Profile</button>
+      <button data-testid="nav-history"     onClick={() => onNavigate('history')}>History</button>
+      <button data-testid="nav-statistics"  onClick={() => onNavigate('statistics')}>Statistics</button>
+      <button data-testid="nav-leaderboard" onClick={() => onNavigate('leaderboard')}>League</button>
+    </div>
+  ),
+}));
+vi.mock('./components/views/AppView.jsx', () => ({
+  default: ({ currentView, navigateBack }) => (
+    <div data-testid={`view-${currentView}`}>
+      <button data-testid="back-button" onClick={navigateBack}>Back</button>
+    </div>
+  ),
+}));
 vi.mock('./components/NumberPad.jsx', () => ({
   NumberPadToolbar: () => null,
   NumberPadInput: () => null,
@@ -92,6 +108,90 @@ function baseHookValues(overrides = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+});
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+// @spec NAV-STATE-001, NAV-STATE-002
+describe('navigation — initial state', () => {
+  it('renders the game view (not a player view) on first load', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    // AppView receives currentView='game' initially — its testid is view-game
+    expect(screen.getByTestId('view-game')).toBeTruthy();
+  });
+});
+
+// @spec NAV-STATE-004
+describe('navigation — navigateTo', () => {
+  it('shows profile view when Header triggers onNavigate("profile")', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    fireEvent.click(screen.getByTestId('nav-profile'));
+    expect(screen.getByTestId('view-profile')).toBeTruthy();
+  });
+
+  it('shows history view when Header triggers onNavigate("history")', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    fireEvent.click(screen.getByTestId('nav-history'));
+    expect(screen.getByTestId('view-history')).toBeTruthy();
+  });
+
+  it('shows statistics view when Header triggers onNavigate("statistics")', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    fireEvent.click(screen.getByTestId('nav-statistics'));
+    expect(screen.getByTestId('view-statistics')).toBeTruthy();
+  });
+
+  it('shows leaderboard view when Header triggers onNavigate("leaderboard")', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    fireEvent.click(screen.getByTestId('nav-leaderboard'));
+    expect(screen.getByTestId('view-leaderboard')).toBeTruthy();
+  });
+});
+
+// @spec NAV-STATE-005
+describe('navigation — navigateBack', () => {
+  it('returns to game view when back is triggered from a player view', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    fireEvent.click(screen.getByTestId('nav-history'));
+    expect(screen.getByTestId('view-history')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('back-button'));
+    expect(screen.getByTestId('view-game')).toBeTruthy();
+  });
+
+  it('navigateBack with empty stack returns to game view', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    // Already at 'game', back should stay at 'game'
+    fireEvent.click(screen.getByTestId('back-button'));
+    expect(screen.getByTestId('view-game')).toBeTruthy();
+  });
+});
+
+// @spec NAV-KBD-001
+describe('navigation — keyboard suppression', () => {
+  it('passes isModalOpen=false to useSudokuGame when currentView is game', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    // useSudokuGame called with options; isModalOpen should be false when view='game'
+    const callArgs = mockUseSudokuGame.mock.calls[0];
+    const options = callArgs[1] ?? {};
+    expect(options.isModalOpen).toBe(false);
+  });
+
+  it('passes isModalOpen=true to useSudokuGame when a player view is active', () => {
+    mockUseSudokuGame.mockReturnValue(baseHookValues());
+    render(<App />);
+    fireEvent.click(screen.getByTestId('nav-profile'));
+    const lastCall = mockUseSudokuGame.mock.calls[mockUseSudokuGame.mock.calls.length - 1];
+    const options = lastCall[1] ?? {};
+    expect(options.isModalOpen).toBe(true);
+  });
 });
 
 // ── Congrats dialog ────────────────────────────────────────────────────────────

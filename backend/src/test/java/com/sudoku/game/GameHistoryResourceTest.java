@@ -32,11 +32,11 @@ class GameHistoryResourceTest {
     private static final String USER_ID = "local-dev-user";
 
     private static GameHistoryEntry solvedEntry(String gameId) {
-        return new GameHistoryEntry(gameId, "medium", "won", "2026-05-24T10:00:00Z", 847, 2);
+        return new GameHistoryEntry(gameId, "medium", "won", "2026-05-24T10:00:00Z", 847, 2, 148);
     }
 
     private static GameHistoryEntry abandonedEntry(String gameId) {
-        return new GameHistoryEntry(gameId, "hard", "abandoned", "2026-05-23T09:00:00Z", 300, 0);
+        return new GameHistoryEntry(gameId, "hard", "abandoned", "2026-05-23T09:00:00Z", 300, 0, 0);
     }
 
     // @spec GH-API-001

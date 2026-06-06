@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -27,10 +27,8 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import StorageIcon from '@mui/icons-material/Storage';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
-import EditProfileDialog from './EditProfileDialog.jsx';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { AVATAR_ICONS } from '../utils/avatarIcons.js';
-import PuzzleHistoryDialog from './PuzzleHistoryDialog.jsx';
-import StatisticsDialog from './StatisticsDialog.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
@@ -66,7 +64,7 @@ const DEMO_TECHNIQUES = [
   { slug: 'y-wing',        label: 'Y-Wing demo' },
 ];
 
-// @spec UM-UI-007
+// @spec UM-UI-007, NAV-STATE-004
 export default function Header({
   elapsedSeconds,
   timerRunning,
@@ -85,25 +83,13 @@ export default function Header({
   colorMode,
   onToggleColorMode,
   avatar,
-  onProfileUpdate,
   playerProfile,
   sessionEmail,
-  history,
-  onRefreshHistory,
+  onNavigate,
 }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [gameMenuAnchorEl, setGameMenuAnchorEl] = useState(null);
   const [devMenuAnchorEl, setDevMenuAnchorEl] = useState(null);
-  const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  const handleRefreshHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    await onRefreshHistory?.();
-    setHistoryLoading(false);
-  }, [onRefreshHistory]);
-  const [statsDialogOpen, setStatsDialogOpen] = useState(false);
 
   const handleAvatarClick = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -322,17 +308,21 @@ export default function Header({
                       </Box>
                     </Box>
                   )}
-                  <MenuItem onClick={() => { handleMenuClose(); setEditProfileOpen(true); }}>
+                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('profile'); }}>
                     <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Edit Profile</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuClose(); setHistoryDialogOpen(true); handleRefreshHistory(); }}>
+                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('history'); }}>
                     <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Puzzle History</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuClose(); setStatsDialogOpen(true); }}>
+                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('statistics'); }}>
                     <ListItemIcon><BarChartIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>Statistics</ListItemText>
+                  </MenuItem>
+                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('leaderboard'); }}>
+                    <ListItemIcon><EmojiEventsIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText>League Table</ListItemText>
                   </MenuItem>
                   <Divider />
                   <MenuItem onClick={onToggleColorMode}>
@@ -361,26 +351,6 @@ export default function Header({
           </Box>
         )}
       </Toolbar>
-
-      <EditProfileDialog
-        open={editProfileOpen}
-        playerProfile={playerProfile}
-        currentAvatar={avatar}
-        onSave={onProfileUpdate}
-        onClose={() => setEditProfileOpen(false)}
-      />
-      <PuzzleHistoryDialog
-        open={historyDialogOpen}
-        history={history ?? []}
-        onClose={() => setHistoryDialogOpen(false)}
-        onRefresh={handleRefreshHistory}
-        loading={historyLoading}
-      />
-      <StatisticsDialog
-        open={statsDialogOpen}
-        history={history ?? []}
-        onClose={() => setStatsDialogOpen(false)}
-      />
     </AppBar>
   );
 }

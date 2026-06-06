@@ -19,7 +19,7 @@ The system is divided into 8 components by domain concept:
 │         (Browser SPA — MUI, hooks, API client, localStorage)   │
 └───────────────────┬──────────┬──────────┬───────────┬──────────┘
                     │          │          │           │
-          Game API  │  Puzzle  │  Player  │  Import   │
+          Game API  │  Puzzle  │  Player  │  Import   │ Leaderboard
                     ▼          ▼          ▼           ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                    Cloud Platform (API Gateway HTTP v2)          │
@@ -38,7 +38,12 @@ The system is divided into 8 components by domain concept:
 │  ├─────────────────────┤  │     └────────────┬────────────────┘
 │  │  Game Lifecycle     │  │                  │ originalGrid
 │  │  (state machine,    │◀─┼──────────────────┘
+│  │   scoring,          │  │
 │  │   DynamoDB I/O)     │  │
+│  ├─────────────────────┤  │
+│  │  League Table       │  │
+│  │  (leaderboard agg,  │  │
+│  │   ranking, stats)   │  │
 │  ├─────────────────────┤  │
 │  │  Puzzle Generation  │  │
 │  │  & Validation       │  │
@@ -59,6 +64,8 @@ The system is divided into 8 components by domain concept:
 │  SudokuGames  (userId PK, │
 │               gameId SK)  │
 │  SudokuPlayers (userId PK)│
+│  SudokuLeaderboard        │
+│             (userId PK)   │
 └───────────────────────────┘
 ```
 
@@ -73,7 +80,8 @@ The system is divided into 8 components by domain concept:
 | **User Management** | Player profile lazy-creation, JWT claim extraction, email allowlist, CORS, dev filters | `backend/.../player/`, `auth/`, `cors/`, `logging/` |
 | **Image Recognition** | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring | `image_recognition/handler.py` |
 | **Cloud Platform** | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM | `infra/*.tf` |
-| **React Frontend** | Browser SPA: game UI, hint UX, state hooks, API client, localStorage persistence | `ui/src/` |
+| **League Table** | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard` | `backend/.../leaderboard/` |
+| **React Frontend** | Browser SPA: game UI, full-screen navigation, hint UX, state hooks, API client, localStorage persistence | `ui/src/` |
 
 ## Dependency Order
 
@@ -86,6 +94,10 @@ React Frontend
     └── Game Lifecycle (game API)
     └── Puzzle Generation & Validation (puzzle/hint/candidates API)
     └── Image Recognition (import API)
+
+League Table
+    └── Game Lifecycle (hooks into GameServiceImpl on solve; reads GameItem.score)
+    └── User Management (reads PlayerRepository for display names)
 
 Game Lifecycle
     └── Puzzle Generation & Validation (generatePuzzle, solveGrid, hasSingleSolution)
@@ -166,6 +178,25 @@ User clicks "Hint"
     → Frontend: hintStage='nudge', highlightCells set
     → User clicks "Show Me" → hintStage='focus'
     → User clicks "Show Me" → hintStage='reveal', applies changes to grid
+```
+
+## Data Flow: Game Solved → Leaderboard Update
+
+```text
+User completes puzzle (grid matches solutionGrid)
+    → useSudokuGame.finishGame()
+    → saveGame(gameId, { isComplete: true })            [Frontend → API GW → Java Lambda]
+        → GameServiceImpl.updateGame(userId, gameId, update)
+            → GameRepository.update(gameItem)           [DynamoDB: status=SOLVED, endedAt=now]
+            → GameItem.applyUpdate(isComplete=true)
+                → ScoringConstants.baseScore(difficulty)
+                → compute score (timeBonus * hintMultiplier)
+                → gameItem.score = computedScore
+            → LeaderboardRepository.updateOnSolve(      [DynamoDB UpdateItem ADD expressions]
+                userId, difficulty, elapsedSeconds,
+                score, outcome=SOLVED)
+        → returns updated GameState (includes score)
+    → Frontend navigates to history or shows completion
 ```
 
 ## Data Flow: Import from Photo

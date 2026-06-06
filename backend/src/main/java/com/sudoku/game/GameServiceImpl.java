@@ -7,6 +7,7 @@ import com.sudoku.dto.GameHistoryResponse;
 import com.sudoku.dto.GameState;
 import com.sudoku.dto.GameUpdateRequest;
 import com.sudoku.dto.ValidationResponse;
+import com.sudoku.leaderboard.LeaderboardRepository;
 import com.sudoku.puzzle.SudokuService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -37,11 +38,15 @@ public class GameServiceImpl implements GameService {
 
     private final SudokuService sudokuService;
     private final GameRepository gameRepository;
+    private final LeaderboardRepository leaderboardRepository;
 
     @Inject
-    public GameServiceImpl(SudokuService sudokuService, GameRepository gameRepository) {
+    public GameServiceImpl(SudokuService sudokuService,
+                           GameRepository gameRepository,
+                           LeaderboardRepository leaderboardRepository) {
         this.sudokuService = sudokuService;
         this.gameRepository = gameRepository;
+        this.leaderboardRepository = leaderboardRepository;
     }
 
     @Override
@@ -62,7 +67,8 @@ public class GameServiceImpl implements GameService {
                 GameStatus.IN_PROGRESS.getValue(),
                 0,
                 Instant.now().toString(),
-                null
+                null,
+                0
         );
         gameRepository.save(gameState);
         return gameState;
@@ -103,7 +109,8 @@ public class GameServiceImpl implements GameService {
                 GameStatus.IN_PROGRESS.getValue(),
                 0,
                 Instant.now().toString(),
-                null
+                null,
+                0
         );
         gameRepository.save(gameState);
         return gameState;
@@ -122,9 +129,18 @@ public class GameServiceImpl implements GameService {
         return gameRepository.findInProgress(userId);
     }
 
+    // @spec LT-BE-005, LT-BE-006
     @Override
     public void updateGame(String userId, String gameId, GameUpdateRequest request) {
-        gameRepository.update(userId, gameId, request);
+        if (Boolean.TRUE.equals(request.isComplete())) {
+            GameState game = gameRepository.findById(userId, gameId)
+                    .orElseThrow(() -> new GameNotFoundException(gameId));
+            gameRepository.update(userId, gameId, request);
+            int score = ScoringConstants.computeScore(game.difficulty(), request.timeSpentSeconds(), game.hintsUsed());
+            leaderboardRepository.updateOnSolve(userId, game.difficulty(), request.timeSpentSeconds(), score, "won");
+        } else {
+            gameRepository.update(userId, gameId, request);
+        }
     }
 
     // @spec GH-SVC-001

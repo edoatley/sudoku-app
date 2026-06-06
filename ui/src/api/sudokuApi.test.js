@@ -116,6 +116,7 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv('VITE_MOCK_API', 'false');
+    vi.stubEnv('VITE_SKIP_AUTH', 'false');
     vi.stubEnv('VITE_API_URL', 'http://test-api/v1');
     fetchSpy = vi.spyOn(globalThis, 'fetch');
   });
@@ -327,5 +328,60 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
     expect(result.originalGrid).toEqual(rawGrid);
     expect(Array.isArray(result.originalGrid)).toBe(true);
     expect(Array.isArray(result.originalGrid[0])).toBe(true);
+  });
+
+  // @spec LT-UI-001
+  it('getLeaderboard GETs the correct endpoint and returns entries', async () => {
+    const mockEntries = [
+      { userId: 'u1', displayName: 'Ed', avatarKey: 'Person', rank: 1,
+        totalWins: 5, totalGames: 6, avgScore: 180, avgElapsedSeconds: 250,
+        bestTimeByDifficulty: { easy: 90 } },
+    ];
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ entries: mockEntries }), { status: 200 }),
+    );
+    const { getLeaderboard } = await import('./sudokuApi.js');
+    const result = await getLeaderboard();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'http://test-api/v1/leaderboard',
+      expect.any(Object),
+    );
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].displayName).toBe('Ed');
+  });
+
+  it('getLeaderboard sends Authorization header', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ entries: [] }), { status: 200 }),
+    );
+    const { getLeaderboard } = await import('./sudokuApi.js');
+    await getLeaderboard();
+    const [, options] = fetchSpy.mock.calls[0];
+    expect(options.headers).toMatchObject({ Authorization: 'Bearer test-id-token' });
+  });
+});
+
+// ─── Mock mode — leaderboard ──────────────────────────────────────────────────
+
+describe('sudokuApi — mock mode getLeaderboard (VITE_MOCK_API=true)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv('VITE_MOCK_API', 'true');
+    vi.stubEnv('VITE_API_URL', 'http://test-api/v1');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  // @spec LT-UI-002
+  it('getLeaderboard returns CANNED_LEADERBOARD without calling fetch', async () => {
+    const { getLeaderboard } = await import('./sudokuApi.js');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const result = await getLeaderboard();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result).toHaveProperty('entries');
+    expect(Array.isArray(result.entries)).toBe(true);
+    fetchSpy.mockRestore();
   });
 });

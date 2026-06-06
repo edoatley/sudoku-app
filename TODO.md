@@ -1,6 +1,6 @@
 # TODO
 
-> Last updated: 2026-05-29
+> Last updated: 2026-05-31
 > Sources scanned: README.md § TODO, docs/specs/*.md (EARS), docs/arrows/index.yaml, backend/src/**/*.java, ui/src/**/*.{jsx,js}, image_recognition/**/*.py, infra/**/*.tf
 
 ---
@@ -9,7 +9,7 @@
 
 - [ ] More strategies: XY-Chain, Remote Pairs (README.md#L210)
 - [ ] Manual puzzle entry mode — fallback when import fails (README.md#L211)
-- [ ] League table — rank players by puzzles completed and time taken (README.md#L213)
+- [x] League table — rank players by puzzles completed and time taken (README.md#L213)
 - [ ] Add expert difficulty level — backend complete (PuzzleGenerator supports it); UI NewGameModal needs expert option added (README.md#L214)
 
 ## Error Handling
@@ -23,7 +23,6 @@
 
 ## Tech Debt
 
-- [x] UI cleanup: decompose `useSudokuGame` into smaller focused hooks — extracted `useGameTimer`, `useHintSystem`, `useGameSync`; public API unchanged (README.md#L218)
 - [ ] UI cleanup: rationalise directory structure (README.md#L219)
 
 ---
@@ -44,3 +43,4 @@
 - [x] AEH-EX-008: DynamoDbGameRepository.findById() throws GameNotFoundException — verified, empty item triggers explicit throw (docs/specs/api-error-handling-specs.md#AEH-EX-008)
 - [x] AEH-EX-009: DynamoDbGameRepository.update() throws GameNotFoundException — verified, not a silent no-op (docs/specs/api-error-handling-specs.md#AEH-EX-009)
 - [x] UI cleanup: persist game history to server — usePlayerProfile fetches from /games/history; localStorage used as cache only (README.md#L217)
+- [x] UI cleanup: decompose `useSudokuGame` into smaller focused hooks — extracted `useGameTimer`, `useHintSystem`, `useGameSync`; public API unchanged (#86)

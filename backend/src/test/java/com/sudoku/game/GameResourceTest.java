@@ -3,6 +3,7 @@ package com.sudoku.game;
 import com.sudoku.domain.CandidatesGrid;
 import com.sudoku.domain.Grid;
 import com.sudoku.dto.GameState;
+import com.sudoku.leaderboard.LeaderboardRepository;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -35,6 +36,9 @@ class GameResourceTest {
 
     @InjectMock
     GameRepository gameRepository;
+
+    @InjectMock
+    LeaderboardRepository leaderboardRepository;
 
     private static final String USER_ID = "local-dev-user";
 
@@ -93,7 +97,7 @@ class GameResourceTest {
                 .statusCode(201)
                 .extract().path("gameId");
 
-        GameState saved = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null);
+        GameState saved = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null, 0);
         when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(saved));
 
         given()
@@ -119,8 +123,8 @@ class GameResourceTest {
                 .statusCode(201)
                 .extract().path("gameId");
 
-        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null);
-        GameState updated = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 60, "IN_PROGRESS", 0, null, null);
+        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null, 0);
+        GameState updated = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 60, "IN_PROGRESS", 0, null, null, 0);
         when(gameRepository.findById(USER_ID, gameId))
                 .thenReturn(Optional.of(initial))
                 .thenReturn(Optional.of(updated));
@@ -163,8 +167,8 @@ class GameResourceTest {
                 .statusCode(201)
                 .extract().path("gameId");
 
-        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null);
-        GameState solved  = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 300, "SOLVED", 0, null, null);
+        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null, 0);
+        GameState solved  = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 300, "SOLVED", 0, null, null, 0);
         when(gameRepository.findById(USER_ID, gameId))
                 .thenReturn(Optional.of(initial))
                 .thenReturn(Optional.of(solved));
@@ -213,7 +217,7 @@ class GameResourceTest {
     @Test
     void getCurrentGame_whenInProgress_returns200WithGame() {
         String gameId = "in-progress-id";
-        GameState inProgress = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 45, "IN_PROGRESS", 0, null, null);
+        GameState inProgress = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 45, "IN_PROGRESS", 0, null, null, 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         given()
@@ -242,7 +246,7 @@ class GameResourceTest {
     void postGames_whenInProgressGameExists_abandonsIt() {
         String existingGameId = "existing-game-id";
         GameState inProgress = new GameState(USER_ID, existingGameId, "easy", GRID, null, GRID,
-                emptyCandidates(), 120, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null);
+                emptyCandidates(), 120, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null, 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         given()
@@ -262,7 +266,7 @@ class GameResourceTest {
     void postGamesFromImage_whenInProgressGameExists_abandonsIt() {
         String existingGameId = "existing-import-id";
         GameState inProgress = new GameState(USER_ID, existingGameId, "easy", GRID, null, GRID,
-                emptyCandidates(), 60, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null);
+                emptyCandidates(), 60, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null, 0);
         when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
 
         given()

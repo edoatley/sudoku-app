@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
@@ -25,6 +25,7 @@ import NewGameModal from './components/NewGameModal.jsx';
 import ImportModal from './components/ImportModal.jsx';
 import DevDataDialog from './components/DevDataDialog.jsx';
 import TutorialModal from './components/TutorialModal.jsx';
+import AppView from './components/views/AppView.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
@@ -66,11 +67,25 @@ if (!MOCK_API && !SKIP_AUTH) {
   });
 }
 
+// @spec NAV-STATE-001, NAV-STATE-002, NAV-STATE-004, NAV-STATE-005
 function SudokuApp({ user, signOut }) {
   const [forbidden, setForbidden] = useState(false);
   const [forbiddenEmail, setForbiddenEmail] = useState(null);
   const handleForbidden = useCallback((email = null) => { setForbidden(true); setForbiddenEmail(email); }, []);
   const { avatar, history, recordGame, fetchHistory, playerProfile, sessionEmail, updateProfile } = usePlayerProfile(user, { onForbidden: handleForbidden });
+
+  const [currentView, setCurrentView] = useState('game');
+  const viewStack = useRef([]);
+
+  const navigateTo = useCallback((view) => {
+    viewStack.current.push(currentView);
+    setCurrentView(view);
+  }, [currentView]);
+
+  const navigateBack = useCallback(() => {
+    const target = viewStack.current.pop();
+    if (target !== undefined) setCurrentView(target);
+  }, []);
 
   const [colorMode, setColorMode] = useState(
     () => localStorage.getItem('sudoku_colorMode') ?? 'light'
@@ -143,7 +158,7 @@ function SudokuApp({ user, signOut }) {
     pauseGame,
     resumeGame,
     importStage,
-  } = useSudokuGame(user, { onGameComplete: recordGame, onForbidden: handleForbidden });
+  } = useSudokuGame(user, { onGameComplete: recordGame, onForbidden: handleForbidden, isModalOpen: currentView !== 'game' });
 
   const completedNumbers = useMemo(() => {
     if (!currentGrid) return new Set();
@@ -156,8 +171,9 @@ function SudokuApp({ user, signOut }) {
     return new Set(Object.entries(counts).filter(([, c]) => c === 9).map(([n]) => Number(n)));
   }, [currentGrid]);
 
-  // @spec KBD-032, KBD-033 — suppress keyboard input while any modal or hint panel is open
-  const isModalOpen = newGameModalOpen || importModalOpen || devDataOpen || helpOpen
+  // @spec KBD-032, KBD-033, NAV-KBD-001 — suppress keyboard input while any modal or view is open
+  const isKeyboardSuppressed = currentView !== 'game'
+    || newGameModalOpen || importModalOpen || devDataOpen || helpOpen
     || gameStatus === 'solved'
     || !!activeHint;
 
@@ -168,7 +184,7 @@ function SudokuApp({ user, signOut }) {
     currentGrid,
     gameStatus,
     isPaused,
-    isModalOpen,
+    isModalOpen: isKeyboardSuppressed,
     onDigit: writeCellValue,
     onClear: clearCell,
     onSelectCell: setSelectedCell,
@@ -223,11 +239,8 @@ function SudokuApp({ user, signOut }) {
         user={effectiveUser}
         onSignOut={signOut}
         avatar={avatar}
-        onProfileUpdate={updateProfile}
         playerProfile={playerProfile}
         sessionEmail={sessionEmail}
-        history={history}
-        onRefreshHistory={fetchHistory}
         isPaused={isPaused}
         onPause={pauseGame}
         onResume={resumeGame}
@@ -237,6 +250,16 @@ function SudokuApp({ user, signOut }) {
         onDevData={DEV_TOOLS ? () => setDevDataOpen(true) : null}
         colorMode={colorMode}
         onToggleColorMode={handleToggleColorMode}
+        onNavigate={navigateTo}
+      />
+      <AppView
+        currentView={currentView}
+        navigateBack={navigateBack}
+        playerProfile={playerProfile}
+        currentAvatar={avatar}
+        onProfileUpdate={updateProfile}
+        history={history}
+        onRefreshHistory={fetchHistory}
       />
       <Container maxWidth="lg" disableGutters sx={{ px: { xs: 1, sm: 2, md: 3 }, py: { xs: 1, md: 2 } }}>
         <Stack spacing={{ xs: 1, md: 2 }} alignItems={{ xs: 'center', md: 'flex-start' }}>

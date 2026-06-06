@@ -28,9 +28,9 @@ Local dev uses `.env.development` (`MOCK_API=false`, `SKIP_AUTH=false`, `DEV_TOO
 
 ```text
 App (MUI theme, auth wrapper, forbidden-state handler)
-└── SudokuApp
-    ├── Header (timer, user menu, game controls)
-    ├── SudokuGrid (9×9 cells)
+└── SudokuApp (currentView state machine, navigateTo/navigateBack)
+    ├── Header (timer, user menu, game controls; calls onNavigate)
+    ├── SudokuGrid (9×9 cells)          ← always rendered
     │   └── SudokuCell × 81
     ├── NumberPad (digit input, action buttons, status)
     ├── HintDialog (nudge/focus/reveal + tutorial)
@@ -39,13 +39,17 @@ App (MUI theme, auth wrapper, forbidden-state handler)
     ├── NewGameModal (difficulty picker)
     ├── ImportModal (image upload + preview)
     ├── DevDataDialog (DynamoDB browser, VITE_DEV_TOOLS only)
-    ├── AvatarPickerDialog
-    ├── StatisticsDialog
-    ├── PuzzleHistoryDialog
-    └── StatusBar (toast notifications)
+    ├── StatusBar (toast notifications)
+    └── AppView (full-screen view overlay, zIndex 1200)
+        ├── ProfileView    (currentView === 'profile')
+        ├── HistoryView    (currentView === 'history')
+        ├── StatisticsView (currentView === 'statistics')
+        └── LeaderboardView (currentView === 'leaderboard')
 ```
 
-`App` handles theme creation, Amplify Authenticator wrapping, and the forbidden-access error screen. `SudokuApp` is the main shell, wiring hooks to components.
+`App` handles theme creation, Amplify Authenticator wrapping, and the forbidden-access error screen. `SudokuApp` is the main shell, wiring hooks to components and owning the `currentView` navigation state machine (see `docs/llds/navigation.md`).
+
+Player-facing flows (edit profile, puzzle history, statistics, league table) are full-screen views rendered by `AppView` over the game. The three former Dialog components (`EditProfileDialog`, `PuzzleHistoryDialog`, `StatisticsDialog`) are deleted.
 
 ## State Architecture
 
@@ -100,12 +104,22 @@ Manages user identity and game history.
 
 - `avatar` — icon name (localStorage-persisted, default `'Person'`)
 - `playerProfile` — from `GET /players/me` (null in mock mode)
-- `history` — last 10 games (localStorage-persisted)
+- `history` — last 10 games (localStorage-persisted); each entry includes a `score` field mapped from the server response (`entry.score ?? 0`)
 - `sessionEmail` — from Cognito session token
 
 **Methods:** `setAvatar(iconName)`, `recordGame({gameId, difficulty, outcome, elapsedSeconds, hintsUsed})`
 
 On mount: calls `getEmailFromSession()` then `getPlayerProfile()`, then unconditionally calls `warmupImageRecognition()` to pre-warm the Python Lambda.
+
+### `useLeaderboard()`
+
+Fetches and exposes the player league table.
+
+**State exposed:** `leaderboard` (array of `LeaderboardEntry`), `loading` (boolean), `error` (string or null)
+
+**Methods:** `refresh()` — re-fetches from `GET /api/v1/leaderboard`
+
+Fetches on mount. On error, retains any previously loaded data and sets `error`. See `docs/llds/league-table.md` for full spec.
 
 ## Persistence Strategy
 
@@ -172,6 +186,8 @@ Mock paths also call the unwrap helpers so the hook receives the same plain-arra
 | `importPuzzle(imageFile)` | POST | `/api/v1/puzzles/import` | Yes |
 | `warmupImageRecognition()` | GET | `/api/v1/puzzles/import/warmup` | No |
 | `getPlayerProfile()` | GET | `/api/v1/players/me` | Yes |
+| `updatePlayerProfile(patch)` | PATCH | `/api/v1/players/me` | Yes |
+| `getLeaderboard()` | GET | `/api/v1/leaderboard` | Yes |
 | `getDemoGrid(technique)` | GET | `/dev/hint-demo` | No |
 | `getDevData(entity)` | GET | `/dev/data/{entity}` | No |
 
@@ -224,7 +240,7 @@ Left: hamburger game menu (New Game, Import, Developer submenu). Centre: elapsed
 
 Developer submenu (VITE_DEV_TOOLS only): 11 technique demo entries (`loadDemoGame(slug)`) + Data Browser.
 
-Avatar menu: Change Avatar, Puzzle History, Statistics, Dark Mode toggle, Sign Out.
+Avatar menu: Edit Profile, Puzzle History, Statistics, League Table, Dark Mode toggle, Sign Out. Each player-flow item calls `onNavigate(view)` — no dialogs are opened from the menu.
 
 ### ImportModal
 
@@ -302,6 +318,7 @@ Wire format: `sudokuApi.js` wraps grids in `{rows: [...]}` (via `gridToWire`) be
 ## Technical Debt & Inconsistencies
 
 - `TutorialModal` fetches markdown from `/techniques/{slug}.md` — confirmed that all 11 files exist in `ui/public/techniques/`.
+- FE-UI-042b (client-side score calculation) — resolved as part of the league-table feature; `calculateScore()` removed from `HistoryView` in Phase 4.
 
 ## Behavioral Quirks
 
