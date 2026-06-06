@@ -10,10 +10,10 @@ import jakarta.ws.rs.ext.Provider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Server-side email allowlist filter.
@@ -35,11 +35,10 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
 
     @Inject
     public AllowedUsersFilter(@ConfigProperty(name = "app.allowed.emails") Optional<String> allowedEmailsRaw) {
-        this.allowedEmails = allowedEmailsRaw.orElse("").isEmpty() ? Set.of() :
-                Arrays.stream(allowedEmailsRaw.get().split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .collect(Collectors.toUnmodifiableSet());
+        this.allowedEmails = Stream.of(allowedEmailsRaw.orElse("").split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
