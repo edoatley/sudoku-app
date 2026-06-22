@@ -16,7 +16,7 @@ jobs:
     # github.event.ref is the deleted ref name; github.event.ref_type is "branch" or "tag"
     if: github.event.ref_type == 'branch' && startsWith(github.event.ref, 'rc-')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: ./.github/actions/configure-aws-oidc
         with:

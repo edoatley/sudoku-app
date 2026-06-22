@@ -20,7 +20,7 @@ jobs:
       run:
         working-directory: ui
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-node
       - name: Lint
         run: npm run lint
@@ -35,7 +35,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-java
       - name: Run unit and API tests with coverage
         run: ./mvnw -B -ntp verify -T 1C
@@ -51,7 +51,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -69,7 +69,7 @@ jobs:
     needs: [gate-ui, gate-backend, changes]
     if: needs.changes.outputs.backend == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/build-lambda-zip
       - name: Upload Lambda zip artifact
@@ -87,7 +87,7 @@ jobs:
     outputs:
       image_uri: ${{ steps.push.outputs.image_uri }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: ./.github/actions/configure-aws-oidc
         with:
@@ -132,7 +132,7 @@ jobs:
       workspace: ${{ steps.env.outputs.workspace }}
       branch: ${{ steps.env.outputs.branch }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Resolve environment
         id: env
