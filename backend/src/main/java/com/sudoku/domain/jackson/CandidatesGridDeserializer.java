@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.sudoku.domain.CandidatesGrid;
 
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,6 +18,7 @@ import java.util.List;
  */
 public class CandidatesGridDeserializer extends StdDeserializer<CandidatesGrid> {
 
+
     public CandidatesGridDeserializer() {
         super(CandidatesGrid.class);
     }
@@ -24,9 +27,9 @@ public class CandidatesGridDeserializer extends StdDeserializer<CandidatesGrid> 
     public CandidatesGrid deserialize(JsonParser p, DeserializationContext ctx) throws IOException {
         JsonNode root = p.getCodec().readTree(p);
         JsonNode rowsNode = root.get("rows");
-        List<List<List<Integer>>> rows = new ArrayList<>(9);
+        List<List<List<Integer>>> rows = new ArrayList<>(UNIT_SIZE);
         for (JsonNode rowNode : rowsNode) {
-            List<List<Integer>> row = new ArrayList<>(9);
+            List<List<Integer>> row = new ArrayList<>(UNIT_SIZE);
             for (JsonNode cellNode : rowNode) {
                 List<Integer> candidates = new ArrayList<>();
                 for (JsonNode val : cellNode) {

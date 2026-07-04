@@ -14,15 +14,15 @@ The system is a personal project with production-quality engineering: real authe
 The system is divided into 8 components by domain concept:
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        React Frontend                           │
+┌────────────────────────────────────────────────────────────────┐
+│                        React Frontend                          │
 │         (Browser SPA — MUI, hooks, API client, localStorage)   │
 └───────────────────┬──────────┬──────────┬───────────┬──────────┘
                     │          │          │           │
           Game API  │  Puzzle  │  Player  │  Import   │ Leaderboard
                     ▼          ▼          ▼           ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    Cloud Platform (API Gateway HTTP v2)          │
+┌─────────────────────────────────────────────────────────────────┐
+│                    Cloud Platform (API Gateway HTTP v2)         │
 │              JWT Authorizer (Cognito) • Throttle 25 rps         │
 └───────────────┬───────────────────────────────┬─────────────────┘
                 │                               │
@@ -71,17 +71,17 @@ The system is divided into 8 components by domain concept:
 
 ## Component Responsibilities
 
-| Component | What it does | Where it lives |
-| --- | --- | --- |
-| **Sudoku Logic** | Board model, Cell model, candidate calculation, geometry utilities | `backend/.../domain/` |
-| **Hint Engine** | 11 ranked solving strategies, strategy chain orchestration, validate/solve/candidates | `backend/.../puzzle/hint/`, `SudokuServiceImpl` |
-| **Puzzle Generation & Validation** | Randomised backtracking generator, clue-removal uniqueness enforcer, REST endpoints, DTOs | `backend/.../puzzle/` |
-| **Game Lifecycle** | Game state machine, single-active-game invariant, DynamoDB read/write, import validation | `backend/.../game/` |
-| **User Management** | Player profile lazy-creation, JWT claim extraction, email allowlist, CORS, dev filters | `backend/.../player/`, `auth/`, `cors/`, `logging/` |
-| **Image Recognition** | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring | `image_recognition/handler.py` |
-| **Cloud Platform** | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM | `infra/*.tf` |
-| **League Table** | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard` | `backend/.../leaderboard/` |
-| **React Frontend** | Browser SPA: game UI, full-screen navigation, hint UX, state hooks, API client, localStorage persistence | `ui/src/` |
+| Component                          | What it does                                                                                             | Where it lives                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **Sudoku Logic**                   | Board model, Cell model, candidate calculation, geometry utilities                                       | `backend/.../domain/`                               |
+| **Hint Engine**                    | 11 ranked solving strategies, strategy chain orchestration, validate/solve/candidates                    | `backend/.../puzzle/hint/`, `SudokuServiceImpl`     |
+| **Puzzle Generation & Validation** | Randomised backtracking generator, clue-removal uniqueness enforcer, REST endpoints, DTOs                | `backend/.../puzzle/`                               |
+| **Game Lifecycle**                 | Game state machine, single-active-game invariant, DynamoDB read/write, import validation                 | `backend/.../game/`                                 |
+| **User Management**                | Player profile lazy-creation, JWT claim extraction, email allowlist, CORS, dev filters                   | `backend/.../player/`, `auth/`, `cors/`, `logging/` |
+| **Image Recognition**              | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring                 | `image_recognition/handler.py`                      |
+| **Cloud Platform**                 | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM                         | `infra/*.tf`                                        |
+| **League Table**                   | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard`      | `backend/.../leaderboard/`                          |
+| **React Frontend**                 | Browser SPA: game UI, full-screen navigation, hint UX, state hooks, API client, localStorage persistence | `ui/src/`                                           |
 
 ## Dependency Order
 
@@ -261,14 +261,14 @@ Patterns and decisions that only became visible after reading all components tog
 
 ## Open Questions & Known Gaps
 
-| Area | Gap | Notes |
-| --- | --- | --- |
-| Observability | No CloudWatch alarms on Lambda errors | Silent failures possible |
-| Game history | Stored in localStorage only | Lost on browser storage clear |
-| Profile updates | No endpoint to update displayName/email after creation | First-login values frozen |
-| Candidate caching | Full recalculation on every hint request | Acceptable now; worth revisiting if hint latency grows |
-| Image Recognition models | IAM grants 5 models; code uses 1 | Cascade infra ready but untested with real multi-model traffic |
-| ECR bootstrap | Manual prerequisite outside Terraform | First-time deploy risk |
+| Area                     | Gap                                                    | Notes                                                          |
+| ------------------------ | ------------------------------------------------------ | -------------------------------------------------------------- |
+| Observability            | No CloudWatch alarms on Lambda errors                  | Silent failures possible                                       |
+| Game history             | Stored in localStorage only                            | Lost on browser storage clear                                  |
+| Profile updates          | No endpoint to update displayName/email after creation | First-login values frozen                                      |
+| Candidate caching        | Full recalculation on every hint request               | Acceptable now; worth revisiting if hint latency grows         |
+| Image Recognition models | IAM grants 5 models; code uses 1                       | Cascade infra ready but untested with real multi-model traffic |
+| ECR bootstrap            | Manual prerequisite outside Terraform                  | First-time deploy risk                                         |
 
 ## References
 

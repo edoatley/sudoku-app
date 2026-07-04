@@ -114,6 +114,38 @@ paths:
         '404':
           description: No logical next step found (board might be invalid or requires guessing, which we want to avoid).
 
+  /puzzles/coach:
+    post:
+      tags:
+        - Puzzles
+      summary: Send a message to the AI Sudoku coach
+      description: >
+        Accepts the current board state and a conversation history, then returns an AI-generated
+        coaching message alongside the deterministic hint for the current position.
+        The coach guides novice players toward understanding the next logical move rather than
+        simply disclosing it. One Bedrock call is made per request; the endpoint always returns
+        200 (degrading to the hint nudge text if the AI call fails).
+        Desktop only — mobile clients should not expose this endpoint in the UI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoachRequest'
+      responses:
+        '200':
+          description: Coaching response returned (AI-generated or fallback nudge text).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoachResponse'
+        '204':
+          description: Puzzle is already solved — no technique applicable, no coaching needed.
+        '400':
+          description: Malformed board (not 9×9, invalid digits) or blank userMessage.
+        '401':
+          description: Missing or invalid Cognito JWT.
+
   /puzzles/candidates:
     post:
       tags:
@@ -906,3 +938,101 @@ components:
           description: All player records from the database.
           items:
             $ref: '#/components/schemas/PlayerProfile'
+
+    CoachRequest:
+      type: object
+      required:
+        - board
+        - history
+        - userMessage
+      properties:
+        board:
+          $ref: '#/components/schemas/Grid'
+          description: The current 9×9 board state. 0 represents an empty cell.
+        history:
+          type: array
+          description: >
+            The recent conversation turns, most recent last. The backend trims to the last 6
+            messages if more are sent. The frontend is responsible for maintaining this list.
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        userMessage:
+          type: string
+          description: The player's current message to the coach. Must not be blank.
+          minLength: 1
+          maxLength: 500
+      example:
+        board:
+          - [5,3,0,0,7,0,0,0,0]
+          - [6,0,0,1,9,5,0,0,0]
+          - [0,9,8,0,0,0,0,6,0]
+          - [8,0,0,0,6,0,0,0,3]
+          - [4,0,0,8,0,3,0,0,1]
+          - [7,0,0,0,2,0,0,0,6]
+          - [0,6,0,0,0,0,2,8,0]
+          - [0,0,0,4,1,9,0,0,5]
+          - [0,0,0,0,8,0,0,7,9]
+        history: []
+        userMessage: "I just opened the coach. Say hello briefly and let me know what you can see."
+
+    ChatMessage:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Who sent this message.
+        content:
+          type: string
+          description: The message text.
+      example:
+        role: user
+        content: "I'm stuck and not sure what to look at next."
+
+    CoachResponse:
+      type: object
+      required:
+        - aiMessage
+        - hint
+        - revealHint
+      properties:
+        aiMessage:
+          type: string
+          description: >
+            The coaching message from the AI. If the Bedrock call fails or times out, this
+            falls back to the deterministic hint nudge text.
+        hint:
+          $ref: '#/components/schemas/HintResponse'
+          description: >
+            The full deterministic hint for the current board position. Always fully populated.
+            The frontend uses revealHint to decide which fields to show.
+        revealHint:
+          type: boolean
+          description: >
+            True if the AI coaching message explicitly states the solution (cell and digit).
+            When false, the frontend should not show hint.reveal, hint.solvedCells, or
+            hint.eliminatedCandidates. When true, the frontend may show all hint fields.
+      example:
+        aiMessage: "Take a look at the top-right block. How many empty cells are left in it?"
+        hint:
+          techniqueName: "Full House"
+          markdownSlug: "full-house"
+          difficulty: "easy"
+          strategyRank: 10
+          nudge: "One of the blocks has only one empty cell remaining."
+          focus: "Look at the top-right 3×3 block — there is only one empty cell."
+          reveal: "Row 1, Column 9 must be 4 — it is the only digit missing from the top-right block."
+          highlightCells:
+            - row: 0
+              col: 8
+          focusCandidates: []
+          eliminatedCandidates: []
+          solvedCells:
+            - row: 0
+              col: 8
+              value: 4
+        revealHint: false

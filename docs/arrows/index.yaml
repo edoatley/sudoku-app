@@ -169,3 +169,14 @@ arrows:
     deferred: 0
     gaps: 0
     next: ~
+
+  - id: sudoku-coach
+    status: IN_PROGRESS
+    lld: docs/llds/sudoku-coach.md
+    specs: docs/specs/sudoku-coach-specs.md
+    arrow: ~
+    spec_count: 40
+    implemented: 0
+    deferred: 0
+    gaps: 0
+    next: Phase 1 — stub endpoint + Java records
