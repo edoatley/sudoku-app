@@ -96,10 +96,10 @@ STATUS=$(curl -s -o /tmp/games_noauth.json -w "%{http_code}" -X POST "${API_BASE
   -H "Content-Type: application/json" -d '{"difficulty":"easy"}' 2>/dev/null || true)
 check "POST /api/v1/games (no token → 401)" "${STATUS}" "401" "" /tmp/games_noauth.json
 
-# POST /api/v1/puzzles/import without token — JWT authorizer must reject with 401
-STATUS=$(curl -s -o /tmp/import_noauth.json -w "%{http_code}" -X POST "${API_BASE}/api/v1/puzzles/import" \
+# POST /api/v1/ai/scan without token — JWT authorizer must reject with 401
+STATUS=$(curl -s -o /tmp/scan_noauth.json -w "%{http_code}" -X POST "${API_BASE}/api/v1/ai/scan" \
   -H "Content-Type: application/json" -d '{"image":"dGVzdA=="}' 2>/dev/null || true)
-check "POST /api/v1/puzzles/import (no token → 401)" "${STATUS}" "401" "" /tmp/import_noauth.json
+check "POST /api/v1/ai/scan (no token → 401)" "${STATUS}" "401" "" /tmp/scan_noauth.json
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
