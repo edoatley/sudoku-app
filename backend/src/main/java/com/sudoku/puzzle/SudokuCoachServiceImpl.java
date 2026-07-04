@@ -10,14 +10,11 @@ import jakarta.inject.Inject;
 
 import java.util.List;
 
-// @spec SC-BE-001, SC-BE-002, SC-BE-003, SC-API-004
+// @spec SC-BE-001, SC-BE-002, SC-BE-003, SC-BE-009, SC-API-004
 
 /**
  * Orchestrates coaching responses by running the deterministic hint engine first,
- * then using its result as the coaching message.
- *
- * <p>Phase 2 implementation: returns the hint's nudge text as the AI message.
- * Phase 4 will replace the nudge-text fallback with a real Bedrock call.
+ * then calling Bedrock to generate conversational coaching prose.
  */
 @ApplicationScoped
 public class SudokuCoachServiceImpl implements SudokuCoachService {
@@ -31,6 +28,9 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
 
     @Inject
     SudokuService sudokuService;
+
+    @Inject
+    BedrockCoachClient bedrockCoachClient;
 
     @Override
     public CoachResult coach(CoachRequest request) {
@@ -46,9 +46,13 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
             case HintResult.NoStrategyApplied ignored -> new CoachResult.Response(
                     new CoachResponse(NO_MOVES_MESSAGE, null, false));
 
-            // @spec SC-BE-003 — technique context available; Phase 4 replaces nudge with Bedrock prose
-            case HintResult.Found f -> new CoachResult.Response(
-                    new CoachResponse(f.hint().nudge(), f.hint(), false));
+            // @spec SC-BE-003, SC-BE-009 — one Bedrock call; falls back to nudge on error
+            case HintResult.Found f -> {
+                BedrockCoachClient.AiReply reply = bedrockCoachClient.call(
+                        request.userMessage(), f.hint(), trimmedHistory, request.board());
+                yield new CoachResult.Response(
+                        new CoachResponse(reply.aiMessage(), f.hint(), reply.revealHint()));
+            }
         };
     }
 
