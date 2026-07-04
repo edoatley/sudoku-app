@@ -36,6 +36,7 @@ Cross-cutting security policy — spans Cloud Platform, User Management, and API
 - `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
 - DynamoDB Games table: `GetItem, PutItem, UpdateItem, Query`
 - DynamoDB Players table: `GetItem, PutItem, UpdateItem` (no Query — single-key access only)
+- `bedrock:InvokeModel` on the Claude Haiku inference-profile ARN and its foundation-model ARN (for the AI coaching feature — `SudokuCoachBedrockPolicy{suffix}`)
 - No `cognito-idp:*` — the backend trusts JWT claims injected by API Gateway, never calls Cognito directly
 
 **Image Recognition Lambda role (`SudokuImageRecognitionExecRole{suffix}`):**

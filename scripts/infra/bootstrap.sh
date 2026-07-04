@@ -172,7 +172,8 @@ DEPLOY_POLICY=$(cat <<EOF
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuDynamoDBPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuPlayersPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuLeaderboardPolicy*",
-        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuImageRecognitionBedrockPolicy*"
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuImageRecognitionBedrockPolicy*",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuCoachBedrockPolicy*"
       ]
     },
     {
@@ -294,6 +295,18 @@ DEPLOY_POLICY=$(cat <<EOF
         "logs:CreateLogDelivery", "logs:DeleteLogDelivery",
         "logs:GetLogDelivery", "logs:UpdateLogDelivery", "logs:ListLogDeliveries",
         "logs:PutResourcePolicy", "logs:DescribeResourcePolicies"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BudgetsAndCostExplorer",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:CreateBudget", "budgets:ModifyBudget", "budgets:DeleteBudget",
+        "budgets:DescribeBudgets", "budgets:ViewBudget",
+        "ce:CreateAnomalyMonitor", "ce:GetAnomalyMonitors", "ce:UpdateAnomalyMonitor", "ce:DeleteAnomalyMonitor",
+        "ce:CreateAnomalySubscription", "ce:GetAnomalySubscriptions", "ce:UpdateAnomalySubscription", "ce:DeleteAnomalySubscription",
+        "ce:TagResource", "ce:UntagResource", "ce:ListTagsForResource"
       ],
       "Resource": "*"
     }
