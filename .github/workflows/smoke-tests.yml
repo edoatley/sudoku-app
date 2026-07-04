@@ -78,7 +78,7 @@ jobs:
       api_smoke_result: ${{ steps.api-smoke.outcome }}
       playwright_result: ${{ steps.playwright.outcome }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             image_recognition/tests/fixtures
