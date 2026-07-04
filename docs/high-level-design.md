@@ -52,6 +52,10 @@ The system is divided into 8 components by domain concept:
 │  │  (11 strategies,    │  │
 │  │   ranked chain)     │  │
 │  ├─────────────────────┤  │
+│  │  AI Coach           │  │
+│  │  (Bedrock one-shot, │  │
+│  │   pre-analysis)     │  │
+│  ├─────────────────────┤  │
 │  │  Sudoku Logic       │  │
 │  │  (Board, Cell,      │  │
 │  │   candidates)       │  │
@@ -81,7 +85,8 @@ The system is divided into 8 components by domain concept:
 | **Image Recognition**              | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring                 | `image_recognition/handler.py`                      |
 | **Cloud Platform**                 | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM                         | `infra/*.tf`                                        |
 | **League Table**                   | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard`      | `backend/.../leaderboard/`                          |
-| **React Frontend**                 | Browser SPA: game UI, full-screen navigation, hint UX, state hooks, API client, localStorage persistence | `ui/src/`                                           |
+| **AI Coach**                       | Conversational coaching via Amazon Bedrock; one InvokeModel call per player message; deterministic pre-analysis (hint engine) provides context; fallback to nudge text on failure | `backend/.../puzzle/BedrockCoachClient.java`, `SudokuCoachServiceImpl.java` |
+| **React Frontend**                 | Browser SPA: game UI, full-screen navigation, hint UX, coach chat panel, state hooks, API client, localStorage persistence | `ui/src/`                                           |
 
 ## Dependency Order
 
@@ -94,6 +99,7 @@ React Frontend
     └── Game Lifecycle (game API)
     └── Puzzle Generation & Validation (puzzle/hint/candidates API)
     └── Image Recognition (import API)
+    └── AI Coach (coach API)
 
 League Table
     └── Game Lifecycle (hooks into GameServiceImpl on solve; reads GameItem.score)
@@ -104,6 +110,10 @@ Game Lifecycle
 
 Puzzle Generation & Validation
     └── Hint Engine (SudokuService: getHint, getCandidates, validatePuzzle)
+
+AI Coach
+    └── Hint Engine (deterministic pre-analysis: runs before every Bedrock call)
+    └── Amazon Bedrock (external: Claude Haiku InvokeModel, eu-west-2)
 
 Hint Engine
     └── Sudoku Logic (Board, Cell, BoardUtils)
@@ -199,6 +209,33 @@ User completes puzzle (grid matches solutionGrid)
     → Frontend navigates to history or shows completion
 ```
 
+## Data Flow: Coach Message
+
+```text
+User sends a message to the AI coach
+    → useCoachSession.sendMessage(text)
+    → postCoachMessage(currentGrid, history[-6:], text) [Frontend → API GW → Java Lambda]
+        → CoachResource.chat(CoachRequest)              [JWT required]
+            → SudokuCoachServiceImpl.chat(request)
+                → Board.fromGrid(request.board())
+                → board.calculateAllCandidates()
+                → SudokuService.getHint(board, ...)     [deterministic pre-analysis]
+                → match hintResult:
+                    case PuzzleSolved  → return 204
+                    case NoStrategy    → return CoachResponse(hint.nudge(), hint, false)
+                    case Found(hint)   →
+                        → BedrockCoachClient.call(userMessage, hint, history, board)
+                            → build request JSON:
+                                system: [SYSTEM_PROMPT w/ cache_control: ephemeral]
+                                messages: history + contextBlock (board + technique + nudge)
+                            → BedrockRuntimeClient.invokeModel(modelId, 6 s timeout)
+                            → parse {aiMessage, revealHint} from response JSON
+                            → on any exception → fallback AiReply(hint.nudge(), false)
+                        → return CoachResponse(aiMessage, hint, revealHint)
+    → Frontend appends AI message to chat history
+    → setHighlightCells(response.hint?.highlightCells ?? [])
+```
+
 ## Data Flow: Import from Photo
 
 ```text
@@ -226,7 +263,7 @@ User selects image file
 
 ### Public vs Authenticated Routes
 
-All `/puzzles/*` and `/health` routes are public — no JWT required. The puzzle engine is a pure function over submitted grids; it needs no identity context. All `/api/v1/games/*` and `/players/me` routes require a valid Cognito JWT, validated by API Gateway before the Lambda is invoked.
+All `/puzzles/*` routes except `/puzzles/coach` are public — no JWT required. The puzzle engine is a pure function over submitted grids; it needs no identity context. `/puzzles/coach` requires a Cognito JWT because it incurs Bedrock cost per call and must be attributable to an authenticated user. All `/api/v1/games/*` and `/players/me` routes require a valid Cognito JWT, validated by API Gateway before the Lambda is invoked.
 
 ### Backend vs Frontend Validation
 
@@ -272,9 +309,9 @@ Patterns and decisions that only became visible after reading all components tog
 
 ## References
 
-- Low-level designs: `docs/llds/` (9 files)
-- EARS specifications: `docs/specs/` (10 files)
-- Arrow tracking: `docs/arrows/index.yaml` (11 arrows)
+- Low-level designs: `docs/llds/` (10 files, including `sudoku-coach.md`)
+- EARS specifications: `docs/specs/` (11 files, including `sudoku-coach-specs.md`)
+- Arrow tracking: `docs/arrows/index.yaml` (12 arrows, including `sudoku-coach`)
 - Backend standards: `docs/standards/java-quarkus.md`
 - Security standards: `docs/arrows/security-standards.md`
 - Testing strategy: `docs/arrows/testing-strategy.md`

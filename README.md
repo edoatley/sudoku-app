@@ -127,6 +127,7 @@ Base path: `/api/v1`. Full contract: [`openapi.yaml`](openapi.yaml).
 
 | Method | Path                  | Description                                  |
 |--------|-----------------------|----------------------------------------------|
+| POST   | `/puzzles/coach`      | Send a message to the AI Sudoku coach (Bedrock-backed, desktop only) |
 | POST   | `/games`              | Create a new game for the authenticated user |
 | GET    | `/games/{gameId}`     | Load a saved game                            |
 | PATCH  | `/games/{gameId}`     | Save game progress                           |
