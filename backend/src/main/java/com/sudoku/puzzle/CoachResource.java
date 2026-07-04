@@ -29,10 +29,9 @@ public class CoachResource {
 
     @POST
     public Response coach(CoachRequest request) {
-        if (request == null || request.board() == null) {
-            return Response.status(Response.Status.BAD_REQUEST).build();
-        }
-        if (request.userMessage() == null || request.userMessage().isBlank()) {
+        // @spec SC-API-003 — board shape/digit validation delegated to Board.fromGrid()
+        //                     via InvalidGridExceptionMapper → 400
+        if (request == null || request.userMessage() == null || request.userMessage().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 

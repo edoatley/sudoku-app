@@ -10,8 +10,10 @@ import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 // @spec SC-API-002, SC-API-003, SC-API-004, SC-API-010, SC-API-011, SC-API-012
+// @spec SC-BE-001, SC-BE-002, SC-BE-003
 @QuarkusTest
 class CoachResourceTest {
 
@@ -27,10 +29,22 @@ class CoachResourceTest {
             List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
     ));
 
+    private static final Grid SOLVED_GRID = Grid.of(List.of(
+            List.of(5, 3, 4, 6, 7, 8, 9, 1, 2),
+            List.of(6, 7, 2, 1, 9, 5, 3, 4, 8),
+            List.of(1, 9, 8, 3, 4, 2, 5, 6, 7),
+            List.of(8, 5, 9, 7, 6, 1, 4, 2, 3),
+            List.of(4, 2, 6, 8, 5, 3, 7, 9, 1),
+            List.of(7, 1, 3, 9, 2, 4, 8, 5, 6),
+            List.of(9, 6, 1, 5, 3, 7, 2, 8, 4),
+            List.of(2, 8, 7, 4, 1, 9, 6, 3, 5),
+            List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
+    ));
+
     // ---- POST /api/v1/puzzles/coach ----
 
     @Test
-    void coach_validRequest_returns200WithCoachResponseShape() {
+    void coach_validRequest_returns200WithFullCoachResponseShape() {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "I'm stuck"))
@@ -38,23 +52,40 @@ class CoachResourceTest {
             .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
-                .body("aiMessage", notNullValue())
+                .body("aiMessage", not(emptyString()))
                 .body("hint", notNullValue())
                 .body("hint.techniqueName", notNullValue())
                 .body("hint.nudge", notNullValue())
+                .body("hint.strategyRank", greaterThan(0))
                 .body("hint.highlightCells", notNullValue())
-                .body("revealHint", notNullValue());
+                .body("revealHint", is(false));
     }
 
     @Test
-    void coach_emptyHistory_returns200() {
-        given()
+    void coach_aiMessageMatchesHintNudge() {
+        // @spec SC-BE-003 — Phase 2: aiMessage is the deterministic nudge text
+        var response = given()
             .contentType(ContentType.JSON)
-            .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "Hello"))
+            .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "Help me"))
             .when().post("/puzzles/coach")
             .then()
                 .statusCode(200)
-                .body("aiMessage", not(emptyString()));
+                .extract().response();
+
+        String aiMessage = response.path("aiMessage");
+        String nudge = response.path("hint.nudge");
+        assertEquals(nudge, aiMessage);
+    }
+
+    @Test
+    void coach_solvedBoard_returns204() {
+        // @spec SC-BE-002
+        given()
+            .contentType(ContentType.JSON)
+            .body(new CoachRequestBody(SOLVED_GRID, List.of(), "Am I done?"))
+            .when().post("/puzzles/coach")
+            .then()
+                .statusCode(204);
     }
 
     @Test
@@ -70,21 +101,17 @@ class CoachResourceTest {
             .when().post("/puzzles/coach")
             .then()
                 .statusCode(200)
-                .body("aiMessage", notNullValue());
+                .body("aiMessage", not(emptyString()));
     }
 
     @Test
     void coach_historyExceedingSixMessages_returns200AfterTrimming() {
         // @spec SC-API-004 — backend trims rather than rejects
         List<ChatMessage> longHistory = List.of(
-                new ChatMessage("user", "msg1"),
-                new ChatMessage("assistant", "msg2"),
-                new ChatMessage("user", "msg3"),
-                new ChatMessage("assistant", "msg4"),
-                new ChatMessage("user", "msg5"),
-                new ChatMessage("assistant", "msg6"),
-                new ChatMessage("user", "msg7"),
-                new ChatMessage("assistant", "msg8")
+                new ChatMessage("user", "msg1"), new ChatMessage("assistant", "msg2"),
+                new ChatMessage("user", "msg3"), new ChatMessage("assistant", "msg4"),
+                new ChatMessage("user", "msg5"), new ChatMessage("assistant", "msg6"),
+                new ChatMessage("user", "msg7"), new ChatMessage("assistant", "msg8")
         );
 
         given()
@@ -93,17 +120,6 @@ class CoachResourceTest {
             .when().post("/puzzles/coach")
             .then()
                 .statusCode(200);
-    }
-
-    @Test
-    void coach_nullBoard_returns400() {
-        // @spec SC-API-002
-        given()
-            .contentType(ContentType.JSON)
-            .body(new CoachRequestBody(null, List.of(), "Help"))
-            .when().post("/puzzles/coach")
-            .then()
-                .statusCode(400);
     }
 
     @Test
@@ -129,14 +145,34 @@ class CoachResourceTest {
     }
 
     @Test
-    void coach_revealHintIsFalseInStub() {
+    void coach_boardWithWrongRowCount_returns400() {
+        // @spec SC-API-002 — Board.fromGrid() throws InvalidGridException → 400
+        Grid shortGrid = Grid.of(List.of(
+                List.of(5, 3, 0, 0, 7, 0, 0, 0, 0)
+        ));
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(new CoachRequestBody(shortGrid, List.of(), "Help"))
+            .when().post("/puzzles/coach")
+            .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void coach_hintResponseIsFullyPopulated() {
+        // @spec SC-API-011 — hint always fully populated regardless of revealHint
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "I'm stuck"))
             .when().post("/puzzles/coach")
             .then()
                 .statusCode(200)
-                .body("revealHint", is(false));
+                .body("hint.nudge", notNullValue())
+                .body("hint.focus", notNullValue())
+                .body("hint.reveal", notNullValue())
+                .body("hint.markdownSlug", notNullValue())
+                .body("hint.difficulty", notNullValue());
     }
 
     // ---- helpers ----
