@@ -101,10 +101,10 @@ moved {
 
 moved {
   from = aws_apigatewayv2_route.post_puzzles_import
-  to   = module.api_gateway.aws_apigatewayv2_route.this["POST /api/v1/ai/scan"]
+  to   = module.api_gateway.aws_apigatewayv2_route.this["POST /api/v1/puzzles/import"]
 }
 
-# Workspaces already at the intermediate module address after Phase 2 migration
+# Phase 3: route renamed /puzzles/import → /ai/scan
 moved {
   from = module.api_gateway.aws_apigatewayv2_route.this["POST /api/v1/puzzles/import"]
   to   = module.api_gateway.aws_apigatewayv2_route.this["POST /api/v1/ai/scan"]
@@ -112,10 +112,10 @@ moved {
 
 moved {
   from = aws_apigatewayv2_route.get_puzzles_import_warmup
-  to   = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/ai/scan/warmup"]
+  to   = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/puzzles/import/warmup"]
 }
 
-# Workspaces already at the intermediate module address after Phase 2 migration
+# Phase 3: route renamed /puzzles/import/warmup → /ai/scan/warmup
 moved {
   from = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/puzzles/import/warmup"]
   to   = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/ai/scan/warmup"]
