@@ -70,7 +70,7 @@ module "api_gateway" {
 
   # Routes — integrations are embedded per-route in this module version.
   # $default is public; all /api/v1/* game and player routes require JWT.
-  # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game routes use explicit JWT-protected routes below
+  # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — /ai/* and game routes use explicit JWT-protected routes below
   routes = {
     "$default" = {
       integration = {
@@ -133,7 +133,16 @@ module "api_gateway" {
       }
     }
 
-    "POST /api/v1/puzzles/import" = {
+    "POST /api/v1/ai/coach" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration = {
+        uri                    = aws_lambda_alias.live.invoke_arn
+        payload_format_version = "1.0"
+      }
+    }
+
+    "POST /api/v1/ai/scan" = {
       authorization_type = "JWT"
       authorizer_key     = "cognito_jwt"
       integration = {
@@ -142,7 +151,7 @@ module "api_gateway" {
       }
     }
 
-    "GET /api/v1/puzzles/import/warmup" = {
+    "GET /api/v1/ai/scan/warmup" = {
       integration = {
         uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
         payload_format_version = "2.0"

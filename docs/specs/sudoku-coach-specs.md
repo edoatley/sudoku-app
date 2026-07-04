@@ -2,7 +2,7 @@
 
 ## Input Validation (Backend)
 
-- [ ] **SC-API-001**: When `POST /puzzles/coach` is called without a valid Cognito JWT, the system shall return 401 (enforced by API Gateway before Lambda invocation).
+- [x] **SC-API-001**: When `POST /ai/coach` is called without a valid Cognito JWT, the system shall return 401 (enforced by API Gateway before Lambda invocation).
 - [ ] **SC-API-002**: When the board field is null, not a 9×9 array, or contains any integer outside 0–9, the system shall return 400.
 - [ ] **SC-API-003**: When the userMessage field is null, blank, or exceeds 500 characters, the system shall return 400.
 - [ ] **SC-API-004**: When the history array contains more than 6 messages, the system shall trim it to the last 6 messages rather than rejecting the request.

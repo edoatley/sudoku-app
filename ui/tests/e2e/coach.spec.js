@@ -57,7 +57,7 @@ test('coach — clicking FAB opens panel with welcome message', async ({ page })
 
 test('coach — second open does not reset conversation', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/coach', (route) =>
+  await page.route('**/ai/coach', (route) =>
     route.fulfill({ json: COACH_RESPONSE })
   );
   await page.goto('/');
@@ -73,7 +73,7 @@ test('coach — second open does not reset conversation', async ({ page }) => {
 
 test('coach — sending a message shows user bubble and AI response', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/coach', (route) =>
+  await page.route('**/ai/coach', (route) =>
     route.fulfill({ json: COACH_RESPONSE })
   );
   await page.goto('/');
@@ -93,7 +93,7 @@ test('coach — sending a message shows user bubble and AI response', async ({ p
 
 test('coach — quick reply chip sends preset message', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/coach', (route) =>
+  await page.route('**/ai/coach', (route) =>
     route.fulfill({ json: COACH_RESPONSE })
   );
   await page.goto('/');
@@ -124,7 +124,7 @@ test('coach — closing panel hides it and FAB shows Open label', async ({ page 
 
 test('coach — coach response with hint highlights cells on the board', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/coach', (route) =>
+  await page.route('**/ai/coach', (route) =>
     route.fulfill({ json: COACH_RESPONSE_WITH_HINT })
   );
   await page.goto('/');

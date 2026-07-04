@@ -59,7 +59,7 @@ SnapStart pre-initializes the JVM snapshot on publish, eliminating Java cold sta
 | Timeout | 60 seconds |
 | Image | ECR `sudoku-image-recognition:{branch}-{sha}` |
 
-Container image required for Pillow (native C extensions). No SnapStart — Python cold starts managed via warmup probe (`GET /api/v1/puzzles/import/warmup`).
+Container image required for Pillow (native C extensions). No SnapStart — Python cold starts managed via warmup probe (`GET /api/v1/ai/scan/warmup`).
 
 ### API Gateway (HTTP v2)
 
@@ -70,19 +70,20 @@ One API (`sudoku{suffix}`) routes to both Lambda functions.
 | Route | Target |
 | --- | --- |
 | `$default` | Java Lambda (catches `/puzzles/*`, `/health`, `/dev/*`) |
-| `GET /api/v1/puzzles/import/warmup` | Image Recognition Lambda |
+| `GET /api/v1/ai/scan/warmup` | Image Recognition Lambda |
 
 **JWT-protected routes:**
 
 | Route | Target |
 | --- | --- |
+| `POST /api/v1/ai/coach` | Java Lambda |
+| `POST /api/v1/ai/scan` | Image Recognition Lambda |
 | `POST /api/v1/games` | Java Lambda |
 | `POST /api/v1/games/from-image` | Java Lambda |
 | `GET /api/v1/games/{gameId}` | Java Lambda |
 | `PATCH /api/v1/games/{gameId}` | Java Lambda |
 | `GET /api/v1/games/current` | Java Lambda |
 | `GET /api/v1/players/me` | Java Lambda |
-| `POST /api/v1/puzzles/import` | Image Recognition Lambda |
 
 The JWT authorizer validates Cognito tokens (issuer URL + audience = web client ID). Route precedence: specific routes beat `$default`.
 
@@ -342,7 +343,7 @@ Reusable workflow called after every deploy. Also dispatchable via `workflow_dis
 3. Wait for Amplify deployment to complete
 4. Wait for custom domain to resolve
 5. AWS OIDC auth + Cognito token acquisition
-6. Image recognition smoke test (POST `/api/v1/puzzles/import` with real fixture)
+6. Image recognition smoke test (POST `/api/v1/ai/scan` with real fixture)
 7. Playwright integration tests against live Amplify URL
 
 ### Required Secrets

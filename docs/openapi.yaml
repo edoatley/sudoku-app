@@ -15,6 +15,8 @@ tags:
     description: Health check endpoint
   - name: Puzzles
     description: Endpoints for generating and validating Sudoku grids
+  - name: AI
+    description: AI-backed endpoints (Amazon Bedrock). All require JWT authentication.
   - name: Games
     description: Endpoints for managing game state
   - name: Players
@@ -114,10 +116,10 @@ paths:
         '404':
           description: No logical next step found (board might be invalid or requires guessing, which we want to avoid).
 
-  /puzzles/coach:
+  /ai/coach:
     post:
       tags:
-        - Puzzles
+        - AI
       summary: Send a message to the AI Sudoku coach
       description: >
         Accepts the current board state and a conversation history, then returns an AI-generated
@@ -145,6 +147,68 @@ paths:
           description: Malformed board (not 9×9, invalid digits) or blank userMessage.
         '401':
           description: Missing or invalid Cognito JWT.
+
+  /ai/scan:
+    post:
+      tags:
+        - AI
+      summary: Extract a Sudoku grid from a photo
+      description: >
+        Accepts a base64-encoded image of a Sudoku puzzle and returns the extracted 9×9 grid.
+        Backed by the Image Recognition Lambda (Python, Bedrock Claude Haiku OCR).
+        The frontend calls this first, then submits the extracted grid to POST /games/from-image
+        after the user confirms the result.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  description: Base64-encoded image data (JPEG or PNG).
+      responses:
+        '200':
+          description: Grid extracted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - originalGrid
+                  - validPuzzle
+                  - modelName
+                properties:
+                  originalGrid:
+                    $ref: '#/components/schemas/Grid'
+                  validPuzzle:
+                    type: boolean
+                    description: True if the extracted grid passes basic duplicate and clue-count checks.
+                  modelName:
+                    type: string
+                    description: The Bedrock model that extracted the grid.
+        '400':
+          description: Missing or invalid image payload.
+        '401':
+          description: Missing or invalid Cognito JWT.
+        '422':
+          description: Image could not be parsed into a valid 9×9 grid.
+
+  /ai/scan/warmup:
+    get:
+      tags:
+        - AI
+      security: []
+      summary: Warm up the image recognition Lambda
+      description: >
+        Returns 200 immediately without invoking Bedrock. The frontend calls this on profile
+        load to reduce cold-start latency for the first real scan. No authentication required.
+      responses:
+        '200':
+          description: Lambda is warm.
 
   /puzzles/candidates:
     post:

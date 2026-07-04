@@ -28,7 +28,7 @@ interface, new service implementation, new endpoint, new IAM permission.
 
 ```
 PuzzleResource (or CoachResource)          ← REST adapter (input port)
-        │  POST /puzzles/coach
+        │  POST /ai/coach
         ▼
 SudokuCoachService                         ← application port (interface)
         │
@@ -211,7 +211,7 @@ treated as a hard contract violation if it occasionally sends more.
 ## HTTP Contract
 
 ```
-POST /puzzles/coach
+POST /ai/coach
 Authorization: Bearer {cognito-jwt}
 Content-Type: application/json
 

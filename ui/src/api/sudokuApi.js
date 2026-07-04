@@ -228,7 +228,7 @@ export async function importPuzzle(imageFile) {
   }
 
   const base64 = await fileToBase64(imageFile);
-  const data = await apiFetch('importPuzzle', `${API_URL}/puzzles/import`, {
+  const data = await apiFetch('importPuzzle', `${API_URL}/ai/scan`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64 }),
@@ -241,7 +241,7 @@ export async function importPuzzle(imageFile) {
 export async function warmupImageRecognition() {
   if (MOCK_API) return;
   try {
-    await fetch(`${API_URL}/puzzles/import/warmup`);
+    await fetch(`${API_URL}/ai/scan/warmup`);
   } catch {
     // silent — warm-up is best-effort
   }
@@ -324,7 +324,7 @@ export async function postCoachMessage(currentGrid, history, userMessage) {
     await delay(1200);
     return CANNED_COACH_RESPONSE;
   }
-  return apiFetch('postCoachMessage', `${API_URL}/puzzles/coach`, {
+  return apiFetch('postCoachMessage', `${API_URL}/ai/coach`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

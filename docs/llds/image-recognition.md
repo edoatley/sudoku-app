@@ -16,7 +16,7 @@ This component is entirely independent of the Java backend — it has its own La
 ```text
 Frontend (ImportModal)
   → base64-encode image file
-  → POST /api/v1/puzzles/import  {image: "<base64>"}  (JWT required)
+  → POST /api/v1/ai/scan  {image: "<base64>"}  (JWT required)
         │
         ▼
   API Gateway → Image Recognition Lambda (Python)
@@ -177,8 +177,8 @@ Key design: a grid with duplicates is **not rejected outright** if it is the bes
 
 | Route | Method | Auth | Request | Response |
 | --- | --- | --- | --- | --- |
-| `/api/v1/puzzles/import` | POST | JWT required | `{"image": "<base64>"}` | see below |
-| `/api/v1/puzzles/import/warmup` | GET | None | — | 200 (probe only) |
+| `/api/v1/ai/scan` | POST | JWT required | `{"image": "<base64>"}` | see below |
+| `/api/v1/ai/scan/warmup` | GET | None | — | 200 (probe only) |
 
 **Success response (200):**
 
@@ -198,7 +198,7 @@ Key design: a grid with duplicates is **not rejected outright** if it is the bes
 | 422 | Grid invalid (duplicates present and < 17 clues) or all models failed |
 | 500 | Unexpected internal error |
 
-The warmup route (`GET /api/v1/puzzles/import/warmup`) returns 200 immediately without invoking Bedrock. The frontend calls it on profile load (when import is enabled) to reduce cold-start latency for the first real import.
+The warmup route (`GET /api/v1/ai/scan/warmup`) returns 200 immediately without invoking Bedrock. The frontend calls it on profile load (when import is enabled) to reduce cold-start latency for the first real scan.
 
 ## Infrastructure
 

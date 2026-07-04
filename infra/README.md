@@ -94,7 +94,7 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 
 `ignore_changes = [cors_configuration]` prevents Terraform from reverting the tightened CORS on subsequent applies.
 
-**JWT Authorizer:** Protects `/games/*`, `/players/me`, and `/puzzles/import`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`).
+**JWT Authorizer:** Protects `/games/*`, `/players/me`, `/ai/coach`, and `/ai/scan`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). `/ai/scan/warmup` is also public (probe only, no Bedrock call).
 
 ### Lambda
 

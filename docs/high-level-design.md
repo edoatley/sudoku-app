@@ -242,7 +242,7 @@ User sends a message to the AI coach
 User selects image file
     → ImportModal → importPuzzle(imageFile)
         → base64 encode file
-        → POST /api/v1/puzzles/import                  [Frontend → API GW → Image Recognition Lambda]
+        → POST /api/v1/ai/scan                         [Frontend → API GW → Image Recognition Lambda]
             → preprocess image (resize, desaturate, alpha)
             → Bedrock Converse API (Claude Haiku)
             → parse response (<json> tags → pipe table fallback)
@@ -263,7 +263,7 @@ User selects image file
 
 ### Public vs Authenticated Routes
 
-All `/puzzles/*` routes except `/puzzles/coach` are public — no JWT required. The puzzle engine is a pure function over submitted grids; it needs no identity context. `/puzzles/coach` requires a Cognito JWT because it incurs Bedrock cost per call and must be attributable to an authenticated user. All `/api/v1/games/*` and `/players/me` routes require a valid Cognito JWT, validated by API Gateway before the Lambda is invoked.
+All `/puzzles/*` routes are public — no JWT required. The puzzle engine is a pure function over submitted grids; it needs no identity context. All `/ai/*` routes require a Cognito JWT: they incur Bedrock cost per call and must be attributable to an authenticated user. All `/api/v1/games/*` and `/players/me` routes also require a valid Cognito JWT, validated by API Gateway before the Lambda is invoked.
 
 ### Backend vs Frontend Validation
 

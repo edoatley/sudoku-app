@@ -55,14 +55,14 @@ class CoachResourceTest {
             List.of(3, 4, 5, 2, 8, 6, 1, 7, 9)
     ));
 
-    // ---- POST /api/v1/puzzles/coach ----
+    // ---- POST /api/v1/ai/coach ----
 
     @Test
     void coach_validRequest_returns200WithFullCoachResponseShape() {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "I'm stuck"))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -81,7 +81,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "Help me"))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(200)
                 .body("aiMessage", not(emptyString()));
@@ -93,7 +93,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(SOLVED_GRID, List.of(), "Am I done?"))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(204);
     }
@@ -108,7 +108,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, history, "Tell me more"))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(200)
                 .body("aiMessage", not(emptyString()));
@@ -127,7 +127,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, longHistory, "Help"))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(200);
     }
@@ -138,7 +138,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "   "))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(400);
     }
@@ -149,7 +149,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, List.of(), null))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(400);
     }
@@ -164,7 +164,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(shortGrid, List.of(), "Help"))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(400);
     }
@@ -175,7 +175,7 @@ class CoachResourceTest {
         given()
             .contentType(ContentType.JSON)
             .body(new CoachRequestBody(PARTIAL_GRID, List.of(), "I'm stuck"))
-            .when().post("/puzzles/coach")
+            .when().post("/ai/coach")
             .then()
                 .statusCode(200)
                 .body("hint.nudge", notNullValue())

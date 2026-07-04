@@ -19,7 +19,7 @@ import jakarta.ws.rs.core.Response;
  * All puzzle logic is stateless — the board state and conversation history are supplied
  * in each request body.
  */
-@Path("/puzzles/coach")
+@Path("/ai/coach")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class CoachResource {
