@@ -18,7 +18,7 @@ const SOLVED_MESSAGE = {
   content: 'Congratulations — the puzzle is complete! No more moves needed.',
 };
 
-export function useCoachSession({ currentGrid }) {
+export function useCoachSession({ currentGrid, setHighlightCells }) {
   const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +30,8 @@ export function useCoachSession({ currentGrid }) {
 
   const close = useCallback(() => {
     setIsOpen(false);
-  }, []);
+    setHighlightCells?.([]);
+  }, [setHighlightCells]);
 
   const sendMessage = useCallback(
     async (text) => {
@@ -57,6 +58,7 @@ export function useCoachSession({ currentGrid }) {
           ...prev,
           { role: 'assistant', content: response.aiMessage },
         ]);
+        setHighlightCells?.(response.hint?.highlightCells ?? []);
       } catch {
         setHistory((prev) => [...prev, ERROR_MESSAGE]);
       } finally {

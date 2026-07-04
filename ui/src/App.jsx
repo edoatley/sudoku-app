@@ -127,6 +127,7 @@ function SudokuApp({ user, signOut }) {
     activeHint,
     hintStage,
     highlightCells,
+    setHighlightCells,
     isLoading,
     statusMessage,
     gameStatus,
@@ -354,6 +355,7 @@ function SudokuApp({ user, signOut }) {
       <CoachWidget
         key={originalGrid ? originalGrid[0].join(',') : 'no-game'}
         currentGrid={currentGrid}
+        setHighlightCells={setHighlightCells}
       />
 
       <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">

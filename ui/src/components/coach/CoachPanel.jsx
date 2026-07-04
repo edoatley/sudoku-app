@@ -30,6 +30,7 @@ export default function CoachPanel({ history, isLoading, onSend, onClose }) {
 
   return (
     <Paper
+      data-testid="coach-panel"
       elevation={6}
       sx={{
         position: 'fixed',

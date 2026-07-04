@@ -6,13 +6,14 @@ import { useTheme } from '@mui/material/styles';
 import CoachPanel from './CoachPanel.jsx';
 import { useCoachSession } from '../../hooks/useCoachSession.js';
 
-export default function CoachWidget({ currentGrid }) {
+export default function CoachWidget({ currentGrid, setHighlightCells }) {
   const theme = useTheme();
   // @spec SC-UI-001 — desktop only; hide on screens narrower than md breakpoint
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const { isOpen, open, close, history, isLoading, sendMessage } = useCoachSession({
     currentGrid,
+    setHighlightCells,
   });
 
   if (isMobile) return null;
