@@ -62,15 +62,11 @@ module "lambda" {
   create_role = false
   lambda_role = aws_iam_role.lambda_exec.arn
 
-  # Deployment package already uploaded to S3.
-  # source_code_hash is required so Terraform detects when the S3 JAR changes
-  # and publishes a new Lambda version (without it, only config changes trigger a version bump).
-  create_package = false
-  s3_existing_package = {
-    bucket = local.lambda_zip_bucket_id
-    key    = aws_s3_object.lambda_zip.key
-  }
-  source_code_hash = aws_s3_object.lambda_zip.etag
+  # CI downloads the built JAR to backend/target/function.zip before running Terraform.
+  # local_existing_package causes the module to compute source_code_hash = filebase64sha256(path),
+  # so Terraform detects code changes and publishes a new Lambda version on every JAR change.
+  create_package         = false
+  local_existing_package = var.lambda_zip_path
 
   runtime       = "java25"
   handler       = "io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest"
