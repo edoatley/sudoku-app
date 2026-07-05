@@ -77,15 +77,9 @@ echo "  Amplify URL:  ${AMPLIFY_URL}"
 echo "  Default URL:  ${DEFAULT_URL}"
 echo ""
 
-# The custom domain (sudoku-beta.edoatley.co.uk for rc, sudoku.edoatley.co.uk for prod)
-# is the URL users actually access the app from — it must be in CORS allowed origins.
-CUSTOM_DOMAIN=""
-[[ "${MODE}" == "rc"   ]] && CUSTOM_DOMAIN="https://sudoku-beta.edoatley.co.uk"
-[[ "${MODE}" == "prod" ]] && CUSTOM_DOMAIN="https://sudoku.edoatley.co.uk"
-
 CORS_CONFIG=$(printf \
-  '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' \
-  "${AMPLIFY_URL}" "${DEFAULT_URL}" "${CUSTOM_DOMAIN}")
+  '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' \
+  "${AMPLIFY_URL}" "${DEFAULT_URL}")
 
 aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
 echo "CORS updated."
