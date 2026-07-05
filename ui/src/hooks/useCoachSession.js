@@ -65,7 +65,7 @@ export function useCoachSession({ currentGrid, setHighlightCells }) {
         setIsLoading(false);
       }
     },
-    [currentGrid, history, isLoading],
+    [currentGrid, history, isLoading, setHighlightCells],
   );
 
   return { isOpen, open, close, history, isLoading, sendMessage };

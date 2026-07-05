@@ -250,6 +250,7 @@ function SudokuApp({ user, signOut }) {
         onImport={() => setImportModalOpen(true)}
         onDemoGame={DEV_TOOLS ? loadDemoGame : null}
         onDevData={DEV_TOOLS ? () => setDevDataOpen(true) : null}
+        difficulty={difficulty}
         colorMode={colorMode}
         onToggleColorMode={handleToggleColorMode}
         onNavigate={navigateTo}

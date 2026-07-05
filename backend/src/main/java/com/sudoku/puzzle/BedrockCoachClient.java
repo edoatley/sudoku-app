@@ -18,11 +18,14 @@ import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.UUID;
 
 // @spec SC-BE-009, SC-BE-010, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016
 
 @ApplicationScoped
 public class BedrockCoachClient {
+
+    private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(BedrockCoachClient.class);
 
     // Prompt caching requires ≥2,048 tokens on Claude Haiku models.
     // This constant is intentionally verbose to exceed that threshold and improve output quality.
@@ -159,10 +162,16 @@ public class BedrockCoachClient {
 
     public record AiReply(String aiMessage, boolean revealHint) {}
 
+    record ParsedResponse(AiReply reply, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens) {}
+
     // @spec SC-BE-009 — single Bedrock call per request; @spec SC-BE-015, SC-BE-016 — fallback on error
     public AiReply call(String userMessage, HintResponse hint, List<ChatMessage> history, Grid board) {
+        String cid = UUID.randomUUID().toString();
+        long startMs = System.currentTimeMillis();
         try {
             String requestJson = buildRequestJson(userMessage, hint, history, board);
+            LOG.infof("{\"type\":\"COACH_REQUEST\",\"cid\":\"%s\",\"modelId\":\"%s\",\"technique\":\"%s\",\"historyLen\":%d,\"userMsgLen\":%d,\"ts\":%d}",
+                    cid, modelId, hint.techniqueName(), history.size(), userMessage.length(), startMs);
             InvokeModelResponse response = bedrockRuntimeClient.invokeModel(
                     InvokeModelRequest.builder()
                             .modelId(modelId)
@@ -171,8 +180,15 @@ public class BedrockCoachClient {
                             .body(SdkBytes.fromUtf8String(requestJson))
                             .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(BEDROCK_TIMEOUT_SECONDS)))
                             .build());
-            return parseResponse(response, hint);
+            ParsedResponse parsed = parseResponse(response, hint);
+            long latencyMs = System.currentTimeMillis() - startMs;
+            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":%b,\"inputTokens\":%d,\"outputTokens\":%d,\"cacheReadTokens\":%d,\"cacheWriteTokens\":%d,\"latencyMs\":%d,\"fallback\":false}",
+                    cid, parsed.reply().revealHint(), parsed.inputTokens(), parsed.outputTokens(), parsed.cacheReadTokens(), parsed.cacheWriteTokens(), latencyMs);
+            return parsed.reply();
         } catch (Exception e) {
+            long latencyMs = System.currentTimeMillis() - startMs;
+            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":false,\"inputTokens\":0,\"outputTokens\":0,\"cacheReadTokens\":0,\"cacheWriteTokens\":0,\"latencyMs\":%d,\"fallback\":true}",
+                    cid, latencyMs);
             return fallback(hint);
         }
     }
@@ -209,19 +225,24 @@ public class BedrockCoachClient {
     }
 
     // @spec SC-BE-013 — fallback on JSON parse failure
-    private AiReply parseResponse(InvokeModelResponse invokeResponse, HintResponse hint) {
+    private ParsedResponse parseResponse(InvokeModelResponse invokeResponse, HintResponse hint) {
         try {
             JsonNode root = objectMapper.readTree(invokeResponse.body().asUtf8String());
             String text = root.path("content").get(0).path("text").asText("");
             JsonNode parsed = objectMapper.readTree(text);
             String aiMessage = parsed.path("aiMessage").asText("");
             if (aiMessage.isBlank()) {
-                return fallback(hint);
+                return new ParsedResponse(fallback(hint), 0, 0, 0, 0);
             }
             boolean revealHint = parsed.path("revealHint").asBoolean(false);
-            return new AiReply(aiMessage, revealHint);
+            JsonNode usage = root.path("usage");
+            int inputTokens = usage.path("input_tokens").asInt(0);
+            int outputTokens = usage.path("output_tokens").asInt(0);
+            int cacheReadTokens = usage.path("cache_read_input_tokens").asInt(0);
+            int cacheWriteTokens = usage.path("cache_creation_input_tokens").asInt(0);
+            return new ParsedResponse(new AiReply(aiMessage, revealHint), inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
         } catch (Exception e) {
-            return fallback(hint);
+            return new ParsedResponse(fallback(hint), 0, 0, 0, 0);
         }
     }
 
