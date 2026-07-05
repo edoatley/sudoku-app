@@ -95,7 +95,7 @@ variable "budget_alert_email" {
 }
 
 variable "bedrock_monthly_budget_usd" {
-  description = "Monthly Bedrock spend cap in USD. Budget alerts fire at 80% actual and 100% forecasted. Only active when budget_alert_email is set."
+  description = "Monthly Bedrock spend cap in USD. Alerts at 80% actual and 100% forecasted; a budget action auto-attaches a Bedrock deny policy to the Lambda role at 100% actual. Only active when budget_alert_email is set."
   type        = string
-  default     = "10"
+  default     = "25"
 }
