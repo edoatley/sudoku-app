@@ -187,8 +187,8 @@ public class BedrockCoachClient {
             return parsed.reply();
         } catch (Exception e) {
             long latencyMs = System.currentTimeMillis() - startMs;
-            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":false,\"inputTokens\":0,\"outputTokens\":0,\"cacheReadTokens\":0,\"cacheWriteTokens\":0,\"latencyMs\":%d,\"fallback\":true}",
-                    cid, latencyMs);
+            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":false,\"inputTokens\":0,\"outputTokens\":0,\"cacheReadTokens\":0,\"cacheWriteTokens\":0,\"latencyMs\":%d,\"fallback\":true,\"errorType\":\"%s\",\"errorMsg\":\"%s\"}",
+                    cid, latencyMs, e.getClass().getSimpleName(), e.getMessage() == null ? "" : e.getMessage().replace("\"", "'"));
             return fallback(hint);
         }
     }

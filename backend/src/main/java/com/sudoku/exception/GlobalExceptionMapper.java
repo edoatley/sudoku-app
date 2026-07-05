@@ -1,6 +1,7 @@
 package com.sudoku.exception;
 
 import com.sudoku.dto.ErrorResponse;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
@@ -18,6 +19,10 @@ import java.util.UUID;
  * HTTP 500 with a sanitized response body. The original exception message and stack
  * trace are never included in the response — only the correlation ID, so that a user
  * can report it and the operator can locate the matching log line.
+ *
+ * <p>{@link WebApplicationException} subclasses (e.g. NotFoundException, BadRequestException)
+ * carry an intentional HTTP status and are passed through unchanged so the router's 404s
+ * and the endpoint's 400s are not silently converted to 500.
  */
 @Provider
 public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
@@ -26,6 +31,11 @@ public class GlobalExceptionMapper implements ExceptionMapper<Exception> {
 
     @Override
     public Response toResponse(Exception exception) {
+        // WebApplicationException already carries the correct HTTP status — don't override it.
+        if (exception instanceof WebApplicationException wae) {
+            LOG.debugf("WebApplicationException [status=%d]: %s", wae.getResponse().getStatus(), wae.getMessage());
+            return wae.getResponse();
+        }
         String correlationId = UUID.randomUUID().toString();
         LOG.errorf(exception, "Unhandled exception [correlationId=%s]", correlationId);
         return Response
