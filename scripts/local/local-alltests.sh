@@ -247,6 +247,14 @@ else
     --billing-mode PAY_PER_REQUEST \
     --region us-east-1
 
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
+  aws --endpoint-url=http://localhost:4566 dynamodb create-table \
+    --table-name SudokuCoachRateLimits \
+    --attribute-definitions AttributeName=userId,AttributeType=S AttributeName=window,AttributeType=S \
+    --key-schema AttributeName=userId,KeyType=HASH AttributeName=window,KeyType=RANGE \
+    --billing-mode PAY_PER_REQUEST \
+    --region us-east-1
+
   t=$(date +%s)
   (
     cd "${REPO_ROOT}/backend"

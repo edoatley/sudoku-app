@@ -44,14 +44,15 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
             case HintResult.PuzzleSolved ignored -> new CoachResult.PuzzleSolved();
 
             case HintResult.NoStrategyApplied ignored -> new CoachResult.Response(
-                    new CoachResponse(NO_MOVES_MESSAGE, null, false));
+                    new CoachResponse(NO_MOVES_MESSAGE, null, false), 0L);
 
             // @spec SC-BE-003, SC-BE-009 — one Bedrock call; falls back to nudge on error
             case HintResult.Found f -> {
-                BedrockCoachClient.AiReply reply = bedrockCoachClient.call(
+                BedrockCoachClient.CallResult result = bedrockCoachClient.call(
                         request.userMessage(), f.hint(), trimmedHistory, request.board());
                 yield new CoachResult.Response(
-                        new CoachResponse(reply.aiMessage(), f.hint(), reply.revealHint()));
+                        new CoachResponse(result.reply().aiMessage(), f.hint(), result.reply().revealHint()),
+                        result.tokensUsed());
             }
         };
     }

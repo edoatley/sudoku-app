@@ -16,7 +16,8 @@ class PlayerServiceImplUpdateTest {
     private PlayerRepository playerRepository;
 
     private static final PlayerProfile EXISTING = new PlayerProfile(
-            "user-123", "user@example.com", "Alice", "SportsGolf", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"
+            "user-123", "user@example.com", "Alice", "SportsGolf", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z",
+            Boolean.TRUE, 0L, null
     );
 
     @BeforeEach
@@ -34,7 +35,7 @@ class PlayerServiceImplUpdateTest {
         when(playerRepository.findById("user-123")).thenReturn(Optional.of(EXISTING));
         when(playerRepository.upsert(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest("Bob", null));
+        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest("Bob", null, null));
 
         assertEquals("Bob", result.displayName());
         assertEquals("SportsGolf", result.avatarKey());       // unchanged
@@ -49,7 +50,7 @@ class PlayerServiceImplUpdateTest {
         when(playerRepository.findById("user-123")).thenReturn(Optional.of(EXISTING));
         when(playerRepository.upsert(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest(null, "Surfing"));
+        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest(null, "Surfing", null));
 
         assertEquals("Alice", result.displayName());  // unchanged
         assertEquals("Surfing", result.avatarKey());
@@ -61,7 +62,7 @@ class PlayerServiceImplUpdateTest {
         when(playerRepository.findById("user-123")).thenReturn(Optional.of(EXISTING));
         when(playerRepository.upsert(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest("Carol", "Kayaking"));
+        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest("Carol", "Kayaking", null));
 
         assertEquals("Carol", result.displayName());
         assertEquals("Kayaking", result.avatarKey());
@@ -73,7 +74,7 @@ class PlayerServiceImplUpdateTest {
         when(playerRepository.findById("user-123")).thenReturn(Optional.of(EXISTING));
         when(playerRepository.upsert(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest("  Dave  ", null));
+        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest("  Dave  ", null, null));
 
         assertEquals("Dave", result.displayName());
     }
@@ -84,14 +85,14 @@ class PlayerServiceImplUpdateTest {
         when(playerRepository.findById("unknown")).thenReturn(Optional.empty());
 
         assertThrows(PlayerNotFoundException.class,
-                () -> service.updateProfile("unknown", new PlayerUpdateRequest("X", null)));
+                () -> service.updateProfile("unknown", new PlayerUpdateRequest("X", null, null)));
     }
 
     // @spec UM-BE-005
     @Test
     void updateProfile_bothFieldsNull_throwsInvalidPlayerUpdateException() {
         assertThrows(InvalidPlayerUpdateException.class,
-                () -> service.updateProfile("user-123", new PlayerUpdateRequest(null, null)));
+                () -> service.updateProfile("user-123", new PlayerUpdateRequest(null, null, null)));
         verifyNoInteractions(playerRepository);
     }
 
@@ -99,7 +100,7 @@ class PlayerServiceImplUpdateTest {
     @Test
     void updateProfile_blankDisplayName_throwsInvalidPlayerUpdateException() {
         assertThrows(InvalidPlayerUpdateException.class,
-                () -> service.updateProfile("user-123", new PlayerUpdateRequest("   ", null)));
+                () -> service.updateProfile("user-123", new PlayerUpdateRequest("   ", null, null)));
         verifyNoInteractions(playerRepository);
     }
 
@@ -108,7 +109,7 @@ class PlayerServiceImplUpdateTest {
     void updateProfile_displayNameExceeds50Chars_throwsInvalidPlayerUpdateException() {
         String tooLong = "A".repeat(51);
         assertThrows(InvalidPlayerUpdateException.class,
-                () -> service.updateProfile("user-123", new PlayerUpdateRequest(tooLong, null)));
+                () -> service.updateProfile("user-123", new PlayerUpdateRequest(tooLong, null, null)));
         verifyNoInteractions(playerRepository);
     }
 
@@ -119,7 +120,7 @@ class PlayerServiceImplUpdateTest {
         when(playerRepository.findById("user-123")).thenReturn(Optional.of(EXISTING));
         when(playerRepository.upsert(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest(maxLength, null));
+        PlayerProfile result = service.updateProfile("user-123", new PlayerUpdateRequest(maxLength, null, null));
 
         assertEquals(maxLength, result.displayName());
     }

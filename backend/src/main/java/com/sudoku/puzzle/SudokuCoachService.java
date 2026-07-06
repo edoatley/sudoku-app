@@ -24,7 +24,7 @@ public interface SudokuCoachService {
     CoachResult coach(CoachRequest request);
 
     sealed interface CoachResult permits CoachResult.Response, CoachResult.PuzzleSolved {
-        record Response(CoachResponse coachResponse) implements CoachResult {}
+        record Response(CoachResponse coachResponse, long tokensUsed) implements CoachResult {}
         record PuzzleSolved() implements CoachResult {}
     }
 }

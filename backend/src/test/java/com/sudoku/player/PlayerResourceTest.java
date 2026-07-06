@@ -52,7 +52,7 @@ class PlayerResourceTest {
     void getMe_extractsEmailAndDisplayName_fromJwtClaims() throws Exception {
         stubJwtPrincipal("user@example.com", "Alice Smith");
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-123", "user@example.com", "Alice Smith", null, "now", "now"));
+                .thenReturn(new PlayerProfile("user-sub-123", "user@example.com", "Alice Smith", null, "now", "now", Boolean.TRUE, 0L, null));
 
         var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
         when(sc.getUserPrincipal()).thenReturn(mock(Principal.class));
@@ -76,7 +76,7 @@ class PlayerResourceTest {
         when(identity.getAttribute("email")).thenReturn("fallback@example.com");
         when(identity.getAttribute("name")).thenReturn("Bob Jones");
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-456", "fallback@example.com", "Bob Jones", null, "now", "now"));
+                .thenReturn(new PlayerProfile("user-sub-456", "fallback@example.com", "Bob Jones", null, "now", "now", Boolean.TRUE, 0L, null));
 
         var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
         when(sc.getUserPrincipal()).thenReturn(plainPrincipal);
@@ -96,7 +96,7 @@ class PlayerResourceTest {
         when(identity.getAttribute("email")).thenReturn(null);
         when(identity.getAttribute("name")).thenReturn(null);
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-123", "", "", null, "now", "now"));
+                .thenReturn(new PlayerProfile("user-sub-123", "", "", null, "now", "now", Boolean.TRUE, 0L, null));
 
         var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
         when(sc.getUserPrincipal()).thenReturn(mock(Principal.class));
@@ -114,7 +114,7 @@ class PlayerResourceTest {
         when(identity.getAttribute("email")).thenReturn("attr@example.com");
         when(identity.getAttribute("name")).thenReturn("Attr Name");
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-123", "jwt@example.com", "JWT Name", null, "now", "now"));
+                .thenReturn(new PlayerProfile("user-sub-123", "jwt@example.com", "JWT Name", null, "now", "now", Boolean.TRUE, 0L, null));
 
         var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
         when(sc.getUserPrincipal()).thenReturn(jwt);
@@ -134,8 +134,8 @@ class PlayerResourceTest {
         when(sc.getUserPrincipal()).thenReturn(principal);
         when(principal.getName()).thenReturn("user-sub-123");
 
-        PlayerUpdateRequest request = new PlayerUpdateRequest("New Name", "Surfing");
-        PlayerProfile expected = new PlayerProfile("user-sub-123", "u@e.com", "New Name", "Surfing", "t1", "t2");
+        PlayerUpdateRequest request = new PlayerUpdateRequest("New Name", "Surfing", null);
+        PlayerProfile expected = new PlayerProfile("user-sub-123", "u@e.com", "New Name", "Surfing", "t1", "t2", Boolean.TRUE, 0L, null);
         when(playerService.updateProfile("user-sub-123", request)).thenReturn(expected);
 
         PlayerProfile result = resource.updateMe(sc, request);
@@ -148,7 +148,7 @@ class PlayerResourceTest {
     @Test
     void getMe_newProfile_hasNullAvatarKey() throws Exception {
         stubJwtPrincipal("user@example.com", "Alice");
-        PlayerProfile freshProfile = new PlayerProfile("user-sub-123", "user@example.com", "Alice", null, "now", "now");
+        PlayerProfile freshProfile = new PlayerProfile("user-sub-123", "user@example.com", "Alice", null, "now", "now", Boolean.TRUE, 0L, null);
         when(playerService.getOrCreateProfile(any(), any(), any())).thenReturn(freshProfile);
 
         var sc = mock(jakarta.ws.rs.core.SecurityContext.class);

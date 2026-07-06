@@ -31,13 +31,16 @@ public class PlayerServiceImpl implements PlayerService {
                     displayName != null ? displayName : "",
                     null,
                     now,
-                    now
+                    now,
+                    Boolean.TRUE,
+                    0L,
+                    null
             );
             return playerRepository.upsert(newProfile);
         });
     }
 
-    // @spec UM-BE-003, UM-BE-004, UM-BE-005, UM-BE-006
+    // @spec UM-BE-003, UM-BE-004, UM-BE-005, UM-BE-006, SC-RL-001, SC-RL-006
     @Override
     public PlayerProfile updateProfile(String userId, PlayerUpdateRequest request) {
         validateUpdateRequest(request);
@@ -51,6 +54,9 @@ public class PlayerServiceImpl implements PlayerService {
         String updatedAvatarKey = request.avatarKey() != null
                 ? request.avatarKey()
                 : existing.avatarKey();
+        Boolean updatedAiCoachEnabled = request.aiCoachEnabled() != null
+                ? request.aiCoachEnabled()
+                : existing.aiCoachEnabled();
 
         PlayerProfile updated = new PlayerProfile(
                 existing.userId(),
@@ -58,7 +64,10 @@ public class PlayerServiceImpl implements PlayerService {
                 updatedDisplayName,
                 updatedAvatarKey,
                 existing.createdAt(),
-                Instant.now().toString()
+                Instant.now().toString(),
+                updatedAiCoachEnabled,
+                existing.coachTokensUsedThisMonth(),
+                existing.coachTokenMonth()
         );
         return playerRepository.upsert(updated);
     }
@@ -66,9 +75,10 @@ public class PlayerServiceImpl implements PlayerService {
     private void validateUpdateRequest(PlayerUpdateRequest request) {
         boolean hasDisplayName = request.displayName() != null;
         boolean hasAvatarKey = request.avatarKey() != null;
+        boolean hasAiCoachEnabled = request.aiCoachEnabled() != null;
 
-        if (!hasDisplayName && !hasAvatarKey) {
-            throw new InvalidPlayerUpdateException("At least one field (displayName, avatarKey) must be provided");
+        if (!hasDisplayName && !hasAvatarKey && !hasAiCoachEnabled) {
+            throw new InvalidPlayerUpdateException("At least one field (displayName, avatarKey, aiCoachEnabled) must be provided");
         }
 
         if (hasDisplayName) {

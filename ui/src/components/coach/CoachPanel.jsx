@@ -1,4 +1,4 @@
-// @spec SC-UI-002, SC-UI-003, SC-UI-004
+// @spec SC-UI-002, SC-UI-003, SC-UI-004, SC-RL-009
 import { useState, useRef, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -13,7 +13,7 @@ import CoachMessage from './CoachMessage.jsx';
 
 const QUICK_REPLIES = ["I'm stuck", 'Tell me more', 'Why does that work?'];
 
-export default function CoachPanel({ history, isLoading, onSend, onClose }) {
+export default function CoachPanel({ history, isLoading, onSend, onClose, tokensUsed = 0, monthlyTokenLimit = 100_000 }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -57,10 +57,13 @@ export default function CoachPanel({ history, isLoading, onSend, onClose }) {
           flexShrink: 0,
         }}
       >
-        <Typography variant="subtitle2" color="primary.contrastText" sx={{ flexGrow: 1 }}>
+        <Typography variant="subtitle2" sx={{ flexGrow: 1, color: 'white' }}>
           Sudoku Coach
         </Typography>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'primary.contrastText' }}>
+        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
+          {tokensUsed.toLocaleString()} / {monthlyTokenLimit.toLocaleString()}
+        </Typography>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'white' }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>

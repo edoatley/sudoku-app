@@ -54,7 +54,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Great question! Let's look at Row 1 together.\\",\\"revealHint\\":false}"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("I'm stuck", HINT, List.of(), BOARD);
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("I'm stuck", HINT, List.of(), BOARD).reply();
 
         assertEquals("Great question! Let's look at Row 1 together.", reply.aiMessage());
         assertFalse(reply.revealHint());
@@ -66,7 +66,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Place 4 in Row 1, Column 3.\\",\\"revealHint\\":true}"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Just tell me", HINT, List.of(), BOARD);
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Just tell me", HINT, List.of(), BOARD).reply();
 
         assertTrue(reply.revealHint());
     }
@@ -78,7 +78,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"This is not JSON at all"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), BOARD);
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), BOARD).reply();
 
         assertEquals(HINT.nudge(), reply.aiMessage());
         assertFalse(reply.revealHint());
@@ -91,7 +91,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"\\",\\"revealHint\\":false}"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), BOARD);
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), BOARD).reply();
 
         assertEquals(HINT.nudge(), reply.aiMessage());
     }
@@ -102,7 +102,7 @@ class BedrockCoachClientTest {
         when(bedrockRuntimeClient.invokeModel(any(InvokeModelRequest.class)))
                 .thenThrow(SdkClientException.builder().message("connection refused").build());
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), BOARD);
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), BOARD).reply();
 
         assertEquals(HINT.nudge(), reply.aiMessage());
         assertFalse(reply.revealHint());

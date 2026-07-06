@@ -79,3 +79,15 @@
 - [ ] **SC-UI-062**: When a new game starts, the system shall close the coach panel if it is open.
 - [ ] **SC-UI-063**: When the player closes and reopens the coach panel within the same game session, the system shall display the existing conversation history without firing a new welcome message.
 - [ ] **SC-UI-064**: Before sending a coaching request, the system shall trim the conversation history to the last 6 messages if it has grown beyond that limit.
+
+## Rate Limiting and Cost Protection (Backend + Frontend)
+
+- [ ] **SC-RL-001**: When `aiCoachEnabled` is `false` in the player profile, `POST /ai/coach` shall return 403 with a JSON body containing `error: "AI Coach is disabled"`.
+- [ ] **SC-RL-002**: When the player's monthly token usage meets or exceeds `COACH_MONTHLY_TOKEN_LIMIT`, `POST /ai/coach` shall return 429 with a JSON body containing `tokensUsed`, `monthlyLimit`, and `resetsAt` (first day of next month).
+- [ ] **SC-RL-003**: When the player exceeds `COACH_RATE_LIMIT_PER_MINUTE` calls within the current UTC minute, `POST /ai/coach` shall return 429 with a `Retry-After` header.
+- [ ] **SC-RL-004**: All 429 responses from rate-limit enforcement shall include a `Retry-After` header indicating seconds until the next minute window.
+- [ ] **SC-RL-005**: The monthly token counter shall reset to zero when the calendar month changes; the stored `coachTokenMonth` is compared to the current `YYYY-MM` value on each request.
+- [ ] **SC-RL-006**: `GET /players/me` shall return `aiCoachEnabled` (boolean) and `coachTokensUsedThisMonth` (number) in the player profile response; `PATCH /players/me` shall accept `aiCoachEnabled` as an optional boolean field.
+- [ ] **SC-RL-007**: The ProfileView shall display an AI Coach toggle switch and a read-only token usage counter showing tokens used vs the monthly limit.
+- [ ] **SC-RL-008**: The CoachWidget FAB shall not be rendered when `playerProfile.aiCoachEnabled` is `false`.
+- [ ] **SC-RL-009**: The CoachPanel header shall display the current token usage and monthly limit in white text on the dark header background.

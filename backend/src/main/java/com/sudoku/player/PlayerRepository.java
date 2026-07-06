@@ -11,4 +11,7 @@ public interface PlayerRepository {
 
     // @spec LT-BE-014 — used by LeaderboardServiceImpl to join display names onto aggregate items
     List<PlayerItem> findAll();
+
+    // @spec SC-RL-002, SC-RL-005 — atomically increments the monthly token counter, resetting when the month changes
+    void incrementCoachTokens(String userId, long tokensUsed, String currentMonth);
 }

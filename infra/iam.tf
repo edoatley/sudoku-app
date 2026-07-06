@@ -96,6 +96,30 @@ resource "aws_iam_role_policy_attachment" "sudoku_leaderboard_dynamodb" {
   policy_arn = aws_iam_policy.sudoku_leaderboard_dynamodb.arn
 }
 
+resource "aws_iam_policy" "sudoku_coach_rate_limits_dynamodb" {
+  name        = "SudokuCoachRateLimitsPolicy${local.suffix}"
+  description = "Grants the Sudoku Lambda DynamoDB access to the per-user coach rate limit table"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = aws_dynamodb_table.sudoku_coach_rate_limits.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "sudoku_coach_rate_limits_dynamodb" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = aws_iam_policy.sudoku_coach_rate_limits_dynamodb.arn
+}
+
 resource "aws_iam_policy" "sudoku_coach_bedrock" {
   name        = "SudokuCoachBedrockPolicy${local.suffix}"
   description = "Grants the Sudoku Lambda permission to invoke Bedrock for the AI coaching feature"

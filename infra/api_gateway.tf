@@ -47,10 +47,14 @@ locals {
   }
 
   ai_routes = {
+    # Tighter global cap on the AI coach route — Bedrock calls are expensive compared to game ops.
+    # This is a route-level global ceiling (not per-user); per-user rate limiting is enforced in Lambda.
     "POST /api/v1/ai/coach" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration        = local._lambda_integration
+      authorization_type     = "JWT"
+      authorizer_key         = "cognito_jwt"
+      integration            = local._lambda_integration
+      throttling_burst_limit = 10
+      throttling_rate_limit  = 5
     }
 
     "POST /api/v1/ai/scan" = {

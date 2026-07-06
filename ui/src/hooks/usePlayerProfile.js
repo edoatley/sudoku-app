@@ -62,9 +62,9 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
     setAvatarState(iconName);
   }, []);
 
-  // @spec UM-UI-004, UM-UI-001, UM-UI-002
-  const updateProfile = useCallback(async ({ displayName, avatarKey }) => {
-    const updated = await updatePlayerProfile({ displayName, avatarKey });
+  // @spec UM-UI-004, UM-UI-001, UM-UI-002, SC-RL-006
+  const updateProfile = useCallback(async ({ displayName, avatarKey, aiCoachEnabled }) => {
+    const updated = await updatePlayerProfile({ displayName, avatarKey, aiCoachEnabled });
     setPlayerProfile(updated);
     if (avatarKey != null) {
       const resolved = resolveAvatar(avatarKey);

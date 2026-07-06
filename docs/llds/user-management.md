@@ -86,13 +86,14 @@ This dual approach handles both Quarkus OIDC (which provides `JsonWebToken`) and
 | Method | Path | Auth | Request body | Response | Notes |
 | --- | --- | --- | --- | --- | --- |
 | GET | `/players/me` | Required | — | `PlayerProfile` | Creates profile if first visit |
-| PATCH | `/players/me` | Required | `PlayerUpdateRequest` | `PlayerProfile` | Both fields optional; at least one required |
+| PATCH | `/players/me` | Required | `PlayerUpdateRequest` | `PlayerProfile` | All fields optional; at least one required |
 
-`PlayerUpdateRequest` is a record with two optional fields:
+`PlayerUpdateRequest` is a record with three optional fields:
 - `displayName` — string; trimmed; 1–50 chars when provided
 - `avatarKey` — string; any non-null value accepted (client-defined icon name)
+- `aiCoachEnabled` — boolean; enables or disables the AI coach feature for this player
 
-Both null → 400. No-op PATCH (empty payload) → 400.
+All null → 400. No-op PATCH (empty payload) → 400.
 
 ## DynamoDB Schema
 
@@ -106,8 +107,11 @@ Table: `SudokuPlayers{suffix}` (name injected via `sudoku.dynamodb.players-table
 | `avatarKey` | String | — | Client-defined icon name; empty string stored as null; updatable via PATCH |
 | `createdAt` | String | — | ISO-8601 UTC |
 | `updatedAt` | String | — | ISO-8601 UTC; updated on every PATCH |
+| `aiCoachEnabled` | Boolean | — | Defaults to `true` on creation; updatable via PATCH |
+| `coachTokensUsedThisMonth` | Number | — | Cumulative Bedrock tokens used in `coachTokenMonth`; reset to 0 when month changes |
+| `coachTokenMonth` | String | — | Format `YYYY-MM`; used to detect month rollover for token counter reset |
 
-No sort key — one profile per user. `upsert` is a DynamoDB `PutItem` (full overwrite).
+No sort key — one profile per user. `upsert` uses DynamoDB `PutItem` (full overwrite) for profile updates; `incrementCoachTokens` uses `UpdateItem` with `ADD` expression for atomic token counting.
 
 `PlayerItem` is a mutable `@DynamoDbBean` class with getters/setters (required by the Enhanced Client). Conversion is symmetric:
 

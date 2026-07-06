@@ -167,10 +167,12 @@ public class BedrockCoachClient {
 
     public record AiReply(String aiMessage, boolean revealHint) {}
 
+    public record CallResult(AiReply reply, long tokensUsed) {}
+
     record ParsedResponse(AiReply reply, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens) {}
 
     // @spec SC-BE-009 — single Bedrock call per request; @spec SC-BE-015, SC-BE-016 — fallback on error
-    public AiReply call(String userMessage, HintResponse hint, List<ChatMessage> history, Grid board) {
+    public CallResult call(String userMessage, HintResponse hint, List<ChatMessage> history, Grid board) {
         String cid = UUID.randomUUID().toString();
         long startMs = System.currentTimeMillis();
         try {
@@ -189,12 +191,13 @@ public class BedrockCoachClient {
             long latencyMs = System.currentTimeMillis() - startMs;
             LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":%b,\"inputTokens\":%d,\"outputTokens\":%d,\"cacheReadTokens\":%d,\"cacheWriteTokens\":%d,\"latencyMs\":%d,\"fallback\":false}",
                     cid, parsed.reply().revealHint(), parsed.inputTokens(), parsed.outputTokens(), parsed.cacheReadTokens(), parsed.cacheWriteTokens(), latencyMs);
-            return parsed.reply();
+            long totalTokens = parsed.inputTokens() + parsed.outputTokens();
+            return new CallResult(parsed.reply(), totalTokens);
         } catch (Exception e) {
             long latencyMs = System.currentTimeMillis() - startMs;
             LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":false,\"inputTokens\":0,\"outputTokens\":0,\"cacheReadTokens\":0,\"cacheWriteTokens\":0,\"latencyMs\":%d,\"fallback\":true,\"errorType\":\"%s\",\"errorMsg\":\"%s\"}",
                     cid, latencyMs, e.getClass().getSimpleName(), e.getMessage() == null ? "" : e.getMessage().replace("\"", "'"));
-            return fallback(hint);
+            return new CallResult(fallback(hint), 0L);
         }
     }
 

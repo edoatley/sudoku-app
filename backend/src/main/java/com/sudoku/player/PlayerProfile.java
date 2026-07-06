@@ -6,5 +6,8 @@ public record PlayerProfile(
         String displayName,
         String avatarKey,
         String createdAt,
-        String updatedAt
+        String updatedAt,
+        Boolean aiCoachEnabled,
+        Long coachTokensUsedThisMonth,
+        String coachTokenMonth
 ) {}
