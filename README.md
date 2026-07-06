@@ -264,8 +264,6 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 
 ---
 
-## Contributing
-
 ## TODO
 
 See [`docs/todo/`](docs/todo/) for the backlog of deferred and upcoming work items.
