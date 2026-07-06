@@ -56,7 +56,7 @@ Both `sudoku.edoatley.co.uk` and `sudoku-beta.edoatley.co.uk` Route53 zones live
 | `cognito-rc-shared.tf` | Shared Cognito pool for all `rc-*` workspaces (applied in `rc-shared` workspace only) |
 | `lambda.tf` | S3 zip bucket, Lambda function, alias |
 | `iam.tf` | Lambda execution roles and DynamoDB policies |
-| `dynamodb.tf` | `SudokuGames` and `SudokuPlayers` tables |
+| `dynamodb.tf` | `SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, and `SudokuCoachRateLimits` tables |
 | `image_recognition_lambda.tf` | Image recognition Lambda (Bedrock-backed, container image) |
 | `scripts/infra/delegate-dns.sh` | One-off script to create NS delegation in the parent AWS account |
 
@@ -108,7 +108,11 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 
 **`SudokuGames`** — partition key: `userId`, sort key: `gameId`, `PAY_PER_REQUEST`, PITR enabled on `default`
 
-**`SudokuPlayers`** — partition key: `userId`, `PAY_PER_REQUEST`, PITR enabled on `default`
+**`SudokuPlayers`** — partition key: `userId`, `PAY_PER_REQUEST`, PITR enabled on `default`. Stores player profile including AI coach toggle and monthly token counter.
+
+**`SudokuLeaderboard`** — partition key: `userId`, `PAY_PER_REQUEST`, PITR disabled.
+
+**`SudokuCoachRateLimits`** — partition key: `userId`, sort key: `window` (UTC-minute string). Stores per-user per-minute call counts; TTL-based auto-expiry after 2 minutes. Used by `CoachRateLimiter` for atomic rate limiting.
 
 ### Amplify
 
@@ -123,6 +127,7 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 | `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID |
 | `VITE_COGNITO_DOMAIN` | Cognito hosted UI domain |
 | `VITE_DEV_TOOLS` | `false` on `default`, `true` on all others |
+| `VITE_AI_COACH` | `false` on `default`, `true` on `rc-*` |
 
 ### Cognito
 
@@ -133,8 +138,8 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 
 ### IAM
 
-- Role `SudokuLambdaExecRole`: CloudWatch Logs + DynamoDB access
-- Role `SudokuImageRecognitionExecRole`: CloudWatch Logs + Bedrock InvokeModel
+- Role `SudokuLambdaExecRole`: CloudWatch Logs + DynamoDB access (policies: `SudokuDynamoDBPolicy`, `SudokuPlayersPolicy`, `SudokuLeaderboardPolicy`, `SudokuCoachRateLimitsPolicy`, `SudokuCoachBedrockPolicy`)
+- Role `SudokuImageRecognitionExecRole`: CloudWatch Logs + Bedrock InvokeModel (`SudokuImageRecognitionBedrockPolicy`)
 
 ### Tagging
 
