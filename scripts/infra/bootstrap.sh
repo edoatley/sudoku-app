@@ -173,7 +173,8 @@ DEPLOY_POLICY=$(cat <<EOF
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuPlayersPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuLeaderboardPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuImageRecognitionBedrockPolicy*",
-        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuCoachBedrockPolicy*"
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuCoachBedrockPolicy*",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuCoachRateLimitsPolicy*"
       ]
     },
     {
@@ -229,7 +230,8 @@ DEPLOY_POLICY=$(cat <<EOF
       "Resource": [
         "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames*",
         "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuPlayers*",
-        "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuLeaderboard*"
+        "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuLeaderboard*",
+        "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuCoachRateLimits*"
       ]
     },
     {
