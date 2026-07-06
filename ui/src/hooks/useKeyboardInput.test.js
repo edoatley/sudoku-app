@@ -297,6 +297,30 @@ describe('guard conditions', () => {
     expect(props.onSelectCell).not.toHaveBeenCalled();
   });
 
+  it('suppresses all keys when focus is inside an input element (e.g. coach chat)', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: '5' });
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    fireEvent.keyDown(input, { key: 'Delete' });
+    expect(props.onDigit).not.toHaveBeenCalled();
+    expect(props.onSelectCell).not.toHaveBeenCalled();
+    expect(props.onClear).not.toHaveBeenCalled();
+    document.body.removeChild(input);
+  });
+
+  it('suppresses all keys when focus is inside a textarea element', () => {
+    const props = makeProps();
+    renderHook(() => useKeyboardInput(props));
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+    fireEvent.keyDown(textarea, { key: '3' });
+    expect(props.onDigit).not.toHaveBeenCalled();
+    document.body.removeChild(textarea);
+  });
+
   it('cleans up the event listener on unmount', () => {
     const props = makeProps();
     const { unmount } = renderHook(() => useKeyboardInput(props));

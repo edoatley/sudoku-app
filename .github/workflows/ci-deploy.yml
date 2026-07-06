@@ -6,6 +6,12 @@ on:
       - main
       - "rc-*"
 
+# One deploy per branch at a time. A new push cancels the in-flight run for
+# that branch so Terraform state locks don't pile up across concurrent runs.
+concurrency:
+  group: ci-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   id-token: write
   contents: read
@@ -144,7 +150,7 @@ jobs:
 
       - name: Download freshly built Lambda zip
         if: needs.changes.outputs.backend == 'true'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v7
         with:
           name: lambda-zip
           path: backend/target/
@@ -206,6 +212,7 @@ jobs:
           TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
           TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
           TF_VAR_git_branch:               ${{ steps.env.outputs.amplify_branch }}
+          TF_VAR_budget_alert_email:       ${{ secrets.BUDGET_ALERT_EMAIL }}
         run: |
           bash scripts/github/terraform-plan.sh \
             --environment "${{ steps.env.outputs.environment }}" \

@@ -123,6 +123,14 @@ Base path: `/api/v1`. Full contract: [`openapi.yaml`](openapi.yaml).
 | POST   | `/puzzles/hint`       | Get a progressive logical hint (Nudge / Focus / Reveal)          |
 | POST   | `/puzzles/candidates` | Calculate all valid candidates for empty cells                   |
 
+**AI routes** (all under `/ai/*`, JWT required, Bedrock-backed):
+
+| Method | Path                  | Description                                  |
+|--------|-----------------------|----------------------------------------------|
+| POST   | `/ai/coach`           | Send a message to the AI Sudoku coach (desktop only) |
+| POST   | `/ai/scan`            | Extract a 9×9 grid from a puzzle photo       |
+| GET    | `/ai/scan/warmup`     | Warm up the image recognition Lambda (no auth required) |
+
 **Protected routes** (JWT Bearer token required — issued by Cognito after Google login):
 
 | Method | Path                  | Description                                  |

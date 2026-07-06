@@ -305,7 +305,8 @@ const idToken = tokens.idToken.toString();
 | `GET /api/v1/games/current` | JWT required |
 | `GET /api/v1/players/me` | JWT required |
 | `PATCH /api/v1/players/me` | JWT required |
-| `POST /api/v1/puzzles/import` | JWT required |
+| `POST /api/v1/ai/coach` | JWT required |
+| `POST /api/v1/ai/scan` | JWT required |
 
 The JWT authorizer is configured at API Gateway level (`identity_sources = ["$request.header.Authorization"]`, `issuer` = Cognito pool URL, `audience` = web client ID). The Lambda never validates the JWT itself.
 

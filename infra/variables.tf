@@ -87,3 +87,15 @@ variable "git_branch" {
   type        = string
   default     = ""
 }
+
+variable "budget_alert_email" {
+  description = "Email address for AWS Budgets and Cost Anomaly Detection alerts. Leave empty to skip creating budget resources."
+  type        = string
+  default     = ""
+}
+
+variable "bedrock_monthly_budget_usd" {
+  description = "Monthly Bedrock spend cap in USD. Alerts at 80% actual and 100% forecasted; a budget action auto-attaches a Bedrock deny policy to the Lambda role at 100% actual. Only active when budget_alert_email is set."
+  type        = string
+  default     = "25"
+}

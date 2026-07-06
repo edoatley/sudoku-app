@@ -25,6 +25,10 @@ export function useKeyboardInput({
 }) {
   useEffect(() => {
     function handleKeyDown(e) {
+      // Suppress grid shortcuts when focus is inside a text input (e.g. coach chat)
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+
       // @spec KBD-032, KBD-033 — suppress while any modal or hint panel is open
       if (isModalOpen) return;
       // @spec KBD-030 — suppress when no game is loaded or game is solved/complete

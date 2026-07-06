@@ -15,6 +15,11 @@ locals {
 
   lambda_zip_bucket_id = local.is_default ? aws_s3_bucket.lambda_zip[0].id : data.aws_s3_bucket.lambda_zip_shared[0].id
 
+  # Feature flag: AI coach (Bedrock-powered chat). Disabled on the default/production
+  # workspace until the feature has been sufficiently tested on rc-* branches.
+  # To enable on production: change to `true` (or remove the condition).
+  ai_coach_enabled = !local.is_default
+
   # Cognito references — rc workspaces share a single pool; others own theirs
   cognito_user_pool_id        = local.is_rc ? data.aws_cognito_user_pools.rc_shared[0].ids[0] : aws_cognito_user_pool.main[0].id
   cognito_domain              = local.is_rc ? "sudoku-auth-rc" : "sudoku-auth${local.suffix}"

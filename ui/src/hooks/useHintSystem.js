@@ -143,6 +143,7 @@ export function useHintSystem({ currentGridRef, hintMinRankRef, onForbidden, set
     activeHint,
     hintStage,
     highlightCells,
+    setHighlightCells,
     hintsUsed,
     setHintsUsed,
     excludedHintRanks,

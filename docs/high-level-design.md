@@ -14,15 +14,15 @@ The system is a personal project with production-quality engineering: real authe
 The system is divided into 8 components by domain concept:
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        React Frontend                           │
+┌────────────────────────────────────────────────────────────────┐
+│                        React Frontend                          │
 │         (Browser SPA — MUI, hooks, API client, localStorage)   │
 └───────────────────┬──────────┬──────────┬───────────┬──────────┘
                     │          │          │           │
           Game API  │  Puzzle  │  Player  │  Import   │ Leaderboard
                     ▼          ▼          ▼           ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    Cloud Platform (API Gateway HTTP v2)          │
+┌─────────────────────────────────────────────────────────────────┐
+│                    Cloud Platform (API Gateway HTTP v2)         │
 │              JWT Authorizer (Cognito) • Throttle 25 rps         │
 └───────────────┬───────────────────────────────┬─────────────────┘
                 │                               │
@@ -52,6 +52,10 @@ The system is divided into 8 components by domain concept:
 │  │  (11 strategies,    │  │
 │  │   ranked chain)     │  │
 │  ├─────────────────────┤  │
+│  │  AI Coach           │  │
+│  │  (Bedrock one-shot, │  │
+│  │   pre-analysis)     │  │
+│  ├─────────────────────┤  │
 │  │  Sudoku Logic       │  │
 │  │  (Board, Cell,      │  │
 │  │   candidates)       │  │
@@ -71,17 +75,18 @@ The system is divided into 8 components by domain concept:
 
 ## Component Responsibilities
 
-| Component | What it does | Where it lives |
-| --- | --- | --- |
-| **Sudoku Logic** | Board model, Cell model, candidate calculation, geometry utilities | `backend/.../domain/` |
-| **Hint Engine** | 11 ranked solving strategies, strategy chain orchestration, validate/solve/candidates | `backend/.../puzzle/hint/`, `SudokuServiceImpl` |
-| **Puzzle Generation & Validation** | Randomised backtracking generator, clue-removal uniqueness enforcer, REST endpoints, DTOs | `backend/.../puzzle/` |
-| **Game Lifecycle** | Game state machine, single-active-game invariant, DynamoDB read/write, import validation | `backend/.../game/` |
-| **User Management** | Player profile lazy-creation, JWT claim extraction, email allowlist, CORS, dev filters | `backend/.../player/`, `auth/`, `cors/`, `logging/` |
-| **Image Recognition** | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring | `image_recognition/handler.py` |
-| **Cloud Platform** | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM | `infra/*.tf` |
-| **League Table** | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard` | `backend/.../leaderboard/` |
-| **React Frontend** | Browser SPA: game UI, full-screen navigation, hint UX, state hooks, API client, localStorage persistence | `ui/src/` |
+| Component                          | What it does                                                                                             | Where it lives                                      |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **Sudoku Logic**                   | Board model, Cell model, candidate calculation, geometry utilities                                       | `backend/.../domain/`                               |
+| **Hint Engine**                    | 11 ranked solving strategies, strategy chain orchestration, validate/solve/candidates                    | `backend/.../puzzle/hint/`, `SudokuServiceImpl`     |
+| **Puzzle Generation & Validation** | Randomised backtracking generator, clue-removal uniqueness enforcer, REST endpoints, DTOs                | `backend/.../puzzle/`                               |
+| **Game Lifecycle**                 | Game state machine, single-active-game invariant, DynamoDB read/write, import validation                 | `backend/.../game/`                                 |
+| **User Management**                | Player profile lazy-creation, JWT claim extraction, email allowlist, CORS, dev filters                   | `backend/.../player/`, `auth/`, `cors/`, `logging/` |
+| **Image Recognition**              | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring                 | `image_recognition/handler.py`                      |
+| **Cloud Platform**                 | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM                         | `infra/*.tf`                                        |
+| **League Table**                   | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard`      | `backend/.../leaderboard/`                          |
+| **AI Coach**                       | Conversational coaching via Amazon Bedrock; one InvokeModel call per player message; deterministic pre-analysis (hint engine) provides context; fallback to nudge text on failure | `backend/.../puzzle/BedrockCoachClient.java`, `SudokuCoachServiceImpl.java` |
+| **React Frontend**                 | Browser SPA: game UI, full-screen navigation, hint UX, coach chat panel, state hooks, API client, localStorage persistence | `ui/src/`                                           |
 
 ## Dependency Order
 
@@ -94,6 +99,7 @@ React Frontend
     └── Game Lifecycle (game API)
     └── Puzzle Generation & Validation (puzzle/hint/candidates API)
     └── Image Recognition (import API)
+    └── AI Coach (coach API)
 
 League Table
     └── Game Lifecycle (hooks into GameServiceImpl on solve; reads GameItem.score)
@@ -104,6 +110,10 @@ Game Lifecycle
 
 Puzzle Generation & Validation
     └── Hint Engine (SudokuService: getHint, getCandidates, validatePuzzle)
+
+AI Coach
+    └── Hint Engine (deterministic pre-analysis: runs before every Bedrock call)
+    └── Amazon Bedrock (external: Claude Haiku InvokeModel, eu-west-2)
 
 Hint Engine
     └── Sudoku Logic (Board, Cell, BoardUtils)
@@ -199,13 +209,40 @@ User completes puzzle (grid matches solutionGrid)
     → Frontend navigates to history or shows completion
 ```
 
+## Data Flow: Coach Message
+
+```text
+User sends a message to the AI coach
+    → useCoachSession.sendMessage(text)
+    → postCoachMessage(currentGrid, history[-6:], text) [Frontend → API GW → Java Lambda]
+        → CoachResource.chat(CoachRequest)              [JWT required]
+            → SudokuCoachServiceImpl.chat(request)
+                → Board.fromGrid(request.board())
+                → board.calculateAllCandidates()
+                → SudokuService.getHint(board, ...)     [deterministic pre-analysis]
+                → match hintResult:
+                    case PuzzleSolved  → return 204
+                    case NoStrategy    → return CoachResponse(hint.nudge(), hint, false)
+                    case Found(hint)   →
+                        → BedrockCoachClient.call(userMessage, hint, history, board)
+                            → build request JSON:
+                                system: [SYSTEM_PROMPT w/ cache_control: ephemeral]
+                                messages: history + contextBlock (board + technique + nudge)
+                            → BedrockRuntimeClient.invokeModel(modelId, 6 s timeout)
+                            → parse {aiMessage, revealHint} from response JSON
+                            → on any exception → fallback AiReply(hint.nudge(), false)
+                        → return CoachResponse(aiMessage, hint, revealHint)
+    → Frontend appends AI message to chat history
+    → setHighlightCells(response.hint?.highlightCells ?? [])
+```
+
 ## Data Flow: Import from Photo
 
 ```text
 User selects image file
     → ImportModal → importPuzzle(imageFile)
         → base64 encode file
-        → POST /api/v1/puzzles/import                  [Frontend → API GW → Image Recognition Lambda]
+        → POST /api/v1/ai/scan                         [Frontend → API GW → Image Recognition Lambda]
             → preprocess image (resize, desaturate, alpha)
             → Bedrock Converse API (Claude Haiku)
             → parse response (<json> tags → pipe table fallback)
@@ -226,7 +263,7 @@ User selects image file
 
 ### Public vs Authenticated Routes
 
-All `/puzzles/*` and `/health` routes are public — no JWT required. The puzzle engine is a pure function over submitted grids; it needs no identity context. All `/api/v1/games/*` and `/players/me` routes require a valid Cognito JWT, validated by API Gateway before the Lambda is invoked.
+All `/puzzles/*` routes are public — no JWT required. The puzzle engine is a pure function over submitted grids; it needs no identity context. All `/ai/*` routes require a Cognito JWT: they incur Bedrock cost per call and must be attributable to an authenticated user. All `/api/v1/games/*` and `/players/me` routes also require a valid Cognito JWT, validated by API Gateway before the Lambda is invoked.
 
 ### Backend vs Frontend Validation
 
@@ -261,20 +298,20 @@ Patterns and decisions that only became visible after reading all components tog
 
 ## Open Questions & Known Gaps
 
-| Area | Gap | Notes |
-| --- | --- | --- |
-| Observability | No CloudWatch alarms on Lambda errors | Silent failures possible |
-| Game history | Stored in localStorage only | Lost on browser storage clear |
-| Profile updates | No endpoint to update displayName/email after creation | First-login values frozen |
-| Candidate caching | Full recalculation on every hint request | Acceptable now; worth revisiting if hint latency grows |
-| Image Recognition models | IAM grants 5 models; code uses 1 | Cascade infra ready but untested with real multi-model traffic |
-| ECR bootstrap | Manual prerequisite outside Terraform | First-time deploy risk |
+| Area                     | Gap                                                    | Notes                                                          |
+| ------------------------ | ------------------------------------------------------ | -------------------------------------------------------------- |
+| Observability            | No CloudWatch alarms on Lambda errors                  | Silent failures possible                                       |
+| Game history             | Stored in localStorage only                            | Lost on browser storage clear                                  |
+| Profile updates          | No endpoint to update displayName/email after creation | First-login values frozen                                      |
+| Candidate caching        | Full recalculation on every hint request               | Acceptable now; worth revisiting if hint latency grows         |
+| Image Recognition models | IAM grants 5 models; code uses 1                       | Cascade infra ready but untested with real multi-model traffic |
+| ECR bootstrap            | Manual prerequisite outside Terraform                  | First-time deploy risk                                         |
 
 ## References
 
-- Low-level designs: `docs/llds/` (9 files)
-- EARS specifications: `docs/specs/` (10 files)
-- Arrow tracking: `docs/arrows/index.yaml` (11 arrows)
+- Low-level designs: `docs/llds/` (10 files, including `sudoku-coach.md`)
+- EARS specifications: `docs/specs/` (11 files, including `sudoku-coach-specs.md`)
+- Arrow tracking: `docs/arrows/index.yaml` (12 arrows, including `sudoku-coach`)
 - Backend standards: `docs/standards/java-quarkus.md`
 - Security standards: `docs/arrows/security-standards.md`
 - Testing strategy: `docs/arrows/testing-strategy.md`

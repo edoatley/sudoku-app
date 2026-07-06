@@ -62,12 +62,11 @@ module "lambda" {
   create_role = false
   lambda_role = aws_iam_role.lambda_exec.arn
 
-  # Deployment package already uploaded to S3
-  create_package = false
-  s3_existing_package = {
-    bucket = local.lambda_zip_bucket_id
-    key    = aws_s3_object.lambda_zip.key
-  }
+  # CI downloads the built JAR to backend/target/function.zip before running Terraform.
+  # local_existing_package causes the module to compute source_code_hash = filebase64sha256(path),
+  # so Terraform detects code changes and publishes a new Lambda version on every JAR change.
+  create_package         = false
+  local_existing_package = var.lambda_zip_path
 
   runtime       = "java25"
   handler       = "io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest"
@@ -83,7 +82,7 @@ module "lambda" {
   # exhaust the 10-unit unreserved minimum AWS requires, causing a deployment error.
 
   environment_variables = {
-    CORS_ALLOWED_ORIGINS = "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},http://localhost:5173"
+    CORS_ALLOWED_ORIGINS = local.is_rc ? "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku-beta.edoatley.co.uk,http://localhost:5173" : "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku.edoatley.co.uk,http://localhost:5173"
     DYNAMODB_TABLE_NAME  = aws_dynamodb_table.sudoku_games.name
     PLAYERS_TABLE_NAME   = aws_dynamodb_table.sudoku_players.name
     COGNITO_ISSUER_URL   = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"

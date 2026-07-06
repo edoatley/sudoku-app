@@ -169,3 +169,14 @@ arrows:
     deferred: 0
     gaps: 0
     next: ~
+
+  - id: sudoku-coach
+    status: IN_PROGRESS
+    lld: docs/llds/sudoku-coach.md
+    specs: docs/specs/sudoku-coach-specs.md
+    arrow: ~
+    spec_count: 40
+    implemented: 34
+    deferred: 0
+    gaps: 6
+    next: Verify E2E tests pass; wire revealHint→hint disclosure flow in frontend

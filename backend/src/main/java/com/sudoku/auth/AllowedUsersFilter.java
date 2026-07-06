@@ -41,28 +41,22 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    /**
+     * Filters the incoming request based on the allowed email list.
+     *
+     * @param ctx the container request context
+     */
     @Override
     public void filter(ContainerRequestContext ctx) {
-        if (allowedEmails.isEmpty()) {
-            return; // allowlist disabled (dev/test)
+
+        // If the allowlist is empty or the user is anonymous, skip the check.
+        if (allowedEmails.isEmpty() || identity.isAnonymous()) {
+            return; 
         }
 
-        if (identity.isAnonymous()) {
-            return; // no principal — public route or dev filter not yet run
-        }
+        String email = getEmail();
 
-        // In Quarkus OIDC service mode the principal is an OidcJwtCallerPrincipal
-        // which implements JsonWebToken — cast to access claims directly.
-        String email = null;
-        if (identity.getPrincipal() instanceof JsonWebToken jwt) {
-            email = jwt.getClaim("email");
-        }
-        // Fallback: some Quarkus OIDC versions also expose claims via getAttribute
-        if (email == null) {
-            Object attr = identity.getAttribute("email");
-            if (attr != null) email = attr.toString();
-        }
-
+        // If the email claim is missing or not in the allowlist, reject the request.
         if (email == null || !allowedEmails.contains(email)) {
             ctx.abortWith(
                 Response.status(Response.Status.FORBIDDEN)
@@ -71,5 +65,27 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
                     .build()
             );
         }
+    }
+
+    /**
+     * Extracts the email claim from the JWT or identity attributes.
+     *
+     * @return the email address, or null if not present
+     */
+    private String getEmail() {
+        String email = null;
+
+        // Quarkus OIDC exposes the JWT via getPrincipal, so we can extract the email claim from it.
+        if (identity.getPrincipal() instanceof JsonWebToken jwt) {
+            email = jwt.getClaim("email");
+        }
+
+        // Fallback: some Quarkus OIDC versions also expose claims via getAttribute
+        if (email == null) {
+            Object attr = identity.getAttribute("email");
+            if (attr != null) email = attr.toString();
+        }
+
+        return email;
     }
 }

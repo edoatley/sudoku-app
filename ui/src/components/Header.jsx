@@ -64,12 +64,20 @@ const DEMO_TECHNIQUES = [
   { slug: 'y-wing',        label: 'Y-Wing demo' },
 ];
 
+const DIFFICULTY_COLORS = {
+  easy: '#4caf50',
+  medium: '#ff9800',
+  hard: '#f44336',
+  imported: '#9c27b0',
+};
+
 // @spec UM-UI-007, NAV-STATE-004
 export default function Header({
   elapsedSeconds,
   timerRunning,
   gameStarted,
   hintsUsed,
+  difficulty,
   user,
   onSignOut,
   onPause,
@@ -222,6 +230,18 @@ export default function Header({
                   fontSize: '1rem',
                   fontWeight: 'bold',
                   px: 1,
+                }}
+              />
+            )}
+            {gameStarted && difficulty && (
+              <Chip
+                label={difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                variant="outlined"
+                size="small"
+                sx={{
+                  color: 'primary.contrastText',
+                  borderColor: DIFFICULTY_COLORS[difficulty] ?? 'rgba(255,255,255,0.5)',
+                  '& .MuiChip-label': { fontWeight: 600 },
                 }}
               />
             )}

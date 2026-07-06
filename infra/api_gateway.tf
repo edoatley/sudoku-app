@@ -1,3 +1,76 @@
+locals {
+  _lambda_integration = {
+    uri                    = aws_lambda_alias.live.invoke_arn
+    payload_format_version = "1.0"
+  }
+
+  base_routes = {
+    "$default" = {
+      integration = local._lambda_integration
+    }
+
+    "POST /api/v1/games" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
+    "POST /api/v1/games/from-image" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
+    "GET /api/v1/games/{gameId}" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
+    "PATCH /api/v1/games/{gameId}" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
+    "GET /api/v1/games/current" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
+    "GET /api/v1/players/me" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+  }
+
+  ai_routes = {
+    "POST /api/v1/ai/coach" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
+    "POST /api/v1/ai/scan" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration = {
+        uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
+        payload_format_version = "2.0"
+      }
+    }
+
+    "GET /api/v1/ai/scan/warmup" = {
+      integration = {
+        uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
+        payload_format_version = "2.0"
+      }
+    }
+  }
+}
+
 # ── CloudWatch log group (standalone to preserve existing resource name) ──────
 # Kept outside the module so Terraform does not rename/recreate the log group.
 resource "aws_cloudwatch_log_group" "api_gateway" {
@@ -68,85 +141,12 @@ module "api_gateway" {
     }
   }
 
-  # Routes — integrations are embedded per-route in this module version.
-  # $default is public; all /api/v1/* game and player routes require JWT.
-  # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game routes use explicit JWT-protected routes below
+  # Routes — $default is public; game/player routes require JWT.
+  # AI routes are merged in only when local.ai_coach_enabled is true (rc-* workspaces).
+  # On the default workspace they are omitted entirely — no endpoint exists to call.
+  # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game and ai routes use explicit JWT-protected routes
   routes = {
-    "$default" = {
-      integration = {
-        uri                    = aws_lambda_alias.live.invoke_arn
-        payload_format_version = "1.0"
-      }
-    }
-
-    "POST /api/v1/games" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration = {
-        uri                    = aws_lambda_alias.live.invoke_arn
-        payload_format_version = "1.0"
-      }
-    }
-
-    "POST /api/v1/games/from-image" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration = {
-        uri                    = aws_lambda_alias.live.invoke_arn
-        payload_format_version = "1.0"
-      }
-    }
-
-    "GET /api/v1/games/{gameId}" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration = {
-        uri                    = aws_lambda_alias.live.invoke_arn
-        payload_format_version = "1.0"
-      }
-    }
-
-    "PATCH /api/v1/games/{gameId}" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration = {
-        uri                    = aws_lambda_alias.live.invoke_arn
-        payload_format_version = "1.0"
-      }
-    }
-
-    "GET /api/v1/games/current" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration = {
-        uri                    = aws_lambda_alias.live.invoke_arn
-        payload_format_version = "1.0"
-      }
-    }
-
-    "GET /api/v1/players/me" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration = {
-        uri                    = aws_lambda_alias.live.invoke_arn
-        payload_format_version = "1.0"
-      }
-    }
-
-    "POST /api/v1/puzzles/import" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration = {
-        uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
-        payload_format_version = "2.0"
-      }
-    }
-
-    "GET /api/v1/puzzles/import/warmup" = {
-      integration = {
-        uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
-        payload_format_version = "2.0"
-      }
-    }
+    for k, v in merge(local.base_routes, local.ai_routes) :
+    k => v if !contains(keys(local.ai_routes), k) || local.ai_coach_enabled
   }
 }

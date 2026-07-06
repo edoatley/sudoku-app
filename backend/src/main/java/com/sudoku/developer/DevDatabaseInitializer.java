@@ -2,6 +2,8 @@ package com.sudoku.developer;
 
 import com.sudoku.game.GameItem;
 import com.sudoku.player.PlayerItem;
+
+import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -19,6 +21,7 @@ import software.amazon.awssdk.services.dynamodb.model.ResourceInUseException;
  * is active (i.e. the {@code %dev.} config prefix applies).
  */
 @ApplicationScoped
+@IfBuildProfile("dev")
 public class DevDatabaseInitializer {
 
     private static final Logger LOG = Logger.getLogger(DevDatabaseInitializer.class);
@@ -36,9 +39,6 @@ public class DevDatabaseInitializer {
     String profile;
 
     void onStart(@Observes StartupEvent event) {
-        if (!"dev".equals(profile)) {
-            return;
-        }
         createTable(enhancedClient.table(gamesTableName, TableSchema.fromBean(GameItem.class)), gamesTableName);
         createTable(enhancedClient.table(playersTableName, TableSchema.fromBean(PlayerItem.class)), playersTableName);
     }

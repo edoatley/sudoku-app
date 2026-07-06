@@ -1,4 +1,11 @@
 // @spec DT-UI-009 — all grid fields use {rows: [...]} wire format to match the backend API
+// @spec SC-UI-001
+
+export const CANNED_COACH_RESPONSE = {
+  aiMessage: "Let's look at the board together. Can you spot any rows or columns that are almost complete? Look for rows with only one or two empty cells — those are the easiest places to start.",
+  hint: null,
+  revealHint: false,
+};
 
 export const CANNED_PUZZLES = {
   easy: {

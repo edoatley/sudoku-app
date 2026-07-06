@@ -116,6 +116,25 @@ terraform apply
 
 Provider configured for AWS `eu-west-2`.
 
+## Pre-Push Testing (MANDATORY)
+
+**Run `scripts/local/local-alltests.sh` before every `git push`.** CI is not a substitute for local testing — a broken push blocks the branch and wastes CI minutes.
+
+```bash
+# Full suite (requires Docker + AWS sandbox credentials):
+bash scripts/local/local-alltests.sh
+
+# Fast path for UI-only changes:
+bash scripts/local/local-alltests.sh --skip-backend --skip-integration --skip-image-recognition
+
+# Skip infra if no .tf files changed:
+bash scripts/local/local-alltests.sh --skip-infra
+```
+
+The script runs: image recognition (pytest), frontend lint, npm audit, E2E (Playwright), backend (Maven + DynamoDB Local), integration (Docker Compose + Playwright), and Terraform fmt/validate. All must pass (or be explicitly skipped with justification) before pushing.
+
+**Never rely on hiding a failure with `--skip-*` unless that suite is genuinely inapplicable to the change.**
+
 ## Security & Cost Protection Standards
 
 **`docs/security.md` must be followed for all generated code.**

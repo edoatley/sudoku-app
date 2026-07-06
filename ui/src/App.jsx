@@ -26,10 +26,12 @@ import ImportModal from './components/ImportModal.jsx';
 import DevDataDialog from './components/DevDataDialog.jsx';
 import TutorialModal from './components/TutorialModal.jsx';
 import AppView from './components/views/AppView.jsx';
+import CoachWidget from './components/coach/CoachWidget.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const DEV_TOOLS = import.meta.env.VITE_DEV_TOOLS === 'true';
+const AI_COACH  = import.meta.env.VITE_AI_COACH === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
 let Authenticator = null;
@@ -126,6 +128,7 @@ function SudokuApp({ user, signOut }) {
     activeHint,
     hintStage,
     highlightCells,
+    setHighlightCells,
     isLoading,
     statusMessage,
     gameStatus,
@@ -248,6 +251,7 @@ function SudokuApp({ user, signOut }) {
         onImport={() => setImportModalOpen(true)}
         onDemoGame={DEV_TOOLS ? loadDemoGame : null}
         onDevData={DEV_TOOLS ? () => setDevDataOpen(true) : null}
+        difficulty={difficulty}
         colorMode={colorMode}
         onToggleColorMode={handleToggleColorMode}
         onNavigate={navigateTo}
@@ -349,6 +353,14 @@ function SudokuApp({ user, signOut }) {
       )}
 
       <TutorialModal open={helpOpen} src="/help/controls.md" title="How to Play" onClose={() => setHelpOpen(false)} />
+
+      {AI_COACH && (
+        <CoachWidget
+          key={originalGrid ? originalGrid[0].join(',') : 'no-game'}
+          currentGrid={currentGrid}
+          setHighlightCells={setHighlightCells}
+        />
+      )}
 
       <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">
         <DialogTitle>Congratulations!</DialogTitle>

@@ -1,5 +1,5 @@
 // @spec DT-UI-005, DT-UI-006, DT-UI-007, DT-UI-008
-import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, CANNED_GAME_STATE, CANNED_LEADERBOARD } from '../mocks/cannedData.js';
+import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, CANNED_GAME_STATE, CANNED_LEADERBOARD, CANNED_COACH_RESPONSE } from '../mocks/cannedData.js';
 import { gridFromWire, gridToWire, candidatesFromWire, candidatesToWire } from '../utils/gridAdapters.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -228,7 +228,7 @@ export async function importPuzzle(imageFile) {
   }
 
   const base64 = await fileToBase64(imageFile);
-  const data = await apiFetch('importPuzzle', `${API_URL}/puzzles/import`, {
+  const data = await apiFetch('importPuzzle', `${API_URL}/ai/scan`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64 }),
@@ -241,7 +241,7 @@ export async function importPuzzle(imageFile) {
 export async function warmupImageRecognition() {
   if (MOCK_API) return;
   try {
-    await fetch(`${API_URL}/puzzles/import/warmup`);
+    await fetch(`${API_URL}/ai/scan/warmup`);
   } catch {
     // silent — warm-up is best-effort
   }
@@ -315,4 +315,22 @@ export async function getLeaderboard() {
     return CANNED_LEADERBOARD;
   }
   return apiFetch('getLeaderboard', `${API_URL}/leaderboard`, {}, true);
+}
+
+// @spec SC-API-001, SC-API-002, SC-API-003, SC-API-004
+// Returns CoachResponse, or null when the board is already solved (204).
+export async function postCoachMessage(currentGrid, history, userMessage) {
+  if (MOCK_API) {
+    await delay(1200);
+    return CANNED_COACH_RESPONSE;
+  }
+  return apiFetch('postCoachMessage', `${API_URL}/ai/coach`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      board: gridToWire(currentGrid),
+      history,
+      userMessage,
+    }),
+  }, true, [204]);
 }

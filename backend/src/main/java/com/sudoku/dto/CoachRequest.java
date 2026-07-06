@@ -1,0 +1,17 @@
+package com.sudoku.dto;
+
+import com.sudoku.domain.Grid;
+
+import java.util.List;
+
+// @spec SC-API-002, SC-API-003, SC-API-004
+
+/**
+ * Request body for the AI coaching endpoint.
+ *
+ * <p>{@code board} is the player's current 9×9 grid (zeros for empty cells).
+ * {@code history} is the recent conversation, most recent last; the backend trims to the
+ * last 6 messages if more are sent.
+ * {@code userMessage} is what the player just typed or selected via a quick reply chip.
+ */
+public record CoachRequest(Grid board, List<ChatMessage> history, String userMessage) {}

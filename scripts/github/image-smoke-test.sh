@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Image recognition smoke test — POST a base64-encoded puzzle image to /api/v1/puzzles/import.
+# Image recognition smoke test — POST a base64-encoded puzzle image to /api/v1/ai/scan.
 #
 # Usage (CI):   bash scripts/github/image-smoke-test.sh <api_base_url> <fixture_path>
 # Usage (local): AWS_PROFILE=sandbox bash scripts/github/image-smoke-test.sh \
@@ -37,12 +37,12 @@ jq -n --rawfile img /tmp/image_b64.txt '{"image": ($img | rtrimstr("\n"))}' > /t
 printf 'Authorization: Bearer %s\n' "${ID_TOKEN}" > /tmp/auth-header.txt
 
 STATUS=$(curl -s -o /tmp/import.json -w "%{http_code}" \
-  -X POST "${API_BASE}/api/v1/puzzles/import" \
+  -X POST "${API_BASE}/api/v1/ai/scan" \
   -H "Content-Type: application/json" \
   -H @/tmp/auth-header.txt \
   --data-binary @/tmp/import_body.json)
 
-echo "POST /api/v1/puzzles/import → HTTP ${STATUS}"
+echo "POST /api/v1/ai/scan → HTTP ${STATUS}"
 cat /tmp/import.json
 
 if [[ "${STATUS}" != "200" ]]; then
@@ -65,6 +65,6 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo ""
     echo "| Endpoint | Result |"
     echo "|----------|--------|"
-    echo "| POST /api/v1/puzzles/import | ✅ ${STATUS} — ${ROWS} rows |"
+    echo "| POST /api/v1/ai/scan | ✅ ${STATUS} — ${ROWS} rows |"
   } >> "${GITHUB_STEP_SUMMARY}"
 fi
