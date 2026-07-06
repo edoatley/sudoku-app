@@ -145,5 +145,5 @@ module "api_gateway" {
   # AI routes are merged in only when local.ai_coach_enabled is true (rc-* workspaces).
   # On the default workspace they are omitted entirely — no endpoint exists to call.
   # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game and ai routes use explicit JWT-protected routes
-  routes = merge(local.base_routes, local.ai_coach_enabled ? local.ai_routes : {})
+  routes = merge(local.base_routes, local.ai_coach_enabled ? local.ai_routes : tomap({}))
 }
