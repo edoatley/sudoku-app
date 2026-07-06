@@ -4,6 +4,24 @@
 
 A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a React frontend on AWS Amplify.
 
+🎮 **[Try it live](https://sudoku.edoatley.co.uk)**
+
+## Contents
+
+- [High-Level Architecture](#high-level-architecture)
+- [Screenshots](#screenshots)
+- [Tech Stack](#tech-stack)
+- [Repository Structure](#repository-structure)
+- [Documentation](#documentation)
+- [Prerequisites](#prerequisites)
+- [Local Development](#local-development)
+- [API Reference](#api-reference)
+- [Testing](#testing)
+- [Key Files](#key-files)
+- [Infrastructure](#infrastructure)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+
 ---
 
 ## High-Level Architecture
@@ -15,14 +33,29 @@ flowchart LR
         cognito["🔒 Cognito"]
         apigw["🌐 API Gateway + JWT Authorizer"]
         lambda["⚙️ Lambda\nQuarkus Java 21"]
+        imgrec["🖼️ Image Recognition Lambda\nPython 3.14"]
+        bedrock["🤖 Amazon Bedrock\nClaude Haiku"]
         dynamo[("🗄️ DynamoDB")]
     end
 
     amplify --> cognito
     amplify --> apigw
     apigw --> lambda
+    apigw --> imgrec
     lambda --> dynamo
+    lambda --> bedrock
+    imgrec --> bedrock
 ```
+
+See [`infra/README.md`](infra/README.md) for the full deployment-level architecture diagram (DNS, Amplify branches, IAM).
+
+---
+
+## Screenshots
+
+| Desktop | Mobile |
+|---------|--------|
+| ![Desktop screenshot](docs/images/desktop-final.png) | ![Mobile screenshot](docs/images/mobile-final.png) |
 
 ---
 
@@ -33,7 +66,7 @@ flowchart LR
 | Frontend   | React 19, Vite 8, MUI v7, aws-amplify v6                          |
 | Backend    | Java 21, Quarkus 3.32.3, quarkus-amazon-lambda-rest, quarkus-oidc |
 | Auth       | Amazon Cognito User Pool (Google social login via OAuth 2.0)       |
-| Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`)                      |
+| Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`)  |
 | Hosting    | AWS Amplify (frontend), AWS Lambda (backend)                       |
 | IaC        | Terraform (AWS provider, eu-west-2)                                |
 
@@ -49,11 +82,25 @@ sudoku-app/
 │   ├── src/
 │   └── e2e/          # Playwright E2E tests
 ├── infra/            # Terraform IaC (AWS eu-west-2)
-├── docs/             # Architecture and coding standards
-├── openapi.yaml      # API contract
+├── docs/             # HLD, LLDs, EARS specs, arrows, openapi.yaml, coding standards
 ├── Makefile          # Combined dev workflow
 └── CLAUDE.md         # AI assistant instructions
 ```
+
+---
+
+## Documentation
+
+This project follows a **Linked-Intent** approach, where intent flows `HLD → LLDs → EARS → Tests → Code` and docs are kept in sync with the code rather than left to rot. See [`CLAUDE.md`](CLAUDE.md) for the full workflow.
+
+| Artifact                  | Location                                          | Purpose                                            |
+|----------------------------|---------------------------------------------------|-----------------------------------------------------|
+| High-Level Design (HLD)    | [`docs/high-level-design.md`](docs/high-level-design.md) | System overview and component map           |
+| Low-Level Designs (LLDs)   | [`docs/llds/`](docs/llds/)                        | Per-component detailed design                       |
+| EARS specs                 | [`docs/specs/`](docs/specs/)                      | Structured requirements, traced to code and tests   |
+| Arrow tracking             | [`docs/arrows/index.yaml`](docs/arrows/index.yaml)| Traces each component from HLD through to code, flags gaps |
+| Planning                   | [`docs/planning/`](docs/planning/)                | Implementation plans                                |
+| Backlog                    | [`docs/todo/`](docs/todo/)                        | Deferred and future work items                      |
 
 ---
 
@@ -112,18 +159,19 @@ cp ui/.env.example ui/.env.development.local
 
 ## API Reference
 
-Base path: `/api/v1`. Full contract: [`openapi.yaml`](openapi.yaml).
+Base path: `/api/v1`. Full contract: [`docs/openapi.yaml`](docs/openapi.yaml).
 
 **Public routes** (no authentication required):
 
 | Method | Path                  | Description                                                      |
 |--------|-----------------------|------------------------------------------------------------------|
+| GET    | `/health`             | Health check                                                      |
 | GET    | `/puzzles/generate`   | Generate a new puzzle (`?difficulty=easy\|medium\|hard\|expert`) |
 | POST   | `/puzzles/validate`   | Validate the current board state                                 |
 | POST   | `/puzzles/hint`       | Get a progressive logical hint (Nudge / Focus / Reveal)          |
 | POST   | `/puzzles/candidates` | Calculate all valid candidates for empty cells                   |
 
-**AI routes** (all under `/ai/*`, JWT required, Bedrock-backed):
+**AI routes** (all under `/ai/*`, JWT required unless noted, Bedrock-backed):
 
 | Method | Path                  | Description                                  |
 |--------|-----------------------|----------------------------------------------|
@@ -136,9 +184,14 @@ Base path: `/api/v1`. Full contract: [`openapi.yaml`](openapi.yaml).
 | Method | Path                  | Description                                  |
 |--------|-----------------------|----------------------------------------------|
 | POST   | `/games`              | Create a new game for the authenticated user |
+| POST   | `/games/from-image`   | Create a new game from a scanned image grid  |
+| GET    | `/games/current`      | Get the current in-progress game             |
+| GET    | `/games/history`      | Get the player's completed game history      |
 | GET    | `/games/{gameId}`     | Load a saved game                            |
 | PATCH  | `/games/{gameId}`     | Save game progress                           |
 | GET    | `/players/me`         | Get or create the current user's profile     |
+| PATCH  | `/players/me`         | Update the current user's profile            |
+| GET    | `/leaderboard`        | Get the league leaderboard                   |
 
 ---
 
@@ -174,7 +227,8 @@ CI runs all three test suites on every push. Playwright reports are uploaded as 
 
 | File                                               | Purpose                     |
 |----------------------------------------------------|-----------------------------|
-| [`openapi.yaml`](openapi.yaml)                                       | API contract (source of truth)           |
+| [`docs/openapi.yaml`](docs/openapi.yaml)                             | API contract (source of truth)           |
+| [`docs/high-level-design.md`](docs/high-level-design.md)             | System overview and component map        |
 | [`docs/standards/java-quarkus.md`](docs/standards/java-quarkus.md)   | Backend coding standards                 |
 | [`docs/llds/react-frontend.md`](docs/llds/react-frontend.md)         | Frontend LLD + coding standards          |
 | [`docs/arrows/security-standards.md`](docs/arrows/security-standards.md) | Security standards (IAM, throttling, IDOR) |
@@ -214,4 +268,4 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 
 ## TODO
 
-See [TODO.md](TODO.md) for the full backlog. Run `/extract-todos` to refresh it.
+See [`docs/todo/`](docs/todo/) for the backlog of deferred and upcoming work items.
