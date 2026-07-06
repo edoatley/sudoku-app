@@ -59,9 +59,9 @@ GET /players/me
 ### Profile Update Pattern
 
 ```text
-PATCH /players/me { displayName?, avatarKey? }
+PATCH /players/me { displayName?, avatarKey?, aiCoachEnabled? }
   → playerService.updateProfile(userId, request)
-      → validate: both null → InvalidPlayerUpdateException (400)
+      → validate: all three null → InvalidPlayerUpdateException (400)
       → validate: displayName blank or >50 chars → InvalidPlayerUpdateException (400)
       → playerRepository.findById(userId)
           if not found → PlayerNotFoundException (404)
