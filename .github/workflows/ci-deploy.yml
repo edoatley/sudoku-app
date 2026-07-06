@@ -6,6 +6,12 @@ on:
       - main
       - "rc-*"
 
+# One deploy per branch at a time. A new push cancels the in-flight run for
+# that branch so Terraform state locks don't pile up across concurrent runs.
+concurrency:
+  group: ci-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   id-token: write
   contents: read
