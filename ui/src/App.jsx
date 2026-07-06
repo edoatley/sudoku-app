@@ -31,6 +31,7 @@ import CoachWidget from './components/coach/CoachWidget.jsx';
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const DEV_TOOLS = import.meta.env.VITE_DEV_TOOLS === 'true';
+const AI_COACH  = import.meta.env.VITE_AI_COACH === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
 let Authenticator = null;
@@ -353,11 +354,13 @@ function SudokuApp({ user, signOut }) {
 
       <TutorialModal open={helpOpen} src="/help/controls.md" title="How to Play" onClose={() => setHelpOpen(false)} />
 
-      <CoachWidget
-        key={originalGrid ? originalGrid[0].join(',') : 'no-game'}
-        currentGrid={currentGrid}
-        setHighlightCells={setHighlightCells}
-      />
+      {AI_COACH && (
+        <CoachWidget
+          key={originalGrid ? originalGrid[0].join(',') : 'no-game'}
+          currentGrid={currentGrid}
+          setHighlightCells={setHighlightCells}
+        />
+      )}
 
       <Dialog open={gameStatus === 'solved'} data-testid="congrats-dialog">
         <DialogTitle>Congratulations!</DialogTitle>
