@@ -62,7 +62,7 @@ locals {
     }
   }
 
-  ai_routes = {
+  ai_coach_routes = {
     # Tighter global cap on the AI coach route — Bedrock calls are expensive compared to game ops.
     # This is a route-level global ceiling (not per-user); per-user rate limiting is enforced in Lambda.
     "POST /api/v1/ai/coach" = {
@@ -153,11 +153,11 @@ module "api_gateway" {
   }
 
   # Routes — $default is public; game/player/scan routes require JWT.
-  # ai_routes (coach only) are merged in when local.ai_coach_enabled is true (rc-* workspaces).
+  # ai_coach_routes are merged in when local.ai_coach_enabled is true (rc-* workspaces).
   # Image recognition scan routes live in base_routes — always enabled on all workspaces.
   # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game and ai routes use explicit JWT-protected routes
   routes = {
-    for k, v in merge(local.base_routes, local.ai_routes) :
-    k => v if !contains(keys(local.ai_routes), k) || local.ai_coach_enabled
+    for k, v in merge(local.base_routes, local.ai_coach_routes) :
+    k => v if !contains(keys(local.ai_coach_routes), k) || local.ai_coach_enabled
   }
 }
