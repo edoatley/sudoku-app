@@ -242,7 +242,7 @@ User sends a message to the AI coach
 User selects image file
     → ImportModal → importPuzzle(imageFile)
         → base64 encode file
-        → POST /api/v1/ai/scan                         [Frontend → API GW → Image Recognition Lambda]
+        → POST /api/v1/ai/image-to-puzzle                         [Frontend → API GW → Image Recognition Lambda]
             → preprocess image (resize, desaturate, alpha)
             → Bedrock Converse API (Claude Haiku)
             → parse response (<json> tags → pipe table fallback)

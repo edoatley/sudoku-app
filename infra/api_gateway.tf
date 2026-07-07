@@ -45,7 +45,7 @@ locals {
       integration        = local._lambda_integration
     }
 
-    "POST /api/v1/ai/scan" = {
+    "POST /api/v1/ai/image-to-puzzle" = {
       authorization_type = "JWT"
       authorizer_key     = "cognito_jwt"
       integration = {
@@ -54,7 +54,7 @@ locals {
       }
     }
 
-    "GET /api/v1/ai/scan/warmup" = {
+    "GET /api/v1/ai/image-to-puzzle/warmup" = {
       integration = {
         uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
         payload_format_version = "2.0"

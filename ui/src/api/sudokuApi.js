@@ -228,7 +228,7 @@ export async function importPuzzle(imageFile) {
   }
 
   const base64 = await fileToBase64(imageFile);
-  const data = await apiFetch('importPuzzle', `${API_URL}/ai/scan`, {
+  const data = await apiFetch('importPuzzle', `${API_URL}/ai/image-to-puzzle`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image: base64 }),
@@ -241,7 +241,7 @@ export async function importPuzzle(imageFile) {
 export async function warmupImageRecognition() {
   if (MOCK_API) return;
   try {
-    await fetch(`${API_URL}/ai/scan/warmup`);
+    await fetch(`${API_URL}/ai/image-to-puzzle/warmup`);
   } catch {
     // silent — warm-up is best-effort
   }

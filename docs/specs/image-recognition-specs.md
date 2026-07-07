@@ -2,8 +2,8 @@
 
 ## Input Handling
 
-- [x] **IR-API-001**: The system shall expose POST /api/v1/ai/scan accepting a JSON body with a base64-encoded image field, requiring JWT authentication.
-- [x] **IR-API-002**: The system shall expose GET /api/v1/ai/scan/warmup requiring no authentication and returning HTTP 200 without invoking the Bedrock model.
+- [x] **IR-API-001**: The system shall expose POST /api/v1/ai/image-to-puzzle accepting a JSON body with a base64-encoded image field, requiring JWT authentication.
+- [x] **IR-API-002**: The system shall expose GET /api/v1/ai/image-to-puzzle/warmup requiring no authentication and returning HTTP 200 without invoking the Bedrock model.
 - [x] **IR-BE-001**: If the request body is not valid JSON or the image field is absent or empty, the system shall return HTTP 400.
 - [x] **IR-BE-002**: If the decoded image exceeds 8 MB, the system shall return HTTP 400.
 

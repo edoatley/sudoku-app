@@ -208,7 +208,7 @@ jobs:
           printf '{"image":"%s"}' "$TINY_B64" > /tmp/warmup_body.json
           printf 'Authorization: Bearer %s\n' "${SMOKE_ID_TOKEN}" > /tmp/warmup_auth.txt
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 65 \
-            -X POST "${API_BASE}/api/v1/ai/scan" \
+            -X POST "${API_BASE}/api/v1/ai/image-to-puzzle" \
             -H "Content-Type: application/json" \
             -H @/tmp/warmup_auth.txt \
             --data-binary @/tmp/warmup_body.json || echo "000")

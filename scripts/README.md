@@ -343,7 +343,7 @@ Exit code: 0 if all tests pass, 1 if any fail. Appends a Markdown summary to
 
 ### github/image-smoke-test.sh
 
-Posts a base64-encoded puzzle image to `/api/v1/ai/scan` and asserts a 200 response
+Posts a base64-encoded puzzle image to `/api/v1/ai/image-to-puzzle` and asserts a 200 response
 with a 9-row grid. Used by the `smoke-tests.yml` workflow; also runnable locally against any
 deployed environment.
 

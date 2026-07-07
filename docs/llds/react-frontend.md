@@ -183,8 +183,8 @@ Mock paths also call the unwrap helpers so the hook receives the same plain-arra
 | `getCurrentGame()` | GET | `/api/v1/games/current` | Yes |
 | `saveGame(gameId, update)` | PATCH | `/api/v1/games/{gameId}` | Yes |
 | `createGameFromGrid(originalGrid)` | POST | `/api/v1/games/from-image` | Yes |
-| `importPuzzle(imageFile)` | POST | `/api/v1/ai/scan` | Yes |
-| `warmupImageRecognition()` | GET | `/api/v1/ai/scan/warmup` | No |
+| `importPuzzle(imageFile)` | POST | `/api/v1/ai/image-to-puzzle` | Yes |
+| `warmupImageRecognition()` | GET | `/api/v1/ai/image-to-puzzle/warmup` | No |
 | `postCoachMessage(grid, history, msg)` | POST | `/api/v1/ai/coach` | Yes |
 | `getPlayerProfile()` | GET | `/api/v1/players/me` | Yes |
 | `updatePlayerProfile(patch)` | PATCH | `/api/v1/players/me` | Yes |
