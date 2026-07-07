@@ -2,12 +2,12 @@ package com.sudoku.game;
 
 import com.sudoku.domain.CandidatesGrid;
 import com.sudoku.domain.Grid;
-import com.sudoku.dto.BoardRequest;
-import com.sudoku.dto.Coordinate;
-import com.sudoku.dto.GameState;
-import com.sudoku.dto.GameUpdateRequest;
-import com.sudoku.dto.PuzzleResponse;
-import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.web.BoardRequest;
+import com.sudoku.puzzle.web.Coordinate;
+import com.sudoku.game.web.GameState;
+import com.sudoku.game.web.GameUpdateRequest;
+import com.sudoku.puzzle.web.PuzzleResponse;
+import com.sudoku.puzzle.web.ValidationResponse;
 import com.sudoku.leaderboard.LeaderboardRepository;
 import com.sudoku.puzzle.SudokuService;
 import org.junit.jupiter.api.BeforeEach;

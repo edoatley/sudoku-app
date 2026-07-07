@@ -1,5 +1,6 @@
 package com.sudoku.leaderboard;
 
+import com.sudoku.leaderboard.persistence.LeaderboardItem;
 import java.util.List;
 
 // @spec LT-BE-007

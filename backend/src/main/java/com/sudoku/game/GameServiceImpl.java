@@ -2,11 +2,11 @@ package com.sudoku.game;
 
 import com.sudoku.domain.CandidatesGrid;
 import com.sudoku.domain.Grid;
-import com.sudoku.dto.BoardRequest;
-import com.sudoku.dto.GameHistoryResponse;
-import com.sudoku.dto.GameState;
-import com.sudoku.dto.GameUpdateRequest;
-import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.web.BoardRequest;
+import com.sudoku.game.web.GameHistoryResponse;
+import com.sudoku.game.web.GameState;
+import com.sudoku.game.web.GameUpdateRequest;
+import com.sudoku.puzzle.web.ValidationResponse;
 import com.sudoku.leaderboard.LeaderboardRepository;
 import com.sudoku.puzzle.SudokuService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -25,7 +25,7 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  * Orchestrates the lifecycle of a player's Sudoku game session.
  *
  * <p>Handles the transition from a freshly generated (or externally imported) puzzle into
- * a persisted {@link com.sudoku.dto.GameState}, and routes ongoing save/load operations
+ * a persisted {@link com.sudoku.game.web.GameState}, and routes ongoing save/load operations
  * through the {@link GameRepository}. Keeping this logic here rather than in the resource
  * layer ensures the HTTP boundary remains thin and testable independently of persistence.
  *

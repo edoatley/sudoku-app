@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.HintResponse;
+import com.sudoku.puzzle.web.HintResponse;
 
 import java.util.List;
 import java.util.Optional;

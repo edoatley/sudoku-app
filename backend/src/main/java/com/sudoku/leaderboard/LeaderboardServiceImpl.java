@@ -1,8 +1,9 @@
 package com.sudoku.leaderboard;
 
-import com.sudoku.dto.LeaderboardEntry;
-import com.sudoku.dto.LeaderboardResponse;
-import com.sudoku.player.PlayerItem;
+import com.sudoku.leaderboard.persistence.LeaderboardItem;
+import com.sudoku.leaderboard.web.LeaderboardEntry;
+import com.sudoku.leaderboard.web.LeaderboardResponse;
+import com.sudoku.player.persistence.PlayerItem;
 import com.sudoku.player.PlayerRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

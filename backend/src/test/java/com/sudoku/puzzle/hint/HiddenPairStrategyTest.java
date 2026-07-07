@@ -2,9 +2,9 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Grid;
-import com.sudoku.dto.CoordinateCandidate;
-import com.sudoku.dto.Coordinate;
-import com.sudoku.dto.HintResponse;
+import com.sudoku.puzzle.web.CoordinateCandidate;
+import com.sudoku.puzzle.web.Coordinate;
+import com.sudoku.puzzle.web.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
 import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;

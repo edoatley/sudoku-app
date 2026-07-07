@@ -1,12 +1,12 @@
 package com.sudoku.puzzle;
 
 import com.sudoku.domain.Grid;
-import com.sudoku.dto.ActionableCell;
-import com.sudoku.dto.BoardRequest;
-import com.sudoku.dto.CandidatesResponse;
-import com.sudoku.dto.Coordinate;
-import com.sudoku.dto.HintResponse;
-import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.web.ActionableCell;
+import com.sudoku.puzzle.web.BoardRequest;
+import com.sudoku.puzzle.web.CandidatesResponse;
+import com.sudoku.puzzle.web.Coordinate;
+import com.sudoku.puzzle.web.HintResponse;
+import com.sudoku.puzzle.web.ValidationResponse;
 import com.sudoku.puzzle.hint.Difficulty;
 import com.sudoku.puzzle.hint.FullHouseStrategy;
 import com.sudoku.puzzle.hint.HintResult;

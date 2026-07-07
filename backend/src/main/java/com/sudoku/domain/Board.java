@@ -23,7 +23,7 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  * <p>Candidate management is also centralised here: {@link #calculateAllCandidates()}
  * populates every empty cell's pencil marks by eliminating digits already present in
  * the same row, column, and block, and {@link #toCandidatesGrid()} serialises those
- * marks into the nested-list format expected by {@link com.sudoku.dto.CandidatesResponse}.
+ * marks into the nested-list format expected by {@link com.sudoku.puzzle.web.CandidatesResponse}.
  */
 public final class Board {
 

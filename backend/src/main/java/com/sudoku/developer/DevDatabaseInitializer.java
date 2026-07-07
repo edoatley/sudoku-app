@@ -1,7 +1,7 @@
 package com.sudoku.developer;
 
-import com.sudoku.game.GameItem;
-import com.sudoku.player.PlayerItem;
+import com.sudoku.game.persistence.GameItem;
+import com.sudoku.player.persistence.PlayerItem;
 
 import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.runtime.StartupEvent;

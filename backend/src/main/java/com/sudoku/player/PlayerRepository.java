@@ -1,5 +1,7 @@
 package com.sudoku.player;
 
+import com.sudoku.player.persistence.PlayerItem;
+import com.sudoku.player.web.PlayerProfile;
 import java.util.List;
 import java.util.Optional;
 
