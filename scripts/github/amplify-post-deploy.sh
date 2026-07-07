@@ -2,15 +2,16 @@
 # amplify-post-deploy.sh
 #
 # Post-Terraform deployment helper — runs after `terraform apply` to:
-#   A) Tighten API Gateway CORS to exact Amplify URLs
-#   B) Update Cognito callback / logout URLs
-#   C) Poll for Amplify domain association verification (rc mode only)
-#   D) Trigger and wait for an Amplify build (when needed)
+#   A) Update Cognito callback / logout URLs
+#   B) Poll for Amplify domain association verification (rc mode only)
+#   C) Trigger and wait for an Amplify build (when needed)
+#
+# CORS origins are now set directly in api_gateway.tf and no longer need
+# post-deploy tightening.
 #
 # Usage:
 #   bash scripts/github/amplify-post-deploy.sh \
 #     --mode           rc|prod            \
-#     --api-id         <API_GATEWAY_ID>   \
 #     --app-id         <AMPLIFY_APP_ID>   \
 #     --amplify-url    <https://...>      \
 #     --default-url    <https://...>      \
@@ -23,7 +24,6 @@ set -euo pipefail
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 MODE=""
-API_ID=""
 APP_ID=""
 AMPLIFY_URL=""
 DEFAULT_URL=""
@@ -35,7 +35,7 @@ FRONTEND_CHANGED="false"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode)            MODE="$2";             shift 2 ;;
-    --api-id)          API_ID="$2";           shift 2 ;;
+    --api-id)          shift 2 ;;  # retained for backwards-compat; no longer used
     --app-id)          APP_ID="$2";           shift 2 ;;
     --amplify-url)     AMPLIFY_URL="$2";      shift 2 ;;
     --default-url)     DEFAULT_URL="$2";      shift 2 ;;
@@ -50,7 +50,6 @@ done
 # ── Validation ────────────────────────────────────────────────────────────────
 MISSING=()
 [[ -z "${MODE}"          ]] && MISSING+=(--mode)
-[[ -z "${API_ID}"        ]] && MISSING+=(--api-id)
 [[ -z "${APP_ID}"        ]] && MISSING+=(--app-id)
 [[ -z "${AMPLIFY_URL}"   ]] && MISSING+=(--amplify-url)
 [[ -z "${DEFAULT_URL}"   ]] && MISSING+=(--default-url)
@@ -68,26 +67,9 @@ if [[ "${MODE}" != "prod" && "${MODE}" != "rc" ]]; then
   exit 1
 fi
 
-# ── Section A: Tighten CORS ───────────────────────────────────────────────────
+# ── Section A: Update Cognito callback / logout URLs ─────────────────────────
 echo "========================================================"
-echo "  A) Tightening API Gateway CORS"
-echo "========================================================"
-echo "  API ID:       ${API_ID}"
-echo "  Amplify URL:  ${AMPLIFY_URL}"
-echo "  Default URL:  ${DEFAULT_URL}"
-echo ""
-
-CORS_CONFIG=$(printf \
-  '{"AllowMethods":["GET","POST","PATCH","OPTIONS"],"AllowOrigins":["%s","%s","http://localhost:5173"],"AllowHeaders":["Content-Type","Authorization"],"MaxAge":300}' \
-  "${AMPLIFY_URL}" "${DEFAULT_URL}")
-
-aws apigatewayv2 update-api --api-id "${API_ID}" --cors-configuration "${CORS_CONFIG}"
-echo "CORS updated."
-
-# ── Section B: Update Cognito callback / logout URLs ─────────────────────────
-echo ""
-echo "========================================================"
-echo "  B) Updating Cognito callback URLs (mode: ${MODE})"
+echo "  A) Updating Cognito callback URLs (mode: ${MODE})"
 echo "========================================================"
 
 BRANCH_URL="${AMPLIFY_URL}/"
@@ -127,11 +109,11 @@ aws cognito-idp update-user-pool-client \
   --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
 echo "Cognito callback URLs updated."
 
-# ── Section C: Poll domain association verification (rc mode only) ────────────
+# ── Section B: Poll domain association verification (rc mode only) ────────────
 if [[ "${MODE}" == "rc" ]]; then
   echo ""
   echo "========================================================"
-  echo "  C) Waiting for domain association verification"
+  echo "  B) Waiting for domain association verification"
   echo "     Domain: sudoku-beta.edoatley.co.uk"
   echo "     Zone:   sudoku-beta.edoatley.co.uk (sandbox account, default workspace)"
   echo "========================================================"
@@ -194,10 +176,10 @@ if [[ "${MODE}" == "rc" ]]; then
   done
 fi
 
-# ── Section D: Trigger Amplify build ─────────────────────────────────────────
+# ── Section C: Trigger Amplify build ─────────────────────────────────────────
 echo ""
 echo "========================================================"
-echo "  D) Amplify build (branch: ${BRANCH})"
+echo "  C) Amplify build (branch: ${BRANCH})"
 echo "========================================================"
 
 IS_RC="false"

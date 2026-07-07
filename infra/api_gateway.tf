@@ -86,9 +86,9 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
 }
 
 # ── API Gateway (module-managed) ──────────────────────────────────────────────
-# CORS origins are set as a baseline here; the deploy workflow tightens them to
-# the exact Amplify URL post-apply. The module (v5) does not expose a lifecycle
-# ignore_changes block, so the post-deploy script must re-tighten CORS each run.
+# CORS origins are computed directly from the Amplify app domain so that
+# terraform apply always sets them correctly. This avoids the transient window
+# (between apply and the post-deploy script) where CORS was reset to localhost only.
 module "api_gateway" {
   source  = "terraform-aws-modules/apigateway-v2/aws"
   version = "~> 6.1"
@@ -103,7 +103,11 @@ module "api_gateway" {
 
   cors_configuration = {
     allow_methods = ["GET", "POST", "PATCH", "OPTIONS"]
-    allow_origins = ["http://localhost:5173"]
+    allow_origins = [
+      local.is_default ? "https://sudoku.edoatley.co.uk" : "https://sudoku-beta.edoatley.co.uk",
+      "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain}",
+      "http://localhost:5173",
+    ]
     allow_headers = ["Content-Type", "Authorization"]
     max_age       = 300
   }

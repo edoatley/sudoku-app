@@ -87,12 +87,11 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 - Throttling: 25 req/s rate, 50 burst
 - Access logs: JSON format, 7-day retention (3 days on `rc-*`)
 
-**CORS:** Two-step approach to avoid a circular dependency:
+**CORS:** Origins are set directly in `api_gateway.tf` using Terraform-computed values (`aws_amplify_branch.main.branch_name` + `aws_amplify_app.sudoku.default_domain`), so `terraform apply` always sets them correctly — no post-deploy tightening step required. Allowed origins:
 
-1. **Terraform baseline** — `https://*.amplifyapp.com` wildcard plus `http://localhost:5173`
-2. **Post-apply tightening** — the deploy workflow calls `aws apigatewayv2 update-api` to replace the wildcard with both the custom domain URL and the raw Amplify URL
-
-`ignore_changes = [cors_configuration]` prevents Terraform from reverting the tightened CORS on subsequent applies.
+- `default` workspace: `https://sudoku.edoatley.co.uk`
+- `rc-*` workspaces: `https://sudoku-beta.edoatley.co.uk`
+- All workspaces: `https://<branch>.<amplify-app-id>.amplifyapp.com`, `http://localhost:5173`
 
 **JWT Authorizer:** Protects `/games/*`, `/players/me`, `/ai/coach`, and `/ai/scan`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). `/ai/scan/warmup` is also public (probe only, no Bedrock call).
 
