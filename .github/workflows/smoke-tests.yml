@@ -216,17 +216,12 @@ jobs:
 
       - name: Image recognition smoke test
         id: import-smoke
+        if: inputs.environment_type == 'rc'
         env:
           API_URL: ${{ inputs.api_gateway_url }}
-          ENV_TYPE: ${{ inputs.environment_type }}
           SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
         run: |
-          if [[ "${ENV_TYPE}" == "rc" ]]; then
-            FIXTURE="image_recognition/tests/fixtures/CI_Puzzle.jpg"
-          else
-            FIXTURE="image_recognition/tests/fixtures/puzzle_1.jpeg"
-          fi
-          bash scripts/github/image-smoke-test.sh "${API_URL}" "${FIXTURE}"
+          bash scripts/github/image-smoke-test.sh "${API_URL}" "image_recognition/tests/fixtures/CI_Puzzle.jpg"
 
       - uses: ./.github/actions/setup-node
         with:
