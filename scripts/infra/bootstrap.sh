@@ -158,6 +158,7 @@ DEPLOY_POLICY=$(cat <<EOF
       "Action": [
         "iam:CreateRole", "iam:GetRole", "iam:DeleteRole",
         "iam:AttachRolePolicy", "iam:DetachRolePolicy",
+        "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy",
         "iam:CreatePolicy", "iam:GetPolicy", "iam:DeletePolicy",
         "iam:GetPolicyVersion", "iam:ListPolicyVersions",
         "iam:CreatePolicyVersion", "iam:DeletePolicyVersion",
@@ -169,12 +170,14 @@ DEPLOY_POLICY=$(cat <<EOF
       "Resource": [
         "arn:aws:iam::${ACCOUNT_ID}:role/SudokuLambdaExecRole*",
         "arn:aws:iam::${ACCOUNT_ID}:role/SudokuImageRecognitionExecRole*",
+        "arn:aws:iam::${ACCOUNT_ID}:role/SudokuBudgetsExecutionRole*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuDynamoDBPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuPlayersPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuLeaderboardPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuImageRecognitionBedrockPolicy*",
         "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuCoachBedrockPolicy*",
-        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuCoachRateLimitsPolicy*"
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuCoachRateLimitsPolicy*",
+        "arn:aws:iam::${ACCOUNT_ID}:policy/SudokuBedrockDeny*"
       ]
     },
     {
@@ -306,6 +309,10 @@ DEPLOY_POLICY=$(cat <<EOF
       "Action": [
         "budgets:CreateBudget", "budgets:ModifyBudget", "budgets:DeleteBudget",
         "budgets:DescribeBudgets", "budgets:ViewBudget",
+        "budgets:TagResource", "budgets:UntagResource", "budgets:ListTagsForResource",
+        "budgets:CreateBudgetAction", "budgets:UpdateBudgetAction", "budgets:DeleteBudgetAction",
+        "budgets:DescribeBudgetActionsForBudget", "budgets:DescribeBudgetActionHistories",
+        "budgets:ExecuteBudgetAction",
         "ce:CreateAnomalyMonitor", "ce:GetAnomalyMonitors", "ce:UpdateAnomalyMonitor", "ce:DeleteAnomalyMonitor",
         "ce:CreateAnomalySubscription", "ce:GetAnomalySubscriptions", "ce:UpdateAnomalySubscription", "ce:DeleteAnomalySubscription",
         "ce:TagResource", "ce:UntagResource", "ce:ListTagsForResource"
