@@ -148,7 +148,7 @@ paths:
         '401':
           description: Missing or invalid Cognito JWT.
 
-  /ai/scan:
+  /ai/image-to-puzzle:
     post:
       tags:
         - AI
@@ -197,7 +197,7 @@ paths:
         '422':
           description: Image could not be parsed into a valid 9×9 grid.
 
-  /ai/scan/warmup:
+  /ai/image-to-puzzle/warmup:
     get:
       tags:
         - AI

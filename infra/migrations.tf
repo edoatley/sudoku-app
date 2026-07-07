@@ -120,3 +120,14 @@ moved {
   from = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/puzzles/import/warmup"]
   to   = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/ai/scan/warmup"]
 }
+
+# Phase 4: route renamed /ai/scan → /ai/image-to-puzzle
+moved {
+  from = module.api_gateway.aws_apigatewayv2_route.this["POST /api/v1/ai/scan"]
+  to   = module.api_gateway.aws_apigatewayv2_route.this["POST /api/v1/ai/image-to-puzzle"]
+}
+
+moved {
+  from = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/ai/scan/warmup"]
+  to   = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/ai/image-to-puzzle/warmup"]
+}

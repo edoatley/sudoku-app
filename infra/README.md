@@ -93,7 +93,7 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 - `rc-*` workspaces: `https://sudoku-beta.edoatley.co.uk`
 - All workspaces: `https://<branch>.<amplify-app-id>.amplifyapp.com`, `http://localhost:5173`
 
-**JWT Authorizer:** Protects `/games/*`, `/players/me`, `/ai/coach`, and `/ai/scan`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). `/ai/scan/warmup` is also public (probe only, no Bedrock call).
+**JWT Authorizer:** Protects `/games/*`, `/players/me`, `/ai/coach`, and `/ai/image-to-puzzle`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). `/ai/image-to-puzzle/warmup` is also public (probe only, no Bedrock call).
 
 ### Lambda
 

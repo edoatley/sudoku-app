@@ -16,7 +16,7 @@ This component is entirely independent of the Java backend — it has its own La
 ```text
 Frontend (ImportModal)
   → base64-encode image file
-  → POST /api/v1/ai/scan  {image: "<base64>"}  (JWT required)
+  → POST /api/v1/ai/image-to-puzzle  {image: "<base64>"}  (JWT required)
         │
         ▼
   API Gateway → Image Recognition Lambda (Python)
@@ -177,8 +177,8 @@ Key design: a grid with duplicates is **not rejected outright** if it is the bes
 
 | Route | Method | Auth | Request | Response |
 | --- | --- | --- | --- | --- |
-| `/api/v1/ai/scan` | POST | JWT required | `{"image": "<base64>"}` | see below |
-| `/api/v1/ai/scan/warmup` | GET | None | — | 200 (probe only) |
+| `/api/v1/ai/image-to-puzzle` | POST | JWT required | `{"image": "<base64>"}` | see below |
+| `/api/v1/ai/image-to-puzzle/warmup` | GET | None | — | 200 (probe only) |
 
 **Success response (200):**
 
@@ -198,7 +198,7 @@ Key design: a grid with duplicates is **not rejected outright** if it is the bes
 | 422 | Grid invalid (duplicates present and < 17 clues) or all models failed |
 | 500 | Unexpected internal error |
 
-The warmup route (`GET /api/v1/ai/scan/warmup`) returns 200 immediately without invoking Bedrock. The frontend calls it on profile load (when import is enabled) to reduce cold-start latency for the first real scan.
+The warmup route (`GET /api/v1/ai/image-to-puzzle/warmup`) returns 200 immediately without invoking Bedrock. The frontend calls it on profile load (when import is enabled) to reduce cold-start latency for the first real scan.
 
 ## Infrastructure
 
@@ -218,7 +218,7 @@ The warmup route (`GET /api/v1/ai/scan/warmup`) returns 200 immediately without 
 | Converse API over InvokeModel | `bedrock.converse()` | `bedrock.invoke_model()` | Converse API supports `system` parameter natively; system prompt is essential for JSON reliability |
 | Chain-of-thought scratchpad | Pipe-delimited scratchpad before JSON | JSON directly | Reduces positional errors; model "thinks" through alignment before committing to structured output |
 | Fuzzy return (duplicates allowed) | Return best grid with `validPuzzle=false` | Reject all grids with duplicates | Better UX: Java backend runs own validation; user sees extracted grid even if imperfect |
-| Warmup probe | `GET /api/v1/ai/scan/warmup` (no auth) | Scheduled EventBridge ping | Frontend-initiated; warms the specific Lambda; no infrastructure overhead |
+| Warmup probe | `GET /api/v1/ai/image-to-puzzle/warmup` (no auth) | Scheduled EventBridge ping | Frontend-initiated; warms the specific Lambda; no infrastructure overhead |
 | Desaturate before sending | `ImageEnhance.Color(0.0)` | Send colour image | Sudoku digits are shape-based; removing colour reduces irrelevant visual features |
 | Static colour-cell hint | One sentence in system prompt (IR-PROC-013) | Adaptive pixel-based prompt injection | Zero latency, zero dependency; model already handles most colour puzzles correctly — explicit instruction makes it reliable. Adaptive approach deferred as future optimisation. |
 | Temperature 0 | `inferenceConfig: {temperature: 0}` | Default temperature | Digit extraction should be deterministic; randomness only adds errors |
@@ -233,7 +233,7 @@ The warmup route (`GET /api/v1/ai/scan/warmup`) returns 200 immediately without 
 
 ## Behavioral Quirks
 
-- The warmup route matches on `event["path"]` containing `/warmup`, not an exact match. Any path containing the string `/warmup` would be intercepted — though only `/api/v1/ai/scan/warmup` is routed to this Lambda.
+- The warmup route matches on `event["path"]` containing `/warmup`, not an exact match. Any path containing the string `/warmup` would be intercepted — though only `/api/v1/ai/image-to-puzzle/warmup` is routed to this Lambda.
 - PIL preprocessing silently falls back to original bytes on any exception (including missing PIL). The model then receives the raw image — larger and possibly in a format that increases token cost without error.
 - `validPuzzle=false` in the 200 response does not cause the frontend to reject the grid — it flags it for extra validation downstream. The Java `GameService` is the final authority on puzzle validity.
 - Cross-check logic skips the next model in the main loop after using it for cross-check (to avoid redundant invocation). With only one model, this branch is never reached.

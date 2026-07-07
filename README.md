@@ -185,8 +185,8 @@ Base path: `/api/v1`. Full contract: [`docs/openapi.yaml`](docs/openapi.yaml).
 | Method | Path                  | Description                                  |
 |--------|-----------------------|----------------------------------------------|
 | POST   | `/ai/coach`           | Send a message to the AI Sudoku coach (desktop only) |
-| POST   | `/ai/scan`            | Extract a 9×9 grid from a puzzle photo       |
-| GET    | `/ai/scan/warmup`     | Warm up the image recognition Lambda (no auth required) |
+| POST   | `/ai/image-to-puzzle`            | Extract a 9×9 grid from a puzzle photo       |
+| GET    | `/ai/image-to-puzzle/warmup` | Warm up the image recognition Lambda (no auth required) |
 
 **Protected routes** (JWT Bearer token required — issued by Cognito after Google login):
 

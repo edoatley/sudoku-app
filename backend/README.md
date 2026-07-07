@@ -144,8 +144,8 @@ src/main/java/com/sudoku/
 | GET | `/api/v1/players/me` | Get or create the current user's profile |
 | PATCH | `/api/v1/players/me` | Update profile (displayName, avatarKey, aiCoachEnabled) |
 | POST | `/api/v1/ai/coach` | AI coaching message (rc-* workspaces only) |
-| POST | `/api/v1/ai/scan` | Submit image for puzzle grid extraction (rc-* workspaces only) |
-| GET | `/api/v1/ai/scan/warmup` | Warm up the image recognition Lambda — public, no JWT (rc-* only) |
+| POST | `/api/v1/ai/image-to-puzzle` | Submit image for puzzle grid extraction (rc-* workspaces only) |
+| GET | `/api/v1/ai/image-to-puzzle/warmup` | Warm up the image recognition Lambda — public, no JWT (rc-* only) |
 
 **Developer-only** (`dev` profile):
 
