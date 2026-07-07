@@ -4,8 +4,6 @@
 
 A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a React frontend on AWS Amplify.
 
-🎮 **[Try it live](https://sudoku.edoatley.co.uk)**
-
 ## Contents
 
 - [High-Level Architecture](#high-level-architecture)
