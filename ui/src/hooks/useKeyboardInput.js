@@ -36,7 +36,10 @@ export function useKeyboardInput({
 
       // @spec KBD-055 — p toggles pause/resume (works when paused)
       if (e.key === 'p' || e.key === 'P') {
-        if (isPaused) { onPause(); return; }  // resume
+        if (isPaused) {
+          onPause();
+          return;
+        } // resume
         onPause();
         return;
       }
@@ -94,9 +97,9 @@ export function useKeyboardInput({
 
       // @spec KBD-010, KBD-011, KBD-012, KBD-013, KBD-014 — arrow navigation
       const moves = {
-        ArrowUp:    { row: Math.max(0, row - 1), col },
-        ArrowDown:  { row: Math.min(8, row + 1), col },
-        ArrowLeft:  { row, col: Math.max(0, col - 1) },
+        ArrowUp: { row: Math.max(0, row - 1), col },
+        ArrowDown: { row: Math.min(8, row + 1), col },
+        ArrowLeft: { row, col: Math.max(0, col - 1) },
         ArrowRight: { row, col: Math.min(8, col + 1) },
       };
       if (moves[e.key]) {
@@ -124,7 +127,23 @@ export function useKeyboardInput({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCell, inputMode, originalGrid, currentGrid, gameStatus, isPaused,
-      isModalOpen, onDigit, onClear, onSelectCell, onToggleMode,
-      onUndo, onCheck, onHint, onFill, onHelp, onPause]);
+  }, [
+    selectedCell,
+    inputMode,
+    originalGrid,
+    currentGrid,
+    gameStatus,
+    isPaused,
+    isModalOpen,
+    onDigit,
+    onClear,
+    onSelectCell,
+    onToggleMode,
+    onUndo,
+    onCheck,
+    onHint,
+    onFill,
+    onHelp,
+    onPause,
+  ]);
 }

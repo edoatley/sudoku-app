@@ -89,7 +89,9 @@ describe('useLeaderboard — loading state', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     getLeaderboard.mockReturnValue(new Promise(() => {})); // stall second call
-    act(() => { result.current.refresh(); });
+    act(() => {
+      result.current.refresh();
+    });
 
     expect(result.current.loading).toBe(true);
   });
@@ -113,7 +115,9 @@ describe('useLeaderboard — error state', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     getLeaderboard.mockRejectedValue(new Error('Timeout'));
-    await act(async () => { await result.current.refresh(); });
+    await act(async () => {
+      await result.current.refresh();
+    });
 
     expect(result.current.leaderboard).toEqual(MOCK_ENTRIES);
     expect(result.current.error).toBe('Timeout');
@@ -125,7 +129,9 @@ describe('useLeaderboard — error state', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     getLeaderboard.mockResolvedValue({ entries: MOCK_ENTRIES });
-    await act(async () => { await result.current.refresh(); });
+    await act(async () => {
+      await result.current.refresh();
+    });
 
     expect(result.current.error).toBeNull();
     expect(result.current.leaderboard).toEqual(MOCK_ENTRIES);
@@ -141,7 +147,9 @@ describe('useLeaderboard — refresh', () => {
     const { result } = renderHook(() => useLeaderboard());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    await act(async () => { await result.current.refresh(); });
+    await act(async () => {
+      await result.current.refresh();
+    });
 
     expect(result.current.leaderboard).toEqual(updatedEntries);
     expect(getLeaderboard).toHaveBeenCalledTimes(2);

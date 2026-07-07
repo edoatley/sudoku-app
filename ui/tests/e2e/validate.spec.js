@@ -10,14 +10,15 @@ const VALID_RESPONSE = {
 const INVALID_RESPONSE = {
   isValid: false,
   isSolved: false,
-  errors: [{ row: 0, col: 0 }, { row: 0, col: 2 }],
+  errors: [
+    { row: 0, col: 0 },
+    { row: 0, col: 2 },
+  ],
 };
 
 async function setupRoutes(page, validateResponse) {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/validate', (route) =>
-    route.fulfill({ json: validateResponse })
-  );
+  await page.route('**/puzzles/validate', (route) => route.fulfill({ json: validateResponse }));
 }
 
 async function fillRow0Correctly(page) {
@@ -30,7 +31,10 @@ async function fillRow0Correctly(page) {
     { col: 8, number: 2 },
   ];
   for (const { col, number } of fills) {
-    await page.getByTestId('numberpad-normal').getByRole('button', { name: String(number), exact: true }).click();
+    await page
+      .getByTestId('numberpad-normal')
+      .getByRole('button', { name: String(number), exact: true })
+      .click();
     await page.getByTestId(`cell-0-${col}`).click();
   }
 }

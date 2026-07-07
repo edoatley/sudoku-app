@@ -65,9 +65,19 @@ describe('sign-out history clear', () => {
   // @spec FE-BE-007
   it('clears history state and localStorage when user becomes null', async () => {
     // Seed localStorage so it looks like a previous session
-    localStorage.setItem(LS_KEY, JSON.stringify([
-      { id: 'g1', difficulty: 'easy', outcome: 'won', elapsedSeconds: 60, hintsUsed: 0, completedAt: '2026-05-01T10:00:00Z' },
-    ]));
+    localStorage.setItem(
+      LS_KEY,
+      JSON.stringify([
+        {
+          id: 'g1',
+          difficulty: 'easy',
+          outcome: 'won',
+          elapsedSeconds: 60,
+          hintsUsed: 0,
+          completedAt: '2026-05-01T10:00:00Z',
+        },
+      ])
+    );
 
     // Mount as signed-in user; initial state reads from localStorage
     const { result, rerender } = renderHook(({ user }) => usePlayerProfile(user), {

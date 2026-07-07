@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupGameRoutes, waitForGrid, CANNED_GAME_ID, EASY_PUZZLE, toWireGrid, toWireCandidates } from './helpers.js';
+import { setupGameRoutes, waitForGrid, EASY_PUZZLE, toWireGrid, toWireCandidates } from './helpers.js';
 
 // Grid where digit 9 appears exactly 9 times (all placed).
 // Original puzzle has 9s at: [1][4], [2][1], [7][5], [8][8]
@@ -12,7 +12,13 @@ GRID_WITH_ALL_NINES_ROWS[5][6] = 9;
 GRID_WITH_ALL_NINES_ROWS[6][8] = 9;
 
 // A candidate grid that still has a 9 candidate in cell [0][2]
-const CANDIDATES_WITH_NINE_ROWS = Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
+const CANDIDATES_WITH_NINE_ROWS = Array(9)
+  .fill(null)
+  .map(() =>
+    Array(9)
+      .fill(null)
+      .map(() => [])
+  );
 CANDIDATES_WITH_NINE_ROWS[0][2] = [9];
 
 // Wire-format versions for API mocks (setupGameRoutes expects {rows:[...]} format)

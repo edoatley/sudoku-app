@@ -31,7 +31,7 @@ import CoachWidget from './components/coach/CoachWidget.jsx';
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const DEV_TOOLS = import.meta.env.VITE_DEV_TOOLS === 'true';
-const AI_COACH  = import.meta.env.VITE_AI_COACH === 'true';
+const AI_COACH = import.meta.env.VITE_AI_COACH === 'true';
 
 // Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
 let Authenticator = null;
@@ -73,25 +73,32 @@ if (!MOCK_API && !SKIP_AUTH) {
 function SudokuApp({ user, signOut }) {
   const [forbidden, setForbidden] = useState(false);
   const [forbiddenEmail, setForbiddenEmail] = useState(null);
-  const handleForbidden = useCallback((email = null) => { setForbidden(true); setForbiddenEmail(email); }, []);
-  const { avatar, history, recordGame, fetchHistory, playerProfile, sessionEmail, updateProfile } = usePlayerProfile(user, { onForbidden: handleForbidden });
+  const handleForbidden = useCallback((email = null) => {
+    setForbidden(true);
+    setForbiddenEmail(email);
+  }, []);
+  const { avatar, history, recordGame, fetchHistory, playerProfile, sessionEmail, updateProfile } = usePlayerProfile(
+    user,
+    { onForbidden: handleForbidden }
+  );
 
   const [currentView, setCurrentView] = useState('game');
   const viewStack = useRef([]);
 
-  const navigateTo = useCallback((view) => {
-    viewStack.current.push(currentView);
-    setCurrentView(view);
-  }, [currentView]);
+  const navigateTo = useCallback(
+    (view) => {
+      viewStack.current.push(currentView);
+      setCurrentView(view);
+    },
+    [currentView]
+  );
 
   const navigateBack = useCallback(() => {
     const target = viewStack.current.pop();
     if (target !== undefined) setCurrentView(target);
   }, []);
 
-  const [colorMode, setColorMode] = useState(
-    () => localStorage.getItem('sudoku_colorMode') ?? 'light'
-  );
+  const [colorMode, setColorMode] = useState(() => localStorage.getItem('sudoku_colorMode') ?? 'light');
   const handleToggleColorMode = () => {
     setColorMode((prev) => {
       const next = prev === 'light' ? 'dark' : 'light';
@@ -100,17 +107,18 @@ function SudokuApp({ user, signOut }) {
     });
   };
   const muiTheme = useMemo(
-    () => createTheme({
-      palette: {
-        mode: colorMode,
-        primary: { main: colorMode === 'dark' ? '#9c27b0' : '#3949ab' },
-        background: {
-          default: colorMode === 'light' ? '#f5f5f0' : '#121212',
-          paper:   colorMode === 'light' ? '#ffffff' : '#1e1e1e',
+    () =>
+      createTheme({
+        palette: {
+          mode: colorMode,
+          primary: { main: colorMode === 'dark' ? '#9c27b0' : '#3949ab' },
+          background: {
+            default: colorMode === 'light' ? '#f5f5f0' : '#121212',
+            paper: colorMode === 'light' ? '#ffffff' : '#1e1e1e',
+          },
         },
-      },
-      shape: { borderRadius: 6 },
-    }),
+        shape: { borderRadius: 6 },
+      }),
     [colorMode]
   );
 
@@ -161,7 +169,11 @@ function SudokuApp({ user, signOut }) {
     pauseGame,
     resumeGame,
     importStage,
-  } = useSudokuGame(user, { onGameComplete: recordGame, onForbidden: handleForbidden, isModalOpen: currentView !== 'game' });
+  } = useSudokuGame(user, {
+    onGameComplete: recordGame,
+    onForbidden: handleForbidden,
+    isModalOpen: currentView !== 'game',
+  });
 
   const completedNumbers = useMemo(() => {
     if (!currentGrid) return new Set();
@@ -171,14 +183,22 @@ function SudokuApp({ user, signOut }) {
         if (val !== 0) counts[val] = (counts[val] || 0) + 1;
       }
     }
-    return new Set(Object.entries(counts).filter(([, c]) => c === 9).map(([n]) => Number(n)));
+    return new Set(
+      Object.entries(counts)
+        .filter(([, c]) => c === 9)
+        .map(([n]) => Number(n))
+    );
   }, [currentGrid]);
 
   // @spec KBD-032, KBD-033, NAV-KBD-001 — suppress keyboard input while any modal or view is open
-  const isKeyboardSuppressed = currentView !== 'game'
-    || newGameModalOpen || importModalOpen || devDataOpen || helpOpen
-    || gameStatus === 'solved'
-    || !!activeHint;
+  const isKeyboardSuppressed =
+    currentView !== 'game' ||
+    newGameModalOpen ||
+    importModalOpen ||
+    devDataOpen ||
+    helpOpen ||
+    gameStatus === 'solved' ||
+    !!activeHint;
 
   useKeyboardInput({
     selectedCell,
@@ -216,15 +236,31 @@ function SudokuApp({ user, signOut }) {
     return (
       <ThemeProvider theme={muiTheme}>
         <CssBaseline />
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 3, p: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            gap: 3,
+            p: 3,
+          }}
+        >
           <Typography variant="h5">Access Denied</Typography>
           <Typography color="text.secondary" align="center">
-            {forbiddenEmail
-              ? <><strong>{forbiddenEmail}</strong> is not authorised to access this application.</>
-              : 'You are not authorised to use this application.'}
+            {forbiddenEmail ? (
+              <>
+                <strong>{forbiddenEmail}</strong> is not authorised to access this application.
+              </>
+            ) : (
+              'You are not authorised to use this application.'
+            )}
           </Typography>
           {signOut && (
-            <Button variant="contained" onClick={signOut}>Sign Out</Button>
+            <Button variant="contained" onClick={signOut}>
+              Sign Out
+            </Button>
           )}
         </Box>
       </ThemeProvider>
@@ -275,7 +311,15 @@ function SudokuApp({ user, signOut }) {
             /* Outer box centres the game column on the page */
             <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               {/* Game column — full width on mobile (grid fills it), inline-fit on desktop */}
-              <Box sx={{ display: { xs: 'flex', sm: 'inline-flex' }, flexDirection: 'column', alignItems: 'stretch', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+              <Box
+                sx={{
+                  display: { xs: 'flex', sm: 'inline-flex' },
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  gap: 1,
+                  width: { xs: '100%', sm: 'auto' },
+                }}
+              >
                 {/* Toolbar row: mode toggle left, action buttons right */}
                 <NumberPadToolbar
                   inputMode={inputMode}
@@ -308,11 +352,7 @@ function SudokuApp({ user, signOut }) {
                   completedNumbers={completedNumbers}
                 />
                 {/* Validation status */}
-                <NumberPadStatus
-                  gameStatus={gameStatus}
-                  statusMessage={statusMessage}
-                  onCloseStatus={clearStatus}
-                />
+                <NumberPadStatus gameStatus={gameStatus} statusMessage={statusMessage} onCloseStatus={clearStatus} />
               </Box>
               {/* Hint panel — full width below */}
               <Box sx={{ width: '100%', mt: 1 }}>
@@ -348,9 +388,7 @@ function SudokuApp({ user, signOut }) {
 
       <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
 
-      {DEV_TOOLS && (
-        <DevDataDialog open={devDataOpen} onClose={() => setDevDataOpen(false)} />
-      )}
+      {DEV_TOOLS && <DevDataDialog open={devDataOpen} onClose={() => setDevDataOpen(false)} />}
 
       <TutorialModal open={helpOpen} src="/help/controls.md" title="How to Play" onClose={() => setHelpOpen(false)} />
 
@@ -400,10 +438,10 @@ function LoginLayout() {
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
       {AmplifyThemeProvider && amplifyTheme ? (
-        <AmplifyThemeProvider theme={amplifyTheme}>
-          {authContent}
-        </AmplifyThemeProvider>
-      ) : authContent}
+        <AmplifyThemeProvider theme={amplifyTheme}>{authContent}</AmplifyThemeProvider>
+      ) : (
+        authContent
+      )}
     </ThemeProvider>
   );
 }

@@ -44,24 +44,28 @@ function formatTime(seconds) {
 }
 
 function getUserInitial(user, playerProfile, sessionEmail) {
-  const id = playerProfile?.displayName ?? playerProfile?.email
-           ?? sessionEmail
-           ?? user?.signInDetails?.loginId ?? user?.username ?? '';
+  const id =
+    playerProfile?.displayName ??
+    playerProfile?.email ??
+    sessionEmail ??
+    user?.signInDetails?.loginId ??
+    user?.username ??
+    '';
   return id.charAt(0).toUpperCase() || '?';
 }
 
 const DEMO_TECHNIQUES = [
-  { slug: 'full-house',    label: 'Full House demo' },
-  { slug: 'naked-single',  label: 'Naked Single demo' },
-  { slug: 'naked-pair',    label: 'Naked Pair demo' },
+  { slug: 'full-house', label: 'Full House demo' },
+  { slug: 'naked-single', label: 'Naked Single demo' },
+  { slug: 'naked-pair', label: 'Naked Pair demo' },
   { slug: 'hidden-single', label: 'Hidden Single demo' },
   { slug: 'pointing-pair', label: 'Pointing Pair demo' },
-  { slug: 'naked-triple',  label: 'Naked Triple demo' },
-  { slug: 'hidden-pair',   label: 'Hidden Pair demo' },
+  { slug: 'naked-triple', label: 'Naked Triple demo' },
+  { slug: 'hidden-pair', label: 'Hidden Pair demo' },
   { slug: 'hidden-triple', label: 'Hidden Triple demo' },
-  { slug: 'x-wing',        label: 'X-Wing demo' },
-  { slug: 'swordfish',     label: 'Swordfish demo' },
-  { slug: 'y-wing',        label: 'Y-Wing demo' },
+  { slug: 'x-wing', label: 'X-Wing demo' },
+  { slug: 'swordfish', label: 'Swordfish demo' },
+  { slug: 'y-wing', label: 'Y-Wing demo' },
 ];
 
 const DIFFICULTY_COLORS = {
@@ -103,7 +107,10 @@ export default function Header({
   const handleMenuClose = () => setAnchorEl(null);
 
   const handleGameMenuOpen = (e) => setGameMenuAnchorEl(e.currentTarget);
-  const handleGameMenuClose = () => { setGameMenuAnchorEl(null); setDevMenuAnchorEl(null); };
+  const handleGameMenuClose = () => {
+    setGameMenuAnchorEl(null);
+    setDevMenuAnchorEl(null);
+  };
 
   const handleDevMenuOpen = (e) => setDevMenuAnchorEl(e.currentTarget);
   const handleDevMenuClose = () => setDevMenuAnchorEl(null);
@@ -111,12 +118,11 @@ export default function Header({
   const avatarIconEntry = AVATAR_ICONS.find((a) => a.name === avatar);
   const AvatarIcon = avatarIconEntry?.Component ?? null;
 
-  const displayName = playerProfile?.displayName
-    ?? playerProfile?.email
-    ?? sessionEmail
-    ?? (!MOCK_API && !SKIP_AUTH
-        ? (user?.signInDetails?.loginId ?? user?.username ?? null)
-        : (user?.username ?? 'Guest'));
+  const displayName =
+    playerProfile?.displayName ??
+    playerProfile?.email ??
+    sessionEmail ??
+    (!MOCK_API && !SKIP_AUTH ? (user?.signInDetails?.loginId ?? user?.username ?? null) : (user?.username ?? 'Guest'));
 
   return (
     <AppBar position="static" elevation={0} sx={{ bgcolor: 'primary.main' }}>
@@ -157,22 +163,40 @@ export default function Header({
                     Game
                   </Typography>
                 </Box>
-                <MenuItem onClick={() => { handleGameMenuClose(); onNewGame?.(); }}>
-                  <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+                <MenuItem
+                  onClick={() => {
+                    handleGameMenuClose();
+                    onNewGame?.();
+                  }}
+                >
+                  <ListItemIcon>
+                    <AddIcon fontSize="small" />
+                  </ListItemIcon>
                   <ListItemText>New Game</ListItemText>
                 </MenuItem>
                 {onImport && (
-                  <MenuItem onClick={() => { handleGameMenuClose(); onImport(); }}>
-                    <ListItemIcon><ImageIcon fontSize="small" /></ListItemIcon>
+                  <MenuItem
+                    onClick={() => {
+                      handleGameMenuClose();
+                      onImport();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <ImageIcon fontSize="small" />
+                    </ListItemIcon>
                     <ListItemText>Import from Image</ListItemText>
                   </MenuItem>
                 )}
                 {onDemoGame && <Divider />}
                 {onDemoGame && (
                   <MenuItem onClick={handleDevMenuOpen}>
-                    <ListItemIcon><BugReportIcon fontSize="small" /></ListItemIcon>
+                    <ListItemIcon>
+                      <BugReportIcon fontSize="small" />
+                    </ListItemIcon>
                     <ListItemText>Developer</ListItemText>
-                    <Typography variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>▶</Typography>
+                    <Typography variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
+                      ▶
+                    </Typography>
                   </MenuItem>
                 )}
               </Menu>
@@ -187,15 +211,25 @@ export default function Header({
                   {DEMO_TECHNIQUES.map(({ slug, label }) => (
                     <MenuItem
                       key={slug}
-                      onClick={() => { handleGameMenuClose(); onDemoGame(slug); }}
+                      onClick={() => {
+                        handleGameMenuClose();
+                        onDemoGame(slug);
+                      }}
                     >
                       <ListItemText>{label}</ListItemText>
                     </MenuItem>
                   ))}
                   {onDevData && <Divider />}
                   {onDevData && (
-                    <MenuItem onClick={() => { handleGameMenuClose(); onDevData(); }}>
-                      <ListItemIcon><StorageIcon fontSize="small" /></ListItemIcon>
+                    <MenuItem
+                      onClick={() => {
+                        handleGameMenuClose();
+                        onDevData();
+                      }}
+                    >
+                      <ListItemIcon>
+                        <StorageIcon fontSize="small" />
+                      </ListItemIcon>
                       <ListItemText>Data Browser</ListItemText>
                     </MenuItem>
                   )}
@@ -287,7 +321,11 @@ export default function Header({
                       fontWeight: 'bold',
                     }}
                   >
-                    {AvatarIcon ? <AvatarIcon sx={{ fontSize: 20 }} /> : getUserInitial(user, playerProfile, sessionEmail)}
+                    {AvatarIcon ? (
+                      <AvatarIcon sx={{ fontSize: 20 }} />
+                    ) : (
+                      getUserInitial(user, playerProfile, sessionEmail)
+                    )}
                   </Avatar>
                   {displayName && (
                     <Typography
@@ -317,37 +355,75 @@ export default function Header({
                     <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', mb: 0.5 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
-                          {AvatarIcon ? <AvatarIcon sx={{ fontSize: 22 }} /> : getUserInitial(user, playerProfile, sessionEmail)}
+                          {AvatarIcon ? (
+                            <AvatarIcon sx={{ fontSize: 22 }} />
+                          ) : (
+                            getUserInitial(user, playerProfile, sessionEmail)
+                          )}
                         </Avatar>
                         <Box>
                           <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 180 }}>
                             {displayName}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">My Account</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            My Account
+                          </Typography>
                         </Box>
                       </Box>
                     </Box>
                   )}
-                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('profile'); }}>
-                    <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
+                  <MenuItem
+                    onClick={() => {
+                      handleMenuClose();
+                      onNavigate?.('profile');
+                    }}
+                  >
+                    <ListItemIcon>
+                      <PersonIcon fontSize="small" />
+                    </ListItemIcon>
                     <ListItemText>Edit Profile</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('history'); }}>
-                    <ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>
+                  <MenuItem
+                    onClick={() => {
+                      handleMenuClose();
+                      onNavigate?.('history');
+                    }}
+                  >
+                    <ListItemIcon>
+                      <HistoryIcon fontSize="small" />
+                    </ListItemIcon>
                     <ListItemText>Puzzle History</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('statistics'); }}>
-                    <ListItemIcon><BarChartIcon fontSize="small" /></ListItemIcon>
+                  <MenuItem
+                    onClick={() => {
+                      handleMenuClose();
+                      onNavigate?.('statistics');
+                    }}
+                  >
+                    <ListItemIcon>
+                      <BarChartIcon fontSize="small" />
+                    </ListItemIcon>
                     <ListItemText>Statistics</ListItemText>
                   </MenuItem>
-                  <MenuItem onClick={() => { handleMenuClose(); onNavigate?.('leaderboard'); }}>
-                    <ListItemIcon><EmojiEventsIcon fontSize="small" /></ListItemIcon>
+                  <MenuItem
+                    onClick={() => {
+                      handleMenuClose();
+                      onNavigate?.('leaderboard');
+                    }}
+                  >
+                    <ListItemIcon>
+                      <EmojiEventsIcon fontSize="small" />
+                    </ListItemIcon>
                     <ListItemText>League Table</ListItemText>
                   </MenuItem>
                   <Divider />
                   <MenuItem onClick={onToggleColorMode}>
                     <ListItemIcon>
-                      {colorMode === 'dark' ? <Brightness7Icon fontSize="small" /> : <Brightness4Icon fontSize="small" />}
+                      {colorMode === 'dark' ? (
+                        <Brightness7Icon fontSize="small" />
+                      ) : (
+                        <Brightness4Icon fontSize="small" />
+                      )}
                     </ListItemIcon>
                     <ListItemText>
                       Dark Mode
@@ -359,8 +435,15 @@ export default function Header({
                   {onSignOut && (
                     <>
                       <Divider />
-                      <MenuItem onClick={() => { handleMenuClose(); onSignOut(); }}>
-                        <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+                      <MenuItem
+                        onClick={() => {
+                          handleMenuClose();
+                          onSignOut();
+                        }}
+                      >
+                        <ListItemIcon>
+                          <LogoutIcon fontSize="small" />
+                        </ListItemIcon>
                         <ListItemText>Sign Out</ListItemText>
                       </MenuItem>
                     </>

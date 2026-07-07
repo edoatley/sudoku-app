@@ -1,7 +1,7 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import App from './App.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
@@ -17,8 +17,8 @@ if (!MOCK_API && !SKIP_AUTH) {
           oauth: {
             domain: import.meta.env.VITE_COGNITO_DOMAIN,
             scopes: ['openid', 'email', 'profile'],
-            redirectSignIn:  [window.location.origin + '/'],
-            redirectSignOut: [window.location.origin + '/'],
+            redirectSignIn: [`${window.location.origin}/`],
+            redirectSignOut: [`${window.location.origin}/`],
             responseType: 'code',
           },
         },
@@ -30,5 +30,5 @@ if (!MOCK_API && !SKIP_AUTH) {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
-  </StrictMode>,
-)
+  </StrictMode>
+);

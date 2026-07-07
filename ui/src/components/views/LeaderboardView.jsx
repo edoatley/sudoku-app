@@ -40,9 +40,13 @@ function RankBadge({ rank }) {
         flexShrink: 0,
       }}
     >
-      {isGold
-        ? <EmojiEventsIcon sx={{ fontSize: 20, color: '#7a5900' }} />
-        : <Typography variant="body2" fontWeight={700}>{rank}</Typography>}
+      {isGold ? (
+        <EmojiEventsIcon sx={{ fontSize: 20, color: '#7a5900' }} />
+      ) : (
+        <Typography variant="body2" fontWeight={700}>
+          {rank}
+        </Typography>
+      )}
     </Box>
   );
 }
@@ -55,7 +59,9 @@ function PlayerCard({ entry }) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
         <RankBadge rank={entry.rank} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="body1" fontWeight={600} noWrap>{entry.displayName}</Typography>
+          <Typography variant="body1" fontWeight={600} noWrap>
+            {entry.displayName}
+          </Typography>
           <Typography variant="caption" color="text.secondary">
             {entry.totalWins} wins · Avg score: {entry.avgScore}
           </Typography>
@@ -87,7 +93,9 @@ export default function LeaderboardView({ onBack }) {
           <IconButton edge="start" color="inherit" onClick={onBack} aria-label="Back">
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>League Table</Typography>
+          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
+            League Table
+          </Typography>
         </Toolbar>
       </AppBar>
 
@@ -95,12 +103,7 @@ export default function LeaderboardView({ onBack }) {
         {loading && (
           <Stack spacing={1}>
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton
-                key={i}
-                data-testid="leaderboard-skeleton"
-                variant="rounded"
-                height={80}
-              />
+              <Skeleton key={i} data-testid="leaderboard-skeleton" variant="rounded" height={80} />
             ))}
           </Stack>
         )}

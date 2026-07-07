@@ -22,9 +22,7 @@ const CANNED_CANDIDATES = {
 
 async function setupRoutes(page) {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/candidates', (route) =>
-    route.fulfill({ json: CANNED_CANDIDATES })
-  );
+  await page.route('**/puzzles/candidates', (route) => route.fulfill({ json: CANNED_CANDIDATES }));
 }
 
 test('fill — clicking Fill fetches candidates and populates player candidates', async ({ page }) => {

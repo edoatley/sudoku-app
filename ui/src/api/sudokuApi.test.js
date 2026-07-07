@@ -101,7 +101,7 @@ describe('sudokuApi — mock mode (VITE_MOCK_API=true)', () => {
     const { saveGame } = await import('./sudokuApi.js');
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     await expect(
-      saveGame('abc-123', { currentGrid: [], candidates: [], timeSpentSeconds: 0 }),
+      saveGame('abc-123', { currentGrid: [], candidates: [], timeSpentSeconds: 0 })
     ).resolves.toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
@@ -127,21 +127,20 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   });
 
   it('generatePuzzle GETs the correct endpoint', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ originalGrid: { rows: [] } }), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ originalGrid: { rows: [] } }), { status: 200 }));
     const { generatePuzzle } = await import('./sudokuApi.js');
     await generatePuzzle('medium');
-    expect(fetchSpy).toHaveBeenCalledWith(
-      'http://test-api/v1/puzzles/generate?difficulty=medium',
-      expect.any(Object),
-    );
+    expect(fetchSpy).toHaveBeenCalledWith('http://test-api/v1/puzzles/generate?difficulty=medium', expect.any(Object));
   });
 
   it('generatePuzzle unwraps originalGrid from wire format', async () => {
-    const wireRows = [[1,2,3],[4,5,6],[7,8,9]];
+    const wireRows = [
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9],
+    ];
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ originalGrid: { rows: wireRows }, difficulty: 'easy' }), { status: 200 }),
+      new Response(JSON.stringify({ originalGrid: { rows: wireRows }, difficulty: 'easy' }), { status: 200 })
     );
     const { generatePuzzle } = await import('./sudokuApi.js');
     const result = await generatePuzzle('easy');
@@ -149,23 +148,21 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   });
 
   it('validatePuzzle POSTs to the correct endpoint', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify(CANNED_VALIDATE_VALID), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify(CANNED_VALIDATE_VALID), { status: 200 }));
     const { validatePuzzle } = await import('./sudokuApi.js');
     await validatePuzzle(Array(9).fill(Array(9).fill(0)));
     expect(fetchSpy).toHaveBeenCalledWith(
       'http://test-api/v1/puzzles/validate',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({ method: 'POST' })
     );
   });
 
   it('validatePuzzle wraps currentGrid in wire format', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify(CANNED_VALIDATE_VALID), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify(CANNED_VALIDATE_VALID), { status: 200 }));
     const { validatePuzzle } = await import('./sudokuApi.js');
-    const grid = Array(9).fill(null).map(() => Array(9).fill(0));
+    const grid = Array(9)
+      .fill(null)
+      .map(() => Array(9).fill(0));
     await validatePuzzle(grid);
     const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
@@ -173,14 +170,12 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   });
 
   it('getHint POSTs to the correct endpoint', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify(CANNED_HINT), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify(CANNED_HINT), { status: 200 }));
     const { getHint } = await import('./sudokuApi.js');
     await getHint([]);
     expect(fetchSpy).toHaveBeenCalledWith(
       'http://test-api/v1/puzzles/hint',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({ method: 'POST' })
     );
   });
 
@@ -200,22 +195,18 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   });
 
   it('getCandidates POSTs to the correct endpoint', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ candidatesGrid: { rows: [] } }), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ candidatesGrid: { rows: [] } }), { status: 200 }));
     const { getCandidates } = await import('./sudokuApi.js');
     await getCandidates([]);
     expect(fetchSpy).toHaveBeenCalledWith(
       'http://test-api/v1/puzzles/candidates',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({ method: 'POST' })
     );
   });
 
   it('getCandidates unwraps candidatesGrid from wire format', async () => {
-    const wireRows = [[[1,2]], [[3]]];
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ candidatesGrid: { rows: wireRows } }), { status: 200 }),
-    );
+    const wireRows = [[[1, 2]], [[3]]];
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ candidatesGrid: { rows: wireRows } }), { status: 200 }));
     const { getCandidates } = await import('./sudokuApi.js');
     const result = await getCandidates([]);
     expect(result.candidatesGrid).toEqual(wireRows);
@@ -224,8 +215,16 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   it('saveGame wraps currentGrid and candidates in wire format', async () => {
     fetchSpy.mockResolvedValue(new Response(null, { status: 204 }));
     const { saveGame } = await import('./sudokuApi.js');
-    const grid = Array(9).fill(null).map(() => Array(9).fill(0));
-    const candidates = Array(9).fill(null).map(() => Array(9).fill(null).map(() => []));
+    const grid = Array(9)
+      .fill(null)
+      .map(() => Array(9).fill(0));
+    const candidates = Array(9)
+      .fill(null)
+      .map(() =>
+        Array(9)
+          .fill(null)
+          .map(() => [])
+      );
     await saveGame('gid', { currentGrid: grid, candidates, timeSpentSeconds: 0 });
     const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
@@ -244,7 +243,7 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
       new Response(JSON.stringify({ code: 'GAME_NOT_FOUND', message: 'Game not found' }), {
         status: 404,
         headers: { 'content-type': 'application/json' },
-      }),
+      })
     );
     const { loadGame } = await import('./sudokuApi.js');
     await expect(loadGame('bad-id')).rejects.toThrow('Game not found');
@@ -255,7 +254,7 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
       new Response(JSON.stringify({ error: 'legacy error' }), {
         status: 500,
         headers: { 'content-type': 'application/json' },
-      }),
+      })
     );
     const { generatePuzzle } = await import('./sudokuApi.js');
     await expect(generatePuzzle('easy')).rejects.toThrow('legacy error');
@@ -279,9 +278,7 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   });
 
   it('includes Content-Type application/json on POST requests', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify(CANNED_VALIDATE_VALID), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify(CANNED_VALIDATE_VALID), { status: 200 }));
     const { validatePuzzle } = await import('./sudokuApi.js');
     await validatePuzzle([]);
     const [, options] = fetchSpy.mock.calls[0];
@@ -291,23 +288,32 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   // @spec GH-UI-001
   it('getGameHistory GETs the correct endpoint and returns entries', async () => {
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ entries: [{ gameId: 'g1', difficulty: 'easy', outcome: 'won', endedAt: '2026-05-24T10:00:00Z', elapsedSeconds: 300, hintsUsed: 0 }] }), { status: 200 }),
+      new Response(
+        JSON.stringify({
+          entries: [
+            {
+              gameId: 'g1',
+              difficulty: 'easy',
+              outcome: 'won',
+              endedAt: '2026-05-24T10:00:00Z',
+              elapsedSeconds: 300,
+              hintsUsed: 0,
+            },
+          ],
+        }),
+        { status: 200 }
+      )
     );
     const { getGameHistory } = await import('./sudokuApi.js');
     const result = await getGameHistory(10);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      'http://test-api/v1/games/history?limit=10',
-      expect.any(Object),
-    );
+    expect(fetchSpy).toHaveBeenCalledWith('http://test-api/v1/games/history?limit=10', expect.any(Object));
     expect(result).toHaveLength(1);
     expect(result[0].gameId).toBe('g1');
   });
 
   // @spec GH-UI-001
   it('getGameHistory returns empty array when entries is missing', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
     const { getGameHistory } = await import('./sudokuApi.js');
     const result = await getGameHistory();
     expect(result).toEqual([]);
@@ -318,9 +324,11 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
     // If gridFromWire were applied, originalGrid would become undefined (array has no .rows),
     // causing createGameFromGrid to send {originalGrid:null} and the backend to reject with
     // "Grid must be 9 rows".
-    const rawGrid = Array(9).fill(null).map(() => Array(9).fill(0));
+    const rawGrid = Array(9)
+      .fill(null)
+      .map(() => Array(9).fill(0));
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ originalGrid: rawGrid, validPuzzle: true }), { status: 200 }),
+      new Response(JSON.stringify({ originalGrid: rawGrid, validPuzzle: true }), { status: 200 })
     );
     const { importPuzzle } = await import('./sudokuApi.js');
     const file = new File(['fake'], 'puzzle.png', { type: 'image/png' });
@@ -333,27 +341,28 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
   // @spec LT-UI-001
   it('getLeaderboard GETs the correct endpoint and returns entries', async () => {
     const mockEntries = [
-      { userId: 'u1', displayName: 'Ed', avatarKey: 'Person', rank: 1,
-        totalWins: 5, totalGames: 6, avgScore: 180, avgElapsedSeconds: 250,
-        bestTimeByDifficulty: { easy: 90 } },
+      {
+        userId: 'u1',
+        displayName: 'Ed',
+        avatarKey: 'Person',
+        rank: 1,
+        totalWins: 5,
+        totalGames: 6,
+        avgScore: 180,
+        avgElapsedSeconds: 250,
+        bestTimeByDifficulty: { easy: 90 },
+      },
     ];
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ entries: mockEntries }), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ entries: mockEntries }), { status: 200 }));
     const { getLeaderboard } = await import('./sudokuApi.js');
     const result = await getLeaderboard();
-    expect(fetchSpy).toHaveBeenCalledWith(
-      'http://test-api/v1/leaderboard',
-      expect.any(Object),
-    );
+    expect(fetchSpy).toHaveBeenCalledWith('http://test-api/v1/leaderboard', expect.any(Object));
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].displayName).toBe('Ed');
   });
 
   it('getLeaderboard sends Authorization header', async () => {
-    fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ entries: [] }), { status: 200 }),
-    );
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ entries: [] }), { status: 200 }));
     const { getLeaderboard } = await import('./sudokuApi.js');
     await getLeaderboard();
     const [, options] = fetchSpy.mock.calls[0];

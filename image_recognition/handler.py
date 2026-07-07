@@ -6,10 +6,10 @@ Uses the Bedrock Converse API so the model receives a proper system prompt,
 which is essential for structured JSON output.
 
 """
+
 from __future__ import annotations
 
 import base64
-import io
 import os
 import re
 import json
@@ -31,7 +31,11 @@ if not logger.handlers:
 # The fallback keeps local/test runs working without any env configuration.
 # ---------------------------------------------------------------------------
 _MODELS_DEFAULT = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
-_MODELS = [m.strip() for m in os.environ.get("BEDROCK_MODELS", _MODELS_DEFAULT).split(",") if m.strip()]
+_MODELS = [
+    m.strip()
+    for m in os.environ.get("BEDROCK_MODELS", _MODELS_DEFAULT).split(",")
+    if m.strip()
+]
 
 # A valid Sudoku has at least 17 clues.  We use a lower threshold so that
 # very sparse / near-empty grids trigger a retry with the next model.
@@ -77,6 +81,7 @@ _USER_PROMPT = (
 # Lambda entry point
 # ---------------------------------------------------------------------------
 
+
 def handler(event: dict, context: object) -> dict:
     """
     Lambda entry point.
@@ -116,7 +121,9 @@ def handler(event: dict, context: object) -> dict:
             return _error(400, "Request body must be JSON with an 'image' field.")
 
         image_bytes = base64.b64decode(image_b64)
-        logger.info("Received image recognition request: image_size=%d bytes", len(image_bytes))
+        logger.info(
+            "Received image recognition request: image_size=%d bytes", len(image_bytes)
+        )
 
         if len(image_bytes) > 8 * 1024 * 1024:
             return _error(400, "Image too large — maximum size is 8 MB.")
@@ -129,12 +136,17 @@ def handler(event: dict, context: object) -> dict:
                 "Best grid from model %s is invalid (has duplicates or too few clues) — returning 422",
                 model_name,
             )
-            return _error(422, "Could not extract a valid Sudoku grid from the image. Please try a clearer photo.")
+            return _error(
+                422,
+                "Could not extract a valid Sudoku grid from the image. Please try a clearer photo.",
+            )
 
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"originalGrid": grid, "validPuzzle": valid, "modelName": model_name}),
+            "body": json.dumps(
+                {"originalGrid": grid, "validPuzzle": valid, "modelName": model_name}
+            ),
         }
 
     except ValueError as exc:
@@ -149,7 +161,10 @@ def handler(event: dict, context: object) -> dict:
 # Bedrock orchestration
 # ---------------------------------------------------------------------------
 
-def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[list[int]], bool, str]:
+
+def _recognize_with_bedrock(
+    client: object, image_bytes: bytes
+) -> tuple[list[list[int]], bool, str]:
     """Try each model in _MODELS; return (best_grid, valid, model_name).
 
     Scoring (higher is better):
@@ -195,12 +210,16 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
                 logger.warning(
                     "Model %s: grid has duplicate digits (score=%d, clues=%d) — "
                     "keeping as candidate but trying next model",
-                    model_id, score, clues,
+                    model_id,
+                    score,
+                    clues,
                 )
             else:
                 logger.info(
                     "Model %s returned a clean grid (score=%d, clues=%d)",
-                    model_id, score, clues,
+                    model_id,
+                    score,
+                    clues,
                 )
             if score > best_score:
                 best_score = score
@@ -214,18 +233,24 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
                 next_model_id = _MODELS[model_index + 1]
                 logger.info(
                     "Model %s produced acceptable result; cross-checking with next model %s",
-                    model_id, next_model_id,
+                    model_id,
+                    next_model_id,
                 )
                 try:
                     next_grid = _invoke_model(client, next_model_id, image_bytes)
                     if next_grid != grid:
                         next_clues = sum(v != 0 for row in next_grid for v in row)
                         next_has_dupe = _has_row_col_box_duplicate(next_grid)
-                        next_score = (0 if next_has_dupe else 2) + (next_clues - _MIN_PLAUSIBLE_CLUES) // 10
+                        next_score = (0 if next_has_dupe else 2) + (
+                            next_clues - _MIN_PLAUSIBLE_CLUES
+                        ) // 10
                         if next_score > best_score:
                             logger.info(
                                 "Next model %s produced a different grid with higher score (%d > %d); using its result instead of %s",
-                                next_model_id, next_score, best_score, model_id,
+                                next_model_id,
+                                next_score,
+                                best_score,
+                                model_id,
                             )
                             best_grid = next_grid
                             best_model_name = next_model_id
@@ -235,17 +260,23 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
                         else:
                             logger.info(
                                 "Next model %s produced a different grid but lower/equal score (%d <= %d); keeping result from %s",
-                                next_model_id, next_score, best_score, model_id,
+                                next_model_id,
+                                next_score,
+                                best_score,
+                                model_id,
                             )
                     else:
                         logger.info(
                             "Next model %s confirmed result; keeping grid from %s",
-                            next_model_id, model_id,
+                            next_model_id,
+                            model_id,
                         )
                 except (ValueError, ClientError) as exc:
                     logger.warning(
                         "Cross-check model %s failed: %s; keeping result from %s",
-                        next_model_id, exc, model_id,
+                        next_model_id,
+                        exc,
+                        model_id,
                     )
                 # Skip the next model in the main loop since we already tried it
                 model_index += 2
@@ -260,24 +291,28 @@ def _recognize_with_bedrock(client: object, image_bytes: bytes) -> tuple[list[li
 
     if best_grid is not None:
         valid = not best_has_dupe and best_clues >= 17
-        logger.info("Final result: model=%s valid=%s clues=%d", best_model_name, valid, best_clues)
+        logger.info(
+            "Final result: model=%s valid=%s clues=%d",
+            best_model_name,
+            valid,
+            best_clues,
+        )
         return best_grid, valid, best_model_name
 
     raise ValueError(
-        f"All models failed to extract a valid Sudoku grid. "
-        f"Last error: {last_error}"
+        f"All models failed to extract a valid Sudoku grid. Last error: {last_error}"
     )
 
 
 def _detect_image_format(image_bytes: bytes) -> str:
     """Detect image format from magic bytes. Returns a Bedrock-compatible format string."""
-    if image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
         return "png"
-    if image_bytes[:3] == b'\xff\xd8\xff':
+    if image_bytes[:3] == b"\xff\xd8\xff":
         return "jpeg"
-    if image_bytes[:6] in (b'GIF87a', b'GIF89a'):
+    if image_bytes[:6] in (b"GIF87a", b"GIF89a"):
         return "gif"
-    if image_bytes[:4] == b'RIFF' and image_bytes[8:12] == b'WEBP':
+    if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
         return "webp"
     return "jpeg"  # default fallback
 
@@ -324,6 +359,7 @@ def _invoke_model(
 # ---------------------------------------------------------------------------
 # --- Enhanced Robust Parser ---
 
+
 def _parse_grid(text: str) -> list[list[int]]:
     """
     Enhanced parser that handles JSON and falls back to parsing
@@ -332,24 +368,30 @@ def _parse_grid(text: str) -> list[list[int]]:
     cleaned = text.strip()
 
     # 1. Try to find a JSON object — prefer <json> tags, fall back to first {...} block
-    json_match = re.search(r'<json>\s*(.*?)\s*</json>', cleaned, re.DOTALL | re.IGNORECASE)
+    json_match = re.search(
+        r"<json>\s*(.*?)\s*</json>", cleaned, re.DOTALL | re.IGNORECASE
+    )
     if not json_match:
-        json_match = re.search(r'(\{.*\})', cleaned, re.DOTALL)
+        json_match = re.search(r"(\{.*\})", cleaned, re.DOTALL)
 
     if json_match:
         json_str = json_match.group(1).strip()
-        json_str = re.sub(r'//.*', '', json_str)  # remove JS-style comments
+        json_str = re.sub(r"//.*", "", json_str)  # remove JS-style comments
         try:
             data = json.loads(json_str)
         except json.JSONDecodeError as exc:
-            raise ValueError(f"Extracted string is invalid JSON: {exc}\nString: {json_str[:100]}") from exc
+            raise ValueError(
+                f"Extracted string is invalid JSON: {exc}\nString: {json_str[:100]}"
+            ) from exc
 
         grid = data.get("originalGrid")
-        
+
         # FIX: Better error logging so it prints the actual length, not just <class 'list'>
         if not isinstance(grid, list) or len(grid) != 9:
-            actual_len = len(grid) if isinstance(grid, list) else 'N/A'
-            raise ValueError(f"'originalGrid' must be a 9-element list, got a {type(grid).__name__} of length {actual_len}")
+            actual_len = len(grid) if isinstance(grid, list) else "N/A"
+            raise ValueError(
+                f"'originalGrid' must be a 9-element list, got a {type(grid).__name__} of length {actual_len}"
+            )
 
         for i, row in enumerate(grid):
             if not isinstance(row, list) or len(row) != 9:
@@ -359,28 +401,30 @@ def _parse_grid(text: str) -> list[list[int]]:
                     val = int(val)
                     grid[i][j] = val
                 if not isinstance(val, int) or not (0 <= val <= 9):
-                    raise ValueError(f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}")
+                    raise ValueError(
+                        f"Cell [{i}][{j}] must be an int 0-9, got: {val!r}"
+                    )
 
         return grid
 
     # 2. Fallback: Parse the pipe-delimited scratchpad
     grid_from_text = []
     for line in cleaned.splitlines():
-        if '|' in line:
+        if "|" in line:
             # FIX: Strip out "Row 1:" prefixes before splitting
-            if ':' in line:
-                line = line.split(':', 1)[-1]
-                
-            parts = [p.strip() for p in line.split('|')]
+            if ":" in line:
+                line = line.split(":", 1)[-1]
+
+            parts = [p.strip() for p in line.split("|")]
             row_digits = []
             for p in parts:
                 # Strip markdown bolding just in case (e.g., **5**)
-                p = re.sub(r'[*_]', '', p).strip()
+                p = re.sub(r"[*_]", "", p).strip()
                 if p.isdigit():
                     row_digits.append(int(p))
-                elif p == '.' or p.lower() == 'empty':
+                elif p == "." or p.lower() == "empty":
                     row_digits.append(0)
-            
+
             if len(row_digits) == 9:
                 grid_from_text.append(row_digits)
 
@@ -388,8 +432,9 @@ def _parse_grid(text: str) -> list[list[int]]:
         logger.info("Successfully recovered grid from scratchpad pipes.")
         return grid_from_text
 
-    raise ValueError("No JSON object found and no valid pipe-delimited scratchpad in model response.")
-
+    raise ValueError(
+        "No JSON object found and no valid pipe-delimited scratchpad in model response."
+    )
 
 
 def _has_row_col_box_duplicate(grid: list[list[int]]) -> bool:
@@ -400,12 +445,15 @@ def _has_row_col_box_duplicate(grid: list[list[int]]) -> bool:
         box_r, box_c = (i // 3) * 3, (i % 3) * 3
         box_vals = [
             grid[box_r + dr][box_c + dc]
-            for dr in range(3) for dc in range(3)
+            for dr in range(3)
+            for dc in range(3)
             if grid[box_r + dr][box_c + dc] != 0
         ]
-        if (len(row_vals) != len(set(row_vals))
-                or len(col_vals) != len(set(col_vals))
-                or len(box_vals) != len(set(box_vals))):
+        if (
+            len(row_vals) != len(set(row_vals))
+            or len(col_vals) != len(set(col_vals))
+            or len(box_vals) != len(set(box_vals))
+        ):
             return True
     return False
 

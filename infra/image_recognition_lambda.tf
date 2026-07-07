@@ -96,6 +96,7 @@ module "image_recognition_lambda" {
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit
   # checkov:skip=CKV_AWS_272: Single-developer project — AWS Signer code-signing not applicable to container images
   # checkov:skip=CKV_AWS_50: X-Ray active tracing costs money; PassThrough is sufficient for a personal project
+  # checkov:skip=CKV_TF_1: Terraform Registry modules are version-pinned (~>8.8); commit-hash pinning requires forking off the registry
 }
 
 # Permission kept standalone — the module's allowed_triggers targets the published
@@ -108,4 +109,3 @@ resource "aws_lambda_permission" "image_recognition_api_gateway" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${module.api_gateway.api_execution_arn}/*/*"
 }
-

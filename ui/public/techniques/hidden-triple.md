@@ -9,7 +9,7 @@ slug: "hidden-triple"
 A **Hidden Triple** occurs when three specific candidates are restricted to exactly three cells within a group, but those cells are "hiding" among other decoy candidates.
 
 ## How it works
-Imagine a row where the numbers **2, 4, and 7** only appear as candidates in exactly three cells. However, those three cells also contain pencil marks for 8 and 9. 
+Imagine a row where the numbers **2, 4, and 7** only appear as candidates in exactly three cells. However, those three cells also contain pencil marks for 8 and 9.
 
 Because the 2, 4, and 7 *must* be placed in that row, and they only have these three cells available, they will definitely occupy these three cells in some order. Therefore, the 8 and 9 in those cells are impossible and simply acting as camouflage!
 

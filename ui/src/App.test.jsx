@@ -29,17 +29,27 @@ vi.mock('./components/SudokuGrid.jsx', () => ({ default: () => <div data-testid=
 vi.mock('./components/Header.jsx', () => ({
   default: ({ onNavigate }) => (
     <div data-testid="header">
-      <button data-testid="nav-profile"     onClick={() => onNavigate('profile')}>Profile</button>
-      <button data-testid="nav-history"     onClick={() => onNavigate('history')}>History</button>
-      <button data-testid="nav-statistics"  onClick={() => onNavigate('statistics')}>Statistics</button>
-      <button data-testid="nav-leaderboard" onClick={() => onNavigate('leaderboard')}>League</button>
+      <button type="button" data-testid="nav-profile" onClick={() => onNavigate('profile')}>
+        Profile
+      </button>
+      <button type="button" data-testid="nav-history" onClick={() => onNavigate('history')}>
+        History
+      </button>
+      <button type="button" data-testid="nav-statistics" onClick={() => onNavigate('statistics')}>
+        Statistics
+      </button>
+      <button type="button" data-testid="nav-leaderboard" onClick={() => onNavigate('leaderboard')}>
+        League
+      </button>
     </div>
   ),
 }));
 vi.mock('./components/views/AppView.jsx', () => ({
   default: ({ currentView, navigateBack }) => (
     <div data-testid={`view-${currentView}`}>
-      <button data-testid="back-button" onClick={navigateBack}>Back</button>
+      <button type="button" data-testid="back-button" onClick={navigateBack}>
+        Back
+      </button>
     </div>
   ),
 }));
@@ -205,11 +215,13 @@ describe('congrats dialog', () => {
   });
 
   it('shows elapsed time when gameStatus is solved', () => {
-    mockUseSudokuGame.mockReturnValue(baseHookValues({
-      gameStatus: 'solved',
-      elapsedSeconds: 185,
-      hintsUsed: 0,
-    }));
+    mockUseSudokuGame.mockReturnValue(
+      baseHookValues({
+        gameStatus: 'solved',
+        elapsedSeconds: 185,
+        hintsUsed: 0,
+      })
+    );
     render(<App />);
     expect(screen.getByTestId('congrats-dialog')).toBeTruthy();
     // 185s = 3m 5s
@@ -217,31 +229,37 @@ describe('congrats dialog', () => {
   });
 
   it('shows hints used when hints > 0', () => {
-    mockUseSudokuGame.mockReturnValue(baseHookValues({
-      gameStatus: 'solved',
-      elapsedSeconds: 120,
-      hintsUsed: 3,
-    }));
+    mockUseSudokuGame.mockReturnValue(
+      baseHookValues({
+        gameStatus: 'solved',
+        elapsedSeconds: 120,
+        hintsUsed: 3,
+      })
+    );
     render(<App />);
     expect(screen.getByText(/hints used:\s*3/i)).toBeTruthy();
   });
 
   it('hides hints line when hintsUsed is 0', () => {
-    mockUseSudokuGame.mockReturnValue(baseHookValues({
-      gameStatus: 'solved',
-      elapsedSeconds: 60,
-      hintsUsed: 0,
-    }));
+    mockUseSudokuGame.mockReturnValue(
+      baseHookValues({
+        gameStatus: 'solved',
+        elapsedSeconds: 60,
+        hintsUsed: 0,
+      })
+    );
     render(<App />);
     expect(screen.queryByText(/hints used/i)).toBeNull();
   });
 
   it('calls finishGame when Finish button is clicked', () => {
-    mockUseSudokuGame.mockReturnValue(baseHookValues({
-      gameStatus: 'solved',
-      elapsedSeconds: 90,
-      hintsUsed: 0,
-    }));
+    mockUseSudokuGame.mockReturnValue(
+      baseHookValues({
+        gameStatus: 'solved',
+        elapsedSeconds: 90,
+        hintsUsed: 0,
+      })
+    );
     render(<App />);
     fireEvent.click(screen.getByTestId('finish-button'));
     expect(mockFinishGame).toHaveBeenCalledOnce();

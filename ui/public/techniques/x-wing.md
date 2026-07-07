@@ -11,7 +11,7 @@ The **X-Wing** is a classic advanced pattern. It happens when a specific candida
 
 
 ## How it works
-Let's track the number 7. 
+Let's track the number 7.
 * In Row 2, the number 7 can only go in Column 3 or Column 8.
 * In Row 6, the number 7 can *also* only go in Column 3 or Column 8.
 

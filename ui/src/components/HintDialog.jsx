@@ -29,13 +29,19 @@ function HintActions({ stage, onAdvance, onDismiss, onAlternateHint }) {
   return (
     <>
       {stage === 'nudge' && onAlternateHint && (
-        <Button size="small" onClick={onAlternateHint}>Try Different Hint</Button>
+        <Button size="small" onClick={onAlternateHint}>
+          Try Different Hint
+        </Button>
       )}
       {(stage === 'nudge' || stage === 'focus') && (
-        <Button size="small" variant="contained" onClick={onAdvance}>Show Me</Button>
+        <Button size="small" variant="contained" onClick={onAdvance}>
+          Show Me
+        </Button>
       )}
       {stage === 'reveal' && (
-        <Button size="small" variant="contained" onClick={onDismiss}>Got It</Button>
+        <Button size="small" variant="contained" onClick={onDismiss}>
+          Got It
+        </Button>
       )}
     </>
   );
@@ -68,11 +74,20 @@ export default function HintDialog({ open, hint, stage, onAdvance, onDismiss, on
       {isDesktop ? (
         /* Desktop: inline card below the board, capped to grid width */
         <Collapse in={open}>
-          <Paper data-testid="hint-panel" variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Paper
+            data-testid="hint-panel"
+            variant="outlined"
+            sx={{ p: 2, borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}
+          >
             {titleBar}
             <Typography variant="body2">{stageText(hint, stage)}</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-              <HintActions stage={stage} onAdvance={onAdvance} onDismiss={onDismiss} onAlternateHint={onAlternateHint} />
+              <HintActions
+                stage={stage}
+                onAdvance={onAdvance}
+                onDismiss={onDismiss}
+                onAlternateHint={onAlternateHint}
+              />
             </Box>
           </Paper>
         </Collapse>
@@ -92,12 +107,7 @@ export default function HintDialog({ open, hint, stage, onAdvance, onDismiss, on
             >
               <HelpOutlineIcon fontSize="small" />
             </IconButton>
-            <IconButton
-              onClick={onDismiss}
-              size="small"
-              title="Close"
-              sx={{ position: 'absolute', right: 8, top: 8 }}
-            >
+            <IconButton onClick={onDismiss} size="small" title="Close" sx={{ position: 'absolute', right: 8, top: 8 }}>
               <CloseIcon fontSize="small" />
             </IconButton>
           </DialogTitle>
@@ -109,11 +119,7 @@ export default function HintDialog({ open, hint, stage, onAdvance, onDismiss, on
           </DialogActions>
         </Dialog>
       )}
-      <TutorialModal
-        open={tutorialOpen}
-        slug={hint?.markdownSlug}
-        onClose={() => setTutorialOpen(false)}
-      />
+      <TutorialModal open={tutorialOpen} slug={hint?.markdownSlug} onClose={() => setTutorialOpen(false)} />
     </>
   );
 }

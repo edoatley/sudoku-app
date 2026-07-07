@@ -52,7 +52,9 @@ export default function ProfileView({ navigateBack, playerProfile, currentAvatar
           <IconButton edge="start" color="inherit" onClick={navigateBack} aria-label="Back">
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>Profile</Typography>
+          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
+            Profile
+          </Typography>
         </Toolbar>
       </AppBar>
 
@@ -135,7 +137,9 @@ export default function ProfileView({ navigateBack, playerProfile, currentAvatar
         )}
 
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-          <Button onClick={navigateBack} disabled={saving}>Cancel</Button>
+          <Button onClick={navigateBack} disabled={saving}>
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSave}

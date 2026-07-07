@@ -8,7 +8,12 @@ export function useGameTimer() {
   const isPausedRef = useRef(false);
   isPausedRef.current = isPaused;
 
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    },
+    []
+  );
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);

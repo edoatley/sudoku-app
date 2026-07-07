@@ -1,7 +1,7 @@
 # Arrow Audit Plan — MAPPED → AUDITED
 
-**Created:** 2026-04-18  
-**Goal:** Move all 7 MAPPED arrows to AUDITED status.  
+**Created:** 2026-04-18
+**Goal:** Move all 7 MAPPED arrows to AUDITED status.
 **Approach:** One commit per arrow. Each arrow requires: test audit + must/should-fix code changes + arrow doc updated to AUDITED.
 
 ## Definition of AUDITED

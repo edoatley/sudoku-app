@@ -5,9 +5,14 @@ import { useKeyboardInput } from './useKeyboardInput.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const ORIGINAL_GRID = Array(9).fill(null).map((_, r) =>
-  Array(9).fill(null).map((_, c) => (r === 0 && c === 0 ? 5 : 0)) // (0,0) is a given
-);
+const ORIGINAL_GRID = Array(9)
+  .fill(null)
+  .map(
+    (_, r) =>
+      Array(9)
+        .fill(null)
+        .map((_, c) => (r === 0 && c === 0 ? 5 : 0)) // (0,0) is a given
+  );
 
 function makeProps(overrides = {}) {
   return {

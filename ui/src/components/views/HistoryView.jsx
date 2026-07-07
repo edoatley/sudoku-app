@@ -12,16 +12,19 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import CheckCircleOutlineIcon  from '@mui/icons-material/CheckCircleOutlined';
-import CancelOutlinedIcon      from '@mui/icons-material/CancelOutlined';
-import TimerOutlinedIcon       from '@mui/icons-material/TimerOutlined';
-import LightbulbOutlinedIcon   from '@mui/icons-material/LightbulbOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
+import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 import EmojiEventsOutlinedIcon from '@mui/icons-material/EmojiEventsOutlined';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
-import StarOutlinedIcon        from '@mui/icons-material/StarOutlined';
+import StarOutlinedIcon from '@mui/icons-material/StarOutlined';
 
 const DIFFICULTY_COLOR = {
-  easy: '#4caf50', medium: '#ff9800', hard: '#f44336', imported: '#9c27b0',
+  easy: '#4caf50',
+  medium: '#ff9800',
+  hard: '#f44336',
+  imported: '#9c27b0',
 };
 
 function formatTime(seconds) {
@@ -39,9 +42,9 @@ function capitalize(str) {
 }
 
 function computeSummary(history) {
-  const wins = history.filter(e => e.outcome === 'won');
-  const times = wins.map(e => e.elapsedSeconds).filter(n => typeof n === 'number');
-  const scores = wins.map(e => e.score ?? 0).filter(s => s > 0);
+  const wins = history.filter((e) => e.outcome === 'won');
+  const times = wins.map((e) => e.elapsedSeconds).filter((n) => typeof n === 'number');
+  const scores = wins.map((e) => e.score ?? 0).filter((s) => s > 0);
   let currentStreak = 0;
   for (const e of history) {
     if (e.outcome === 'won') currentStreak++;
@@ -59,22 +62,36 @@ function computeSummary(history) {
 function SummaryBanner({ summary, totalGames }) {
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5 }}>
-      <Chip size="small" variant="outlined" icon={<EmojiEventsOutlinedIcon fontSize="small" />}
-        label={`${summary.totalWins} Win${summary.totalWins !== 1 ? 's' : ''}`} />
-      {totalGames >= 3 && (
-        <Chip size="small" variant="outlined" label={`${summary.winRate}% Win Rate`} />
-      )}
+      <Chip
+        size="small"
+        variant="outlined"
+        icon={<EmojiEventsOutlinedIcon fontSize="small" />}
+        label={`${summary.totalWins} Win${summary.totalWins !== 1 ? 's' : ''}`}
+      />
+      {totalGames >= 3 && <Chip size="small" variant="outlined" label={`${summary.winRate}% Win Rate`} />}
       {summary.bestTimeSeconds !== null && (
-        <Chip size="small" variant="outlined" icon={<TimerOutlinedIcon fontSize="small" />}
-          label={`Best: ${formatTime(summary.bestTimeSeconds)}`} />
+        <Chip
+          size="small"
+          variant="outlined"
+          icon={<TimerOutlinedIcon fontSize="small" />}
+          label={`Best: ${formatTime(summary.bestTimeSeconds)}`}
+        />
       )}
       {summary.currentStreak >= 1 && (
-        <Chip size="small" variant="outlined" icon={<LocalFireDepartmentIcon fontSize="small" />}
-          label={`Streak: ${summary.currentStreak}`} />
+        <Chip
+          size="small"
+          variant="outlined"
+          icon={<LocalFireDepartmentIcon fontSize="small" />}
+          label={`Streak: ${summary.currentStreak}`}
+        />
       )}
       {summary.avgScore !== null && (
-        <Chip size="small" variant="outlined" icon={<StarOutlinedIcon fontSize="small" />}
-          label={`Avg Score: ${summary.avgScore}`} />
+        <Chip
+          size="small"
+          variant="outlined"
+          icon={<StarOutlinedIcon fontSize="small" />}
+          label={`Avg Score: ${summary.avgScore}`}
+        />
       )}
     </Box>
   );
@@ -86,29 +103,49 @@ function GameCard({ entry }) {
   const diffColor = DIFFICULTY_COLOR[entry.difficulty] ?? '#90a4ae';
 
   return (
-    <Paper variant="outlined" sx={{
-      p: 1.5, borderRadius: 2, borderLeft: `4px solid ${diffColor}`,
-      display: 'flex', alignItems: 'center', gap: 1,
-    }}>
-      {won
-        ? <CheckCircleOutlineIcon color="success" fontSize="small" />
-        : <CancelOutlinedIcon color="disabled" fontSize="small" />}
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 1.5,
+        borderRadius: 2,
+        borderLeft: `4px solid ${diffColor}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+      }}
+    >
+      {won ? (
+        <CheckCircleOutlineIcon color="success" fontSize="small" />
+      ) : (
+        <CancelOutlinedIcon color="disabled" fontSize="small" />
+      )}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="body2" fontWeight={600} noWrap>{capitalize(entry.difficulty)}</Typography>
-        <Typography variant="caption" color="text.secondary">{formatDate(entry.completedAt)}</Typography>
+        <Typography variant="body2" fontWeight={600} noWrap>
+          {capitalize(entry.difficulty)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {formatDate(entry.completedAt)}
+        </Typography>
       </Box>
       <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
         {won && (
-          <Chip size="small" variant="outlined" icon={<TimerOutlinedIcon fontSize="small" />}
-            label={formatTime(entry.elapsedSeconds)} />
+          <Chip
+            size="small"
+            variant="outlined"
+            icon={<TimerOutlinedIcon fontSize="small" />}
+            label={formatTime(entry.elapsedSeconds)}
+          />
         )}
         {(entry.hintsUsed ?? 0) > 0 && (
-          <Chip size="small" variant="outlined" icon={<LightbulbOutlinedIcon fontSize="small" />}
-            label={entry.hintsUsed} />
+          <Chip
+            size="small"
+            variant="outlined"
+            icon={<LightbulbOutlinedIcon fontSize="small" />}
+            label={entry.hintsUsed}
+          />
         )}
         {won && score > 0 && (
-          <Chip size="small" variant="outlined" icon={<StarOutlinedIcon fontSize="small" />}
-            label={score} />
+          <Chip size="small" variant="outlined" icon={<StarOutlinedIcon fontSize="small" />} label={score} />
         )}
       </Box>
     </Paper>
@@ -133,7 +170,9 @@ export default function HistoryView({ navigateBack, history, onRefreshHistory })
           <IconButton edge="start" color="inherit" onClick={navigateBack} aria-label="Back">
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>Puzzle History</Typography>
+          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
+            Puzzle History
+          </Typography>
           <IconButton color="inherit" onClick={handleRefresh} disabled={loading} aria-label="Refresh history">
             {loading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
           </IconButton>

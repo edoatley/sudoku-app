@@ -7,7 +7,7 @@ COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --legacy-peer-deps
 
-# 2. Move ARGs above COPY . . 
+# 2. Move ARGs above COPY . .
 # This ensures that changing source code doesn't invalidate the ARG layers
 ARG VITE_API_URL=http://localhost:8080/api/v1
 ARG VITE_MOCK_API=false

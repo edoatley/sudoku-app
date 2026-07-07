@@ -12,7 +12,7 @@ The **Naked Single** is the most fundamental technique in Sudoku. It happens whe
 
 ## How it works
 
-The rules of Sudoku state that the numbers 1 through 9 can only appear once in every row, column, and 3x3 block. 
+The rules of Sudoku state that the numbers 1 through 9 can only appear once in every row, column, and 3x3 block.
 
 If you look at an empty cell and systematically rule out numbers that already exist in its intersecting row, column, and block, you might find that 8 out of the 9 numbers are already taken. The remaining number is your **Naked Single**.
 

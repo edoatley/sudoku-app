@@ -95,7 +95,10 @@ test.describe('Fill candidates', () => {
       let foundCandidate = false;
       for (const cell of cells) {
         const childCount = await cell.locator('> div > div').count();
-        if (childCount === 9) { foundCandidate = true; break; }
+        if (childCount === 9) {
+          foundCandidate = true;
+          break;
+        }
       }
       expect(foundCandidate).toBe(true);
     }).toPass({ timeout: 10_000 });

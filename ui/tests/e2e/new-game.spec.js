@@ -23,7 +23,13 @@ function makeGameState(puzzle) {
     originalGrid: puzzle.originalGrid,
     currentGrid: puzzle.originalGrid.map((r) => [...r]),
     solutionGrid: puzzle.originalGrid.map((r) => [...r]),
-    candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+    candidates: Array(9)
+      .fill(null)
+      .map(() =>
+        Array(9)
+          .fill(null)
+          .map(() => [])
+      ),
     timeSpentSeconds: 0,
     status: 'IN_PROGRESS',
   });

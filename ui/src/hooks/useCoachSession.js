@@ -54,10 +54,7 @@ export function useCoachSession({ currentGrid, setHighlightCells }) {
           return;
         }
 
-        setHistory((prev) => [
-          ...prev,
-          { role: 'assistant', content: response.aiMessage },
-        ]);
+        setHistory((prev) => [...prev, { role: 'assistant', content: response.aiMessage }]);
         setHighlightCells?.(response.hint?.highlightCells ?? []);
       } catch {
         setHistory((prev) => [...prev, ERROR_MESSAGE]);
@@ -65,7 +62,7 @@ export function useCoachSession({ currentGrid, setHighlightCells }) {
         setIsLoading(false);
       }
     },
-    [currentGrid, history, isLoading, setHighlightCells],
+    [currentGrid, history, isLoading, setHighlightCells]
   );
 
   return { isOpen, open, close, history, isLoading, sendMessage };

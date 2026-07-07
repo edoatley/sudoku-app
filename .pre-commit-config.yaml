@@ -1,0 +1,62 @@
+repos:
+  - repo: git@github.com:pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  # 1. Terraform Linting & Formatting — uses the system-installed binary (brew install terraform)
+  - repo: local
+    hooks:
+      - id: terraform_fmt
+        name: Terraform fmt
+        entry: terraform fmt -recursive
+        language: system
+        pass_filenames: false
+        files: \.tf$
+      - id: terraform_validate
+        name: Terraform validate
+        entry: bash -c 'cd infra && terraform validate'
+        language: system
+        pass_filenames: false
+        files: \.tf$
+
+  # 2. Python (Ruff) Linting & Formatting — uses the system-installed binary (brew install ruff)
+  - repo: local
+    hooks:
+      - id: ruff
+        name: Ruff lint
+        entry: ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: Ruff format
+        entry: ruff format
+        language: system
+        types: [python]
+
+  # 3. Frontend (Biome) Linting & Formatting — uses the system-installed binary (brew install biome)
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: Biome lint + format
+        entry: bash -c 'cd ui && biome check . --write'
+        language: system
+        pass_filenames: false
+        files: ^ui/
+
+  # 4. Local Security Scanning (Trivy) — uses the system-installed binary (brew install trivy)
+  - repo: local
+    hooks:
+      - id: trivy-config
+        name: Trivy IaC/config scan
+        entry: trivy config infra/
+        language: system
+        pass_filenames: false
+      - id: trivy-fs
+        name: Trivy dependency scan
+        entry: trivy fs . --skip-dirs .terraform
+        language: system
+        pass_filenames: false

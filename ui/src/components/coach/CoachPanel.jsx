@@ -13,13 +13,20 @@ import CoachMessage from './CoachMessage.jsx';
 
 const QUICK_REPLIES = ["I'm stuck", 'Tell me more', 'Why does that work?'];
 
-export default function CoachPanel({ history, isLoading, onSend, onClose, tokensUsed = 0, monthlyTokenLimit = 100_000 }) {
+export default function CoachPanel({
+  history,
+  isLoading,
+  onSend,
+  onClose,
+  tokensUsed = 0,
+  monthlyTokenLimit = 100_000,
+}) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [history, isLoading]);
+  }, []);
 
   const handleSend = () => {
     const text = input.trim();
@@ -71,6 +78,7 @@ export default function CoachPanel({ history, isLoading, onSend, onClose, tokens
       {/* Messages */}
       <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
         {history.map((msg, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: chat history is append-only, never reordered
           <CoachMessage key={i} role={msg.role} content={msg.content} />
         ))}
         {isLoading && (
@@ -88,14 +96,7 @@ export default function CoachPanel({ history, isLoading, onSend, onClose, tokens
       {!isLoading && (
         <Box sx={{ px: 1.5, pb: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, flexShrink: 0 }}>
           {QUICK_REPLIES.map((reply) => (
-            <Chip
-              key={reply}
-              label={reply}
-              size="small"
-              variant="outlined"
-              onClick={() => onSend(reply)}
-              clickable
-            />
+            <Chip key={reply} label={reply} size="small" variant="outlined" onClick={() => onSend(reply)} clickable />
           ))}
         </Box>
       )}

@@ -384,7 +384,7 @@ build backend zip
   smoke tests (API + Playwright)
 ```
 
-Phase 1 creates everything except the `aws_amplify_domain_association` resource (which can take up to 40 minutes for ACM certificate provisioning). 
+Phase 1 creates everything except the `aws_amplify_domain_association` resource (which can take up to 40 minutes for ACM certificate provisioning).
 This ensures all other resources — and the Route53 NS records — are available immediately even if the domain association step is slow.
 
 ### Local Deploy
