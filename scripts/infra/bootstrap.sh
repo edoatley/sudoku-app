@@ -225,7 +225,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "dynamodb:UpdateTable", "dynamodb:ListTagsOfResource",
         "dynamodb:TagResource", "dynamodb:UntagResource",
         "dynamodb:DescribeContinuousBackups", "dynamodb:UpdateContinuousBackups",
-        "dynamodb:DescribeTimeToLive"
+        "dynamodb:DescribeTimeToLive", "dynamodb:UpdateTimeToLive"
       ],
       "Resource": [
         "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/SudokuGames*",
