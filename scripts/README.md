@@ -248,6 +248,20 @@ cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 
 ---
 
+### test-budget-deny.sh
+
+Verifies the AWS Budgets hard-cap mechanism end-to-end without incurring any real spend.
+Manually attaches the `SudokuBedrockDeny` IAM policy to `SudokuLambdaExecRole`, confirms
+Bedrock is blocked via `aws iam simulate-principal-policy`, then detaches the policy and
+confirms access is restored. Requires the `default` Terraform workspace to be applied with
+`budget_alert_email` set (so the deny policy exists in the account).
+
+```bash
+AWS_PROFILE=sandbox bash scripts/infra/test-budget-deny.sh
+```
+
+---
+
 ### bedrock_quota_report.sh
 
 Reports AWS Bedrock service quotas and recent CloudWatch usage for the models used by the

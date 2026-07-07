@@ -153,6 +153,73 @@ All resources receive default tags:
 
 ---
 
+## Cost & Budget Controls
+
+All Bedrock usage is guarded by two independent layers: per-user guardrails enforced in the
+Lambda (see [`docs/llds/sudoku-coach.md`](../docs/llds/sudoku-coach.md)), and account-level
+budget controls managed by Terraform.
+
+### Layered protection overview
+
+| Layer | Mechanism | Trigger | Scope |
+|---|---|---|---|
+| 1 — AI coach toggle | `aiCoachEnabled` field in player profile | User-controlled; server-enforced (403) | Per user |
+| 2 — Monthly token budget | `coachTokensUsedThisMonth` in DynamoDB; checked in `CoachResource` | ≥ 100,000 tokens/month (default) | Per user |
+| 3 — Per-minute rate limit | DynamoDB conditional write in `CoachRateLimiter` | ≥ 5 calls/minute | Per user |
+| 4 — API Gateway throttle | Route-level throttling on `POST /ai/coach` | 10 burst / 5 req/s | All users |
+| 5 — AWS Budget alert (80%) | `aws_budgets_budget` notification | > $20 actual spend | Account |
+| 6 — AWS Budget alert (100% forecast) | `aws_budgets_budget` notification | Forecasted to exceed $25 | Account |
+| 7 — AWS Budget hard cap | `aws_budgets_budget_action` → attaches `SudokuBedrockDeny` IAM policy | $25 actual spend reached | Account |
+| 8 — Anomaly detection | `aws_ce_anomaly_subscription` | > $5 anomalous spend in a day | Account |
+
+### AWS Budget (`budgets.tf`)
+
+Resources are only created on the `default` workspace when `var.budget_alert_email` is set.
+The budget tracks **Amazon Bedrock** spend only (not total AWS cost).
+
+```
+$0          $20           $25 ← hard cap
+ |-----------|-------------|
+             ↑             ↑
+          80% alert     100% deny action
+         (actual)       (actual)
+                         + 100% forecast alert
+```
+
+**Budget action:** when actual Bedrock spend reaches 100% of the limit (`$25` by default),
+AWS Budgets automatically attaches the `SudokuBedrockDeny` IAM policy to
+`SudokuLambdaExecRole`. A deny in any attached policy overrides the allow in
+`SudokuCoachBedrockPolicy`, so `BedrockCoachClient` receives `AccessDeniedException` and
+falls back to the nudge text from the hint engine. No code change or restart is needed.
+
+AWS Budgets detaches the policy at the start of the next billing month when spend resets.
+
+**Anomaly detection:** a separate `aws_ce_anomaly_monitor` (dimensional, per-service) triggers
+an alert when Bedrock anomalous spend exceeds $5 in a day. This catches unexpected spikes
+before the monthly budget fires.
+
+**Configuration:**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `budget_alert_email` | `""` (disabled) | Email for all budget alerts and the deny action subscriber |
+| `bedrock_monthly_budget_usd` | `"25"` | Monthly Bedrock spend cap in USD |
+
+### Testing the hard cap
+
+Use `scripts/infra/test-budget-deny.sh` to verify the deny mechanism works without waiting
+for real spend to reach $25:
+
+```bash
+# Verifies the deny policy attaches, blocks Bedrock, then detaches cleanly.
+AWS_PROFILE=sandbox bash scripts/infra/test-budget-deny.sh
+```
+
+The script uses `aws iam simulate-principal-policy` — no real Bedrock calls are made and no
+spend is incurred. See the script header for full details.
+
+---
+
 ## Multi-environment Isolation
 
 Terraform workspaces give each `rc-*` branch its own isolated AWS stack. The `default` workspace is production.
