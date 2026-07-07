@@ -6,9 +6,7 @@ import { setupGameRoutes, waitForGrid } from './helpers.js';
 
 async function setupRoutes(page, validateResponse) {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/validate', (route) =>
-    route.fulfill({ json: validateResponse })
-  );
+  await page.route('**/puzzles/validate', (route) => route.fulfill({ json: validateResponse }));
 }
 
 test('single error cell gets error background', async ({ page }) => {
@@ -33,7 +31,10 @@ test('multiple error cells all highlighted', async ({ page }) => {
   await setupRoutes(page, {
     isValid: false,
     isSolved: false,
-    errors: [{ row: 0, col: 2 }, { row: 0, col: 3 }],
+    errors: [
+      { row: 0, col: 2 },
+      { row: 0, col: 3 },
+    ],
   });
   await page.goto('/');
   await waitForGrid(page);

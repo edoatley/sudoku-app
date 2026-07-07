@@ -9,7 +9,7 @@ slug: "y-wing"
 The **Y-Wing** (often called the XY-Wing) is a powerful pattern that uses three cells, each containing exactly two candidates (bivalue cells). It relies on a "Pivot" cell and two "Pincer" cells to eliminate a candidate.
 
 ## How it works
-Imagine you have a **Pivot** cell with candidates **[A, B]**. 
+Imagine you have a **Pivot** cell with candidates **[A, B]**.
 This Pivot sees two other cells (the **Pincers**):
 * Pincer 1 has candidates **[A, C]**.
 * Pincer 2 has candidates **[B, C]**.

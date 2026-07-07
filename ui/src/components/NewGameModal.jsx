@@ -23,10 +23,7 @@ export default function NewGameModal({ open, defaultDifficulty, isLoading, onCon
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
       <DialogTitle>New Game</DialogTitle>
       <DialogContent>
-        <RadioGroup
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-        >
+        <RadioGroup value={selected} onChange={(e) => setSelected(e.target.value)}>
           {DIFFICULTIES.map((d) => (
             <FormControlLabel
               key={d}
@@ -43,11 +40,7 @@ export default function NewGameModal({ open, defaultDifficulty, isLoading, onCon
           Cancel
         </Button>
         <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-          <Button
-            variant="contained"
-            onClick={handleConfirm}
-            disabled={isLoading}
-          >
+          <Button variant="contained" onClick={handleConfirm} disabled={isLoading}>
             Start
           </Button>
           {isLoading && (

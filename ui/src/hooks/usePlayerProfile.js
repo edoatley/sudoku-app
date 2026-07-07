@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getPlayerProfile, updatePlayerProfile, getEmailFromSession, getGameHistory, ForbiddenError, warmupImageRecognition } from '../api/sudokuApi.js';
+import {
+  getPlayerProfile,
+  updatePlayerProfile,
+  getEmailFromSession,
+  getGameHistory,
+  ForbiddenError,
+  warmupImageRecognition,
+} from '../api/sudokuApi.js';
 import { AVATAR_ICONS } from '../utils/avatarIcons.js';
 
 const DEFAULT_AVATAR = 'Person';
@@ -13,9 +20,7 @@ const LS_KEY_AVATAR = 'sudoku_avatar';
 const LS_KEY_HISTORY = 'sudoku_gameHistory';
 
 export function usePlayerProfile(user, { onForbidden } = {}) {
-  const [avatar, setAvatarState] = useState(
-    () => localStorage.getItem(LS_KEY_AVATAR) ?? 'Person'
-  );
+  const [avatar, setAvatarState] = useState(() => localStorage.getItem(LS_KEY_AVATAR) ?? 'Person');
   const [history, setHistory] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem(LS_KEY_HISTORY) ?? '[]');
@@ -30,31 +35,39 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
   useEffect(() => {
     if (user) return;
     setHistory([]);
-    try { localStorage.removeItem(LS_KEY_HISTORY); } catch { /**/ }
+    try {
+      localStorage.removeItem(LS_KEY_HISTORY);
+    } catch {
+      /**/
+    }
     setSessionEmail(null);
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    getEmailFromSession().then(setSessionEmail).catch(() => null);
+    getEmailFromSession()
+      .then(setSessionEmail)
+      .catch(() => null);
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    getPlayerProfile().then((profile) => {
-      setPlayerProfile(profile);
-      if (profile?.avatarKey) {
-        const resolved = resolveAvatar(profile.avatarKey);
-        localStorage.setItem(LS_KEY_AVATAR, resolved);
-        setAvatarState(resolved);
-      }
-      warmupImageRecognition();
-    }).catch(async (err) => {
-      if (err instanceof ForbiddenError) {
-        const email = await getEmailFromSession().catch(() => null);
-        onForbidden?.(email);
-      }
-    });
+    getPlayerProfile()
+      .then((profile) => {
+        setPlayerProfile(profile);
+        if (profile?.avatarKey) {
+          const resolved = resolveAvatar(profile.avatarKey);
+          localStorage.setItem(LS_KEY_AVATAR, resolved);
+          setAvatarState(resolved);
+        }
+        warmupImageRecognition();
+      })
+      .catch(async (err) => {
+        if (err instanceof ForbiddenError) {
+          const email = await getEmailFromSession().catch(() => null);
+          onForbidden?.(email);
+        }
+      });
   }, [user, onForbidden]);
 
   const setAvatar = useCallback((iconName) => {
@@ -88,8 +101,10 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
       const next = [entry, ...prev].slice(0, 10);
       try {
         localStorage.setItem(LS_KEY_HISTORY, JSON.stringify(next));
-      // eslint-disable-next-line no-unused-vars
-      } catch (_) { /* storage full */ }
+        // eslint-disable-next-line no-unused-vars
+      } catch (_) {
+        /* storage full */
+      }
       return next;
     });
   }, []);
@@ -98,7 +113,7 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
   const fetchHistory = useCallback(async () => {
     try {
       const entries = await getGameHistory(20);
-      const mapped = entries.map(e => ({
+      const mapped = entries.map((e) => ({
         id: e.gameId,
         difficulty: e.difficulty,
         outcome: e.outcome,
@@ -109,8 +124,10 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
       setHistory(mapped);
       try {
         localStorage.setItem(LS_KEY_HISTORY, JSON.stringify(mapped.slice(0, 10)));
-      // eslint-disable-next-line no-unused-vars
-      } catch (_) { /* storage full */ }
+        // eslint-disable-next-line no-unused-vars
+      } catch (_) {
+        /* storage full */
+      }
     } catch {
       // GH-UI-004: silently retain existing localStorage history on any failure
     }

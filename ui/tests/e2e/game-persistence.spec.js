@@ -39,9 +39,7 @@ test.describe('Game lifecycle — API calls', () => {
       }
     });
     await page.route('**/games/**', (route) => {
-      route.request().method() === 'PATCH'
-        ? route.fulfill({ status: 200, body: '' })
-        : route.continue();
+      route.request().method() === 'PATCH' ? route.fulfill({ status: 200, body: '' }) : route.continue();
     });
 
     await page.goto('/');
@@ -61,9 +59,7 @@ test.describe('Game lifecycle — API calls', () => {
       }
     });
     await page.route('**/games/**', (route) => {
-      route.request().method() === 'PATCH'
-        ? route.fulfill({ status: 200, body: '' })
-        : route.continue();
+      route.request().method() === 'PATCH' ? route.fulfill({ status: 200, body: '' }) : route.continue();
     });
 
     await page.goto('/');
@@ -79,14 +75,10 @@ test.describe('Game lifecycle — API calls', () => {
 
   test('entering a cell value saves currentGrid to localStorage', async ({ page }) => {
     await page.route('**/games', (route) => {
-      route.request().method() === 'POST'
-        ? route.fulfill({ status: 201, json: CANNED_GAME_STATE })
-        : route.continue();
+      route.request().method() === 'POST' ? route.fulfill({ status: 201, json: CANNED_GAME_STATE }) : route.continue();
     });
     await page.route('**/games/**', (route) => {
-      route.request().method() === 'PATCH'
-        ? route.fulfill({ status: 200, body: '' })
-        : route.continue();
+      route.request().method() === 'PATCH' ? route.fulfill({ status: 200, body: '' }) : route.continue();
     });
 
     // Load game via saved gameId so grid appears immediately
@@ -185,10 +177,7 @@ test.describe('Game lifecycle — API calls', () => {
     await page.getByTestId('cell-8-8').click();
 
     // Wait for the completion PATCH (auto-triggered by filling the last cell)
-    await expect.poll(
-      () => patchBodies.some((b) => b.isComplete === true),
-      { timeout: 5000 }
-    ).toBe(true);
+    await expect.poll(() => patchBodies.some((b) => b.isComplete === true), { timeout: 5000 }).toBe(true);
   });
 });
 

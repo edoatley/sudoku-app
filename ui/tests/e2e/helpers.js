@@ -60,7 +60,15 @@ export const CANNED_GAME_STATE = {
   originalGrid: { rows: EASY_ROWS },
   currentGrid: { rows: EASY_ROWS.map((r) => [...r]) },
   solutionGrid: { rows: EASY_ROWS.map((r) => [...r]) },
-  candidates: { rows: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])) },
+  candidates: {
+    rows: Array(9)
+      .fill(null)
+      .map(() =>
+        Array(9)
+          .fill(null)
+          .map(() => [])
+      ),
+  },
   timeSpentSeconds: 0,
   status: 'IN_PROGRESS',
 };

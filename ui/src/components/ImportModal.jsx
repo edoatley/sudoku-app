@@ -42,11 +42,7 @@ export default function ImportModal({ open, isLoading, importStage, onConfirm, o
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
-          <Button
-            variant="outlined"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
-          >
+          <Button variant="outlined" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
             {imageFile ? 'Change Image' : 'Choose Image'}
           </Button>
 
@@ -88,11 +84,7 @@ export default function ImportModal({ open, isLoading, importStage, onConfirm, o
         <Button onClick={handleCancel} disabled={isLoading}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          onClick={handleConfirm}
-          disabled={isLoading || !imageFile}
-        >
+        <Button variant="contained" onClick={handleConfirm} disabled={isLoading || !imageFile}>
           Import &amp; Play
         </Button>
       </DialogActions>

@@ -16,27 +16,49 @@ const HARD_PUZZLE = {
   ],
 };
 
+// Fixed ID so the GET re-fetch triggered by the useEffect dependency change can be mocked.
+const HARD_GAME_ID = '00000000-0000-0000-0000-000000000002';
+
 function makeGameState(puzzle) {
   return toWireGameState({
-    gameId: crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-000000000001',
+    gameId: HARD_GAME_ID,
     difficulty: puzzle.difficulty,
     originalGrid: puzzle.originalGrid,
     currentGrid: puzzle.originalGrid.map((r) => [...r]),
     solutionGrid: puzzle.originalGrid.map((r) => [...r]),
-    candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+    candidates: Array(9)
+      .fill(null)
+      .map(() =>
+        Array(9)
+          .fill(null)
+          .map(() => [])
+      ),
     timeSpentSeconds: 0,
     status: 'IN_PROGRESS',
   });
 }
 
 test('new-game — selecting Hard difficulty and starting a new game loads the puzzle', async ({ page }) => {
-  // Start with an existing easy game loaded (via GET), then trigger a new Hard game via menu
+  // Start with an existing easy game loaded (via GET), then trigger a new Hard game via menu.
+  // After startNewGame() resolves, the difficulty state change causes the load useEffect to
+  // re-run and re-fetch GET /games/{hardGameId} — mock that too so it returns Hard data.
+  const hardGameState = makeGameState(HARD_PUZZLE);
+
   await setupGameRoutes(page);
+
+  await page.route('**/games/**', (route) => {
+    if (route.request().method() === 'GET' && route.request().url().includes(HARD_GAME_ID)) {
+      route.fulfill({ status: 200, json: hardGameState });
+    } else {
+      route.fallback();
+    }
+  });
+
   await page.route('**/games', (route) => {
     if (route.request().method() === 'POST') {
-      route.fulfill({ status: 201, json: makeGameState(HARD_PUZZLE) });
+      route.fulfill({ status: 201, json: hardGameState });
     } else {
-      route.continue();
+      route.fallback();
     }
   });
 

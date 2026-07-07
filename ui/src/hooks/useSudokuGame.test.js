@@ -21,7 +21,10 @@ const CANDIDATES = {
 
 vi.mock('../api/sudokuApi.js', () => {
   class ForbiddenError extends Error {
-    constructor() { super('Access denied'); this.name = 'ForbiddenError'; }
+    constructor() {
+      super('Access denied');
+      this.name = 'ForbiddenError';
+    }
   }
   return {
     createGame: vi.fn(),
@@ -136,9 +139,13 @@ describe('initialisation', () => {
   });
 
   it('restores candidates from backend on device-switch load', async () => {
-    const fakeCandidates = Array(9).fill(null).map(() =>
-      Array(9).fill(null).map(() => [1, 2])
-    );
+    const fakeCandidates = Array(9)
+      .fill(null)
+      .map(() =>
+        Array(9)
+          .fill(null)
+          .map(() => [1, 2])
+      );
     getCurrentGame.mockResolvedValueOnce({
       ...GAME_STATE,
       candidates: fakeCandidates,
@@ -366,7 +373,10 @@ describe('requestValidation', () => {
   it('sets gameStatus to "invalid" and populates errorCells on error', async () => {
     validatePuzzle.mockResolvedValueOnce({
       isValid: false,
-      errors: [{ row: 0, col: 2 }, { row: 1, col: 3 }],
+      errors: [
+        { row: 0, col: 2 },
+        { row: 1, col: 3 },
+      ],
     });
     const { result } = await mountAndWait();
     await act(async () => result.current.requestValidation());
@@ -438,11 +448,7 @@ describe('hintsUsed and excludedHintRanks', () => {
     await act(async () => result.current.requestHint()); // first call
     await act(async () => result.current.requestHint()); // second call
     // Second call should include rank 20 (from first hint) in excludedRanks
-    expect(getHint).toHaveBeenLastCalledWith(
-      expect.anything(),
-      null,
-      expect.arrayContaining([20])
-    );
+    expect(getHint).toHaveBeenLastCalledWith(expect.anything(), null, expect.arrayContaining([20]));
   });
 
   it('requestAlternateHint does NOT increment hintsUsed', async () => {
@@ -467,11 +473,7 @@ describe('hintsUsed and excludedHintRanks', () => {
       solvedCells: [{ row: 1, col: 1, value: 3 }],
     });
     await act(async () => result.current.requestAlternateHint());
-    expect(getHint).toHaveBeenLastCalledWith(
-      expect.anything(),
-      null,
-      expect.arrayContaining([20])
-    );
+    expect(getHint).toHaveBeenLastCalledWith(expect.anything(), null, expect.arrayContaining([20]));
   });
 
   it('requestHint retries with empty exclusions when first call returns null and exclusions are non-empty', async () => {
@@ -489,7 +491,7 @@ describe('hintsUsed and excludedHintRanks', () => {
       eliminatedCandidates: [],
       solvedCells: [{ row: 2, col: 2, value: 7 }],
     };
-    getHint.mockResolvedValueOnce(null);       // first call: null with exclusions
+    getHint.mockResolvedValueOnce(null); // first call: null with exclusions
     getHint.mockResolvedValueOnce(fullHouseHint); // retry call: clean slate
 
     await act(async () => result.current.requestHint());
@@ -511,11 +513,14 @@ describe('hintsUsed and excludedHintRanks', () => {
     const fullHouseHint = {
       techniqueName: 'Full House',
       strategyRank: 10,
-      nudge: 'nudge', focus: 'focus', reveal: 'reveal',
-      highlightCells: [], eliminatedCandidates: [],
+      nudge: 'nudge',
+      focus: 'focus',
+      reveal: 'reveal',
+      highlightCells: [],
+      eliminatedCandidates: [],
       solvedCells: [{ row: 2, col: 2, value: 7 }],
     };
-    getHint.mockResolvedValueOnce(null);          // exhausted with [20]
+    getHint.mockResolvedValueOnce(null); // exhausted with [20]
     getHint.mockResolvedValueOnce(fullHouseHint); // retry: clean slate → rank 10
     getHint.mockResolvedValueOnce(fullHouseHint); // third call (below)
 
@@ -558,8 +563,12 @@ describe('hintsUsed and excludedHintRanks', () => {
     const fullHouseHint = {
       techniqueName: 'Full House',
       strategyRank: 10,
-      nudge: 'nudge', focus: 'focus', reveal: 'reveal',
-      highlightCells: [], eliminatedCandidates: [], solvedCells: [],
+      nudge: 'nudge',
+      focus: 'focus',
+      reveal: 'reveal',
+      highlightCells: [],
+      eliminatedCandidates: [],
+      solvedCells: [],
     };
     getHint.mockResolvedValueOnce(null);
     getHint.mockResolvedValueOnce(fullHouseHint);
@@ -589,9 +598,7 @@ describe('hintsUsed and excludedHintRanks', () => {
     await waitFor(() => expect(hook.result.current.originalGrid).not.toBeNull());
     await act(async () => hook.result.current.requestHint());
     act(() => hook.result.current.finishGame());
-    expect(onGameComplete).toHaveBeenCalledWith(
-      expect.objectContaining({ hintsUsed: 1 })
-    );
+    expect(onGameComplete).toHaveBeenCalledWith(expect.objectContaining({ hintsUsed: 1 }));
   });
 });
 
@@ -617,7 +624,9 @@ describe('pause / resume', () => {
     act(() => result.current.pauseGame());
     act(() => result.current.resumeGame());
     const before = result.current.elapsedSeconds;
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
     expect(result.current.elapsedSeconds).toBe(before + 3);
   });
 
@@ -638,7 +647,9 @@ describe('pause / resume', () => {
       Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     });
-    act(() => { vi.advanceTimersByTime(5000); });
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
     const afterHide = result.current.elapsedSeconds;
     expect(afterHide).toBe(beforeHide); // timer should not advance while hidden
 
@@ -647,7 +658,9 @@ describe('pause / resume', () => {
       Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     });
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
     expect(result.current.elapsedSeconds).toBe(afterHide + 3); // timer should advance again
   });
 
@@ -665,7 +678,9 @@ describe('pause / resume', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
     const snapshot = result.current.elapsedSeconds;
-    act(() => { vi.advanceTimersByTime(3000); });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
     expect(result.current.elapsedSeconds).toBe(snapshot); // still frozen
     expect(result.current.isPaused).toBe(true); // still paused
   });
@@ -717,10 +732,7 @@ describe('auto-completion', () => {
     await act(async () => result.current.handleNumberSelect(9));
 
     await waitFor(() =>
-      expect(saveGame).toHaveBeenCalledWith(
-        GAME_STATE.gameId,
-        expect.objectContaining({ isComplete: true })
-      )
+      expect(saveGame).toHaveBeenCalledWith(GAME_STATE.gameId, expect.objectContaining({ isComplete: true }))
     );
     expect(result.current.gameStatus).toBe('solved');
   });
@@ -738,12 +750,11 @@ describe('auto-completion', () => {
     act(() => result.current.updateCell(8, 8));
     act(() => result.current.handleNumberSelect(5));
 
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
 
-    expect(saveGame).not.toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ isComplete: true })
-    );
+    expect(saveGame).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ isComplete: true }));
     expect(result.current.gameStatus).not.toBe('solved');
   });
 });

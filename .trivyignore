@@ -1,0 +1,4 @@
+# CVE-2026-54515: jackson-databind — MEDIUM severity
+# Affects 2.22.0; fix is in 2.22.1 which is not yet published to Maven Central.
+# Quarkus BOM 3.37.1 mandates 2.22.0 — will be resolved when Quarkus BOM updates.
+CVE-2026-54515

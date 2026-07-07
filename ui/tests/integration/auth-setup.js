@@ -13,10 +13,7 @@ import { chromium } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const STATE_FILE = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  'auth-state.json',
-);
+const STATE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'auth-state.json');
 
 export default async function globalSetup() {
   const idToken = process.env.SMOKE_ID_TOKEN;

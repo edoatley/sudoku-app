@@ -3,10 +3,7 @@ import process from 'node:process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const AUTH_STATE_FILE = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  'tests/integration/auth-state.json',
-);
+const AUTH_STATE_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'tests/integration/auth-state.json');
 
 // Integration test config — runs against the Docker Compose stack locally,
 // or against the deployed Amplify app in CI (INTEGRATION_BASE_URL set).

@@ -1,5 +1,13 @@
 // @spec DT-UI-005, DT-UI-006, DT-UI-007, DT-UI-008
-import { CANNED_PUZZLES, CANNED_VALIDATE_VALID, CANNED_HINT, CANNED_CANDIDATES, CANNED_GAME_STATE, CANNED_LEADERBOARD, CANNED_COACH_RESPONSE } from '../mocks/cannedData.js';
+import {
+  CANNED_PUZZLES,
+  CANNED_VALIDATE_VALID,
+  CANNED_HINT,
+  CANNED_CANDIDATES,
+  CANNED_GAME_STATE,
+  CANNED_LEADERBOARD,
+  CANNED_COACH_RESPONSE,
+} from '../mocks/cannedData.js';
 import { gridFromWire, gridToWire, candidatesFromWire, candidatesToWire } from '../utils/gridAdapters.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -40,13 +48,16 @@ async function apiFetch(label, url, options = {}, authenticated = false, nullSta
   const headers = { ...options.headers };
   if (authenticated && !SKIP_AUTH) {
     const token = await getIdToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers.Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     if (nullStatuses.includes(res.status)) {
-      if (LOG_API) { console.log(`← ${res.status} (treated as no-content)`); console.groupEnd(); }
+      if (LOG_API) {
+        console.log(`← ${res.status} (treated as no-content)`);
+        console.groupEnd();
+      }
       return null;
     }
     if (LOG_API) {
@@ -71,7 +82,10 @@ async function apiFetch(label, url, options = {}, authenticated = false, nullSta
     throw new Error(message);
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') {
-    if (LOG_API) { console.log('← (no content)'); console.groupEnd(); }
+    if (LOG_API) {
+      console.log('← (no content)');
+      console.groupEnd();
+    }
     return null;
   }
   const data = await res.json();
@@ -138,11 +152,17 @@ export async function getHint(currentGrid, minRank = null, excludedRanks = null)
   if (excludedRanks?.length > 0) body.excludedRanks = excludedRanks;
   // @spec HE-UI-010 — 404 means NoStrategyApplied (all eligible strategies exhausted); treat as null,
   // not an error, so callers can retry with a clean exclusion list rather than surfacing an HTTP error.
-  return apiFetch('getHint', `${API_URL}/puzzles/hint`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  }, false, [404]);
+  return apiFetch(
+    'getHint',
+    `${API_URL}/puzzles/hint`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    false,
+    [404]
+  );
 }
 
 export async function getCandidates(currentGrid) {
@@ -165,11 +185,16 @@ export async function createGame(difficulty) {
     return unwrapGameState({ ...CANNED_GAME_STATE, difficulty });
   }
 
-  const data = await apiFetch('createGame', `${API_URL}/games`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ difficulty }),
-  }, true);
+  const data = await apiFetch(
+    'createGame',
+    `${API_URL}/games`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ difficulty }),
+    },
+    true
+  );
   return unwrapGameState(data);
 }
 
@@ -199,17 +224,22 @@ export async function saveGame(gameId, { currentGrid, candidates, timeSpentSecon
     return;
   }
 
-  return apiFetch('saveGame', `${API_URL}/games/${gameId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      currentGrid: gridToWire(currentGrid),
-      candidates: candidatesToWire(candidates),
-      timeSpentSeconds,
-      isComplete,
-      hintsUsed,
-    }),
-  }, true);
+  return apiFetch(
+    'saveGame',
+    `${API_URL}/games/${gameId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        currentGrid: gridToWire(currentGrid),
+        candidates: candidatesToWire(candidates),
+        timeSpentSeconds,
+        isComplete,
+        hintsUsed,
+      }),
+    },
+    true
+  );
 }
 
 function fileToBase64(file) {
@@ -228,11 +258,16 @@ export async function importPuzzle(imageFile) {
   }
 
   const base64 = await fileToBase64(imageFile);
-  const data = await apiFetch('importPuzzle', `${API_URL}/ai/image-to-puzzle`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: base64 }),
-  }, true);
+  const data = await apiFetch(
+    'importPuzzle',
+    `${API_URL}/ai/image-to-puzzle`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64 }),
+    },
+    true
+  );
   // The image recognition lambda returns originalGrid as a plain 2D array (not {rows:[...]} wire format),
   // so no gridFromWire conversion is needed here.
   return data;
@@ -268,11 +303,16 @@ export async function updatePlayerProfile({ displayName, avatarKey }) {
     await delay(200);
     return { userId: 'mock-user', email: '', displayName, avatarKey, createdAt: '', updatedAt: '' };
   }
-  return apiFetch('updatePlayerProfile', `${API_URL}/players/me`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName, avatarKey }),
-  }, true);
+  return apiFetch(
+    'updatePlayerProfile',
+    `${API_URL}/players/me`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName, avatarKey }),
+    },
+    true
+  );
 }
 
 export async function getDevData(entity) {
@@ -300,11 +340,16 @@ export async function createGameFromGrid(originalGrid) {
     return { ...base, originalGrid, currentGrid: originalGrid.map((r) => [...r]) };
   }
 
-  const data = await apiFetch('createGameFromGrid', `${API_URL}/games/from-image`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ originalGrid: gridToWire(originalGrid) }),
-  }, true);
+  const data = await apiFetch(
+    'createGameFromGrid',
+    `${API_URL}/games/from-image`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ originalGrid: gridToWire(originalGrid) }),
+    },
+    true
+  );
   return unwrapGameState(data);
 }
 
@@ -324,13 +369,19 @@ export async function postCoachMessage(currentGrid, history, userMessage) {
     await delay(1200);
     return CANNED_COACH_RESPONSE;
   }
-  return apiFetch('postCoachMessage', `${API_URL}/ai/coach`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      board: gridToWire(currentGrid),
-      history,
-      userMessage,
-    }),
-  }, true, [204]);
+  return apiFetch(
+    'postCoachMessage',
+    `${API_URL}/ai/coach`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        board: gridToWire(currentGrid),
+        history,
+        userMessage,
+      }),
+    },
+    true,
+    [204]
+  );
 }

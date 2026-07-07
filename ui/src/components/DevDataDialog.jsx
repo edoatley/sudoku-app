@@ -51,15 +51,20 @@ function EntityTable({ columns, rows, onRowClick }) {
         <TableHead>
           <TableRow>
             {columns.map((col) => (
-              <TableCell key={col.key} sx={{ fontWeight: 700 }}>{col.label}</TableCell>
+              <TableCell key={col.key} sx={{ fontWeight: 700 }}>
+                {col.label}
+              </TableCell>
             ))}
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((row, idx) => (
-            <TableRow key={idx} hover>
+          {rows.map((row) => (
+            <TableRow key={row[columns[0].key]} hover>
               {columns.map((col) => (
-                <TableCell key={col.key} sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <TableCell
+                  key={col.key}
+                  sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
                   {col.isLink ? (
                     <Link
                       component="button"
@@ -70,7 +75,11 @@ function EntityTable({ columns, rows, onRowClick }) {
                       {row[col.key]}
                     </Link>
                   ) : (
-                    <Typography variant="body2" component="span" sx={{ fontFamily: col.key.endsWith('At') ? 'monospace' : 'inherit', fontSize: '0.8rem' }}>
+                    <Typography
+                      variant="body2"
+                      component="span"
+                      sx={{ fontFamily: col.key.endsWith('At') ? 'monospace' : 'inherit', fontSize: '0.8rem' }}
+                    >
                       {String(row[col.key] ?? '')}
                     </Typography>
                   )}
@@ -81,7 +90,9 @@ function EntityTable({ columns, rows, onRowClick }) {
           {rows.length === 0 && (
             <TableRow>
               <TableCell colSpan={columns.length} align="center">
-                <Typography variant="body2" color="text.secondary">No records found</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  No records found
+                </Typography>
               </TableCell>
             </TableRow>
           )}
@@ -94,18 +105,13 @@ function EntityTable({ columns, rows, onRowClick }) {
 function formatRecord(record) {
   // Pretty-print with 2-space indent, then collapse any array that contains
   // only integers onto a single line (matches Sudoku rows and candidate lists).
-  return JSON.stringify(record, null, 2).replace(
-    /\[[\s\d,]+\]/gs,
-    (match) => match.replace(/\s+/g, ' ').trim()
-  );
+  return JSON.stringify(record, null, 2).replace(/\[[\s\d,]+\]/gs, (match) => match.replace(/\s+/g, ' ').trim());
 }
 
 function JsonDetailDialog({ open, record, onClose }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontFamily: 'monospace', fontSize: '1rem' }}>
-        Record Detail
-      </DialogTitle>
+      <DialogTitle sx={{ fontFamily: 'monospace', fontSize: '1rem' }}>Record Detail</DialogTitle>
       <DialogContent dividers>
         <Box
           component="pre"
@@ -142,18 +148,21 @@ export default function DevDataDialog({ open, onClose }) {
   const isLoading = loadingEntity === currentEntity;
   const error = errorByEntity[currentEntity];
 
-  const loadEntity = useCallback(async (entity) => {
-    if (dataByEntity[entity] !== undefined) return;
-    setLoadingEntity(entity);
-    try {
-      const result = await getDevData(entity);
-      setDataByEntity((prev) => ({ ...prev, [entity]: result?.items ?? [] }));
-    } catch (err) {
-      setErrorByEntity((prev) => ({ ...prev, [entity]: err.message }));
-    } finally {
-      setLoadingEntity(null);
-    }
-  }, [dataByEntity]);
+  const loadEntity = useCallback(
+    async (entity) => {
+      if (dataByEntity[entity] !== undefined) return;
+      setLoadingEntity(entity);
+      try {
+        const result = await getDevData(entity);
+        setDataByEntity((prev) => ({ ...prev, [entity]: result?.items ?? [] }));
+      } catch (err) {
+        setErrorByEntity((prev) => ({ ...prev, [entity]: err.message }));
+      } finally {
+        setLoadingEntity(null);
+      }
+    },
+    [dataByEntity]
+  );
 
   useEffect(() => {
     if (open) {
@@ -190,11 +199,7 @@ export default function DevDataDialog({ open, onClose }) {
           </Box>
         </DialogTitle>
         <DialogContent dividers sx={{ p: 0 }}>
-          <Tabs
-            value={tabIndex}
-            onChange={handleTabChange}
-            sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
-          >
+          <Tabs value={tabIndex} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
             {TABS.map((tab) => (
               <Tab key={tab.entity} label={tab.label} />
             ))}
@@ -206,15 +211,11 @@ export default function DevDataDialog({ open, onClose }) {
               </Box>
             )}
             {!isLoading && error && (
-              <Alert severity="error" sx={{ mb: 2 }}>Failed to load {currentEntity}: {error}</Alert>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                Failed to load {currentEntity}: {error}
+              </Alert>
             )}
-            {!isLoading && !error && (
-              <EntityTable
-                columns={currentColumns}
-                rows={rows}
-                onRowClick={setDetailRecord}
-              />
-            )}
+            {!isLoading && !error && <EntityTable columns={currentColumns} rows={rows} onRowClick={setDetailRecord} />}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -222,11 +223,7 @@ export default function DevDataDialog({ open, onClose }) {
         </DialogActions>
       </Dialog>
 
-      <JsonDetailDialog
-        open={!!detailRecord}
-        record={detailRecord}
-        onClose={() => setDetailRecord(null)}
-      />
+      <JsonDetailDialog open={!!detailRecord} record={detailRecord} onClose={() => setDetailRecord(null)} />
     </>
   );
 }

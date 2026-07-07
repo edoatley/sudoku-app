@@ -39,21 +39,10 @@ export default function AppView({
           />
         )}
         {currentView === 'history' && (
-          <HistoryView
-            navigateBack={navigateBack}
-            history={history}
-            onRefreshHistory={onRefreshHistory}
-          />
+          <HistoryView navigateBack={navigateBack} history={history} onRefreshHistory={onRefreshHistory} />
         )}
-        {currentView === 'statistics' && (
-          <StatisticsView
-            navigateBack={navigateBack}
-            history={history}
-          />
-        )}
-        {currentView === 'leaderboard' && (
-          <LeaderboardView onBack={navigateBack} />
-        )}
+        {currentView === 'statistics' && <StatisticsView navigateBack={navigateBack} history={history} />}
+        {currentView === 'leaderboard' && <LeaderboardView onBack={navigateBack} />}
       </Box>
     </Slide>
   );

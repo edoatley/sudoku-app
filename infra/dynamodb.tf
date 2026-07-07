@@ -19,6 +19,7 @@ resource "aws_dynamodb_table" "sudoku_games" {
   }
 
   # checkov:skip=CKV_AWS_119: KMS CMK encryption costs ~$1/month; AWS-owned encryption (default) is sufficient for this project
+  # checkov:skip=CKV_AWS_28: PITR is enabled for production (local.is_default=true); disabled in RC/dev to avoid costs
 }
 
 resource "aws_dynamodb_table" "sudoku_leaderboard" {
@@ -36,6 +37,7 @@ resource "aws_dynamodb_table" "sudoku_leaderboard" {
   }
 
   # checkov:skip=CKV_AWS_119: KMS CMK encryption costs ~$1/month; AWS-owned encryption (default) is sufficient for this project
+  # checkov:skip=CKV_AWS_28: PITR is enabled for production (local.is_default=true); disabled in RC/dev to avoid costs
 }
 
 resource "aws_dynamodb_table" "sudoku_players" {
@@ -53,6 +55,7 @@ resource "aws_dynamodb_table" "sudoku_players" {
   }
 
   # checkov:skip=CKV_AWS_119: KMS CMK encryption costs ~$1/month; AWS-owned encryption (default) is sufficient for this project
+  # checkov:skip=CKV_AWS_28: PITR is enabled for production (local.is_default=true); disabled in RC/dev to avoid costs
 }
 
 resource "aws_dynamodb_table" "sudoku_coach_rate_limits" {

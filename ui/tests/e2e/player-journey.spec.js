@@ -55,18 +55,30 @@ const GAME_STATE_FRESH = toWireGameState({
   originalGrid: MEDIUM_ORIGINAL,
   currentGrid: MEDIUM_ORIGINAL.map((r) => [...r]),
   solutionGrid: MEDIUM_ORIGINAL.map((r) => [...r]),
-  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  candidates: Array(9)
+    .fill(null)
+    .map(() =>
+      Array(9)
+        .fill(null)
+        .map(() => [])
+    ),
   timeSpentSeconds: 0,
   status: 'IN_PROGRESS',
 });
 
-const GAME_STATE_PARTIAL = toWireGameState({
+const _GAME_STATE_PARTIAL = toWireGameState({
   gameId: CANNED_GAME_ID,
   difficulty: 'medium',
   originalGrid: MEDIUM_ORIGINAL,
   currentGrid: MEDIUM_PARTIAL,
   solutionGrid: MEDIUM_ORIGINAL.map((r) => [...r]),
-  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  candidates: Array(9)
+    .fill(null)
+    .map(() =>
+      Array(9)
+        .fill(null)
+        .map(() => [])
+    ),
   timeSpentSeconds: 47,
   status: 'IN_PROGRESS',
 });
@@ -78,7 +90,13 @@ const GAME_STATE_RESUME = toWireGameState({
   originalGrid: MEDIUM_ORIGINAL,
   currentGrid: MEDIUM_SOLVED,
   solutionGrid: MEDIUM_SOLVED.map((r) => [...r]),
-  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  candidates: Array(9)
+    .fill(null)
+    .map(() =>
+      Array(9)
+        .fill(null)
+        .map(() => [])
+    ),
   timeSpentSeconds: 47,
   status: 'IN_PROGRESS',
 });
@@ -123,9 +141,7 @@ async function setupFirstSessionRoutes(page, patchBodies) {
 async function setupResumeSessionRoutes(page, patchBodies) {
   await page.route('**/games', (route) => {
     // POST should NOT be called on resume
-    route.request().method() === 'POST'
-      ? route.fulfill({ status: 500, body: 'unexpected POST' })
-      : route.continue();
+    route.request().method() === 'POST' ? route.fulfill({ status: 500, body: 'unexpected POST' }) : route.continue();
   });
   await page.route(`**/games/${CANNED_GAME_ID}`, async (route) => {
     if (route.request().method() === 'GET') {
@@ -197,16 +213,19 @@ test('full player journey: new user → play → pause → resume → complete �
   const session2Patches = [];
   await setupResumeSessionRoutes(page, session2Patches);
 
-  await page.addInitScript((args) => {
-    localStorage.setItem('sudoku_gameId', args.gameId);
-    localStorage.setItem('sudoku_elapsedSeconds', String(args.elapsed));
-    localStorage.setItem('sudoku_difficulty', 'medium');
-    localStorage.setItem('sudoku_currentGrid', JSON.stringify(args.currentGrid));
-  }, {
-    gameId: CANNED_GAME_ID,
-    elapsed: ELAPSED_AT_PAUSE,
-    currentGrid: MEDIUM_PARTIAL,
-  });
+  await page.addInitScript(
+    (args) => {
+      localStorage.setItem('sudoku_gameId', args.gameId);
+      localStorage.setItem('sudoku_elapsedSeconds', String(args.elapsed));
+      localStorage.setItem('sudoku_difficulty', 'medium');
+      localStorage.setItem('sudoku_currentGrid', JSON.stringify(args.currentGrid));
+    },
+    {
+      gameId: CANNED_GAME_ID,
+      elapsed: ELAPSED_AT_PAUSE,
+      currentGrid: MEDIUM_PARTIAL,
+    }
+  );
 
   await page.goto('/');
 
@@ -216,7 +235,12 @@ test('full player journey: new user → play → pause → resume → complete �
   await expect(page.getByTestId('cell-0-1')).toContainText('3');
 
   // Timer chip should be visible and show the restored elapsed time (MM:SS format)
-  await expect(page.locator('[class*="MuiChip-root"]').filter({ hasText: /\d{2}:\d{2}/ }).first()).toBeVisible();
+  await expect(
+    page
+      .locator('[class*="MuiChip-root"]')
+      .filter({ hasText: /\d{2}:\d{2}/ })
+      .first()
+  ).toBeVisible();
 
   // 7. Player fills the final cell ([8][8] = 0 in MEDIUM_SOLVED)
   await page.getByTestId('numberpad-normal').getByRole('button', { name: '9', exact: true }).click();
@@ -228,10 +252,7 @@ test('full player journey: new user → play → pause → resume → complete �
   await expect(page.getByTestId('congrats-dialog')).toContainText(/\d+m \d+s/);
 
   // Game flagged as complete — PATCH with isComplete=true sent
-  await expect.poll(
-    () => session2Patches.some((b) => b.isComplete === true),
-    { timeout: 5000 }
-  ).toBe(true);
+  await expect.poll(() => session2Patches.some((b) => b.isComplete === true), { timeout: 5000 }).toBe(true);
 
   // 9. Player clicks Finish
   await page.getByTestId('finish-button').click();

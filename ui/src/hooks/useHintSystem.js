@@ -1,7 +1,16 @@
 import { useState, useCallback } from 'react';
 import { getHint, ForbiddenError } from '../api/sudokuApi.js';
 
-export function useHintSystem({ currentGridRef, hintMinRankRef, onForbidden, setStatusMessage, setGameStatus, setIsLoading, setCandidateGrid, setCurrentGrid }) {
+export function useHintSystem({
+  currentGridRef,
+  hintMinRankRef,
+  onForbidden,
+  setStatusMessage,
+  setGameStatus,
+  setIsLoading,
+  setCandidateGrid,
+  setCurrentGrid,
+}) {
   const [activeHint, setActiveHint] = useState(null);
   const [hintStage, setHintStage] = useState('nudge');
   const [highlightCells, setHighlightCells] = useState([]);
@@ -17,13 +26,16 @@ export function useHintSystem({ currentGridRef, hintMinRankRef, onForbidden, set
   }, []);
 
   // @spec HE-UI-011 — fetch a hint, retrying with no exclusions if the first call finds nothing.
-  const fetchHintWithFallback = useCallback(async (excluded) => {
-    const hint = await getHint(currentGridRef.current, hintMinRankRef.current, excluded);
-    if (hint !== null) return { hint, didReset: false };
-    if (excluded.length === 0) return { hint: null, didReset: false };
-    const retryHint = await getHint(currentGridRef.current, hintMinRankRef.current, []);
-    return { hint: retryHint, didReset: true };
-  }, [currentGridRef, hintMinRankRef]);
+  const fetchHintWithFallback = useCallback(
+    async (excluded) => {
+      const hint = await getHint(currentGridRef.current, hintMinRankRef.current, excluded);
+      if (hint !== null) return { hint, didReset: false };
+      if (excluded.length === 0) return { hint: null, didReset: false };
+      const retryHint = await getHint(currentGridRef.current, hintMinRankRef.current, []);
+      return { hint: retryHint, didReset: true };
+    },
+    [currentGridRef, hintMinRankRef]
+  );
 
   const requestHint = useCallback(async () => {
     if (!currentGridRef.current) return;
@@ -37,24 +49,35 @@ export function useHintSystem({ currentGridRef, hintMinRankRef, onForbidden, set
       }
       setHintsUsed((n) => n + 1);
       if (hint.strategyRank != null) {
-        const nextExcluded = didReset ? [hint.strategyRank] : (
-          excludedHintRanks.includes(hint.strategyRank)
+        const nextExcluded = didReset
+          ? [hint.strategyRank]
+          : excludedHintRanks.includes(hint.strategyRank)
             ? excludedHintRanks
-            : [...excludedHintRanks, hint.strategyRank]
-        );
+            : [...excludedHintRanks, hint.strategyRank];
         setExcludedHintRanks(nextExcluded);
       }
       setActiveHint(hint);
       setHintStage('nudge');
       setHighlightCells([]);
     } catch (err) {
-      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
+      if (err instanceof ForbiddenError) {
+        onForbidden?.();
+        return;
+      }
       setStatusMessage(`Hint failed: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [currentGridRef, fetchHintWithFallback, excludedHintRanks, onForbidden, setIsLoading, setStatusMessage, setGameStatus]);
+  }, [
+    currentGridRef,
+    fetchHintWithFallback,
+    excludedHintRanks,
+    onForbidden,
+    setIsLoading,
+    setStatusMessage,
+    setGameStatus,
+  ]);
 
   const requestAlternateHint = useCallback(async () => {
     if (!currentGridRef.current) return;
@@ -67,24 +90,35 @@ export function useHintSystem({ currentGridRef, hintMinRankRef, onForbidden, set
         return;
       }
       if (hint.strategyRank != null) {
-        const nextExcluded = didReset ? [hint.strategyRank] : (
-          excludedHintRanks.includes(hint.strategyRank)
+        const nextExcluded = didReset
+          ? [hint.strategyRank]
+          : excludedHintRanks.includes(hint.strategyRank)
             ? excludedHintRanks
-            : [...excludedHintRanks, hint.strategyRank]
-        );
+            : [...excludedHintRanks, hint.strategyRank];
         setExcludedHintRanks(nextExcluded);
       }
       setActiveHint(hint);
       setHintStage('nudge');
       setHighlightCells([]);
     } catch (err) {
-      if (err instanceof ForbiddenError) { onForbidden?.(); return; }
+      if (err instanceof ForbiddenError) {
+        onForbidden?.();
+        return;
+      }
       setStatusMessage(`Hint failed: ${err.message}`);
       setGameStatus('error');
     } finally {
       setIsLoading(false);
     }
-  }, [currentGridRef, fetchHintWithFallback, excludedHintRanks, onForbidden, setIsLoading, setStatusMessage, setGameStatus]);
+  }, [
+    currentGridRef,
+    fetchHintWithFallback,
+    excludedHintRanks,
+    onForbidden,
+    setIsLoading,
+    setStatusMessage,
+    setGameStatus,
+  ]);
 
   const advanceHint = useCallback(() => {
     if (!activeHint) return;

@@ -20,7 +20,13 @@ const NEAR_COMPLETE_GAME_STATE = toWireGameState({
   originalGrid: NEAR_COMPLETE_GRID,
   currentGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
   solutionGrid: NEAR_COMPLETE_GRID.map((r) => [...r]),
-  candidates: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])),
+  candidates: Array(9)
+    .fill(null)
+    .map(() =>
+      Array(9)
+        .fill(null)
+        .map(() => [])
+    ),
   timeSpentSeconds: 0,
   status: 'IN_PROGRESS',
 });

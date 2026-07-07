@@ -106,9 +106,7 @@ describe('formatHintText', () => {
 
   describe('HE-UI-004: block references', () => {
     it('converts "Block 0" to "top-left"', () => {
-      expect(formatHintText('Block 0: digit 3 is confined to row 2.')).toBe(
-        'top-left: digit 3 is confined to row 3.'
-      );
+      expect(formatHintText('Block 0: digit 3 is confined to row 2.')).toBe('top-left: digit 3 is confined to row 3.');
     });
     it('converts "Block 4" to "centre"', () => {
       expect(formatHintText('Block 4: digit 5 is confined to column 4.')).toBe(
@@ -125,9 +123,15 @@ describe('formatHintText', () => {
     });
     it('converts all nine block names correctly', () => {
       const names = [
-        'top-left', 'top-middle', 'top-right',
-        'middle-left', 'centre', 'middle-right',
-        'bottom-left', 'bottom-middle', 'bottom-right',
+        'top-left',
+        'top-middle',
+        'top-right',
+        'middle-left',
+        'centre',
+        'middle-right',
+        'bottom-left',
+        'bottom-middle',
+        'bottom-right',
       ];
       names.forEach((name, i) => {
         expect(formatHintText(`Block ${i} test`)).toBe(`${name} test`);

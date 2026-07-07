@@ -7,6 +7,7 @@ Tests cover:
   - _invoke_model: Bedrock Converse API call (boto3 client mocked)
   - handler(): request validation, success path, 422 and 500 error paths
 """
+
 from __future__ import annotations
 
 import base64
@@ -27,7 +28,6 @@ import handler
 
 
 class TestParseGrid:
-
     def _make_grid(self, fill: int = 0) -> list[list[int]]:
         return [[fill] * 9 for _ in range(9)]
 
@@ -155,7 +155,6 @@ def _make_png(width: int = 10, height: int = 10) -> bytes:
 
 
 class TestSystemPrompt:
-
     # @spec IR-PROC-013
     def test_system_prompt_contains_colour_hint(self):
         """System prompt must instruct the model to ignore cell background colour."""
@@ -169,7 +168,6 @@ class TestSystemPrompt:
 
 
 class TestDetectImageFormat:
-
     def test_jpeg_bytes_detected(self):
         assert handler._detect_image_format(_make_jpeg(10, 10)) == "jpeg"
 
@@ -192,7 +190,6 @@ class TestDetectImageFormat:
 
 
 class TestHasRowColBoxDuplicate:
-
     def _clean_grid(self) -> list[list[int]]:
         return [[0] * 9 for _ in range(9)]
 
@@ -241,7 +238,6 @@ class TestHasRowColBoxDuplicate:
 
 
 class TestHandlerWarmup:
-
     def test_warmup_returns_200(self):
         response = handler.handler({"rawPath": "/api/v1/puzzles/import/warmup"}, None)
         assert response["statusCode"] == 200
@@ -263,7 +259,6 @@ class TestHandlerWarmup:
 
 
 class TestHandlerRequestValidation:
-
     def test_missing_body_returns_400(self):
         response = handler.handler({}, None)
         assert response["statusCode"] == 400
@@ -296,8 +291,13 @@ class TestHandlerRequestValidation:
         """A valid image with a mocked Bedrock call returns 200 with originalGrid and modelName."""
         grid = [[0] * 9 for _ in range(9)]
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
-        with patch("handler.boto3") as mock_boto3, \
-             patch("handler._recognize_with_bedrock", return_value=(grid, True, "us.amazon.nova-pro-v1:0")):
+        with (
+            patch("handler.boto3") as mock_boto3,
+            patch(
+                "handler._recognize_with_bedrock",
+                return_value=(grid, True, "us.amazon.nova-pro-v1:0"),
+            ),
+        ):
             mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 200
@@ -310,8 +310,13 @@ class TestHandlerRequestValidation:
         """When _recognize_with_bedrock returns valid=False, handler returns 422."""
         grid = [[0] * 9 for _ in range(9)]
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
-        with patch("handler.boto3") as mock_boto3, \
-             patch("handler._recognize_with_bedrock", return_value=(grid, False, "mistral.magistral-small-2509")):
+        with (
+            patch("handler.boto3") as mock_boto3,
+            patch(
+                "handler._recognize_with_bedrock",
+                return_value=(grid, False, "mistral.magistral-small-2509"),
+            ),
+        ):
             mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 422
@@ -320,8 +325,13 @@ class TestHandlerRequestValidation:
     def test_recognize_raises_value_error_returns_422(self):
         """When _recognize_with_bedrock raises ValueError, handler returns 422."""
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
-        with patch("handler.boto3") as mock_boto3, \
-             patch("handler._recognize_with_bedrock", side_effect=ValueError("no grid found")):
+        with (
+            patch("handler.boto3") as mock_boto3,
+            patch(
+                "handler._recognize_with_bedrock",
+                side_effect=ValueError("no grid found"),
+            ),
+        ):
             mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 422
@@ -330,8 +340,10 @@ class TestHandlerRequestValidation:
     def test_recognize_raises_unexpected_exception_returns_500(self):
         """When _recognize_with_bedrock raises an unexpected error, handler returns 500."""
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
-        with patch("handler.boto3") as mock_boto3, \
-             patch("handler._recognize_with_bedrock", side_effect=RuntimeError("boom")):
+        with (
+            patch("handler.boto3") as mock_boto3,
+            patch("handler._recognize_with_bedrock", side_effect=RuntimeError("boom")),
+        ):
             mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 500
@@ -340,6 +352,7 @@ class TestHandlerRequestValidation:
 # ---------------------------------------------------------------------------
 # _recognize_with_bedrock (boto3 client mocked)
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_client(response_text: str) -> MagicMock:
     """Return a mock boto3 bedrock-runtime client that returns the given text."""
@@ -401,7 +414,6 @@ _CLEAN_GRID_ALT = [
 
 
 class TestRecognizeWithBedrock:
-
     def test_model_success_returns_valid_grid(self):
         """A valid model response is returned."""
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
@@ -426,7 +438,9 @@ class TestRecognizeWithBedrock:
     def test_model_fails_raises_value_error(self):
         """When the model raises ClientError, ValueError is raised."""
         client = MagicMock()
-        error_response = {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}}
+        error_response = {
+            "Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}
+        }
         client.converse.side_effect = ClientError(error_response, "Converse")
         with pytest.raises(ValueError, match="All models failed"):
             handler._recognize_with_bedrock(client, b"fake-image")
@@ -438,7 +452,6 @@ class TestRecognizeWithBedrock:
 
 
 class TestInvokeModel:
-
     def test_returns_parsed_grid(self):
         """A valid Bedrock response is parsed into the expected grid."""
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
@@ -464,7 +477,9 @@ class TestInvokeModel:
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
         jpeg_bytes = _make_jpeg(10, 10)
         handler._invoke_model(client, "amazon.nova-pro-v1:0", jpeg_bytes)
-        image_content = client.converse.call_args[1]["messages"][0]["content"][0]["image"]
+        image_content = client.converse.call_args[1]["messages"][0]["content"][0][
+            "image"
+        ]
         assert image_content["format"] == "jpeg"
 
     def test_png_image_uses_png_format(self):
@@ -472,5 +487,7 @@ class TestInvokeModel:
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
         png_bytes = _make_png()
         handler._invoke_model(client, "amazon.nova-pro-v1:0", png_bytes)
-        image_content = client.converse.call_args[1]["messages"][0]["content"][0]["image"]
+        image_content = client.converse.call_args[1]["messages"][0]["content"][0][
+            "image"
+        ]
         assert image_content["format"] == "png"

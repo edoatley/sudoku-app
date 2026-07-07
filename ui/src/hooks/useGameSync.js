@@ -4,7 +4,16 @@ import { saveGame } from '../api/sudokuApi.js';
 const LS_KEY_ELAPSED_SECONDS = 'sudoku_elapsedSeconds';
 const LS_KEY_HINTS_USED = 'sudoku_hintsUsed';
 
-export function useGameSync({ gameIdRef, currentGridRef, candidateGridRef, elapsedSecondsRef, hintsUsedRef, pauseTimer, resumeTimerIfActive, gameActiveRef }) {
+export function useGameSync({
+  gameIdRef,
+  currentGridRef,
+  candidateGridRef,
+  elapsedSecondsRef,
+  hintsUsedRef,
+  pauseTimer,
+  resumeTimerIfActive,
+  gameActiveRef,
+}) {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const syncToBackend = useCallback(() => {
@@ -15,11 +24,17 @@ export function useGameSync({ gameIdRef, currentGridRef, candidateGridRef, elaps
     try {
       localStorage.setItem(LS_KEY_ELAPSED_SECONDS, String(elapsedSecondsRef.current));
       localStorage.setItem(LS_KEY_HINTS_USED, String(hintsUsedRef.current));
-    // eslint-disable-next-line no-unused-vars
-    } catch (_) { /* storage full */ }
+      // eslint-disable-next-line no-unused-vars
+    } catch (_) {
+      /* storage full */
+    }
     setIsSyncing(true);
-    saveGame(gid, { currentGrid: grid, candidates: candidates ?? [], timeSpentSeconds: elapsedSecondsRef.current, hintsUsed: hintsUsedRef.current })
-      .finally(() => setIsSyncing(false));
+    saveGame(gid, {
+      currentGrid: grid,
+      candidates: candidates ?? [],
+      timeSpentSeconds: elapsedSecondsRef.current,
+      hintsUsed: hintsUsedRef.current,
+    }).finally(() => setIsSyncing(false));
   }, [gameIdRef, currentGridRef, candidateGridRef, elapsedSecondsRef, hintsUsedRef]);
 
   useEffect(() => {

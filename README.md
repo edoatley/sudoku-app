@@ -277,6 +277,24 @@ See [`infra/README.md`](infra/README.md) for bootstrap steps required before the
 
 This is a personal project. The linked-intent development workflow in [`CLAUDE.md`](CLAUDE.md) describes how code changes are made and how specs/LLDs are kept in sync.
 
+### Inner-loop tooling
+
+One-time setup (requires [Homebrew](https://brew.sh)):
+
+```bash
+make setup   # installs biome, ruff, trivy, checkov, terraform, pre-commit and wires up git hooks
+```
+
+After that, pre-commit hooks run automatically on every `git commit`, covering:
+trailing whitespace · YAML check · Terraform fmt/validate · Ruff (Python) · Biome (JS/JSX) · Trivy security scan
+
+On-demand checks:
+
+```bash
+make lint    # biome check + ruff + terraform fmt
+make secure  # trivy fs + checkov
+```
+
 ---
 
 ## TODO

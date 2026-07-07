@@ -98,6 +98,7 @@ module "lambda" {
   # checkov:skip=CKV_AWS_116: Synchronous HTTP API invocation — DLQ only applies to async Lambda invocations
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit for this public API
   # checkov:skip=CKV_AWS_272: Single-developer project — AWS Signer code-signing setup not warranted
+  # checkov:skip=CKV_TF_1: Terraform Registry modules are version-pinned (~>8.8); commit-hash pinning requires forking off the registry
 }
 
 # Alias and permission are kept standalone because the module (v7) does not

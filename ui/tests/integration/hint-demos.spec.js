@@ -12,17 +12,17 @@
 import { test, expect } from '@playwright/test';
 
 const HINT_DEMOS = [
-  { slug: 'full-house',    label: 'Full House demo',    techniqueName: 'Full House' },
-  { slug: 'naked-single',  label: 'Naked Single demo',  techniqueName: 'Naked Single' },
-  { slug: 'naked-pair',    label: 'Naked Pair demo',    techniqueName: 'Naked Pair' },
+  { slug: 'full-house', label: 'Full House demo', techniqueName: 'Full House' },
+  { slug: 'naked-single', label: 'Naked Single demo', techniqueName: 'Naked Single' },
+  { slug: 'naked-pair', label: 'Naked Pair demo', techniqueName: 'Naked Pair' },
   { slug: 'hidden-single', label: 'Hidden Single demo', techniqueName: 'Hidden Single' },
   { slug: 'pointing-pair', label: 'Pointing Pair demo', techniqueName: 'Pointing Pair' },
-  { slug: 'naked-triple',  label: 'Naked Triple demo',  techniqueName: 'Naked Triple' },
-  { slug: 'hidden-pair',   label: 'Hidden Pair demo',   techniqueName: 'Hidden Pair' },
+  { slug: 'naked-triple', label: 'Naked Triple demo', techniqueName: 'Naked Triple' },
+  { slug: 'hidden-pair', label: 'Hidden Pair demo', techniqueName: 'Hidden Pair' },
   { slug: 'hidden-triple', label: 'Hidden Triple demo', techniqueName: 'Hidden Triple' },
-  { slug: 'x-wing',        label: 'X-Wing demo',        techniqueName: 'X-Wing' },
-  { slug: 'swordfish',     label: 'Swordfish demo',     techniqueName: 'Swordfish' },
-  { slug: 'y-wing',        label: 'Y-Wing demo',        techniqueName: 'Y-Wing' },
+  { slug: 'x-wing', label: 'X-Wing demo', techniqueName: 'X-Wing' },
+  { slug: 'swordfish', label: 'Swordfish demo', techniqueName: 'Swordfish' },
+  { slug: 'y-wing', label: 'Y-Wing demo', techniqueName: 'Y-Wing' },
 ];
 
 async function waitForGrid(page) {

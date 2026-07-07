@@ -51,7 +51,7 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
 
         // If the allowlist is empty or the user is anonymous, skip the check.
         if (allowedEmails.isEmpty() || identity.isAnonymous()) {
-            return; 
+            return;
         }
 
         String email = getEmail();

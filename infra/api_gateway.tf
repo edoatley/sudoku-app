@@ -160,4 +160,6 @@ module "api_gateway" {
     for k, v in merge(local.base_routes, local.ai_coach_routes) :
     k => v if !contains(keys(local.ai_coach_routes), k) || local.ai_coach_enabled
   }
+
+  # checkov:skip=CKV_TF_1: Terraform Registry modules are version-pinned (~>6.1); commit-hash pinning requires forking off the registry
 }

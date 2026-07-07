@@ -155,7 +155,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 # Suite 2: Frontend Lint
 # ─────────────────────────────────────────────────────────────────────────────
-SUITE="Frontend Lint (ESLint)"
+SUITE="Frontend Lint (Biome)"
 header "$SUITE"
 
 if [[ "${SKIP_LINT}" == "true" ]]; then
@@ -353,7 +353,7 @@ echo -e "${BOLD}${CYAN}═══════════════════
 
 SUITE_ORDER=(
   "Image Recognition (pytest)"
-  "Frontend Lint (ESLint)"
+  "Frontend Lint (Biome)"
   "Frontend Security Audit (npm audit)"
   "Frontend E2E (Playwright)"
   "Backend (Maven verify + JaCoCo)"

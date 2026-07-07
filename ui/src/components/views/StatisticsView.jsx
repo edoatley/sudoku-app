@@ -23,19 +23,18 @@ function capitalize(str) {
 
 function computeStats(history) {
   const difficulties = ['easy', 'medium', 'hard', 'imported'];
-  return difficulties.map((diff) => {
-    const entries = history.filter((e) => e.difficulty === diff);
-    const wins = entries.filter((e) => e.outcome === 'won');
-    const losses = entries.length - wins.length;
-    const avgSeconds = wins.length > 0
-      ? Math.round(wins.reduce((sum, e) => sum + e.elapsedSeconds, 0) / wins.length)
-      : null;
-    const scores = wins.map(e => e.score ?? 0).filter(s => s > 0);
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : null;
-    return { difficulty: diff, total: entries.length, wins: wins.length, losses, avgSeconds, avgScore };
-  }).filter((row) => row.total > 0);
+  return difficulties
+    .map((diff) => {
+      const entries = history.filter((e) => e.difficulty === diff);
+      const wins = entries.filter((e) => e.outcome === 'won');
+      const losses = entries.length - wins.length;
+      const avgSeconds =
+        wins.length > 0 ? Math.round(wins.reduce((sum, e) => sum + e.elapsedSeconds, 0) / wins.length) : null;
+      const scores = wins.map((e) => e.score ?? 0).filter((s) => s > 0);
+      const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+      return { difficulty: diff, total: entries.length, wins: wins.length, losses, avgSeconds, avgScore };
+    })
+    .filter((row) => row.total > 0);
 }
 
 export default function StatisticsView({ navigateBack, history }) {
@@ -48,7 +47,9 @@ export default function StatisticsView({ navigateBack, history }) {
           <IconButton edge="start" color="inherit" onClick={navigateBack} aria-label="Back">
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>Statistics</Typography>
+          <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
+            Statistics
+          </Typography>
         </Toolbar>
       </AppBar>
 
@@ -76,12 +77,8 @@ export default function StatisticsView({ navigateBack, history }) {
                   <TableCell align="right">{row.total}</TableCell>
                   <TableCell align="right">{row.wins}</TableCell>
                   <TableCell align="right">{row.losses}</TableCell>
-                  <TableCell align="right">
-                    {row.avgSeconds !== null ? formatTime(row.avgSeconds) : '—'}
-                  </TableCell>
-                  <TableCell align="right">
-                    {row.avgScore !== null ? row.avgScore : '—'}
-                  </TableCell>
+                  <TableCell align="right">{row.avgSeconds !== null ? formatTime(row.avgSeconds) : '—'}</TableCell>
+                  <TableCell align="right">{row.avgScore !== null ? row.avgScore : '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

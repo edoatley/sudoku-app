@@ -1,7 +1,7 @@
 # Platform Upgrades — Implementation Plan
 
-**Created:** 2026-04-25  
-**Branch:** `upgrades`  
+**Created:** 2026-04-25
+**Branch:** `upgrades`
 **Status:** Complete
 
 ## Scope

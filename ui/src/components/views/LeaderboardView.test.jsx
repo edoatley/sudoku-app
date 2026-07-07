@@ -69,7 +69,7 @@ describe('LeaderboardView — player cards', () => {
     useLeaderboard.mockReturnValue({ leaderboard: MOCK_ENTRIES, loading: false, error: null, refresh: vi.fn() });
     render(<LeaderboardView onBack={onBack} />);
     expect(screen.getByText(/10/)).toBeTruthy(); // Ed's 10 wins
-    expect(screen.getByText(/7/)).toBeTruthy();  // Alice's 7 wins
+    expect(screen.getByText(/7/)).toBeTruthy(); // Alice's 7 wins
   });
 
   it('displays average score for each player', () => {

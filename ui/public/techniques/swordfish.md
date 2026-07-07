@@ -9,10 +9,10 @@ slug: "swordfish"
 The **Swordfish** is the big brother of the X-Wing. While an X-Wing uses two rows and two columns, a Swordfish uses a grid of **three rows and three columns**.
 
 ## How it works
-Let's track the number **9**. 
+Let's track the number **9**.
 Imagine you find three different rows where the number 9 only has two or three possible locations, and all of these locations align perfectly into exactly three columns.
 
-Because you have three 9s to place (one for each of the three rows), and they are strictly confined to those three columns, those columns will be completely filled with 9s from these specific rows. 
+Because you have three 9s to place (one for each of the three rows), and they are strictly confined to those three columns, those columns will be completely filled with 9s from these specific rows.
 
 Therefore, the number 9 cannot appear anywhere else in those three columns!
 

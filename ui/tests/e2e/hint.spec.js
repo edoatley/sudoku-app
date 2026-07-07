@@ -29,9 +29,7 @@ const ALTERNATE_HINT_RESPONSE = {
 
 test('hint — clicking Hint shows the hint dialog with nudge text', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/hint', (route) =>
-    route.fulfill({ json: HINT_RESPONSE })
-  );
+  await page.route('**/puzzles/hint', (route) => route.fulfill({ json: HINT_RESPONSE }));
   await page.goto('/');
   await waitForGrid(page);
 
@@ -43,9 +41,7 @@ test('hint — clicking Hint shows the hint dialog with nudge text', async ({ pa
 
 test('hint — advancing to reveal fills the hinted cell with the correct value', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/hint', (route) =>
-    route.fulfill({ json: HINT_RESPONSE })
-  );
+  await page.route('**/puzzles/hint', (route) => route.fulfill({ json: HINT_RESPONSE }));
   await page.goto('/');
   await waitForGrid(page);
 
@@ -65,9 +61,7 @@ test('hint — advancing to reveal fills the hinted cell with the correct value'
 
 test('hint — "Try Different Hint" button appears at nudge stage', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/hint', (route) =>
-    route.fulfill({ json: HINT_RESPONSE })
-  );
+  await page.route('**/puzzles/hint', (route) => route.fulfill({ json: HINT_RESPONSE }));
   await page.goto('/');
   await waitForGrid(page);
 
@@ -79,9 +73,7 @@ test('hint — "Try Different Hint" button appears at nudge stage', async ({ pag
 
 test('hint — "Try Different Hint" not visible at focus stage', async ({ page }) => {
   await setupGameRoutes(page);
-  await page.route('**/puzzles/hint', (route) =>
-    route.fulfill({ json: HINT_RESPONSE })
-  );
+  await page.route('**/puzzles/hint', (route) => route.fulfill({ json: HINT_RESPONSE }));
   await page.goto('/');
   await waitForGrid(page);
 

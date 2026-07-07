@@ -16,7 +16,10 @@ import remarkGfm from 'remark-gfm';
 
 function slugToTitle(slug) {
   if (!slug) return '';
-  return slug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return slug
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 function stripFrontmatter(text) {
@@ -40,21 +43,28 @@ export default function TutorialModal({ open, slug, src, title, onClose }) {
         if (!res.ok) throw new Error(`Failed to load tutorial (${res.status})`);
         return res.text();
       })
-      .then((text) => { if (!cancelled) { setContent(stripFrontmatter(text)); setLoading(false); } })
-      .catch((err) => { if (!cancelled) { setError(err.message); setLoading(false); } });
-    return () => { cancelled = true; };
+      .then((text) => {
+        if (!cancelled) {
+          setContent(stripFrontmatter(text));
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message);
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [slug, src, open]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ m: 0, p: 2, pr: 6 }}>
         {title ?? slugToTitle(slug)}
-        <IconButton
-          onClick={onClose}
-          size="small"
-          title="Close"
-          sx={{ position: 'absolute', right: 8, top: 8 }}
-        >
+        <IconButton onClick={onClose} size="small" title="Close" sx={{ position: 'absolute', right: 8, top: 8 }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>

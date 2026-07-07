@@ -2,7 +2,8 @@
 // @spec SC-UI-001
 
 export const CANNED_COACH_RESPONSE = {
-  aiMessage: "Let's look at the board together. Can you spot any rows or columns that are almost complete? Look for rows with only one or two empty cells — those are the easiest places to start.",
+  aiMessage:
+    "Let's look at the board together. Can you spot any rows or columns that are almost complete? Look for rows with only one or two empty cells — those are the easiest places to start.",
   hint: null,
   revealHint: false,
 };
@@ -67,17 +68,20 @@ export const CANNED_VALIDATE_VALID = {
 export const CANNED_VALIDATE_INVALID = {
   isValid: false,
   isSolved: false,
-  errors: [{ row: 0, col: 4 }, { row: 1, col: 3 }],
+  errors: [
+    { row: 0, col: 4 },
+    { row: 1, col: 3 },
+  ],
 };
 
 export const CANNED_HINT = {
-  techniqueName: "Naked Single",
-  markdownSlug: "naked-single",
-  difficulty: "easy",
+  techniqueName: 'Naked Single',
+  markdownSlug: 'naked-single',
+  difficulty: 'easy',
   strategyRank: 20,
-  nudge: "There is a Naked Single hiding somewhere on the board.",
-  focus: "Look closely at cell (0, 2) — its row, column, and box together eliminate 8 numbers.",
-  reveal: "Cell (0, 2) can only be 4. All other numbers appear in its row, column, or 3×3 block.",
+  nudge: 'There is a Naked Single hiding somewhere on the board.',
+  focus: 'Look closely at cell (0, 2) — its row, column, and box together eliminate 8 numbers.',
+  reveal: 'Cell (0, 2) can only be 4. All other numbers appear in its row, column, or 3×3 block.',
   highlightCells: [{ row: 0, col: 2 }],
   eliminatedCandidates: [],
   solvedCells: [{ row: 0, col: 2, value: 4 }],
@@ -101,7 +105,15 @@ export const CANNED_GAME_STATE = {
   difficulty: 'easy',
   originalGrid: { rows: EASY_GRID_ROWS },
   currentGrid: { rows: EASY_GRID_ROWS },
-  candidates: { rows: Array(9).fill(null).map(() => Array(9).fill(null).map(() => [])) },
+  candidates: {
+    rows: Array(9)
+      .fill(null)
+      .map(() =>
+        Array(9)
+          .fill(null)
+          .map(() => [])
+      ),
+  },
   timeSpentSeconds: 0,
   status: 'IN_PROGRESS',
 };
@@ -112,23 +124,23 @@ export const CANNED_CANDIDATES = {
   candidatesGrid: {
     rows: [
       // row 0: [5,3,0,0,7,0,0,0,0]
-      [[], [], [1,2,4,6], [2,4,6,8], [], [2,4,6,8], [1,4,8,9], [1,2,4,9], [2,4,8]],
+      [[], [], [1, 2, 4, 6], [2, 4, 6, 8], [], [2, 4, 6, 8], [1, 4, 8, 9], [1, 2, 4, 9], [2, 4, 8]],
       // row 1: [6,0,0,1,9,5,0,0,0]
-      [[], [2,4,7], [2,4,7], [], [], [], [3,4,7,8], [2,3,4], [2,3,4,7,8]],
+      [[], [2, 4, 7], [2, 4, 7], [], [], [], [3, 4, 7, 8], [2, 3, 4], [2, 3, 4, 7, 8]],
       // row 2: [0,9,8,0,0,0,0,6,0]
-      [[1,2,4], [], [], [2,3,4,6], [3,4,6], [2,4,6], [1,4,7], [], [2,4,7]],
+      [[1, 2, 4], [], [], [2, 3, 4, 6], [3, 4, 6], [2, 4, 6], [1, 4, 7], [], [2, 4, 7]],
       // row 3: [8,0,0,0,6,0,0,0,3]
-      [[], [1,2,4,5,7], [1,2,5,7], [5,7,9], [], [1,4,7,9], [4,5,7,9], [1,2,4,5,9], []],
+      [[], [1, 2, 4, 5, 7], [1, 2, 5, 7], [5, 7, 9], [], [1, 4, 7, 9], [4, 5, 7, 9], [1, 2, 4, 5, 9], []],
       // row 4: [4,0,0,8,0,3,0,0,1]
-      [[], [2,5,6,7], [2,5,6,7], [], [5,6,9], [], [5,6,7,9], [2,5,9], []],
+      [[], [2, 5, 6, 7], [2, 5, 6, 7], [], [5, 6, 9], [], [5, 6, 7, 9], [2, 5, 9], []],
       // row 5: [7,0,0,0,2,0,0,0,6]
-      [[], [1,3,5], [1,3,5], [5,9], [], [1,4,9], [4,5,8,9], [1,3,4,5,9], []],
+      [[], [1, 3, 5], [1, 3, 5], [5, 9], [], [1, 4, 9], [4, 5, 8, 9], [1, 3, 4, 5, 9], []],
       // row 6: [0,6,0,0,0,0,2,8,0]
-      [[1,3,5,9], [], [1,3,5,7], [5,7,9], [3,4,5,7], [1,4,7], [], [], [4,7]],
+      [[1, 3, 5, 9], [], [1, 3, 5, 7], [5, 7, 9], [3, 4, 5, 7], [1, 4, 7], [], [], [4, 7]],
       // row 7: [0,0,0,4,1,9,0,0,5]
-      [[2,3], [2,3,8], [2,3,7], [], [], [], [3,6,7,8], [2,3], []],
+      [[2, 3], [2, 3, 8], [2, 3, 7], [], [], [], [3, 6, 7, 8], [2, 3], []],
       // row 8: [0,0,0,0,8,0,0,7,9]
-      [[1,2,3], [1,3,4], [1,3,4,6], [3,5,6], [], [1,4,6], [1,3,4,6], [], []],
+      [[1, 2, 3], [1, 3, 4], [1, 3, 4, 6], [3, 5, 6], [], [1, 4, 6], [1, 3, 4, 6], [], []],
     ],
   },
 };

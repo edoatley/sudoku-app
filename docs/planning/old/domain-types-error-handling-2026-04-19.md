@@ -1,8 +1,8 @@
 # Domain Types & API Error Handling — Implementation Plan
 
-**Created:** 2026-04-19  
-**Specs:** `docs/specs/domain-types-specs.md`, `docs/specs/api-error-handling-specs.md`  
-**LLDs:** `docs/llds/api-error-handling.md` (new), updates to `sudoku-logic.md`, `puzzle-generation-validation.md`, `game-lifecycle.md`  
+**Created:** 2026-04-19
+**Specs:** `docs/specs/domain-types-specs.md`, `docs/specs/api-error-handling-specs.md`
+**LLDs:** `docs/llds/api-error-handling.md` (new), updates to `sudoku-logic.md`, `puzzle-generation-validation.md`, `game-lifecycle.md`
 **Branch:** `rc-enhancements-td`
 
 ## Goal
