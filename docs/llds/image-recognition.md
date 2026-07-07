@@ -218,7 +218,7 @@ The warmup route (`GET /api/v1/ai/scan/warmup`) returns 200 immediately without 
 | Converse API over InvokeModel | `bedrock.converse()` | `bedrock.invoke_model()` | Converse API supports `system` parameter natively; system prompt is essential for JSON reliability |
 | Chain-of-thought scratchpad | Pipe-delimited scratchpad before JSON | JSON directly | Reduces positional errors; model "thinks" through alignment before committing to structured output |
 | Fuzzy return (duplicates allowed) | Return best grid with `validPuzzle=false` | Reject all grids with duplicates | Better UX: Java backend runs own validation; user sees extracted grid even if imperfect |
-| Warmup probe | `GET /api/v1/puzzles/import/warmup` (no auth) | Scheduled EventBridge ping | Frontend-initiated; warms the specific Lambda; no infrastructure overhead |
+| Warmup probe | `GET /api/v1/ai/scan/warmup` (no auth) | Scheduled EventBridge ping | Frontend-initiated; warms the specific Lambda; no infrastructure overhead |
 | Desaturate before sending | `ImageEnhance.Color(0.0)` | Send colour image | Sudoku digits are shape-based; removing colour reduces irrelevant visual features |
 | Static colour-cell hint | One sentence in system prompt (IR-PROC-013) | Adaptive pixel-based prompt injection | Zero latency, zero dependency; model already handles most colour puzzles correctly — explicit instruction makes it reliable. Adaptive approach deferred as future optimisation. |
 | Temperature 0 | `inferenceConfig: {temperature: 0}` | Default temperature | Digit extraction should be deterministic; randomness only adds errors |
@@ -233,7 +233,7 @@ The warmup route (`GET /api/v1/ai/scan/warmup`) returns 200 immediately without 
 
 ## Behavioral Quirks
 
-- The warmup route matches on `event["path"]` containing `/warmup`, not an exact match. Any path containing the string `/warmup` would be intercepted — though only `/api/v1/puzzles/import/warmup` is routed to this Lambda.
+- The warmup route matches on `event["path"]` containing `/warmup`, not an exact match. Any path containing the string `/warmup` would be intercepted — though only `/api/v1/ai/scan/warmup` is routed to this Lambda.
 - PIL preprocessing silently falls back to original bytes on any exception (including missing PIL). The model then receives the raw image — larger and possibly in a format that increases token cost without error.
 - `validPuzzle=false` in the 200 response does not cause the frontend to reject the grid — it flags it for extra validation downstream. The Java `GameService` is the final authority on puzzle validity.
 - Cross-check logic skips the next model in the main loop after using it for cross-check (to avoid redundant invocation). With only one model, this branch is never reached.

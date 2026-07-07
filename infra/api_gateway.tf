@@ -44,18 +44,6 @@ locals {
       authorizer_key     = "cognito_jwt"
       integration        = local._lambda_integration
     }
-  }
-
-  ai_routes = {
-    # Tighter global cap on the AI coach route — Bedrock calls are expensive compared to game ops.
-    # This is a route-level global ceiling (not per-user); per-user rate limiting is enforced in Lambda.
-    "POST /api/v1/ai/coach" = {
-      authorization_type     = "JWT"
-      authorizer_key         = "cognito_jwt"
-      integration            = local._lambda_integration
-      throttling_burst_limit = 10
-      throttling_rate_limit  = 5
-    }
 
     "POST /api/v1/ai/scan" = {
       authorization_type = "JWT"
@@ -71,6 +59,18 @@ locals {
         uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
         payload_format_version = "2.0"
       }
+    }
+  }
+
+  ai_coach_routes = {
+    # Tighter global cap on the AI coach route — Bedrock calls are expensive compared to game ops.
+    # This is a route-level global ceiling (not per-user); per-user rate limiting is enforced in Lambda.
+    "POST /api/v1/ai/coach" = {
+      authorization_type     = "JWT"
+      authorizer_key         = "cognito_jwt"
+      integration            = local._lambda_integration
+      throttling_burst_limit = 10
+      throttling_rate_limit  = 5
     }
   }
 }
@@ -152,12 +152,12 @@ module "api_gateway" {
     }
   }
 
-  # Routes — $default is public; game/player routes require JWT.
-  # AI routes are merged in only when local.ai_coach_enabled is true (rc-* workspaces).
-  # On the default workspace they are omitted entirely — no endpoint exists to call.
+  # Routes — $default is public; game/player/scan routes require JWT.
+  # ai_coach_routes are merged in when local.ai_coach_enabled is true (rc-* workspaces).
+  # Image recognition scan routes live in base_routes — always enabled on all workspaces.
   # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game and ai routes use explicit JWT-protected routes
   routes = {
-    for k, v in merge(local.base_routes, local.ai_routes) :
-    k => v if !contains(keys(local.ai_routes), k) || local.ai_coach_enabled
+    for k, v in merge(local.base_routes, local.ai_coach_routes) :
+    k => v if !contains(keys(local.ai_coach_routes), k) || local.ai_coach_enabled
   }
 }
