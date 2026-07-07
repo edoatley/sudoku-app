@@ -248,6 +248,20 @@ cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 
 ---
 
+### test-budget-deny.sh
+
+Verifies the AWS Budgets hard-cap mechanism end-to-end without incurring any real spend.
+Manually attaches the `SudokuBedrockDeny` IAM policy to `SudokuLambdaExecRole`, confirms
+Bedrock is blocked via `aws iam simulate-principal-policy`, then detaches the policy and
+confirms access is restored. Requires the `default` Terraform workspace to be applied with
+`budget_alert_email` set (so the deny policy exists in the account).
+
+```bash
+AWS_PROFILE=sandbox bash scripts/infra/test-budget-deny.sh
+```
+
+---
+
 ### bedrock_quota_report.sh
 
 Reports AWS Bedrock service quotas and recent CloudWatch usage for the models used by the
@@ -329,7 +343,7 @@ Exit code: 0 if all tests pass, 1 if any fail. Appends a Markdown summary to
 
 ### github/image-smoke-test.sh
 
-Posts a base64-encoded puzzle image to `/api/v1/puzzles/import` and asserts a 200 response
+Posts a base64-encoded puzzle image to `/api/v1/ai/scan` and asserts a 200 response
 with a 9-row grid. Used by the `smoke-tests.yml` workflow; also runnable locally against any
 deployed environment.
 

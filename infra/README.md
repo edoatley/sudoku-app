@@ -56,7 +56,7 @@ Both `sudoku.edoatley.co.uk` and `sudoku-beta.edoatley.co.uk` Route53 zones live
 | `cognito-rc-shared.tf` | Shared Cognito pool for all `rc-*` workspaces (applied in `rc-shared` workspace only) |
 | `lambda.tf` | S3 zip bucket, Lambda function, alias |
 | `iam.tf` | Lambda execution roles and DynamoDB policies |
-| `dynamodb.tf` | `SudokuGames` and `SudokuPlayers` tables |
+| `dynamodb.tf` | `SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, and `SudokuCoachRateLimits` tables |
 | `image_recognition_lambda.tf` | Image recognition Lambda (Bedrock-backed, container image) |
 | `scripts/infra/delegate-dns.sh` | One-off script to create NS delegation in the parent AWS account |
 
@@ -87,12 +87,11 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 - Throttling: 25 req/s rate, 50 burst
 - Access logs: JSON format, 7-day retention (3 days on `rc-*`)
 
-**CORS:** Two-step approach to avoid a circular dependency:
+**CORS:** Origins are set directly in `api_gateway.tf` using Terraform-computed values (`aws_amplify_branch.main.branch_name` + `aws_amplify_app.sudoku.default_domain`), so `terraform apply` always sets them correctly — no post-deploy tightening step required. Allowed origins:
 
-1. **Terraform baseline** — `https://*.amplifyapp.com` wildcard plus `http://localhost:5173`
-2. **Post-apply tightening** — the deploy workflow calls `aws apigatewayv2 update-api` to replace the wildcard with both the custom domain URL and the raw Amplify URL
-
-`ignore_changes = [cors_configuration]` prevents Terraform from reverting the tightened CORS on subsequent applies.
+- `default` workspace: `https://sudoku.edoatley.co.uk`
+- `rc-*` workspaces: `https://sudoku-beta.edoatley.co.uk`
+- All workspaces: `https://<branch>.<amplify-app-id>.amplifyapp.com`, `http://localhost:5173`
 
 **JWT Authorizer:** Protects `/games/*`, `/players/me`, `/ai/coach`, and `/ai/scan`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). `/ai/scan/warmup` is also public (probe only, no Bedrock call).
 
@@ -108,7 +107,11 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 
 **`SudokuGames`** — partition key: `userId`, sort key: `gameId`, `PAY_PER_REQUEST`, PITR enabled on `default`
 
-**`SudokuPlayers`** — partition key: `userId`, `PAY_PER_REQUEST`, PITR enabled on `default`
+**`SudokuPlayers`** — partition key: `userId`, `PAY_PER_REQUEST`, PITR enabled on `default`. Stores player profile including AI coach toggle and monthly token counter.
+
+**`SudokuLeaderboard`** — partition key: `userId`, `PAY_PER_REQUEST`, PITR disabled.
+
+**`SudokuCoachRateLimits`** — partition key: `userId`, sort key: `window` (UTC-minute string). Stores per-user per-minute call counts; TTL-based auto-expiry after 2 minutes. Used by `CoachRateLimiter` for atomic rate limiting.
 
 ### Amplify
 
@@ -123,6 +126,7 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 | `VITE_COGNITO_CLIENT_ID` | Cognito App Client ID |
 | `VITE_COGNITO_DOMAIN` | Cognito hosted UI domain |
 | `VITE_DEV_TOOLS` | `false` on `default`, `true` on all others |
+| `VITE_AI_COACH` | `false` on `default`, `true` on `rc-*` |
 
 ### Cognito
 
@@ -133,8 +137,8 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 
 ### IAM
 
-- Role `SudokuLambdaExecRole`: CloudWatch Logs + DynamoDB access
-- Role `SudokuImageRecognitionExecRole`: CloudWatch Logs + Bedrock InvokeModel
+- Role `SudokuLambdaExecRole`: CloudWatch Logs + DynamoDB access (policies: `SudokuDynamoDBPolicy`, `SudokuPlayersPolicy`, `SudokuLeaderboardPolicy`, `SudokuCoachRateLimitsPolicy`, `SudokuCoachBedrockPolicy`)
+- Role `SudokuImageRecognitionExecRole`: CloudWatch Logs + Bedrock InvokeModel (`SudokuImageRecognitionBedrockPolicy`)
 
 ### Tagging
 
@@ -145,6 +149,73 @@ All resources receive default tags:
 | `Project` | `Sudoku` |
 | `ManagedBy` | `Terraform` |
 | `Environment` | `prod` (default workspace), workspace name (rc-*) |
+
+---
+
+## Cost & Budget Controls
+
+All Bedrock usage is guarded by two independent layers: per-user guardrails enforced in the
+Lambda (see [`docs/llds/sudoku-coach.md`](../docs/llds/sudoku-coach.md)), and account-level
+budget controls managed by Terraform.
+
+### Layered protection overview
+
+| Layer | Mechanism | Trigger | Scope |
+|---|---|---|---|
+| 1 — AI coach toggle | `aiCoachEnabled` field in player profile | User-controlled; server-enforced (403) | Per user |
+| 2 — Monthly token budget | `coachTokensUsedThisMonth` in DynamoDB; checked in `CoachResource` | ≥ 100,000 tokens/month (default) | Per user |
+| 3 — Per-minute rate limit | DynamoDB conditional write in `CoachRateLimiter` | ≥ 5 calls/minute | Per user |
+| 4 — API Gateway throttle | Route-level throttling on `POST /ai/coach` | 10 burst / 5 req/s | All users |
+| 5 — AWS Budget alert (80%) | `aws_budgets_budget` notification | > $20 actual spend | Account |
+| 6 — AWS Budget alert (100% forecast) | `aws_budgets_budget` notification | Forecasted to exceed $25 | Account |
+| 7 — AWS Budget hard cap | `aws_budgets_budget_action` → attaches `SudokuBedrockDeny` IAM policy | $25 actual spend reached | Account |
+| 8 — Anomaly detection | `aws_ce_anomaly_subscription` | > $5 anomalous spend in a day | Account |
+
+### AWS Budget (`budgets.tf`)
+
+Resources are only created on the `default` workspace when `var.budget_alert_email` is set.
+The budget tracks **Amazon Bedrock** spend only (not total AWS cost).
+
+```
+$0          $20           $25 ← hard cap
+ |-----------|-------------|
+             ↑             ↑
+          80% alert     100% deny action
+         (actual)       (actual)
+                         + 100% forecast alert
+```
+
+**Budget action:** when actual Bedrock spend reaches 100% of the limit (`$25` by default),
+AWS Budgets automatically attaches the `SudokuBedrockDeny` IAM policy to
+`SudokuLambdaExecRole`. A deny in any attached policy overrides the allow in
+`SudokuCoachBedrockPolicy`, so `BedrockCoachClient` receives `AccessDeniedException` and
+falls back to the nudge text from the hint engine. No code change or restart is needed.
+
+AWS Budgets detaches the policy at the start of the next billing month when spend resets.
+
+**Anomaly detection:** a separate `aws_ce_anomaly_monitor` (dimensional, per-service) triggers
+an alert when Bedrock anomalous spend exceeds $5 in a day. This catches unexpected spikes
+before the monthly budget fires.
+
+**Configuration:**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `budget_alert_email` | `""` (disabled) | Email for all budget alerts and the deny action subscriber |
+| `bedrock_monthly_budget_usd` | `"25"` | Monthly Bedrock spend cap in USD |
+
+### Testing the hard cap
+
+Use `scripts/infra/test-budget-deny.sh` to verify the deny mechanism works without waiting
+for real spend to reach $25:
+
+```bash
+# Verifies the deny policy attaches, blocks Bedrock, then detaches cleanly.
+AWS_PROFILE=sandbox bash scripts/infra/test-budget-deny.sh
+```
+
+The script uses `aws iam simulate-principal-policy` — no real Bedrock calls are made and no
+spend is incurred. See the script header for full details.
 
 ---
 

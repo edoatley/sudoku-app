@@ -72,7 +72,7 @@ if [[ "${HAS_AWS}" == "true" ]]; then
     HAS_AWS_CREDS=true
   else
     echo -e "  ${RED}✗${RESET} AWS sandbox profile not authenticated — run: aws sso login --profile sandbox"
-    echo -e "  ${YELLOW}⚠${RESET}  Suites requiring real AWS credentials (Infra) will be skipped"
+    echo -e "  ${YELLOW}⚠${RESET}  Suites requiring live AWS credentials will be skipped (Infra fmt/validate still runs)"
     HAS_AWS_CREDS=false
   fi
 else
@@ -247,6 +247,14 @@ else
     --billing-mode PAY_PER_REQUEST \
     --region us-east-1
 
+  AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
+  aws --endpoint-url=http://localhost:4566 dynamodb create-table \
+    --table-name SudokuCoachRateLimits \
+    --attribute-definitions AttributeName=userId,AttributeType=S AttributeName=window,AttributeType=S \
+    --key-schema AttributeName=userId,KeyType=HASH AttributeName=window,KeyType=RANGE \
+    --billing-mode PAY_PER_REQUEST \
+    --region us-east-1
+
   t=$(date +%s)
   (
     cd "${REPO_ROOT}/backend"
@@ -313,16 +321,22 @@ SUITE="Infra (Terraform fmt + validate)"
 header "$SUITE"
 
 if [[ "${SKIP_INFRA}" == "true" ]]; then
-  skip "$SUITE" "--skip-infra"
+  # Warn if .tf files have been modified — skipping infra when Terraform changed is almost always wrong
+  if git -C "${REPO_ROOT}" diff --name-only HEAD 2>/dev/null | grep -q '\.tf$'; then
+    echo -e "${RED}ERROR: --skip-infra passed but .tf files are modified. Run without --skip-infra.${RESET}" >&2
+    RESULTS["$SUITE"]="FAIL"
+    DURATIONS["$SUITE"]="—"
+    OVERALL=1
+  else
+    skip "$SUITE" "--skip-infra"
+  fi
 elif [[ "${HAS_TERRAFORM}" == "false" ]]; then
   skip "$SUITE" "terraform not found"
-elif [[ "${HAS_AWS_CREDS}" == "false" ]]; then
-  skip "$SUITE" "AWS sandbox profile not authenticated"
 else
+  # fmt + validate use -backend=false and do not require AWS credentials
   t=$(date +%s)
   (
     cd "${REPO_ROOT}/infra"
-    export AWS_PROFILE=sandbox
     terraform fmt -check -recursive
     terraform init -upgrade -backend=false -input=false -no-color
     terraform validate

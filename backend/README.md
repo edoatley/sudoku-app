@@ -9,7 +9,7 @@ Java 21 REST API built with Quarkus, deployed as an AWS Lambda function behind A
 | | |
 |---|---|
 | Language | Java 21 |
-| Framework | Quarkus 3.34.x (`quarkus-amazon-lambda-rest`) |
+| Framework | Quarkus 3.36.1 (`quarkus-amazon-lambda-rest`) |
 | Auth | `quarkus-oidc` — JWT validation via Cognito OIDC discovery |
 | Database | AWS DynamoDB (`quarkus-amazon-dynamodb-enhanced`) |
 | Test | JUnit 5, Mockito, RestAssured, LocalStack (integration tests) |
@@ -50,6 +50,9 @@ src/main/java/com/sudoku/
 │   ├── ActionableCell.java       # (row, col, value) — cell with a determined digit
 │   ├── BoardRequest.java         # currentGrid + optional solutionGrid, minRank, excludedRanks
 │   ├── CandidatesResponse.java   # 9×9 grid of candidate lists per cell
+│   ├── ChatMessage.java          # (role, content) — AI coach conversation turn
+│   ├── CoachRequest.java         # board + history + userMessage for AI coaching
+│   ├── CoachResponse.java        # aiMessage + HintResponse + revealHint
 │   ├── Coordinate.java           # (row, col) position
 │   ├── CoordinateCandidate.java  # (row, col, value) pencil-mark candidate
 │   ├── CreateGameFromGridRequest.java  # originalGrid for image-recognition import
@@ -72,18 +75,28 @@ src/main/java/com/sudoku/
 ├── logging/
 │   └── ApiLoggingFilter.java     # Dev-only: logs request/response method, path, body, status
 ├── player/
-│   ├── PlayerResource.java       # GET /players/me
+│   ├── PlayerResource.java       # GET + PATCH /players/me
 │   ├── PlayerService.java
 │   ├── PlayerServiceImpl.java    # Lazy profile creation on first login
 │   ├── PlayerRepository.java
 │   ├── DynamoDbPlayerRepository.java
 │   ├── PlayerItem.java           # DynamoDB enhanced client bean (userId PK)
-│   └── PlayerProfile.java        # Record DTO for player data
+│   ├── PlayerProfile.java        # Record DTO for player data
+│   ├── PlayerUpdateRequest.java  # PATCH request body (displayName, avatarKey, aiCoachEnabled)
+│   ├── InvalidPlayerUpdateException.java
+│   └── PlayerNotFoundException.java
 └── puzzle/
     ├── PuzzleResource.java       # GET /puzzles/generate, POST /puzzles/validate|hint|candidates
     ├── SudokuService.java        # Interface
     ├── SudokuServiceImpl.java
     ├── PuzzleGenerator.java      # Randomised backtracking + hole-digging with uniqueness check
+    ├── CoachResource.java        # POST /ai/coach — toggle/budget/rate-limit checks + AI call
+    ├── SudokuCoachService.java   # Interface (returns CoachResult sealed type)
+    ├── SudokuCoachServiceImpl.java  # Orchestrates hint engine → BedrockCoachClient
+    ├── BedrockCoachClient.java   # Raw BedrockRuntimeClient call, prompt caching, fallback
+    ├── BedrockClientProducer.java  # CDI producer for BedrockRuntimeClient
+    ├── BoardFormatter.java       # Converts Board to human-readable row-by-row string
+    ├── CoachRateLimiter.java     # Per-user per-minute rate limiting via DynamoDB conditional writes
     ├── developer/
     │   ├── DevResource.java         # GET /dev/hint-demo?technique=<slug>
     │   ├── HintDemoGrids.java       # Loads pre-baked grids from resources/developer/
@@ -129,6 +142,10 @@ src/main/java/com/sudoku/
 | GET | `/api/v1/games/{gameId}` | Load a saved game by ID |
 | PATCH | `/api/v1/games/{gameId}` | Save game progress |
 | GET | `/api/v1/players/me` | Get or create the current user's profile |
+| PATCH | `/api/v1/players/me` | Update profile (displayName, avatarKey, aiCoachEnabled) |
+| POST | `/api/v1/ai/coach` | AI coaching message (rc-* workspaces only) |
+| POST | `/api/v1/ai/scan` | Submit image for puzzle grid extraction (rc-* workspaces only) |
+| GET | `/api/v1/ai/scan/warmup` | Warm up the image recognition Lambda — public, no JWT (rc-* only) |
 
 **Developer-only** (`dev` profile):
 
@@ -209,5 +226,9 @@ Key properties in `src/main/resources/application.properties`:
 | `sudoku.dynamodb.players-table-name` | `SudokuPlayers` table name (injected via `PLAYERS_TABLE_NAME` env var) |
 | `sudoku.cors.allowed-origins` | Comma-separated list of allowed CORS origins (injected via `CORS_ALLOWED_ORIGINS` env var) |
 | `app.allowed.emails` | Comma-separated email allowlist; empty string disables the check (dev/test default) |
+| `coach.monthly-token-limit` | Max Bedrock tokens per player per month (default: 100,000; injected via `COACH_MONTHLY_TOKEN_LIMIT`) |
+| `coach.rate-limit.table-name` | DynamoDB table for per-minute rate limiting (injected via `COACH_RATE_LIMIT_TABLE_NAME`) |
+| `coach.rate-limit.per-minute` | Max AI coach calls per user per UTC minute (default: 5; dev default: 1000) |
+| `coach.bedrock.model-id` | Bedrock inference profile ID for Claude Haiku (injected via `COACH_BEDROCK_MODEL_ID`) |
 
 In `dev`, `test`, and `it` profiles, OIDC is disabled and proactive auth is turned off so the `DevUserFilter` can inject a mock identity.

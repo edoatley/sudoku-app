@@ -61,10 +61,10 @@ See [`infra/README.md`](infra/README.md) for the full deployment-level architect
 
 | Layer      | Technology                                                         |
 |------------|--------------------------------------------------------------------|
-| Frontend   | React 19, Vite 8, MUI v7, aws-amplify v6                          |
-| Backend    | Java 21, Quarkus 3.32.3, quarkus-amazon-lambda-rest, quarkus-oidc |
+| Frontend   | React 19, Vite 8, MUI v9, aws-amplify v6                          |
+| Backend    | Java 21, Quarkus 3.36.1, quarkus-amazon-lambda-rest, quarkus-oidc |
 | Auth       | Amazon Cognito User Pool (Google social login via OAuth 2.0)       |
-| Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`)  |
+| Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, `SudokuCoachRateLimits`) |
 | Hosting    | AWS Amplify (frontend), AWS Lambda (backend)                       |
 | IaC        | Terraform (AWS provider, eu-west-2)                                |
 
@@ -74,16 +74,24 @@ See [`infra/README.md`](infra/README.md) for the full deployment-level architect
 
 ```
 sudoku-app/
-├── backend/          # Java 21 + Quarkus REST API (Lambda-optimized)
+├── backend/          # Java 21 + Quarkus REST API (Lambda-optimized)  → backend/README.md
 │   └── src/
-├── ui/               # React 19 + Vite frontend with MUI
+├── ui/               # React 19 + Vite frontend with MUI               → ui/README.md
 │   ├── src/
 │   └── e2e/          # Playwright E2E tests
-├── infra/            # Terraform IaC (AWS eu-west-2)
+├── image_recognition/  # Python AWS Lambda for puzzle photo scanning
+├── infra/            # Terraform IaC (AWS eu-west-2)                   → infra/README.md
+├── scripts/          # Local dev, infra, and CI/CD helper scripts      → scripts/README.md
 ├── docs/             # HLD, LLDs, EARS specs, arrows, openapi.yaml, coding standards
 ├── Makefile          # Combined dev workflow
 └── CLAUDE.md         # AI assistant instructions
 ```
+
+See the component READMEs for detailed usage:
+- [`backend/README.md`](backend/README.md) — Java/Quarkus API, source structure, build profiles, testing
+- [`ui/README.md`](ui/README.md) — React/Vite frontend, env vars, component structure
+- [`infra/README.md`](infra/README.md) — Terraform resources, multi-env strategy, bootstrap, deploy
+- [`scripts/README.md`](scripts/README.md) — Local dev scripts, CI/CD helpers, secret management
 
 ---
 
@@ -149,6 +157,9 @@ cp ui/.env.example ui/.env.development.local
 |-----------------------------|--------------------------------|--------------------------------------------------|
 | `VITE_API_URL`              | `http://localhost:8080/api/v1` | Backend API base URL                             |
 | `VITE_MOCK_API`             | `false`                        | Set to `true` to bypass auth and use mock data   |
+| `VITE_SKIP_AUTH`            | `false`                        | Set to `true` to bypass the Authenticator wrapper (test environments only) |
+| `VITE_DEV_TOOLS`            | `false`                        | Set to `true` to enable developer-only menu items |
+| `VITE_AI_COACH`             | `false`                        | Set to `true` to enable the AI Sudoku Coach panel (desktop only) |
 | `VITE_COGNITO_USER_POOL_ID` | _(set by Terraform)_           | Cognito User Pool ID (not needed in mock mode)   |
 | `VITE_COGNITO_CLIENT_ID`    | _(set by Terraform)_           | Cognito App Client ID (not needed in mock mode)  |
 | `VITE_COGNITO_DOMAIN`       | _(set by Terraform)_           | Cognito hosted UI domain (not needed in mock mode) |
@@ -259,6 +270,12 @@ Deployment is automated via GitHub Actions on push to `main` or `rc-*` branches:
 A manual **Teardown** workflow is available via GitHub Actions (`workflow_dispatch`) for full `terraform destroy`.
 
 See [`infra/README.md`](infra/README.md) for bootstrap steps required before the first deploy.
+
+---
+
+## Contributing
+
+This is a personal project. The linked-intent development workflow in [`CLAUDE.md`](CLAUDE.md) describes how code changes are made and how specs/LLDs are kept in sync.
 
 ---
 

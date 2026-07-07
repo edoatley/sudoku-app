@@ -82,11 +82,12 @@ module "lambda" {
   # exhaust the 10-unit unreserved minimum AWS requires, causing a deployment error.
 
   environment_variables = {
-    CORS_ALLOWED_ORIGINS = local.is_rc ? "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku-beta.edoatley.co.uk,http://localhost:5173" : "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku.edoatley.co.uk,http://localhost:5173"
-    DYNAMODB_TABLE_NAME  = aws_dynamodb_table.sudoku_games.name
-    PLAYERS_TABLE_NAME   = aws_dynamodb_table.sudoku_players.name
-    COGNITO_ISSUER_URL   = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
-    COGNITO_CLIENT_ID    = local.cognito_web_client_id
+    CORS_ALLOWED_ORIGINS        = local.is_rc ? "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku-beta.edoatley.co.uk,http://localhost:5173" : "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku.edoatley.co.uk,http://localhost:5173"
+    DYNAMODB_TABLE_NAME         = aws_dynamodb_table.sudoku_games.name
+    PLAYERS_TABLE_NAME          = aws_dynamodb_table.sudoku_players.name
+    COACH_RATE_LIMIT_TABLE_NAME = aws_dynamodb_table.sudoku_coach_rate_limits.name
+    COGNITO_ISSUER_URL          = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
+    COGNITO_CLIENT_ID           = local.cognito_web_client_id
   }
 
   # For the default workspace the Lambda has been invoked before and auto-created

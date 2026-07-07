@@ -47,10 +47,14 @@ locals {
   }
 
   ai_routes = {
+    # Tighter global cap on the AI coach route — Bedrock calls are expensive compared to game ops.
+    # This is a route-level global ceiling (not per-user); per-user rate limiting is enforced in Lambda.
     "POST /api/v1/ai/coach" = {
-      authorization_type = "JWT"
-      authorizer_key     = "cognito_jwt"
-      integration        = local._lambda_integration
+      authorization_type     = "JWT"
+      authorizer_key         = "cognito_jwt"
+      integration            = local._lambda_integration
+      throttling_burst_limit = 10
+      throttling_rate_limit  = 5
     }
 
     "POST /api/v1/ai/scan" = {
@@ -82,9 +86,10 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
 }
 
 # ── API Gateway (module-managed) ──────────────────────────────────────────────
-# CORS origins are set as a baseline here; the deploy workflow tightens them to
-# the exact Amplify URL post-apply. The module (v5) does not expose a lifecycle
-# ignore_changes block, so the post-deploy script must re-tighten CORS each run.
+# CORS origins are set to the static custom domain so that terraform apply always
+# sets them correctly — no post-deploy CORS tightening step needed.
+# The raw *.amplifyapp.com URL is intentionally excluded: referencing aws_amplify_app
+# or aws_amplify_branch here would create a cycle (Amplify depends on api_endpoint).
 module "api_gateway" {
   source  = "terraform-aws-modules/apigateway-v2/aws"
   version = "~> 6.1"
@@ -99,7 +104,13 @@ module "api_gateway" {
 
   cors_configuration = {
     allow_methods = ["GET", "POST", "PATCH", "OPTIONS"]
-    allow_origins = ["http://localhost:5173"]
+    allow_origins = local.is_default ? [
+      "https://sudoku.edoatley.co.uk",
+      "http://localhost:5173",
+      ] : [
+      "https://sudoku-beta.edoatley.co.uk",
+      "http://localhost:5173",
+    ]
     allow_headers = ["Content-Type", "Authorization"]
     max_age       = 300
   }

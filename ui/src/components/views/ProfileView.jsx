@@ -1,4 +1,5 @@
 // @spec NAV-LAYOUT-001, NAV-LAYOUT-002, NAV-LAYOUT-003, UM-UI-001, UM-UI-002, UM-UI-003, UM-UI-004, UM-UI-005, UM-UI-006
+// @spec SC-RL-006, SC-RL-007
 import { useState } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -12,25 +13,31 @@ import Tooltip from '@mui/material/Tooltip';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { AVATAR_ICONS } from '../../utils/avatarIcons.js';
 
 const DEFAULT_AVATAR = 'Person';
+const MONTHLY_TOKEN_LIMIT = 100_000;
 
 export default function ProfileView({ navigateBack, playerProfile, currentAvatar, onProfileUpdate }) {
   const [displayName, setDisplayName] = useState(playerProfile?.displayName ?? '');
   const [selectedAvatar, setSelectedAvatar] = useState(currentAvatar ?? DEFAULT_AVATAR);
+  const [aiCoachEnabled, setAiCoachEnabled] = useState(playerProfile?.aiCoachEnabled ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const trimmed = displayName.trim();
   const saveDisabled = saving || trimmed.length === 0;
 
+  const tokensUsed = playerProfile?.coachTokensUsedThisMonth ?? 0;
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      await onProfileUpdate({ displayName: trimmed, avatarKey: selectedAvatar });
+      await onProfileUpdate({ displayName: trimmed, avatarKey: selectedAvatar, aiCoachEnabled });
       navigateBack();
     } catch (err) {
       setError(err?.message ?? 'Failed to save profile. Please try again.');
@@ -66,6 +73,24 @@ export default function ProfileView({ navigateBack, playerProfile, currentAvatar
           disabled={saving}
           sx={{ mb: 2 }}
         />
+
+        <Divider sx={{ mb: 1.5 }} />
+
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={aiCoachEnabled}
+                onChange={(e) => setAiCoachEnabled(e.target.checked)}
+                disabled={saving}
+              />
+            }
+            label="AI Coach"
+          />
+          <Typography variant="caption" color="text.secondary">
+            {tokensUsed.toLocaleString()} / {MONTHLY_TOKEN_LIMIT.toLocaleString()} tokens this month
+          </Typography>
+        </Box>
 
         <Divider sx={{ mb: 1.5 }} />
 

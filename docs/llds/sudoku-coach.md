@@ -1,9 +1,9 @@
 # Sudoku Coach (AI Tutoring System)
 
 **Created**: 2026-07-04
-**Status**: Draft — not yet implemented
+**Status**: Complete
 **HLD**: `docs/planning/ai-guide.md`
-**Specs**: `docs/specs/sudoku-coach-specs.md` (to be created)
+**Specs**: `docs/specs/sudoku-coach-specs.md`
 
 ---
 
@@ -17,8 +17,11 @@ chain, but the coach adds a Bedrock-powered coaching layer on top.
 The coach is desktop-only. The UX requires the board and chat to be simultaneously visible,
 which is not achievable on mobile screen sizes.
 
-Nothing in the existing codebase changes. The coach is additive: new records, new service
-interface, new service implementation, new endpoint, new IAM permission.
+The coach required extending the player profile to track cost guardrails. Changes to
+existing files: `PlayerItem`, `PlayerProfile`, `PlayerUpdateRequest`, and `PlayerServiceImpl`
+gained three new fields (`aiCoachEnabled`, `coachTokensUsedThisMonth`, `coachTokenMonth`).
+All other additions — `CoachResource`, `SudokuCoachService`, `SudokuCoachServiceImpl`,
+`BedrockCoachClient`, `CoachRateLimiter`, `BoardFormatter` — are new files.
 
 ---
 
@@ -27,7 +30,7 @@ interface, new service implementation, new endpoint, new IAM permission.
 ### Component Map
 
 ```
-PuzzleResource (or CoachResource)          ← REST adapter (input port)
+CoachResource                              ← REST adapter (input port)
         │  POST /ai/coach
         ▼
 SudokuCoachService                         ← application port (interface)
@@ -43,11 +46,15 @@ SudokuService         BoardFormatter       ← reuse existing hint engine
 BedrockCoachClient                         ← Bedrock adapter (output port)
         │
         ▼
-LangChain4j / BedrockRuntimeClient         ← Claude Haiku via Amazon Bedrock
+BedrockRuntimeClient                       ← Claude Haiku via Amazon Bedrock
 ```
 
+`CoachResource` also injects `PlayerService`, `PlayerRepository`, and `CoachRateLimiter` to
+enforce per-user guardrails (toggle, monthly token budget, per-minute rate limit) before
+delegating to `SudokuCoachService`.
+
 `SudokuCoachServiceImpl` orchestrates the deterministic pre-analysis. `BedrockCoachClient` is
-the only class that knows about LangChain4j or Bedrock. This separation means:
+the only class that knows about Bedrock. This separation means:
 - The deterministic backbone can be built and tested without any AI dependency.
 - The Bedrock client can be swapped or mocked independently in tests.
 
@@ -55,9 +62,19 @@ the only class that knows about LangChain4j or Bedrock. This separation means:
 
 ```java
 public interface SudokuCoachService {
-    CoachResponse coach(CoachRequest request);
+
+    CoachResult coach(CoachRequest request);
+
+    sealed interface CoachResult permits CoachResult.Response, CoachResult.PuzzleSolved {
+        record Response(CoachResponse coachResponse, long tokensUsed) implements CoachResult {}
+        record PuzzleSolved() implements CoachResult {}
+    }
 }
 ```
+
+`tokensUsed` in `Response` is the sum of `inputTokens + outputTokens` from the Bedrock usage
+block. It is zero when the fallback path is taken. `CoachResource` increments the player's
+monthly token counter only when `tokensUsed > 0`.
 
 ### Orchestration Flow (`SudokuCoachServiceImpl.coach()`)
 
@@ -68,8 +85,11 @@ public interface SudokuCoachService {
 2. hint = sudokuService.getHint(BoardRequest.of(request.board()))
    // Uses existing hint engine — same chain as /puzzles/hint
 
-3. if hint is empty:
-       return CoachResponse.noMovesAvailable()  // no Bedrock call
+3. if hint is PuzzleSolved:
+       return CoachResult.PuzzleSolved()         // CoachResource maps to 204
+
+   if hint is NoStrategyApplied:
+       return CoachResult.Response(NO_MOVES_MESSAGE, 0L)  // no Bedrock call
 
 4. context = BoardFormatter.format(board, hint)
    // Human-readable grid + technique name + relevant cells
@@ -77,10 +97,10 @@ public interface SudokuCoachService {
 5. history = trim(request.history(), MAX_HISTORY_MESSAGES)
    // Backend enforces cap; frontend may send more
 
-6. aiMessage, revealHint = bedrockCoachClient.coach(context, history, request.userMessage())
-   // Single Bedrock call; falls back to hint.nudge() on failure
+6. result = bedrockCoachClient.call(userMessage, hint, history, board)
+   // Single Bedrock call; falls back to hint.nudge() on failure (tokensUsed = 0 on fallback)
 
-7. return CoachResponse(aiMessage, hint, revealHint)
+7. return CoachResult.Response(CoachResponse(result.reply, hint, result.revealHint), result.tokensUsed)
 ```
 
 ### `BoardFormatter` (new utility)
@@ -115,17 +135,78 @@ state for a 5-minute TTL, reducing system prompt token cost by ~90% on cache hit
 prompt must be ≥1,024 tokens to be cacheable — include inline few-shot coaching examples to
 reach this threshold if needed.
 
-**LangChain4j vs. raw client:**
-Use `BedrockRuntimeClient` directly if LangChain4j's Bedrock integration does not expose
-`cache_control` blocks at the message level. Verify during Phase 3 spike.
+**Raw Bedrock client:**
+`BedrockRuntimeClient` is used directly (not LangChain4j). LangChain4j did not expose
+`cache_control` blocks at the message level, so the raw SDK was chosen.
 
 ### Constants
 
+These live in their respective classes (no shared `CoachConstants` class):
+
 ```java
-public final class CoachConstants {
-    public static final int MAX_HISTORY_MESSAGES = 6;  // ~600 tokens
-    public static final int BEDROCK_TIMEOUT_SECONDS = 6; // leaves 2s headroom vs. 8s Lambda limit
-}
+// SudokuCoachServiceImpl
+static final int MAX_HISTORY_MESSAGES = 6;  // ~600 tokens
+
+// BedrockCoachClient
+static final int BEDROCK_TIMEOUT_SECONDS = 6; // leaves 2s headroom vs. 8s Lambda limit
+static final int MAX_TOKENS = 512;
+```
+
+### Rate Limiting and Cost Protection (`CoachResource`)
+
+Three guardrails are enforced in `CoachResource` before the request reaches
+`SudokuCoachService`. All rely on the player profile loaded via `PlayerService`.
+
+| Guardrail | Mechanism | Response on breach |
+|---|---|---|
+| AI coach toggle | `player.aiCoachEnabled() == Boolean.FALSE` | 403 |
+| Monthly token budget | `usedThisMonth >= COACH_MONTHLY_TOKEN_LIMIT` | 429 (body: tokensUsed, monthlyLimit, resetsAt) |
+| Per-minute rate limit | `CoachRateLimiter.tryConsume(userId)` via DynamoDB atomic UpdateItem | 429 + `Retry-After` header |
+
+`CoachRateLimiter` uses a DynamoDB table (`SudokuCoachRateLimits{suffix}`, partition key
+`userId`, sort key `window`) where `window` is the UTC minute string (`"yyyy-MM-dd'T'HH:mm"`).
+A conditional `ADD callCount :one` increments the count; a `ConditionalCheckFailedException`
+on `callCount < :limit` signals rate limit exceeded. The item TTL is 2 minutes from window
+start. The limiter fails open on any non-conditional exception so infrastructure issues cannot
+lock users out.
+
+**Token increment timing and Lambda safety**
+
+The token increment (`incrementCoachTokens`) is called synchronously *after* the Bedrock
+call returns and *before* the HTTP response is sent. This is the correct pattern for Lambda:
+after a handler returns its response, the execution environment is frozen immediately, so any
+fire-and-forget async work may never complete. The synchronous path adds ~10–20 ms
+(one DynamoDB write), negligible against the 2–6 s Bedrock call already in the path.
+
+**Monthly budget is a soft limit (intentional)**
+
+The budget check reads `coachTokensUsedThisMonth` from the profile snapshot taken at the
+*start* of the request, before Bedrock is invoked. Under concurrent load near the limit, two
+simultaneous requests can both pass the check using the same stale count, both call Bedrock,
+and both increment — briefly exceeding the limit. The overage is at most one extra request's
+token cost (~300 tokens, < $0.001 for Claude Haiku). Pre-reservation is not feasible because
+token cost is unknown before invoking Bedrock. This soft-limit behaviour is intentional and
+documented in code.
+
+**Month rollover**
+
+Monthly token tracking uses an atomic `UpdateItem` on the `SudokuPlayers` table:
+- If `coachTokenMonth == currentMonth`, adds `tokensUsed` to `coachTokensUsedThisMonth` via
+  `if_not_exists(..., 0) + :tokens` (handles first-ever coach call on a new profile)
+- If month has rolled over (`ConditionalCheckFailedException`), resets the counter to
+  `tokensUsed` (the current request's tokens only) with an unconditional write
+
+Under concurrent load at the exact moment a month boundary is crossed, two requests can both
+fail the conditional check and both execute the fallback write; the last writer wins and the
+other's tokens are dropped from the counter. Impact: at most ~300 tokens under-counted at
+the start of a new month. This is documented in code and accepted given the negligible cost.
+
+Config properties:
+```properties
+coach.monthly-token-limit=${COACH_MONTHLY_TOKEN_LIMIT:100000}
+coach.rate-limit.table-name=${COACH_RATE_LIMIT_TABLE_NAME:SudokuCoachRateLimits}
+coach.rate-limit.per-minute=${COACH_RATE_LIMIT_PER_MINUTE:5}
+%dev.coach.rate-limit.per-minute=1000
 ```
 
 ---
@@ -220,11 +301,20 @@ Response: 200 CoachResponse   — coaching response (AI or fallback)
           204                 — puzzle already solved, no technique applicable
           400                 — malformed board or blank userMessage
           401                 — missing or invalid JWT (enforced by API Gateway)
+          403                 — player's aiCoachEnabled toggle is false
+          429                 — monthly token budget exceeded (body: tokensUsed, monthlyLimit, resetsAt)
+          429 + Retry-After   — per-minute rate limit exceeded
 ```
 
-A `204` is returned only when `getHint()` returns empty because the board is solved. The
-endpoint never returns a 5xx for a Bedrock failure — it degrades to the fallback response
-and returns 200.
+A `204` is returned only when `getHint()` returns `PuzzleSolved`. The endpoint never returns
+a 5xx for a Bedrock failure — it degrades to the fallback response and returns 200.
+
+Per-user guardrail order in `CoachResource.coach()`:
+1. Toggle check (aiCoachEnabled == false → 403)
+2. Monthly token budget check (usedThisMonth >= monthlyTokenLimit → 429)
+3. Per-minute rate limit check (rateLimiter.tryConsume() → 429 + Retry-After)
+4. Delegate to SudokuCoachService
+5. Increment token counter on success
 
 ---
 
@@ -297,15 +387,18 @@ an active hint, but it does override the visual highlight.
 
 ## Technical Debt / Open Questions
 
-- **CRaC vs. GraalVM native vs. SnapStart**: Spike needed before Phase 4 to confirm which
-  cold-start strategy works with LangChain4j. See §12 of `docs/planning/ai-guide.md`.
-- **LangChain4j `cache_control` support**: May require dropping to raw `BedrockRuntimeClient`.
-  Determine in Phase 4 spike.
-- **System prompt length**: Must be ≥1,024 tokens for Bedrock caching. If the base prompt is
-  shorter, few-shot examples must be added. Measure at implementation time.
-- **`revealHint` reliability**: The LLM must consistently set `revealHint: true` only when
-  explicitly stating the answer. System prompt wording and few-shot examples are the controls.
-  Monitor in testing and refine the prompt if the signal is unreliable.
+- **CRaC vs. GraalVM native vs. SnapStart**: Spike needed to confirm which cold-start strategy
+  works best with the raw `BedrockRuntimeClient`. See §12 of `docs/planning/ai-guide.md`.
+- **System prompt caching threshold**: Claude Haiku models require ≥2,048 tokens (not 1,024)
+  for prompt caching. The current `SYSTEM_PROMPT` exceeds this. Monitor cache hit metrics in
+  CloudWatch logs (`cacheReadTokens` / `cacheWriteTokens` in COACH_RESPONSE log events).
+- **`revealHint` frontend handling**: The frontend does not yet act on `revealHint` — it
+  displays the AI message but never conditionally shows/hides hint fields. Specs SC-UI-050
+  and SC-UI-051 remain unimplemented.
+- **Escape key panel close**: SC-UI-013 (Escape closes panel) is not implemented.
+- **Rate limiter DynamoDB cost**: Each coach call writes to the `SudokuCoachRateLimits` table
+  in addition to the main `SudokuPlayers` table. At low volume this is negligible; revisit
+  if call volume grows.
 
 ---
 

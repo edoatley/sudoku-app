@@ -359,6 +359,7 @@ function SudokuApp({ user, signOut }) {
           key={originalGrid ? originalGrid[0].join(',') : 'no-game'}
           currentGrid={currentGrid}
           setHighlightCells={setHighlightCells}
+          playerProfile={playerProfile}
         />
       )}
 

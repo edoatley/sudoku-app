@@ -111,6 +111,7 @@ jobs:
         id: api-smoke
         env:
           API_URL: ${{ inputs.api_gateway_url }}
+          ENV_TYPE: ${{ inputs.environment_type }}
         run: bash scripts/github/api-smoke-tests.sh "${API_URL}"
 
       - name: Wait for Amplify deployment to complete

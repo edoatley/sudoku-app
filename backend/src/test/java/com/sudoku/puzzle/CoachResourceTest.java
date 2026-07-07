@@ -2,6 +2,9 @@ package com.sudoku.puzzle;
 
 import com.sudoku.domain.Grid;
 import com.sudoku.dto.ChatMessage;
+import com.sudoku.player.PlayerProfile;
+import com.sudoku.player.PlayerRepository;
+import com.sudoku.player.PlayerService;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -14,21 +17,43 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 // @spec SC-API-002, SC-API-003, SC-API-004, SC-API-010, SC-API-011, SC-API-012
 // @spec SC-BE-001, SC-BE-002, SC-BE-003, SC-BE-009
+// @spec SC-RL-001, SC-RL-002, SC-RL-003
 @QuarkusTest
 class CoachResourceTest {
 
     @InjectMock
     BedrockCoachClient bedrockCoachClient;
 
+    @InjectMock
+    PlayerService playerService;
+
+    @InjectMock
+    PlayerRepository playerRepository;
+
+    @InjectMock
+    CoachRateLimiter rateLimiter;
+
+    private static final PlayerProfile ENABLED_PLAYER = new PlayerProfile(
+            "local-dev-user", "dev@example.com", "Dev User", null,
+            "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z",
+            Boolean.TRUE, 0L, null
+    );
+
     @BeforeEach
-    void stubBedrock() {
+    void stubDependencies() {
         when(bedrockCoachClient.call(anyString(), any(), anyList(), any()))
-                .thenReturn(new BedrockCoachClient.AiReply("Let's look at the board together.", false));
+                .thenReturn(new BedrockCoachClient.CallResult(
+                        new BedrockCoachClient.AiReply("Let's look at the board together.", false), 1500L));
+        when(playerService.getOrCreateProfile(anyString(), any(), any())).thenReturn(ENABLED_PLAYER);
+        when(rateLimiter.tryConsume(anyString())).thenReturn(true);
+        doNothing().when(playerRepository).incrementCoachTokens(anyString(), anyLong(), anyString());
     }
 
     private static final Grid PARTIAL_GRID = Grid.of(List.of(

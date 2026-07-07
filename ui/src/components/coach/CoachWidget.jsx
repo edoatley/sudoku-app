@@ -1,4 +1,4 @@
-// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004
+// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004, SC-RL-008
 import Fab from '@mui/material/Fab';
 import SchoolIcon from '@mui/icons-material/School';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -6,7 +6,9 @@ import { useTheme } from '@mui/material/styles';
 import CoachPanel from './CoachPanel.jsx';
 import { useCoachSession } from '../../hooks/useCoachSession.js';
 
-export default function CoachWidget({ currentGrid, setHighlightCells }) {
+const MONTHLY_TOKEN_LIMIT = 100_000;
+
+export default function CoachWidget({ currentGrid, setHighlightCells, playerProfile }) {
   const theme = useTheme();
   // @spec SC-UI-001 — desktop only; hide on screens narrower than md breakpoint
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -16,7 +18,10 @@ export default function CoachWidget({ currentGrid, setHighlightCells }) {
     setHighlightCells,
   });
 
-  if (isMobile) return null;
+  // @spec SC-RL-008 — hide FAB when AI coach is disabled in profile
+  if (isMobile || playerProfile?.aiCoachEnabled === false) return null;
+
+  const tokensUsed = playerProfile?.coachTokensUsedThisMonth ?? 0;
 
   return (
     <>
@@ -26,6 +31,8 @@ export default function CoachWidget({ currentGrid, setHighlightCells }) {
           isLoading={isLoading}
           onSend={sendMessage}
           onClose={close}
+          tokensUsed={tokensUsed}
+          monthlyTokenLimit={MONTHLY_TOKEN_LIMIT}
         />
       )}
       <Fab

@@ -6,10 +6,10 @@
 - [x] **UM-BE-002**: When GET /players/me is called for a user with an existing profile, the system shall return the stored profile unchanged, even if JWT claims have changed.
 - [x] **UM-BE-003**: When PATCH /players/me is called with a valid request body, the system shall load the existing PlayerProfile, apply non-null fields from the request, set updatedAt to the current UTC instant, and persist the result via upsert.
 - [x] **UM-BE-004**: When PATCH /players/me is called and no PlayerProfile exists for the authenticated user, the system shall return HTTP 404.
-- [x] **UM-BE-005**: When PATCH /players/me is called with both displayName and avatarKey absent or null, the system shall return HTTP 400 with a JSON error body.
+- [x] **UM-BE-005**: When PATCH /players/me is called with displayName, avatarKey, and aiCoachEnabled all absent or null, the system shall return HTTP 400 with a JSON error body.
 - [x] **UM-BE-006**: When PATCH /players/me is called with a displayName that is blank or exceeds 50 characters after trimming, the system shall return HTTP 400 with a JSON error body.
 - [x] **UM-API-001**: The system shall expose GET /players/me requiring JWT authentication and returning the player's PlayerProfile.
-- [x] **UM-API-002**: The system shall expose PATCH /players/me requiring JWT authentication, accepting a JSON body with optional displayName and avatarKey fields, and returning the updated PlayerProfile.
+- [x] **UM-API-002**: The system shall expose PATCH /players/me requiring JWT authentication, accepting a JSON body with optional displayName, avatarKey, and aiCoachEnabled fields, and returning the updated PlayerProfile.
 - [x] **UM-DATA-001**: The system shall store player profiles in DynamoDB with userId as the sole partition key (no sort key).
 - [x] **UM-DATA-002**: The system shall store createdAt and updatedAt as ISO-8601 UTC strings on every PlayerProfile.
 - [x] **UM-DATA-003**: The system shall store avatarKey as a nullable string attribute on every PlayerProfile; profiles created before this field existed shall return avatarKey as null.

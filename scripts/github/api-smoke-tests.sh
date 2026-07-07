@@ -97,9 +97,12 @@ STATUS=$(curl -s -o /tmp/games_noauth.json -w "%{http_code}" -X POST "${API_BASE
 check "POST /api/v1/games (no token → 401)" "${STATUS}" "401" "" /tmp/games_noauth.json
 
 # POST /api/v1/ai/scan without token — JWT authorizer must reject with 401
-STATUS=$(curl -s -o /tmp/scan_noauth.json -w "%{http_code}" -X POST "${API_BASE}/api/v1/ai/scan" \
-  -H "Content-Type: application/json" -d '{"image":"dGVzdA=="}' 2>/dev/null || true)
-check "POST /api/v1/ai/scan (no token → 401)" "${STATUS}" "401" "" /tmp/scan_noauth.json
+# AI routes are only active on rc-* workspaces (ai_coach_enabled = !is_default); skip on main.
+if [ "${ENV_TYPE:-main}" = "rc" ]; then
+  STATUS=$(curl -s -o /tmp/scan_noauth.json -w "%{http_code}" -X POST "${API_BASE}/api/v1/ai/scan" \
+    -H "Content-Type: application/json" -d '{"image":"dGVzdA=="}' 2>/dev/null || true)
+  check "POST /api/v1/ai/scan (no token → 401)" "${STATUS}" "401" "" /tmp/scan_noauth.json
+fi
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
