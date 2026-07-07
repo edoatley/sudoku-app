@@ -1,5 +1,7 @@
 package com.sudoku.player;
 
+import com.sudoku.player.web.PlayerUpdateRequest;
+import com.sudoku.player.web.PlayerProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 

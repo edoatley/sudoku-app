@@ -2,7 +2,7 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.Coordinate;
+import com.sudoku.puzzle.web.Coordinate;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;

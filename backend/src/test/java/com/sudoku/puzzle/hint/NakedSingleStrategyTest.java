@@ -2,8 +2,8 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Grid;
-import com.sudoku.dto.ActionableCell;
-import com.sudoku.dto.HintResponse;
+import com.sudoku.puzzle.web.ActionableCell;
+import com.sudoku.puzzle.web.HintResponse;
 import org.junit.jupiter.api.BeforeEach;
 import com.sudoku.puzzle.hint.Difficulty;
 import org.junit.jupiter.api.Test;

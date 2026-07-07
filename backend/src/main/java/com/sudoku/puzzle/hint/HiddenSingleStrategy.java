@@ -2,10 +2,10 @@ package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
-import com.sudoku.dto.ActionableCell;
-import com.sudoku.dto.CoordinateCandidate;
-import com.sudoku.dto.Coordinate;
-import com.sudoku.dto.HintResponse;
+import com.sudoku.puzzle.web.ActionableCell;
+import com.sudoku.puzzle.web.CoordinateCandidate;
+import com.sudoku.puzzle.web.Coordinate;
+import com.sudoku.puzzle.web.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;

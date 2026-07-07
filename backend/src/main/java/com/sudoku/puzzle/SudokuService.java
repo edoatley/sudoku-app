@@ -1,10 +1,10 @@
 package com.sudoku.puzzle;
 
 import com.sudoku.domain.Grid;
-import com.sudoku.dto.BoardRequest;
-import com.sudoku.dto.CandidatesResponse;
-import com.sudoku.dto.PuzzleResponse;
-import com.sudoku.dto.ValidationResponse;
+import com.sudoku.puzzle.web.BoardRequest;
+import com.sudoku.puzzle.web.CandidatesResponse;
+import com.sudoku.puzzle.web.PuzzleResponse;
+import com.sudoku.puzzle.web.ValidationResponse;
 import com.sudoku.puzzle.hint.HintResult;
 
 import java.util.Optional;

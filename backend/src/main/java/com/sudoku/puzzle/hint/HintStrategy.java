@@ -1,7 +1,7 @@
 package com.sudoku.puzzle.hint;
 
 import com.sudoku.domain.Board;
-import com.sudoku.dto.HintResponse;
+import com.sudoku.puzzle.web.HintResponse;
 
 import java.util.Optional;
 

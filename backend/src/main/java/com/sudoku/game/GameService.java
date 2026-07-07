@@ -1,9 +1,9 @@
 package com.sudoku.game;
 
 import com.sudoku.domain.Grid;
-import com.sudoku.dto.GameHistoryResponse;
-import com.sudoku.dto.GameState;
-import com.sudoku.dto.GameUpdateRequest;
+import com.sudoku.game.web.GameHistoryResponse;
+import com.sudoku.game.web.GameState;
+import com.sudoku.game.web.GameUpdateRequest;
 
 import java.util.Optional;
 

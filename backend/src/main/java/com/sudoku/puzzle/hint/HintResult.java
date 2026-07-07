@@ -1,6 +1,6 @@
 package com.sudoku.puzzle.hint;
 
-import com.sudoku.dto.HintResponse;
+import com.sudoku.puzzle.web.HintResponse;
 
 /**
  * Typed result of a hint request, distinguishing three distinct outcomes that callers

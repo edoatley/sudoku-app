@@ -1,8 +1,8 @@
 package com.sudoku.game;
 
-import com.sudoku.dto.GameHistoryEntry;
-import com.sudoku.dto.GameState;
-import com.sudoku.dto.GameUpdateRequest;
+import com.sudoku.game.web.GameHistoryEntry;
+import com.sudoku.game.web.GameState;
+import com.sudoku.game.web.GameUpdateRequest;
 
 import java.util.List;
 import java.util.Optional;

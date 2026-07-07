@@ -1,0 +1,330 @@
+package com.sudoku.game.web;
+
+import com.sudoku.game.GameRepository;
+import com.sudoku.domain.CandidatesGrid;
+import com.sudoku.domain.Grid;
+import com.sudoku.game.web.GameState;
+import com.sudoku.leaderboard.LeaderboardRepository;
+import io.quarkus.test.InjectMock;
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * API-level tests for {@link GameResource}.
+ *
+ * <p>Uses {@code @QuarkusTest}, which starts the app in-process via the Quarkus Lambda mock
+ * event server. {@code @InjectMock} replaces {@link GameRepository} with a Mockito mock so that
+ * {@link DynamoDbGameRepository} is never instantiated — no DynamoDB connection is required.
+ *
+ * <p>The real DynamoDB integration is exercised separately by the Docker Compose integration tests.
+ */
+@QuarkusTest
+// @spec GL-API-001, GL-API-002, GL-API-003, GL-API-004, GL-API-005
+class GameResourceTest {
+
+    @InjectMock
+    GameRepository gameRepository;
+
+    @InjectMock
+    LeaderboardRepository leaderboardRepository;
+
+    private static final String USER_ID = "local-dev-user";
+
+    private static final List<List<Integer>> GRID_ROWS = List.of(
+            List.of(5, 3, 0, 0, 7, 0, 0, 0, 0),
+            List.of(6, 0, 0, 1, 9, 5, 0, 0, 0),
+            List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
+            List.of(8, 0, 0, 0, 6, 0, 0, 0, 3),
+            List.of(4, 0, 0, 8, 0, 3, 0, 0, 1),
+            List.of(7, 0, 0, 0, 2, 0, 0, 0, 6),
+            List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
+            List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
+            List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
+    );
+
+    private static final Grid GRID = Grid.of(GRID_ROWS);
+
+    private static CandidatesGrid emptyCandidates() {
+        return CandidatesGrid.of(List.of(
+                List.of(List.of()), List.of(List.of()), List.of(List.of()),
+                List.of(List.of()), List.of(List.of()), List.of(List.of()),
+                List.of(List.of()), List.of(List.of()), List.of(List.of())
+        ));
+    }
+
+    @Test
+    void postGames_createsGameAndReturns201() {
+        // save() is void — default Mockito no-op is correct, no stub needed
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("difficulty", "easy"))
+        .when()
+                .post("/games")
+        .then()
+                .statusCode(201)
+                .contentType(ContentType.JSON)
+                .body("userId", equalTo(USER_ID))
+                .body("gameId", notNullValue())
+                .body("difficulty", equalTo("easy"))
+                .body("originalGrid.rows", hasSize(9))
+                .body("currentGrid.rows", hasSize(9))
+                .body("candidates.rows", hasSize(9))
+                .body("timeSpentSeconds", equalTo(0))
+                .body("status", equalTo("IN_PROGRESS"));
+    }
+
+    @Test
+    void getGame_afterCreate_returnsMatchingState() {
+        String gameId = given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("difficulty", "medium"))
+        .when()
+                .post("/games")
+        .then()
+                .statusCode(201)
+                .extract().path("gameId");
+
+        GameState saved = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null, 0);
+        when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(saved));
+
+        given()
+        .when()
+                .get("/games/{gameId}", gameId)
+        .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("userId", equalTo(USER_ID))
+                .body("gameId", equalTo(gameId))
+                .body("difficulty", equalTo("medium"))
+                .body("status", equalTo("IN_PROGRESS"));
+    }
+
+    @Test
+    void patchGame_updatesTimeAndReturns200() {
+        String gameId = given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("difficulty", "easy"))
+        .when()
+                .post("/games")
+        .then()
+                .statusCode(201)
+                .extract().path("gameId");
+
+        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null, 0);
+        GameState updated = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 60, "IN_PROGRESS", 0, null, null, 0);
+        when(gameRepository.findById(USER_ID, gameId))
+                .thenReturn(Optional.of(initial))
+                .thenReturn(Optional.of(updated));
+
+        given()
+        .when()
+                .get("/games/{gameId}", gameId)
+        .then()
+                .statusCode(200);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "currentGrid", GRID,
+                        "candidates", emptyCandidates(),
+                        "timeSpentSeconds", 60,
+                        "isComplete", false
+                ))
+        .when()
+                .patch("/games/{gameId}", gameId)
+        .then()
+                .statusCode(200);
+
+        given()
+        .when()
+                .get("/games/{gameId}", gameId)
+        .then()
+                .statusCode(200)
+                .body("timeSpentSeconds", equalTo(60));
+    }
+
+    @Test
+    void patchGame_withIsComplete_setsStatusToSolved() {
+        String gameId = given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("difficulty", "easy"))
+        .when()
+                .post("/games")
+        .then()
+                .statusCode(201)
+                .extract().path("gameId");
+
+        GameState initial = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 0, "IN_PROGRESS", 0, null, null, 0);
+        GameState solved  = new GameState(USER_ID, gameId, "easy", GRID, null, GRID, emptyCandidates(), 300, "SOLVED", 0, null, null, 0);
+        when(gameRepository.findById(USER_ID, gameId))
+                .thenReturn(Optional.of(initial))
+                .thenReturn(Optional.of(solved));
+
+        given()
+        .when()
+                .get("/games/{gameId}", gameId)
+        .then()
+                .statusCode(200);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of(
+                        "currentGrid", GRID,
+                        "candidates", emptyCandidates(),
+                        "timeSpentSeconds", 300,
+                        "isComplete", true
+                ))
+        .when()
+                .patch("/games/{gameId}", gameId)
+        .then()
+                .statusCode(200);
+
+        given()
+        .when()
+                .get("/games/{gameId}", gameId)
+        .then()
+                .statusCode(200)
+                .body("status", equalTo("SOLVED"));
+    }
+
+    @Test
+    void getGame_unknownId_returns404WithErrorBody() {
+        when(gameRepository.findById(eq(USER_ID), anyString())).thenReturn(Optional.empty());
+
+        given()
+        .when()
+                .get("/games/{gameId}", "00000000-0000-0000-0000-000000000000")
+        .then()
+                .statusCode(404)
+                .contentType(ContentType.JSON)
+                .body("code", equalTo("GAME_NOT_FOUND"))
+                .body("message", notNullValue());
+    }
+
+    @Test
+    void getCurrentGame_whenInProgress_returns200WithGame() {
+        String gameId = "in-progress-id";
+        GameState inProgress = new GameState(USER_ID, gameId, "medium", GRID, null, GRID, emptyCandidates(), 45, "IN_PROGRESS", 0, null, null, 0);
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
+
+        given()
+        .when()
+                .get("/games/current")
+        .then()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("gameId", equalTo(gameId))
+                .body("status", equalTo("IN_PROGRESS"))
+                .body("timeSpentSeconds", equalTo(45));
+    }
+
+    @Test
+    void getCurrentGame_whenNone_returns204() {
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.empty());
+
+        given()
+        .when()
+                .get("/games/current")
+        .then()
+                .statusCode(204);
+    }
+
+    @Test
+    void postGames_whenInProgressGameExists_abandonsIt() {
+        String existingGameId = "existing-game-id";
+        GameState inProgress = new GameState(USER_ID, existingGameId, "easy", GRID, null, GRID,
+                emptyCandidates(), 120, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null, 0);
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("difficulty", "hard"))
+        .when()
+                .post("/games")
+        .then()
+                .statusCode(201)
+                .body("status", equalTo("IN_PROGRESS"));
+
+        verify(gameRepository).abandonGame(USER_ID, existingGameId);
+        verify(gameRepository).save(any(GameState.class));
+    }
+
+    @Test
+    void postGamesFromImage_whenInProgressGameExists_abandonsIt() {
+        String existingGameId = "existing-import-id";
+        GameState inProgress = new GameState(USER_ID, existingGameId, "easy", GRID, null, GRID,
+                emptyCandidates(), 60, "IN_PROGRESS", 0, "2026-01-01T09:00:00Z", null, 0);
+        when(gameRepository.findInProgress(USER_ID)).thenReturn(Optional.of(inProgress));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("originalGrid", GRID))
+        .when()
+                .post("/games/from-image")
+        .then()
+                .statusCode(201)
+                .body("status", equalTo("IN_PROGRESS"));
+
+        verify(gameRepository).abandonGame(USER_ID, existingGameId);
+        verify(gameRepository).save(any(GameState.class));
+    }
+
+    @Test
+    void postGamesFromImage_withValidGrid_returns201WithSolutionGrid() {
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("originalGrid", GRID))
+        .when()
+                .post("/games/from-image")
+        .then()
+                .statusCode(201)
+                .contentType(ContentType.JSON)
+                .body("difficulty", equalTo("imported"))
+                .body("originalGrid.rows", hasSize(9))
+                .body("currentGrid.rows", hasSize(9))
+                .body("solutionGrid", notNullValue())
+                .body("solutionGrid.rows", hasSize(9));
+    }
+
+    @Test
+    void postGamesFromImage_withDuplicateDigitsInGrid_returns422WithErrorMessage() {
+        // Row 0 has two 5s — violates sudoku row constraint
+        Grid invalidGrid = Grid.of(List.of(
+                List.of(5, 5, 0, 0, 7, 0, 0, 0, 0),
+                List.of(6, 0, 0, 1, 9, 0, 0, 0, 0),
+                List.of(0, 9, 8, 0, 0, 0, 0, 6, 0),
+                List.of(8, 0, 0, 0, 6, 0, 0, 0, 3),
+                List.of(4, 0, 0, 8, 0, 3, 0, 0, 1),
+                List.of(7, 0, 0, 0, 2, 0, 0, 0, 6),
+                List.of(0, 6, 0, 0, 0, 0, 2, 8, 0),
+                List.of(0, 0, 0, 4, 1, 9, 0, 0, 5),
+                List.of(0, 0, 0, 0, 8, 0, 0, 7, 9)
+        ));
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(Map.of("originalGrid", invalidGrid))
+        .when()
+                .post("/games/from-image")
+        .then()
+                .statusCode(422)
+                .contentType(ContentType.JSON)
+                .body("code", equalTo("INVALID_PUZZLE"))
+                .body("message", containsString("duplicate"));
+    }
+
+}
