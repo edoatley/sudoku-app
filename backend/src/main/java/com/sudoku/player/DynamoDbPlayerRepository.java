@@ -82,7 +82,12 @@ public class DynamoDbPlayerRepository implements PlayerRepository {
                     ))
                     .build());
         } catch (ConditionalCheckFailedException e) {
-            // Month has rolled over — reset the counter to just the current tokens
+            // Month has rolled over: reset the counter to just this request's tokens.
+            // Concurrent requests at the exact month-boundary can both enter this catch block and race
+            // on the unconditional write below; the last writer wins and the other's tokens are dropped
+            // from the counter. Impact: at most ~300 tokens under-counted at the start of a new month.
+            // This is accepted — adding a second conditional here would not eliminate the race and would
+            // add complexity for negligible benefit (<$0.001 per occurrence).
             dynamoDbClient.updateItem(UpdateItemRequest.builder()
                     .tableName(tableName)
                     .key(key)

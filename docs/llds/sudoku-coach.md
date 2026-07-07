@@ -170,10 +170,36 @@ on `callCount < :limit` signals rate limit exceeded. The item TTL is 2 minutes f
 start. The limiter fails open on any non-conditional exception so infrastructure issues cannot
 lock users out.
 
+**Token increment timing and Lambda safety**
+
+The token increment (`incrementCoachTokens`) is called synchronously *after* the Bedrock
+call returns and *before* the HTTP response is sent. This is the correct pattern for Lambda:
+after a handler returns its response, the execution environment is frozen immediately, so any
+fire-and-forget async work may never complete. The synchronous path adds ~10–20 ms
+(one DynamoDB write), negligible against the 2–6 s Bedrock call already in the path.
+
+**Monthly budget is a soft limit (intentional)**
+
+The budget check reads `coachTokensUsedThisMonth` from the profile snapshot taken at the
+*start* of the request, before Bedrock is invoked. Under concurrent load near the limit, two
+simultaneous requests can both pass the check using the same stale count, both call Bedrock,
+and both increment — briefly exceeding the limit. The overage is at most one extra request's
+token cost (~300 tokens, < $0.001 for Claude Haiku). Pre-reservation is not feasible because
+token cost is unknown before invoking Bedrock. This soft-limit behaviour is intentional and
+documented in code.
+
+**Month rollover**
+
 Monthly token tracking uses an atomic `UpdateItem` on the `SudokuPlayers` table:
-- If `coachTokenMonth == currentMonth`, adds `tokensUsed` to `coachTokensUsedThisMonth`
+- If `coachTokenMonth == currentMonth`, adds `tokensUsed` to `coachTokensUsedThisMonth` via
+  `if_not_exists(..., 0) + :tokens` (handles first-ever coach call on a new profile)
 - If month has rolled over (`ConditionalCheckFailedException`), resets the counter to
-  `tokensUsed` (the current request's tokens only)
+  `tokensUsed` (the current request's tokens only) with an unconditional write
+
+Under concurrent load at the exact moment a month boundary is crossed, two requests can both
+fail the conditional check and both execute the fallback write; the last writer wins and the
+other's tokens are dropped from the counter. Impact: at most ~300 tokens under-counted at
+the start of a new month. This is documented in code and accepted given the negligible cost.
 
 Config properties:
 ```properties

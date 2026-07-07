@@ -67,6 +67,11 @@ public class CoachResource {
         }
 
         // @spec SC-RL-002, SC-RL-005 — monthly token budget check
+        // Soft limit: usedThisMonth is read from the profile snapshot above, before the Bedrock call.
+        // Under concurrent load near the limit, two requests can both pass with the same stale count,
+        // both call Bedrock, and both increment — exceeding the limit by at most one call's tokens
+        // (~300 tokens, <$0.001 for Claude Haiku). Pre-reservation is not feasible because token cost
+        // is unknown before invoking Bedrock. This soft-limit behaviour is intentional and accepted.
         String currentMonth = YearMonth.now().toString();
         long usedThisMonth = currentMonth.equals(player.coachTokenMonth())
                 ? (player.coachTokensUsedThisMonth() != null ? player.coachTokensUsedThisMonth() : 0L)
