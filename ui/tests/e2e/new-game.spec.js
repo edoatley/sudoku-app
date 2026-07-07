@@ -50,7 +50,7 @@ test('new-game — selecting Hard difficulty and starting a new game loads the p
     if (route.request().method() === 'GET' && route.request().url().includes(HARD_GAME_ID)) {
       route.fulfill({ status: 200, json: hardGameState });
     } else {
-      route.continue();
+      route.fallback();
     }
   });
 
@@ -58,7 +58,7 @@ test('new-game — selecting Hard difficulty and starting a new game loads the p
     if (route.request().method() === 'POST') {
       route.fulfill({ status: 201, json: hardGameState });
     } else {
-      route.continue();
+      route.fallback();
     }
   });
 
