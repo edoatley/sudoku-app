@@ -59,14 +59,15 @@ Formatting differences unknown until `biome check --write` is run (will reformat
 
 ## Acceptance criteria
 
-- [ ] `biome check .` exits 0 from `ui/`
-- [ ] `pre-commit run --all-files` exits 0
-- [ ] `make lint` exits 0
-- [ ] `make secure` exits 0 or all findings have documented suppressions
-- [ ] ESLint and its plugins removed from `package.json`
-- [ ] `scripts/local/local-alltests.sh` uses Biome, not ESLint
+- [x] `biome check .` exits 0 from `ui/`
+- [x] `pre-commit run --all-files` exits 0 (all 11 hooks pass)
+- [x] `make lint` exits 0
+- [x] `make secure` exits 0 — all findings suppressed with justification (CKV_TF_1, CKV_AWS_28, CVE-2026-54515)
+- [x] ESLint and its plugins removed from `package.json`; `@biomejs/biome` added as devDependency for CI
+- [x] `scripts/local/local-alltests.sh` uses Biome, not ESLint
 
 ## Related specs / docs
 
 - `docs/llds/react-frontend.md` — frontend coding standards
-- `ui/eslint.config.js` — the three disabled rules and their justification comments must be preserved as Biome suppressions
+- `ui/biome.json` — Biome configuration (replaces `eslint.config.js`)
+- The three previously-disabled `react-hooks` rules (`refs`, `immutability`, `set-state-in-effect`) have no Biome equivalents — no suppressions needed
