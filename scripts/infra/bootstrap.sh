@@ -311,7 +311,7 @@ DEPLOY_POLICY=$(cat <<EOF
         "budgets:DescribeBudgets", "budgets:ViewBudget",
         "budgets:TagResource", "budgets:UntagResource", "budgets:ListTagsForResource",
         "budgets:CreateBudgetAction", "budgets:UpdateBudgetAction", "budgets:DeleteBudgetAction",
-        "budgets:DescribeBudgetActionsForBudget", "budgets:DescribeBudgetActionHistories",
+        "budgets:DescribeBudgetAction", "budgets:DescribeBudgetActionsForBudget", "budgets:DescribeBudgetActionHistories",
         "budgets:ExecuteBudgetAction",
         "ce:CreateAnomalyMonitor", "ce:GetAnomalyMonitors", "ce:UpdateAnomalyMonitor", "ce:DeleteAnomalyMonitor",
         "ce:CreateAnomalySubscription", "ce:GetAnomalySubscriptions", "ce:UpdateAnomalySubscription", "ce:DeleteAnomalySubscription",
