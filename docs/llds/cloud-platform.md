@@ -69,10 +69,12 @@ One API (`sudoku{suffix}`) routes to both Lambda functions.
 
 | Route | Target |
 | --- | --- |
-| `$default` | Java Lambda (catches `/puzzles/*`, `/health`) |
+| `$default` | Java Lambda (catches `/puzzles/*`, `/health`, `/dev/hint-demo`) |
 | `GET /api/v1/ai/image-to-puzzle/warmup` | Image Recognition Lambda |
 
-`$default` is a catch-all at the gateway level — it forwards any unmatched path to the Java Lambda without JWT validation. `/dev/*` paths hit this route in every deployed environment, but the Lambda itself has no `/dev/*` handlers in deployed builds (`DevDataResource` was deleted; `DevResource` is `@IfBuildProfile(anyOf={"dev","it","test"})`, compiled out of every artifact except local `quarkus:dev`/IT/test), so those paths 404 from the Lambda. This closed a live PII leak — see `docs/planning/infra-review.md` finding H1.
+`$default` is a catch-all at the gateway level — it forwards any unmatched path to the Java Lambda without JWT validation. `/dev/data/*` used to hit this route too: `DevDataResource` ran unauthenticated full table scans over Games and Players with no build-profile guard, exposing every user's PII — see `docs/planning/infra-review.md` finding H1. That resource is now deleted (moved to JWT+group-gated `/admin/data/*`), so `/dev/data/*` 404s from the Lambda in every deployed environment.
+
+`/dev/hint-demo` (`DevResource`) is **not** profile-guarded and stays reachable through `$default` in every deployed environment, including production. This is deliberate, not an oversight: the Java Lambda is built once (`quarkus.profile=prod`) and that single artifact is shared by every Terraform workspace — there is no per-workspace backend build. An `@IfBuildProfile` guard would remove it everywhere, including RC/beta, where `VITE_DEV_TOOLS=true` still shows the demo-technique menu in the frontend and depends on this endpoint. It carries no user data (a canned puzzle grid per technique), so leaving it universally reachable is an accepted, low-risk trade-off — unlike the Games/Players Scan it replaced no PII is exposed.
 
 **JWT-protected routes:**
 

@@ -5,6 +5,8 @@
 **Status**: Implemented — pending user's pre-push run and manual RC verification
 **Severity**: HIGH — closes a live, unauthenticated production PII leak.
 
+**Post-implementation correction**: §4.1's `DevResource` (hint-demo) `@IfBuildProfile` guard was implemented as written, then reverted after RC smoke tests failed. The Java Lambda is built once and shared by every Terraform workspace (no per-workspace backend build), so the guard removed `/dev/hint-demo` from RC/beta too, where `VITE_DEV_TOOLS=true` still exposes the demo-technique menu and depends on it. Since hint-demo carries no user data, it now stays reachable via `$default` in every deployed environment — see `docs/llds/cloud-platform.md` (API Gateway) for the corrected design. `UM-BE-063` was removed from the EARS specs accordingly.
+
 ---
 
 ## 1. Why this change exists
