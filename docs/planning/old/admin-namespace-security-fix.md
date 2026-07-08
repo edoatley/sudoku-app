@@ -2,7 +2,7 @@
 
 **Created**: 2026-07-08
 **Branch**: `rc-admin-endpoints` (renamed from `security/admin-namespace-dev-endpoints` so it deploys to the `rc-shared`/sudoku-beta environment for manual verification)
-**Status**: Implemented — pending user's pre-push run and manual RC verification
+**Status**: Complete — implemented, tested (backend/frontend/infra + regression test proving the leak is closed), deployed to RC (`sudoku-beta.edoatley.co.uk`) via PR #115. Verify `PR #115` for final merge state.
 **Severity**: HIGH — closes a live, unauthenticated production PII leak.
 
 **Post-implementation correction**: §4.1's `DevResource` (hint-demo) `@IfBuildProfile` guard was implemented as written, then reverted after RC smoke tests failed. The Java Lambda is built once and shared by every Terraform workspace (no per-workspace backend build), so the guard removed `/dev/hint-demo` from RC/beta too, where `VITE_DEV_TOOLS=true` still exposes the demo-technique menu and depends on it. Since hint-demo carries no user data, it now stays reachable via `$default` in every deployed environment — see `docs/llds/cloud-platform.md` (API Gateway) for the corrected design. `UM-BE-063` was removed from the EARS specs accordingly.

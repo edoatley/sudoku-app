@@ -1,7 +1,7 @@
 # Infrastructure Review — `infra/` Terraform
 
 **Created**: 2026-07-08
-**Status**: Findings report — improvements to plan, nothing actioned yet
+**Status**: Findings report — H1 fixed (PR #115, 2026-07-08); H2–L5 not yet actioned
 **Scope**: All 15 `infra/*.tf` files, cross-checked against `infra/README.md`, `docs/llds/cloud-platform.md`, `.github/workflows/`, and backend code where a claim depended on it.
 
 Each finding lists what/where, impact, recommended fix, and effort (S/M/L).
@@ -10,9 +10,9 @@ Each finding lists what/where, impact, recommended fix, and effort (S/M/L).
 
 ## High priority
 
-### H1 — `/dev/data/*` full-table-dump endpoints are publicly reachable in production — **CONFIRMED LIVE 2026-07-08**
+### H1 — `/dev/data/*` full-table-dump endpoints are publicly reachable in production — **FIXED 2026-07-08 (PR #115)**
 
-**Status**: Verified exploitable against production. Unauthenticated `GET https://7xv70er20f.execute-api.eu-west-2.amazonaws.com/api/v1/dev/data/players` returned **HTTP 200** with the full SudokuPlayers table — real display names, email addresses, and user IDs for every registered user. No token supplied. (`/api/v1/health` returned 503 at the same time, confirming the leak is specific to the ungated `/dev/*` resources, not a broadly open API.)
+**Status**: Was verified exploitable against production. Unauthenticated `GET https://7xv70er20f.execute-api.eu-west-2.amazonaws.com/api/v1/dev/data/players` returned **HTTP 200** with the full SudokuPlayers table — real display names, email addresses, and user IDs for every registered user. No token supplied. (`/api/v1/health` returned 503 at the same time, confirming the leak is specific to the ungated `/dev/*` resources, not a broadly open API.) `DevDataResource` is now deleted; `/api/v1/dev/data/*` 404s in every deployed environment, verified by `backend/src/test/java/com/sudoku/developer/DevDataRouteRemovedTest.java` (re-runs on every `mvn test`) and `scripts/github/api-smoke-tests.sh` (re-runs the literal exploit URL against the live API on every deploy).
 
 **Where**: `infra/api_gateway.tf:8` (`$default` route, no auth) + `backend/src/main/java/com/sudoku/developer/DevDataResource.java`
 
@@ -31,7 +31,7 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S (backend annotation) + S (IAM tightening)
 
-**Fix planned**: see `docs/planning/admin-namespace-security-fix.md` — the chosen approach promotes the data browser to an admin-group-gated `/admin` namespace (kept in prod for admins) rather than compiling it out, so the Games/Players Scan grants are retained; the `hint-demo` dev aid is compiled out of prod.
+**Fix implemented**: see `docs/planning/old/admin-namespace-security-fix.md` — the data browser was promoted to an admin-group-gated `/admin/data/*` namespace (kept in prod for admins) rather than compiled out, so the Games/Players Scan grants are retained; see `docs/llds/user-management.md` — Admin Authorization. The `hint-demo` dev aid is deliberately **not** compiled out of prod (a first attempt at that broke RC smoke tests — the Lambda is built once and shared by every Terraform workspace, so it would have removed hint-demo from RC/beta too); it stays reachable everywhere, which is an accepted trade-off since it carries no user data. See `docs/llds/cloud-platform.md` — API Gateway.
 
 ### H2 — Bedrock budget kill-switch does not cover the image recognition Lambda
 

@@ -15,7 +15,7 @@ Player profile lazy-creation and update, JWT-based auth, email allowlist, CORS, 
 - docs/llds/user-management.md
 
 ### EARS
-- docs/specs/user-management-specs.md (37 specs, all [x])
+- docs/specs/user-management-specs.md (38 specs, all [x])
 
 ### Tests
 - backend/src/test/java/com/sudoku/player/PlayerResourceTest.java — covers UM-BE-001 to 002, UM-API-001 to 002, UM-DATA-001 to 003; @spec annotations added
@@ -23,9 +23,11 @@ Player profile lazy-creation and update, JWT-based auth, email allowlist, CORS, 
 - backend/src/test/java/com/sudoku/web/filter/AllowedUsersFilterTest.java — covers UM-BE-010 to 012, UM-BE-020 to 022; @spec annotations added
 - backend/src/test/java/com/sudoku/admin/AdminAuthorizationFilterTest.java — covers UM-BE-060 to 062; @spec annotations added
 - backend/src/test/java/com/sudoku/admin/AdminDataResourceTest.java — resource behaviour moved verbatim from the former (untested) DevDataResource
+- backend/src/test/java/com/sudoku/developer/DevDataRouteRemovedTest.java — covers UM-BE-064; live HTTP regression proof that `/dev/data/{games,players}` 404 (the deleted PII-leak route)
 - backend/src/test/java/com/sudoku/developer/DevResourceTest.java — unchanged; DevResource is deliberately not profile-guarded (see cloud-platform.md — API Gateway)
 - ui/src/api/sudokuApi.test.js — getAdminData auth/403 handling, isAdmin/getAdminGroups claim parsing
 - ui/src/App.admin.test.jsx — data browser menu entry gated on admin state
+- scripts/github/api-smoke-tests.sh — deployed-environment proof: re-runs the literal exploit request (`GET /api/v1/dev/data/{games,players}`, expects 404) plus the replacement route's 401 check, on every deploy
 
 ### Code
 - backend/src/main/java/.../player/PlayerResource.java
@@ -78,12 +80,12 @@ Player profile lazy-creation and update, JWT-based auth, email allowlist, CORS, 
 | Frontend Profile Update | UM-UI-001 to 008 | 8 | 0 | 0 |
 | Authentication | UM-BE-010 to 012 | 3 | 0 | 0 |
 | Email Allowlist | UM-BE-020 to 022 | 3 | 0 | 0 |
-| Admin Authorization | UM-BE-060 to 062 | 3 | 0 | 0 |
+| Admin Authorization | UM-BE-060 to 062, UM-BE-064 | 4 | 0 | 0 |
 | Dev & Test Isolation | UM-BE-030 to 032 | 3 | 0 | 0 |
 | CORS | UM-BE-040 to 042 | 3 | 0 | 0 |
 | API Logging | UM-BE-050 to 052 | 3 | 0 | 0 |
 
-**Summary:** 37 of 37 active specs implemented; 0 deferred; 0 gaps.
+**Summary:** 38 of 38 active specs implemented; 0 deferred; 0 gaps.
 
 ## Key Findings
 

@@ -104,9 +104,17 @@ if [ "${ENV_TYPE:-main}" = "rc" ]; then
   check "POST /api/v1/ai/image-to-puzzle (no token → 401)" "${STATUS}" "401" "" /tmp/scan_noauth.json
 fi
 
+# GET /api/v1/dev/data/{games,players} — this is the LITERAL request that proved the PII leak
+# (docs/planning/infra-review.md finding H1: unauthenticated HTTP 200 with the full SudokuPlayers
+# table). DevDataResource has been deleted entirely, so it must now 404, not 401 — there is no
+# handler left to authorize against.
+for entity in games players; do
+  STATUS=$(curl -s -o "/tmp/devdata_${entity}.json" -w "%{http_code}" "${API_BASE}/api/v1/dev/data/${entity}" 2>/dev/null || true)
+  check "GET /api/v1/dev/data/${entity} (deleted route → 404, was the leak)" "${STATUS}" "404" "" "/tmp/devdata_${entity}.json"
+done
+
 # GET /api/v1/admin/data/{games,players} without token — JWT authorizer must reject with 401.
-# This re-runs the exact request that exposed the /dev/data/* PII leak (see
-# docs/planning/infra-review.md finding H1) against the new admin-gated route.
+# This is the replacement route: same data, now gated.
 for entity in games players; do
   STATUS=$(curl -s -o "/tmp/admin_${entity}_noauth.json" -w "%{http_code}" "${API_BASE}/api/v1/admin/data/${entity}" 2>/dev/null || true)
   check "GET /api/v1/admin/data/${entity} (no token → 401)" "${STATUS}" "401" "" "/tmp/admin_${entity}_noauth.json"

@@ -62,8 +62,8 @@ arrows:
     lld: docs/llds/user-management.md
     specs: docs/specs/user-management-specs.md
     arrow: docs/arrows/user-management.md
-    spec_count: 37
-    implemented: 37
+    spec_count: 38
+    implemented: 38
     deferred: 0
     gaps: 0
     next: ~
