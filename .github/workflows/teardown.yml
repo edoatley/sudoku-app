@@ -61,7 +61,6 @@ jobs:
           -auto-approve
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "lambda_zip_path=/dev/null"
-          -var "environment=${{ steps.workspace.outputs.workspace }}"
 
       - name: Delete workspace
         working-directory: infra

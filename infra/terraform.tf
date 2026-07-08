@@ -24,7 +24,7 @@ provider "aws" {
     tags = {
       Project     = "Sudoku"
       ManagedBy   = "Terraform"
-      Environment = var.environment
+      Environment = local.is_default ? "prod" : terraform.workspace
     }
   }
 }

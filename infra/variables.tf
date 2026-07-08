@@ -16,12 +16,6 @@ variable "github_repo" {
   default     = "sudoku-app"
 }
 
-variable "environment" {
-  description = "Deployment environment label applied to all resources via provider default_tags."
-  type        = string
-  default     = "prod"
-}
-
 variable "lambda_zip_path" {
   description = "Local path to the Lambda deployment zip produced by the Maven build."
   type        = string

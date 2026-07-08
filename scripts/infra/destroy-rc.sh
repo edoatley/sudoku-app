@@ -58,7 +58,6 @@ AWS_PROFILE=sandbox terraform destroy \
   -input=false \
   -var "github_token=${AMPLIFY_GITHUB_TOKEN}" \
   -var "lambda_zip_path=/dev/null" \
-  -var "environment=${WORKSPACE}" \
   -var "google_client_id=placeholder" \
   -var "google_client_secret=placeholder" \
   -var "smoke_test_user_email=placeholder@example.com" \

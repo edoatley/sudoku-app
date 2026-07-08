@@ -131,3 +131,33 @@ moved {
   from = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/ai/scan/warmup"]
   to   = module.api_gateway.aws_apigatewayv2_route.this["GET /api/v1/ai/image-to-puzzle/warmup"]
 }
+
+# ── Phase 5: main Lambda log group moved out of the module (M3 infra-review fix) ─
+# RC workspaces previously had the module create/manage this log group directly
+# (use_existing_cloudwatch_log_group = false); it now lives at a standalone
+# address so retention can be set uniformly. No-ops on the default workspace,
+# which never had this resource under the module (see import{} below instead).
+moved {
+  from = module.lambda.aws_cloudwatch_log_group.lambda[0]
+  to   = aws_cloudwatch_log_group.lambda
+}
+
+# The default (production) workspace's log group was auto-created by Lambda
+# before Terraform managed it, so it needs a one-time import instead of a move.
+# for_each is empty on every other workspace, so this only ever runs for default.
+import {
+  for_each = local.is_default ? toset(["lambda"]) : toset([])
+  to       = aws_cloudwatch_log_group.lambda
+  id       = "/aws/lambda/sudoku"
+}
+
+# ── Phase 6: anomaly monitor/subscription renamed to reflect account-wide scope (M5 infra-review fix) ─
+moved {
+  from = aws_ce_anomaly_monitor.bedrock
+  to   = aws_ce_anomaly_monitor.account_wide
+}
+
+moved {
+  from = aws_ce_anomaly_subscription.bedrock
+  to   = aws_ce_anomaly_subscription.account_wide
+}

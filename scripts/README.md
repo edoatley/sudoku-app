@@ -304,7 +304,6 @@ selection. Used by the `ci-deploy.yml` workflow.
 
 ```bash
 bash scripts/github/terraform-plan.sh \
-  --environment prod \
   --is-main true \
   --out tfplan
 ```

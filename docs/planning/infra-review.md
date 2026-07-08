@@ -79,7 +79,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 ## Medium priority
 
-### M1 — CORS origins disagree between API Gateway and the Lambda
+### M1 — CORS origins disagree between API Gateway and the Lambda — **FIXED 2026-07-08**
+
+**Fix implemented**: Dropped the raw `*.amplifyapp.com` URL from the Lambda's `CORS_ALLOWED_ORIGINS` (`infra/lambda.tf`) so it agrees with API Gateway's existing exclusion, and replaced the `local.is_rc ? beta : prod` ternary with an explicit three-way branch (`is_default` / `is_rc` / else → localhost-only). `infra/README.md`'s CORS section updated to match. Verified via `terraform validate`.
+
 
 **Where**: `infra/api_gateway.tf:105-116` vs `infra/lambda.tf:85`
 
@@ -99,7 +102,9 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### M3 — Main Lambda log-group retention unmanaged in production
+**Fix implemented**: Hoisted into `local.bedrock_invoke_resources` in `main.tf`; both `iam.tf` and `image_recognition_lambda.tf` now reference it. — **FIXED 2026-07-08**
+
+### M3 — Main Lambda log-group retention unmanaged in production — **FIXED 2026-07-08**
 
 **Where**: `infra/lambda.tf:96` (`use_existing_cloudwatch_log_group = local.is_default`)
 
@@ -109,7 +114,9 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### M4 — `Environment` tag defaults to `prod` on every workspace
+**Fix implemented**: More involved than "S" — confirmed via `terraform state list` (live sandbox creds) that on `default`, the module only ever *adopts* the log group via a `data` source, which never sets retention; setting `cloudwatch_logs_retention_in_days` alone would have silently no-opped in production. Instead: log-group management moved to a standalone `aws_cloudwatch_log_group.lambda` resource (`infra/lambda.tf`, mirrors the existing `aws_cloudwatch_log_group.api_gateway` pattern) with `retention_in_days = local.is_default ? 7 : 3`; a `moved{}` block in `migrations.tf` migrates existing RC state with zero resource replacement (verified via live-state `terraform plan` on `rc-terraform-review`: clean in-place update); an `import{}` block (`for_each` gated on `local.is_default`) brings production's pre-existing, previously-untracked `/aws/lambda/sudoku` group under management (verified via live-state `terraform plan` on `default`: clean import + in-place `retention_in_days: 0 → 7`, no destroy/recreate). Confirmed via `aws logs describe-log-groups` that `/aws/lambda/sudoku` currently has no retention limit, and that several long-destroyed RC workspaces (e.g. `rc-auth`, `rc-mobile`) have orphaned log groups still accruing storage cost — not fixed here, worth a follow-up cleanup.
+
+### M4 — `Environment` tag defaults to `prod` on every workspace — **FIXED 2026-07-08**
 
 **Where**: `infra/variables.tf:19-23`, `infra/terraform.tf:27`
 
@@ -119,7 +126,9 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### M5 — "Bedrock" anomaly monitor is actually account-wide
+**Fix implemented**: `local.is_default ? "prod" : terraform.workspace` used directly in the provider block (locals *are* usable there — confirmed via `terraform validate` — the original note about needing `terraform.workspace` directly was overcautious). Removed `variable "environment"` entirely and its five `-var "environment=..."` call sites (`scripts/github/terraform-plan.sh` and its `--environment` flag, `scripts/infra/destroy-rc.sh`, `scripts/infra/deploy-local.sh`, `.github/workflows/teardown.yml`, `.github/workflows/teardown-rc.yml`, `.github/workflows/ci-deploy.yml`'s call site, `scripts/README.md`), since Terraform errors on `-var` for an undeclared variable.
+
+### M5 — "Bedrock" anomaly monitor is actually account-wide — **FIXED 2026-07-08**
 
 **Where**: `infra/budgets.tf:132-161`
 
@@ -128,6 +137,8 @@ Its javadoc claims the paths are "intentionally not registered in any production
 **Fix**: Either rename to reflect account-wide scope (arguably more useful — keep it) and fix the comments, or switch to a `CUSTOM` monitor with a Bedrock service filter.
 
 **Effort**: S
+
+**Fix implemented**: Kept account-wide (more useful) and renamed: `aws_ce_anomaly_monitor.bedrock` → `.account_wide` (`SudokuBedrockAnomalyMonitor` → `SudokuAccountWideAnomalyMonitor`), `aws_ce_anomaly_subscription.bedrock` → `.account_wide` (`SudokuBedrockAnomalyAlert` → `SudokuAccountWideAnomalyAlert`), with `moved{}` blocks in `migrations.tf`. Verified via live-state `terraform plan` on `default`: the monitor rename is a clean in-place update, but **the subscription rename forces a destroy/recreate** (`name` is immutable on `aws_ce_anomaly_subscription`) — a one-time, low-risk replacement of an alert subscription (no data loss beyond a brief detection gap) that will happen on the next production apply.
 
 ### M6 — Smoke tests use the public web client, making `ALLOW_USER_PASSWORD_AUTH` load-bearing on it
 

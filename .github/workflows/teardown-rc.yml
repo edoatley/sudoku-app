@@ -58,7 +58,6 @@ jobs:
           -input=false
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
           -var "lambda_zip_path=/dev/null"
-          -var "environment=${{ steps.workspace.outputs.workspace }}"
           -var "google_client_id=placeholder"
           -var "google_client_secret=placeholder"
           -var "smoke_test_user_email=placeholder@example.com"
