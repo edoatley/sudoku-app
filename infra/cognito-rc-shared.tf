@@ -95,9 +95,9 @@ resource "aws_cognito_user_pool_client" "rc_shared_web" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["Google"]
-  # USER_PASSWORD_AUTH enabled for smoke-test CI token acquisition.
-  # The smoke test user is admin-created and never surfaced in the UI.
-  explicit_auth_flows           = ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  # Social-login only — no USER_PASSWORD_AUTH. CI authenticates as the
+  # separate sudoku-smoke-test-rc client instead (see smoke-tests.yml).
+  explicit_auth_flows           = ["ALLOW_REFRESH_TOKEN_AUTH"]
   enable_token_revocation       = true
   prevent_user_existence_errors = "ENABLED"
 

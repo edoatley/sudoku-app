@@ -31,9 +31,12 @@ export default async function globalSetup() {
   const { jwtDecode } = await import('jwt-decode');
   const claims = jwtDecode(idToken);
   const username = claims['cognito:username'] ?? claims.sub;
-  // Extract client ID from the token's aud claim — avoids the GitHub Actions
-  // secret-masking problem where COGNITO_CLIENT_ID arrives as an empty string.
-  const clientId = Array.isArray(claims.aud) ? claims.aud[0] : claims.aud;
+  // The storage key must be prefixed with the *web* client ID the deployed
+  // frontend is actually configured with (VITE_COGNITO_CLIENT_ID), not the
+  // token's own aud — the token is now issued by the smoke-test app client
+  // (see smoke-tests.yml), which is different from the web client. Fall back
+  // to the token's aud (historical behaviour) only if the env var is unset.
+  const clientId = process.env.COGNITO_CLIENT_ID || (Array.isArray(claims.aud) ? claims.aud[0] : claims.aud);
 
   const prefix = `CognitoIdentityServiceProvider.${clientId}`;
   const storageEntries = {

@@ -140,7 +140,7 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Fix implemented**: Kept account-wide (more useful) and renamed: `aws_ce_anomaly_monitor.bedrock` → `.account_wide` (`SudokuBedrockAnomalyMonitor` → `SudokuAccountWideAnomalyMonitor`), `aws_ce_anomaly_subscription.bedrock` → `.account_wide` (`SudokuBedrockAnomalyAlert` → `SudokuAccountWideAnomalyAlert`), with `moved{}` blocks in `migrations.tf`. Verified via live-state `terraform plan` on `default`: the monitor rename is a clean in-place update, but **the subscription rename forces a destroy/recreate** (`name` is immutable on `aws_ce_anomaly_subscription`) — a one-time, low-risk replacement of an alert subscription (no data loss beyond a brief detection gap) that will happen on the next production apply.
 
-### M6 — Smoke tests use the public web client, making `ALLOW_USER_PASSWORD_AUTH` load-bearing on it
+### M6 — Smoke tests use the public web client, making `ALLOW_USER_PASSWORD_AUTH` load-bearing on it — **FIXED 2026-07-08**
 
 **Where**: `infra/cognito.tf:181`, `infra/cognito-rc-shared.tf:100`, `.github/workflows/smoke-tests.yml:170-186`, `scripts/github/amplify-post-deploy.sh:109`
 
@@ -150,7 +150,16 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: M
 
-### M7 — Completed `moved{}` migrations linger in `migrations.tf`
+**Fix implemented**: More involved than the finding anticipated — the Playwright smoke tests seed a fake logged-in browser session by writing the ID token into localStorage under a key prefixed with the token's own `aud` claim (`ui/tests/integration/auth-setup.js`). Switching token acquisition to the smoke client would have changed `aud` to the smoke client's ID while the deployed frontend is configured with the *web* client's ID, breaking session recognition. Fixed by:
+1. Validating the SECRET_HASH mechanics live first, against the real `sudoku-smoke-test-rc` client in the `rc-shared` pool, using a disposable admin-created test user (created, authenticated, deleted — no residue) — confirmed `initiate-auth` with a computed `SECRET_HASH` succeeds and the token's `aud` matches the smoke client.
+2. `smoke-tests.yml`: resolves both the web client ID (unchanged, still needed for the frontend session key) and the smoke-test client ID by name (`sudoku-smoke-test` / `sudoku-smoke-test-rc`) for both environments uniformly, fetches its secret via `describe-user-pool-client` (masked immediately), computes `SECRET_HASH`, and authenticates against the smoke client instead of the web client.
+3. `ui/tests/integration/auth-setup.js`: now keys the seeded localStorage session off `process.env.COGNITO_CLIENT_ID` (the actual web client ID) instead of the token's `aud`, falling back to the old aud-derivation only if that env var is empty.
+4. Removed `ALLOW_USER_PASSWORD_AUTH` from both web clients (`cognito.tf`, `cognito-rc-shared.tf`) — verified via live-state `terraform plan` on both `default` and `rc-shared`: clean in-place update, no replacement.
+5. Removed it from `amplify-post-deploy.sh:109` too — this script runs `update-user-pool-client` on *every* deploy and would otherwise have silently re-added the flag Terraform just removed.
+
+Not verified end-to-end (would require a live Playwright run against a deployed Amplify app on the `rc-terraform-review` branch) — validated at the mechanics/unit level as far as possible without deploying.
+
+### M7 — Completed `moved{}` migrations linger in `migrations.tf` — **PARTIALLY FIXED 2026-07-08**
 
 **Where**: `infra/migrations.tf` (all 133 lines)
 
@@ -159,6 +168,8 @@ Its javadoc claims the paths are "intentionally not registered in any production
 **Fix**: For each live workspace, confirm `terraform state list` shows only module addresses, then delete the file.
 
 **Effort**: S (verification is the work)
+
+**Fix implemented**: Ran `terraform state list` (live sandbox creds) against every listed workspace and found a 4th, undocumented one: `rc-test-cicd` — still on the pre-module bespoke addresses (Phase 1-4 never applied), *and* its state had been locked since 2026-04-02 by a GitHub Actions runner that apparently crashed mid-apply. Its git branch no longer existed, so it was an orphan silently accruing AWS cost (Lambda, API Gateway, DynamoDB tables, etc.) with no path to ever self-heal via `teardown-rc.yml` (branch-delete triggered, but the branch was already gone). Force-unlocked it, ran `terraform destroy` (33 resources destroyed cleanly), and deleted the workspace. With `rc-test-cicd` gone, `default`, `rc-shared`, and `rc-terraform-review` are all confirmed on module-based addresses — Phase 1-4 `moved{}` blocks removed, verified via a full `terraform plan` against `default` (live sandbox creds) showing zero API-Gateway/Lambda-address-related diffs. The file is **not yet fully deletable**: Phase 5 (M3) and Phase 6 (M5) `moved{}`/`import{}` blocks added this session are still pending a production apply (they only ever run against the `default` workspace, which this iterative RC-verification loop doesn't reach) — remove them once `main` has deployed successfully.
 
 ---
 

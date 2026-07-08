@@ -106,7 +106,7 @@ aws cognito-idp update-user-pool-client \
   --allowed-o-auth-flows "code" \
   --allowed-o-auth-scopes "openid" "email" "profile" \
   --allowed-o-auth-flows-user-pool-client \
-  --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH
+  --explicit-auth-flows ALLOW_REFRESH_TOKEN_AUTH
 echo "Cognito callback URLs updated."
 
 # ── Section B: Poll domain association verification (rc mode only) ────────────

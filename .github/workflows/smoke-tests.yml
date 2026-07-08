@@ -145,43 +145,67 @@ jobs:
         with:
           role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
 
-      - name: Resolve Cognito web client ID
+      - name: Resolve Cognito client IDs
         id: resolve-client
         env:
           USER_POOL_ID: ${{ inputs.cognito_user_pool_id }}
-          CLIENT_ID_INPUT: ${{ inputs.cognito_client_id }}
+          WEB_CLIENT_ID_INPUT: ${{ inputs.cognito_client_id }}
           ENV_TYPE: ${{ inputs.environment_type }}
         run: |
           if [[ "${ENV_TYPE}" == "rc" ]]; then
-            # RC branches share one Cognito pool — resolve web client by name.
-            CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
+            # RC branches share one Cognito pool — resolve both clients by name.
+            WEB_CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
               --user-pool-id "${USER_POOL_ID}" \
               --query "UserPoolClients[?ClientName=='sudoku-web-rc'].ClientId | [0]" \
               --output text)
-            if [[ -z "${CLIENT_ID}" || "${CLIENT_ID}" == "None" ]]; then
-              echo "::error::Could not resolve web client ID for pool ${USER_POOL_ID}"
-              exit 1
-            fi
+            SMOKE_CLIENT_NAME="sudoku-smoke-test-rc"
           else
-            CLIENT_ID="${CLIENT_ID_INPUT}"
+            WEB_CLIENT_ID="${WEB_CLIENT_ID_INPUT}"
+            SMOKE_CLIENT_NAME="sudoku-smoke-test"
           fi
-          echo "RESOLVED_CLIENT_ID=${CLIENT_ID}" >> "$GITHUB_ENV"
+          if [[ -z "${WEB_CLIENT_ID}" || "${WEB_CLIENT_ID}" == "None" ]]; then
+            echo "::error::Could not resolve web client ID for pool ${USER_POOL_ID}"
+            exit 1
+          fi
+
+          # The web client is social-login-only (no ALLOW_USER_PASSWORD_AUTH) —
+          # CI authenticates as the purpose-built, secret-bearing smoke-test
+          # client instead. Its token is still accepted by the API's JWT
+          # authorizer (audience includes both clients).
+          SMOKE_CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
+            --user-pool-id "${USER_POOL_ID}" \
+            --query "UserPoolClients[?ClientName=='${SMOKE_CLIENT_NAME}'].ClientId | [0]" \
+            --output text)
+          if [[ -z "${SMOKE_CLIENT_ID}" || "${SMOKE_CLIENT_ID}" == "None" ]]; then
+            echo "::error::Could not resolve smoke-test client ID for pool ${USER_POOL_ID}"
+            exit 1
+          fi
+          SMOKE_CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
+            --user-pool-id "${USER_POOL_ID}" \
+            --client-id "${SMOKE_CLIENT_ID}" \
+            --query 'UserPoolClient.ClientSecret' \
+            --output text)
+          echo "::add-mask::${SMOKE_CLIENT_SECRET}"
+
+          echo "RESOLVED_CLIENT_ID=${WEB_CLIENT_ID}"     >> "$GITHUB_ENV"
+          echo "SMOKE_CLIENT_ID=${SMOKE_CLIENT_ID}"       >> "$GITHUB_ENV"
+          echo "SMOKE_CLIENT_SECRET=${SMOKE_CLIENT_SECRET}" >> "$GITHUB_ENV"
 
       - name: Acquire Cognito ID token for smoke test user
         id: get-token
         env:
-          USER_POOL_ID: ${{ inputs.cognito_user_pool_id }}
           USERNAME: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
         run: |
-          # The web client has no secret, so no SECRET_HASH is required.
+          SECRET_HASH=$(printf '%s' "${USERNAME}${SMOKE_CLIENT_ID}" | openssl dgst -sha256 -hmac "${SMOKE_CLIENT_SECRET}" -binary | base64)
           AUTH_PARAMS=$(jq -n \
             --arg u "${USERNAME}" \
             --arg p "${PASSWORD}" \
-            '{"USERNAME": $u, "PASSWORD": $p}')
+            --arg h "${SECRET_HASH}" \
+            '{"USERNAME": $u, "PASSWORD": $p, "SECRET_HASH": $h}')
           RESPONSE=$(aws cognito-idp initiate-auth \
             --auth-flow USER_PASSWORD_AUTH \
-            --client-id "${RESOLVED_CLIENT_ID}" \
+            --client-id "${SMOKE_CLIENT_ID}" \
             --auth-parameters "${AUTH_PARAMS}" \
             --output json)
 
