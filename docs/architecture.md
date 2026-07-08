@@ -188,6 +188,8 @@ A non-default, non-`rc-*` workspace (feature env) gets its own Cognito pool and 
 
 Boxes and arrows match §2/§3; labels carry the edge IDs for cross-reference.
 
+A rendered AWS-icon version of this diagram is also available: [`docs/images/architecture.drawio.png`](images/architecture.drawio.png) (editable source: [`docs/diagram/architecture.drawio`](diagram/architecture.drawio)).
+
 ```mermaid
 flowchart TB
     subgraph External

@@ -1,6 +1,6 @@
 # Serverless Sudoku
 
-![CI](https://github.com/edoatley/sudoku-app/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/edoatley/sudoku-app/actions/workflows/ci-deploy.yml/badge.svg)
 
 A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a React frontend on AWS Amplify.
 
