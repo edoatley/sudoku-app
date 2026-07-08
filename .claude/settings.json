@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "frontend-design@claude-code-plugins": true
-  },
   "permissions": {
     "allow": [
       "Bash(sed:*)",
@@ -35,5 +32,17 @@
       "Bash(aws cloudformation list-stacks *)"
     ],
     "mode": "auto"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-code-plugins": true,
+    "linked-intent-dev@jszmajda-lid": true
+  },
+  "extraKnownMarketplaces": {
+    "jszmajda-lid": {
+      "source": {
+        "source": "github",
+        "repo": "jszmajda/lid"
+      }
+    }
   }
 }

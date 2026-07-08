@@ -8,3 +8,4 @@ image_recognition/.coverage
 test-results/
 .agent
 node_modules
+.ruff_cache

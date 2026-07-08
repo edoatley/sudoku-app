@@ -2,12 +2,6 @@
 
 **Summary:** Add a `--since` flag accepting an absolute date/timestamp so the script can filter logs from a specific point in time, not just a relative window.
 
-**Branch context:** `rc-ai-coach` — AI coach interaction logging feature being built out
-
-## Why deferred
-
-Out of scope for the current PR; the `--hours` flag covers immediate needs but an absolute date filter is more useful for post-incident review or comparing across days.
-
 ## Context
 
 **Relevant files:**
@@ -21,6 +15,7 @@ The script computes `START_TIME` as `(now - HOURS * 3600) * 1000` and always fil
 - Input format should be flexible — at minimum accept `YYYY-MM-DD` (treated as midnight UTC) and `YYYY-MM-DDTHH:MM:SSZ`; use `date -d` (GNU) or `date -j -f` (macOS) for parsing
 - macOS `date` and GNU `date` have different flags; the script uses `date +%s` which works on both, but parsing an arbitrary string requires a compatibility shim
 - No new dependencies — pure bash + coreutils
+- `--since` only changes the `--start-time` bound passed to `aws logs filter-log-events` — it's agnostic to what fields each log line carries, so it works unchanged whether or not [`coach-log-full-conversation-capture.md`](coach-log-full-conversation-capture.md) has landed yet. Implement in either order.
 
 ## What to do
 
@@ -44,3 +39,4 @@ The script computes `START_TIME` as `(now - HOURS * 3600) * 1000` and always fil
 ## Related specs / docs
 
 - No existing EARS spec covers this script — it is a developer tooling convenience, not a product feature
+- [`coach-log-full-conversation-capture.md`](coach-log-full-conversation-capture.md) — companion todo to log actual prompt/response/board content per turn; `--since` is most valuable once combined with that richer content, since it enables pulling a specific past coaching session in full
