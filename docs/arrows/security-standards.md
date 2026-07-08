@@ -99,6 +99,37 @@ Puzzle generation is near-instant; the Java timeout is set to 8s to allow for Sn
 
 ---
 
+## Logging Policy
+
+**Rule:** Log what is needed for diagnosis. Do not log what is not needed for diagnosis. Never log credentials, session tokens, or raw HTTP `Authorization` headers.
+
+**What may be logged at INFO level in production:**
+
+| Category | Acceptable | Not acceptable |
+|----------|-----------|----------------|
+| Auth events | userId (Cognito `sub`), timestamp, HTTP status | JWT token, email, Cognito session |
+| Game events | gameId, difficulty, outcome, score | currentGrid, solutionGrid contents |
+| Coach events (metadata) | cid, modelId, technique, token counts, latency, fallback flag | — |
+| Coach events (content) | userMessage, aiMessage, board grid, candidatesGrid | — (these are user-generated but not sensitive for this app's threat model — see note below) |
+| API errors | HTTP status, error code, correlation ID | Exception stack traces in 5xx response body (fine in logs, never in response) |
+
+**Note on coach conversation content:** This app is a personal project operated for a small, known allowlisted user set. Users are not anonymous. Logging full coach conversation turns (user prompts, AI responses, and board state) is acceptable under this threat model but requires conscious acknowledgement before implementation:
+- Content logs must go to the **same CloudWatch log group** as other Lambda logs (`/aws/lambda/SudokuJavaLambda{suffix}`), not a separate store.
+- Log group retention must be set explicitly in Terraform (no indefinite retention). Current policy: 30 days for all log groups.
+- If this app is ever opened to non-allowlisted or anonymous users, coach content logging must be revisited before that change ships.
+
+**Log verbosity by environment:**
+
+| Environment | Level | coach content |
+|-------------|-------|---------------|
+| Production (`default`, `rc-*`) | INFO | Yes (opted in per above) |
+| Dev (local, `quarkus:dev`) | DEBUG | Yes |
+| Test | WARN | No (test logs should be silent unless a test fails) |
+
+**No external analytics:** No user behaviour data is sent to third-party analytics services (Mixpanel, Segment, etc.). CloudWatch is the only log sink.
+
+---
+
 ## Security Checklist
 
 Before shipping auth changes to production, verify:

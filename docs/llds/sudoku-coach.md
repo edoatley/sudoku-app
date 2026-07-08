@@ -406,12 +406,18 @@ an active hint, but it does override the visual highlight.
 
 - HLD: `docs/planning/ai-guide.md`
 - Existing hint engine: `docs/llds/hint-engine.md`
-- Specs (to create): `docs/specs/sudoku-coach-specs.md`
+- Specs: `docs/specs/sudoku-coach-specs.md`
 - Depends on: Sudoku Logic (Board, Cell), Hint Engine (SudokuService.getHint())
-- Depends on: Amazon Bedrock (Claude Haiku), LangChain4j
+- Depends on: Amazon Bedrock (Claude Haiku) via raw `BedrockRuntimeClient` (LangChain4j was evaluated and rejected — it did not expose `cache_control` at the message level)
 - Depended on by: Frontend (CoachWidget, useCoachSession)
-- Key existing files:
-  - `backend/.../dto/HintResponse.java` — not modified
-  - `backend/.../puzzle/SudokuService.java` — add `coach()` or use existing `getHint()`
+- Key files:
+  - `backend/.../coach/web/CoachResource.java`
+  - `backend/.../coach/SudokuCoachServiceImpl.java`
+  - `backend/.../coach/bedrock/BedrockCoachClient.java`
+  - `backend/.../coach/bedrock/BoardFormatter.java`
+  - `backend/.../coach/bedrock/CoachRateLimiter.java`
+  - `backend/.../puzzle/web/HintResponse.java` — not modified
   - `backend/.../domain/Board.java` — `fromGrid()`, `calculateAllCandidates()`
-  - `ui/src/App.jsx` — mount `CoachWidget` alongside existing modals
+  - `ui/src/App.jsx` — mounts `CoachWidget` behind `VITE_AI_COACH` flag
+  - `ui/src/components/coach/CoachWidget.jsx`, `CoachPanel.jsx`, `CoachMessage.jsx`
+  - `ui/src/hooks/useCoachSession.js`
