@@ -2,12 +2,13 @@
 
 ## API Gateway
 
-- [x] **CP-INFRA-001**: The system shall route all /puzzles/*, /health, and /dev/* requests to the Java Lambda without JWT validation.
+- [x] **CP-INFRA-001**: The system shall route all /puzzles/* and /health requests, plus any other unmatched path, to the Java Lambda via the $default route without JWT validation.
 - [x] **CP-INFRA-002**: The system shall require a valid Cognito JWT on all /api/v1/games/*, /players/me, and /ai/* routes, validated by API Gateway before the Lambda or Image Recognition Lambda is invoked.
 - [x] **CP-INFRA-003**: The system shall route POST /api/v1/ai/image-to-puzzle to the Image Recognition Lambda with JWT validation.
 - [x] **CP-INFRA-004**: The system shall route GET /api/v1/ai/image-to-puzzle/warmup to the Image Recognition Lambda without JWT validation.
 - [x] **CP-INFRA-005**: The system shall apply throttling of burst=50 requests and rate=25 requests/second at the API Gateway stage.
 - [x] **CP-INFRA-006**: The system shall write API access logs in JSON format to CloudWatch with 7-day retention in the default workspace and 3-day retention in all other workspaces.
+- [x] **CP-INFRA-007**: The system shall require a valid Cognito JWT on GET /api/v1/admin/data/games and GET /api/v1/admin/data/players, validated by API Gateway before the Lambda is invoked. (Group-level authorization beyond JWT validity is enforced in the Lambda — see UM-BE-060/061.)
 
 ## Lambda
 

@@ -4,7 +4,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 
 ## Status
 
-**OK** - 2026-04-21. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists).
+**OK** - 2026-07-08. Admin data-browser JWT routes added (`/admin/data/games`, `/admin/data/players`); `administrators` Cognito group provisioned. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists).
 
 ## References
 
@@ -15,7 +15,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 - docs/llds/cloud-platform.md
 
 ### EARS
-- docs/specs/cloud-platform-specs.md (22 specs, all [x])
+- docs/specs/cloud-platform-specs.md (23 specs, all [x])
 
 ### Tests
 - No infrastructure tests exist (no Terratest or equivalent). This is an accepted gap.
@@ -44,7 +44,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 
 | Category | Spec IDs | Implemented | Deferred | Gaps |
 | --- | --- | --- | --- | --- |
-| API Gateway | CP-INFRA-001 to 006 | 6 | 0 | 0 |
+| API Gateway | CP-INFRA-001 to 007 | 7 | 0 | 0 |
 | Lambda | CP-INFRA-010 to 012 | 3 | 0 | 0 |
 | CORS Lifecycle | CP-INFRA-020 to 022 | 3 | 0 | 0 |
 | Cognito | CP-INFRA-030 to 032 | 3 | 0 | 0 |
@@ -52,7 +52,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 | DynamoDB | CP-INFRA-050 to 051 | 2 | 0 | 0 |
 | Workspace Isolation | CP-INFRA-060 to 061 | 2 | 0 | 0 |
 
-**Summary:** 22 of 22 active specs implemented; 0 deferred; 0 gaps.
+**Summary:** 23 of 23 active specs implemented; 0 deferred; 0 gaps.
 
 ## Key Findings
 
@@ -60,6 +60,8 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 2. **No CloudWatch alarms** — Lambda errors produce log entries but trigger no alert. Silent failures are possible in production. (deferred — separate feature work)
 3. **`ignore_changes` drift** — `ignore_changes` on CORS and Cognito callback URLs means `terraform plan` always shows "no changes" for these fields even when live config differs from baseline. Actual config only visible via AWS console or CLI.
 4. **`/games/current` routing** — `GET /api/v1/games/current` is an explicit JWT-protected route at API Gateway. JAX-RS also routes `/current` to its own method before `/{gameId}` can match. The string "current" is fully protected at both layers; no backend guard is needed.
+5. **`/dev/*` PII leak closed (2026-07-08)** — `$default` previously forwarded `/dev/data/*` to a Lambda handler (`DevDataResource`) with no build-profile guard and no gateway auth, exposing the full Games/Players tables unauthenticated in production. Fixed by deleting `DevDataResource` (moved to JWT+group-gated `/admin/data/*`) and compiling `DevResource` (hint-demo) out of every non-dev/it/test build. See `docs/planning/infra-review.md` finding H1 and `docs/llds/user-management.md` — Admin Authorization. (CP-INFRA-001, CP-INFRA-007)
+6. **Admin group check is Lambda-only** — API Gateway's JWT authorizer has no concept of Cognito groups; it only proves the caller is authenticated. The `administrators` group membership check happens entirely in `AdminAuthorizationFilter` on the Lambda side.
 
 ## Work Required
 

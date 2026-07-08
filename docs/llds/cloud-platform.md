@@ -69,8 +69,10 @@ One API (`sudoku{suffix}`) routes to both Lambda functions.
 
 | Route | Target |
 | --- | --- |
-| `$default` | Java Lambda (catches `/puzzles/*`, `/health`, `/dev/*`) |
+| `$default` | Java Lambda (catches `/puzzles/*`, `/health`) |
 | `GET /api/v1/ai/image-to-puzzle/warmup` | Image Recognition Lambda |
+
+`$default` is a catch-all at the gateway level — it forwards any unmatched path to the Java Lambda without JWT validation. `/dev/*` paths hit this route in every deployed environment, but the Lambda itself has no `/dev/*` handlers in deployed builds (`DevDataResource` was deleted; `DevResource` is `@IfBuildProfile(anyOf={"dev","it","test"})`, compiled out of every artifact except local `quarkus:dev`/IT/test), so those paths 404 from the Lambda. This closed a live PII leak — see `docs/planning/infra-review.md` finding H1.
 
 **JWT-protected routes:**
 
@@ -84,8 +86,10 @@ One API (`sudoku{suffix}`) routes to both Lambda functions.
 | `PATCH /api/v1/games/{gameId}` | Java Lambda |
 | `GET /api/v1/games/current` | Java Lambda |
 | `GET /api/v1/players/me` | Java Lambda |
+| `GET /api/v1/admin/data/games` | Java Lambda |
+| `GET /api/v1/admin/data/players` | Java Lambda |
 
-The JWT authorizer validates Cognito tokens (issuer URL + audience = web client ID). Route precedence: specific routes beat `$default`.
+The JWT authorizer validates Cognito tokens (issuer URL + audience = web client ID) — this only proves the caller is *some* authenticated user. The `/admin/data/*` routes carry an additional group check (`administrators` Cognito group) enforced in the Lambda by `AdminAuthorizationFilter`; API Gateway has no concept of Cognito groups. See `docs/llds/user-management.md` — Admin Authorization. Route precedence: specific routes beat `$default`.
 
 **Throttling:** burst=50 req, rate=25 req/sec (configurable via variables).
 
@@ -132,6 +136,7 @@ Both tables use `PAY_PER_REQUEST` (on-demand) billing. AWS-managed encryption (n
 - Admin-created users only (smoke-test user created by Terraform)
 - Auto-verified: email; schema: email (required), name (optional)
 - MFA: off; Cognito domain: `sudoku-auth{suffix}.auth.eu-west-2.amazoncognito.com`
+- `aws_cognito_user_group "administrators"` — members may reach `/admin/*` endpoints (see `docs/llds/user-management.md` — Admin Authorization). Provisioned empty; adding the human admin is a manual one-time step (their federated Google username is unknown until first login) — see `scripts/infra/add-admin.sh`.
 
 **RC Shared Pool (`rc-shared` workspace):**
 
@@ -193,8 +198,10 @@ TLS certificates provisioned automatically by Amplify via ACM. No manual certifi
 **Java Lambda role (`SudokuLambdaExecRole{suffix}`):**
 
 - `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
-- DynamoDB Games: `GetItem, PutItem, UpdateItem, Query`
-- DynamoDB Players: `GetItem, PutItem, UpdateItem` (no Query — single-key access only)
+- DynamoDB Games: `GetItem, PutItem, UpdateItem, Query, Scan`
+- DynamoDB Players: `GetItem, PutItem, UpdateItem, Scan` (no Query — single-key access only)
+
+`Scan` on both tables is used solely by `AdminDataResource` (the admin data browser, `docs/llds/user-management.md` — Admin Authorization). These grants live on the same role as every other game/player operation — there is no separate, more restricted role for admin-only actions, so a bug in the admin group check is the last line of defence against a full table scan by any authenticated user. Isolating this would require a dedicated admin Lambda; out of scope for now.
 
 **Image Recognition Lambda role (`SudokuImageRecognitionExecRole{suffix}`):**
 

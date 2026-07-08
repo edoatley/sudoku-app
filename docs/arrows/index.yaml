@@ -62,8 +62,8 @@ arrows:
     lld: docs/llds/user-management.md
     specs: docs/specs/user-management-specs.md
     arrow: docs/arrows/user-management.md
-    spec_count: 34
-    implemented: 34
+    spec_count: 38
+    implemented: 38
     deferred: 0
     gaps: 0
     next: ~
@@ -84,8 +84,8 @@ arrows:
     lld: docs/llds/cloud-platform.md
     specs: docs/specs/cloud-platform-specs.md
     arrow: docs/arrows/cloud-platform.md
-    spec_count: 22
-    implemented: 22
+    spec_count: 23
+    implemented: 23
     deferred: 0
     gaps: 0
     next: ~

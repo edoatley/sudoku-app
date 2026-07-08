@@ -368,6 +368,64 @@ describe('sudokuApi — real mode (VITE_MOCK_API=false)', () => {
     const [, options] = fetchSpy.mock.calls[0];
     expect(options.headers).toMatchObject({ Authorization: 'Bearer test-id-token' });
   });
+
+  // @spec UM-BE-060, UM-BE-061
+  it('getAdminData GETs /admin/data/<entity> and sends the Bearer token', async () => {
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200 }));
+    const { getAdminData } = await import('./sudokuApi.js');
+    await getAdminData('players');
+    expect(fetchSpy).toHaveBeenCalledWith('http://test-api/v1/admin/data/players', expect.any(Object));
+    const [, options] = fetchSpy.mock.calls[0];
+    expect(options.headers).toMatchObject({ Authorization: 'Bearer test-id-token' });
+  });
+
+  it('getAdminData throws ForbiddenError on 403 (non-admin)', async () => {
+    fetchSpy.mockResolvedValue(new Response('Forbidden', { status: 403 }));
+    const { getAdminData, ForbiddenError } = await import('./sudokuApi.js');
+    await expect(getAdminData('games')).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+// ─── isAdmin / getAdminGroups ──────────────────────────────────────────────────
+
+describe('sudokuApi — isAdmin / getAdminGroups', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv('VITE_MOCK_API', 'false');
+    vi.stubEnv('VITE_API_URL', 'http://test-api/v1');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.doUnmock('aws-amplify/auth');
+  });
+
+  function mockSession(groups) {
+    vi.doMock('aws-amplify/auth', () => ({
+      fetchAuthSession: vi.fn().mockResolvedValue({
+        tokens: { idToken: { toString: () => 'test-id-token', payload: { 'cognito:groups': groups } } },
+      }),
+    }));
+  }
+
+  it('isAdmin returns true when cognito:groups contains administrators', async () => {
+    mockSession(['administrators', 'other-group']);
+    const { isAdmin } = await import('./sudokuApi.js');
+    expect(await isAdmin()).toBe(true);
+  });
+
+  it('isAdmin returns false when cognito:groups does not contain administrators', async () => {
+    mockSession(['other-group']);
+    const { isAdmin } = await import('./sudokuApi.js');
+    expect(await isAdmin()).toBe(false);
+  });
+
+  it('getAdminGroups returns an empty array when cognito:groups claim is missing', async () => {
+    mockSession(undefined);
+    const { getAdminGroups, isAdmin } = await import('./sudokuApi.js');
+    expect(await getAdminGroups()).toEqual([]);
+    expect(await isAdmin()).toBe(false);
+  });
 });
 
 // ─── Mock mode — leaderboard ──────────────────────────────────────────────────

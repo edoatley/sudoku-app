@@ -37,6 +37,13 @@
 - [x] **UM-BE-021**: While the app.allowed.emails configuration property is empty, the system shall allow all authenticated requests without email checking.
 - [x] **UM-BE-022**: The system shall pass unauthenticated requests (public routes) through the allowlist filter without rejection.
 
+## Admin Authorization
+
+- [x] **UM-BE-060**: While a request carries a JWT whose cognito:groups claim contains the configured admin group (app.admin.group, default "administrators"), the system shall allow access to /admin/* endpoints.
+- [x] **UM-BE-061**: While an authenticated (non-anonymous) request's cognito:groups claim does not contain the configured admin group, the system shall reject /admin/* requests with HTTP 403 and a JSON error body.
+- [x] **UM-BE-062**: Where the identity is anonymous (dev, it, or test build profile with no OIDC), the system shall not apply the admin group check.
+- [x] **UM-BE-063**: The DevResource (hint-demo endpoint, /dev/hint-demo) shall be compiled out of the build artifact for any profile other than dev, it, or test.
+
 ## Developer & Test Isolation
 
 - [x] **UM-BE-030**: Where the dev, it, or test build profile is active and no Authorization header is present, the system shall inject a mock SecurityContext with userId "local-dev-user".

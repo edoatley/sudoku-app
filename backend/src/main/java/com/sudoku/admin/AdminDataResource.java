@@ -1,4 +1,4 @@
-package com.sudoku.developer;
+package com.sudoku.admin;
 
 import com.sudoku.web.DataListResponse;
 import com.sudoku.game.web.GameState;
@@ -20,17 +20,18 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import java.util.List;
 
 /**
- * Developer-only read endpoints that expose all DynamoDB table contents for the
- * in-app data browser. These paths are under {@code /dev} and are intentionally
- * not registered in any production API Gateway route.
+ * Admin-only read endpoints that expose all DynamoDB table contents for the in-app data
+ * browser. Reachable in production by members of the {@code administrators} Cognito group
+ * (see {@link AdminAuthorizationFilter}).
  *
- * <p>Full table scans are used here — this is acceptable because the dev data
- * browser is only reachable locally against LocalStack, where data volumes are small.
+ * <p>Full table scans are used here — acceptable given the low data volumes of this personal
+ * project and the restricted admin audience.
  */
 @ApplicationScoped
-@Path("/dev/data")
+@Path("/admin/data")
 @Produces(MediaType.APPLICATION_JSON)
-public class DevDataResource {
+@AdminOnly
+public class AdminDataResource {
 
     @Inject
     DynamoDbEnhancedClient enhancedClient;

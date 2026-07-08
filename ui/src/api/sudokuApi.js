@@ -315,12 +315,23 @@ export async function updatePlayerProfile({ displayName, avatarKey }) {
   );
 }
 
-export async function getDevData(entity) {
+export async function getAdminData(entity) {
   if (MOCK_API) {
     await delay(200);
     return { items: [] };
   }
-  return apiFetch(`getDevData/${entity}`, `${API_URL}/dev/data/${encodeURIComponent(entity)}`);
+  return apiFetch(`getAdminData/${entity}`, `${API_URL}/admin/data/${encodeURIComponent(entity)}`, {}, true);
+}
+
+export async function getAdminGroups() {
+  const { fetchAuthSession } = await import('aws-amplify/auth');
+  const session = await fetchAuthSession();
+  const groups = session.tokens?.idToken?.payload?.['cognito:groups'];
+  return Array.isArray(groups) ? groups : [];
+}
+
+export async function isAdmin() {
+  return (await getAdminGroups()).includes('administrators');
 }
 
 // @spec GH-UI-001, GH-UI-002

@@ -170,6 +170,13 @@ resource "aws_cognito_user" "rc_shared_smoke_test" {
   force_alias_creation = false
 }
 
+resource "aws_cognito_user_group" "rc_admin" {
+  count        = terraform.workspace == "rc-shared" ? 1 : 0
+  name         = "administrators"
+  user_pool_id = aws_cognito_user_pool.rc_shared[0].id
+  description  = "Members may reach /admin/* endpoints"
+}
+
 output "rc_shared_cognito_user_pool_id" {
   description = "Shared rc-* Cognito User Pool ID (rc-shared workspace only)."
   value       = terraform.workspace == "rc-shared" ? aws_cognito_user_pool.rc_shared[0].id : null

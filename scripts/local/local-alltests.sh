@@ -214,10 +214,15 @@ elif [[ "${HAS_DOCKER}" == "false" ]]; then
   skip "$SUITE" "docker not found (needed for DynamoDB Local)"
 elif [[ "${HAS_AWS}" == "false" ]]; then
   skip "$SUITE" "aws CLI not found (needed to create DynamoDB tables)"
+elif [[ -z "${LOCALSTACK_AUTH_TOKEN:-}" ]]; then
+  skip "$SUITE" "LOCALSTACK_AUTH_TOKEN not set — get a free token at https://app.localstack.cloud and export it in your shell profile"
 else
-  # Start LocalStack (mirrors CI: localstack/localstack on port 4566)
+  # Start LocalStack (mirrors CI: .github/actions/start-localstack — pinned image + auth token)
   echo "Starting LocalStack..."
-  docker run -d --name "${DYNAMO_CONTAINER}" -p 4566:4566 localstack/localstack:latest
+  docker run -d --name "${DYNAMO_CONTAINER}" -p 4566:4566 \
+    -e SERVICES=dynamodb \
+    -e LOCALSTACK_AUTH_TOKEN="${LOCALSTACK_AUTH_TOKEN}" \
+    localstack/localstack:4
 
   echo "Waiting for LocalStack to be ready..."
   for i in $(seq 1 20); do

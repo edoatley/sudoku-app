@@ -69,5 +69,5 @@
 ## Developer Tools
 
 - [x] **FE-UI-050**: Where VITE_DEV_TOOLS is true, the system shall display a developer submenu in the game menu with entries for all 11 hint technique demos.
-- [x] **FE-UI-051**: Where VITE_DEV_TOOLS is true, the system shall display a Data Browser option allowing inspection of DynamoDB game and player records.
+- [x] **FE-UI-051**: Where VITE_DEV_TOOLS is true, or the authenticated user is a member of the admin Cognito group, the system shall display a Data Browser option allowing inspection of DynamoDB game and player records (see UM-BE-060).
 - [x] **FE-UI-052**: When a demo technique is selected, the system shall load the pre-baked demo grid with the technique's minRank set so simpler strategies are skipped.

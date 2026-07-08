@@ -3,6 +3,7 @@ package com.sudoku.developer;
 import com.sudoku.domain.Grid;
 import com.sudoku.puzzle.web.PuzzleResponse;
 import com.sudoku.puzzle.hint.HintStrategy;
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -18,11 +19,13 @@ import java.util.stream.Collectors;
 
 /**
  * Developer-only endpoints for testing hint strategies in the UI.
- * All paths are under /dev and should only be exposed in non-production deployments.
+ * All paths are under /dev. Compiled out of every build except dev/it/test — no admin
+ * use case exists for this endpoint (unlike the data browser, which moved to /admin/data).
  */
 @ApplicationScoped
 @Path("/dev")
 @Produces(MediaType.APPLICATION_JSON)
+@IfBuildProfile(anyOf = {"dev", "it", "test"})
 public class DevResource {
 
     private final Map<String, HintStrategy> strategyBySlug;

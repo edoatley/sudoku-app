@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Container from '@mui/material/Container';
@@ -27,6 +27,7 @@ import DevDataDialog from './components/DevDataDialog.jsx';
 import TutorialModal from './components/TutorialModal.jsx';
 import AppView from './components/views/AppView.jsx';
 import CoachWidget from './components/coach/CoachWidget.jsx';
+import { isAdmin } from './api/sudokuApi.js';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
@@ -126,6 +127,17 @@ function SudokuApp({ user, signOut }) {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [devDataOpen, setDevDataOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setAdmin(false);
+      return;
+    }
+    isAdmin()
+      .then(setAdmin)
+      .catch(() => setAdmin(false));
+  }, [user]);
 
   const {
     originalGrid,
@@ -286,7 +298,7 @@ function SudokuApp({ user, signOut }) {
         onNewGame={() => setNewGameModalOpen(true)}
         onImport={() => setImportModalOpen(true)}
         onDemoGame={DEV_TOOLS ? loadDemoGame : null}
-        onDevData={DEV_TOOLS ? () => setDevDataOpen(true) : null}
+        onDevData={DEV_TOOLS || admin ? () => setDevDataOpen(true) : null}
         difficulty={difficulty}
         colorMode={colorMode}
         onToggleColorMode={handleToggleColorMode}
@@ -388,7 +400,7 @@ function SudokuApp({ user, signOut }) {
 
       <StatusBar gameStatus={gameStatus} statusMessage={statusMessage} onClose={clearStatus} />
 
-      {DEV_TOOLS && <DevDataDialog open={devDataOpen} onClose={() => setDevDataOpen(false)} />}
+      {(DEV_TOOLS || admin) && <DevDataDialog open={devDataOpen} onClose={() => setDevDataOpen(false)} />}
 
       <TutorialModal open={helpOpen} src="/help/controls.md" title="How to Play" onClose={() => setHelpOpen(false)} />
 

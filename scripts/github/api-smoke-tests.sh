@@ -104,6 +104,14 @@ if [ "${ENV_TYPE:-main}" = "rc" ]; then
   check "POST /api/v1/ai/image-to-puzzle (no token → 401)" "${STATUS}" "401" "" /tmp/scan_noauth.json
 fi
 
+# GET /api/v1/admin/data/{games,players} without token — JWT authorizer must reject with 401.
+# This re-runs the exact request that exposed the /dev/data/* PII leak (see
+# docs/planning/infra-review.md finding H1) against the new admin-gated route.
+for entity in games players; do
+  STATUS=$(curl -s -o "/tmp/admin_${entity}_noauth.json" -w "%{http_code}" "${API_BASE}/api/v1/admin/data/${entity}" 2>/dev/null || true)
+  check "GET /api/v1/admin/data/${entity} (no token → 401)" "${STATUS}" "401" "" "/tmp/admin_${entity}_noauth.json"
+done
+
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo "### API Smoke Tests"
