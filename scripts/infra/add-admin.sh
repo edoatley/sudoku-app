@@ -10,30 +10,65 @@
 # login. This cannot be done in Terraform (aws_cognito_user_in_group needs the
 # username at apply time, before it exists).
 #
-# Usage:
-#   AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> [user-pool-id]
+# Resolves the Cognito user pool via the AWS CLI only (no `terraform output` —
+# works even without a local Terraform state/workspace). By default it infers
+# the pool name from the current git branch, mirroring resolve-environment.sh:
+#   main branch      -> "sudoku"     (owned pool, default workspace)
+#   rc-* branch      -> "sudoku-rc"  (shared pool, owned by the rc-shared workspace)
+#   other branch     -> "sudoku-<sanitized branch, max 32 chars>" (owned pool)
 #
-# If user-pool-id is omitted, it is read from `terraform output cognito_user_pool_id`
-# in infra/ (requires the workspace to already be selected).
+# Usage:
+#   AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email>
+#   AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> --pool-name sudoku-rc
+#   AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> --pool-id eu-west-2_AbCdEfGhI
 
 set -euo pipefail
 
 EMAIL="${1:-}"
 if [[ -z "${EMAIL}" ]]; then
   echo "ERROR: email is required."
-  echo "  Usage: AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> [user-pool-id]"
+  echo "  Usage: AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> [--pool-name <name> | --pool-id <id>]"
   exit 1
 fi
+shift
 
-POOL_ID="${2:-}"
-if [[ -z "${POOL_ID}" ]]; then
-  POOL_ID=$(cd "$(dirname "$0")/../../infra" && terraform output -raw cognito_user_pool_id 2>/dev/null || true)
+POOL_NAME=""
+POOL_ID=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --pool-name) POOL_NAME="$2"; shift 2 ;;
+    --pool-id) POOL_ID="$2"; shift 2 ;;
+    *) echo "ERROR: unknown argument: $1"; exit 1 ;;
+  esac
+done
+
+# Derive the default pool name from the current branch (same convention as
+# scripts/github/resolve-environment.sh) when neither flag was given.
+if [[ -z "${POOL_ID}" && -z "${POOL_NAME}" ]]; then
+  BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
+  if [[ "${BRANCH}" == "main" ]]; then
+    POOL_NAME="sudoku"
+  elif [[ "${BRANCH}" == rc-* ]]; then
+    POOL_NAME="sudoku-rc"
+  else
+    SANITIZED=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+    POOL_NAME="sudoku-${SANITIZED}"
+  fi
+  echo "No --pool-name/--pool-id given; inferred pool name '${POOL_NAME}' from branch '${BRANCH}'."
 fi
 
 if [[ -z "${POOL_ID}" ]]; then
-  echo "ERROR: user-pool-id not provided and could not be read from Terraform output."
-  echo "  Pass it explicitly: AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> <pool-id>"
-  exit 1
+  echo "Looking up user pool '${POOL_NAME}' via AWS CLI..."
+  POOL_ID=$(aws cognito-idp list-user-pools --max-results 60 \
+    --query "UserPools[?Name=='${POOL_NAME}'].Id | [0]" --output text)
+
+  if [[ -z "${POOL_ID}" || "${POOL_ID}" == "None" ]]; then
+    echo "ERROR: no Cognito user pool named '${POOL_NAME}' found."
+    echo "  Available pools:"
+    aws cognito-idp list-user-pools --max-results 60 --query 'UserPools[].Name' --output text | tr '\t' '\n' | sed 's/^/    /'
+    echo "  Pass the correct one explicitly: --pool-name <name> or --pool-id <id>"
+    exit 1
+  fi
 fi
 
 echo "Looking up federated username for ${EMAIL} in pool ${POOL_ID}..."
