@@ -7,7 +7,7 @@
 
 The User Management component covers everything related to player identity: profile creation and retrieval, JWT-based authentication, email allowlisting, and the cross-cutting filters that enforce security policies on every request. It also includes the developer infrastructure that makes local testing possible without a live Cognito pool.
 
-Files: `player/PlayerResource.java`, `player/PlayerService.java`, `player/PlayerServiceImpl.java`, `player/PlayerRepository.java`, `player/DynamoDbPlayerRepository.java`, `player/PlayerItem.java`, `player/PlayerProfile.java`, `auth/AllowedUsersFilter.java`, `developer/DevUserFilter.java`, `developer/DevDatabaseInitializer.java`, `cors/CorsFilter.java`, `logging/ApiLoggingFilter.java`.
+Files: `player/PlayerResource.java`, `player/PlayerService.java`, `player/PlayerServiceImpl.java`, `player/PlayerRepository.java`, `player/DynamoDbPlayerRepository.java`, `player/PlayerItem.java`, `player/PlayerProfile.java`, `web/filter/AllowedUsersFilter.java`, `admin/AdminOnly.java`, `admin/AdminAuthorizationFilter.java`, `admin/AdminDataResource.java`, `developer/DevUserFilter.java`, `developer/DevDatabaseInitializer.java`, `cors/CorsFilter.java`, `logging/ApiLoggingFilter.java`.
 
 ## Authentication Architecture
 
@@ -148,6 +148,33 @@ filter(request):
 
 The anonymous check ensures public routes (`/puzzles/*`, `/health`) are not blocked even when a non-authenticated request reaches this filter.
 
+## Admin Authorization
+
+`/admin/*` endpoints (currently the data-browser: `GET /admin/data/games`, `GET /admin/data/players`) are reachable in production, restricted to members of a Cognito group.
+
+**`@AdminOnly`** — a JAX-RS `@NameBinding` annotation. Only resources/methods annotated `@AdminOnly` invoke the filter below; unlike `AllowedUsersFilter` (which is a global `@Provider`), this is scoped per-endpoint.
+
+**`AdminAuthorizationFilter`** — `@Provider @AdminOnly`, mirrors `AllowedUsersFilter`'s structure:
+
+```text
+filter(request):
+  if identity.isAnonymous() → pass (dev/it/test skip; see rationale below)
+  groups = extractGroups(identity)   # cognito:groups claim: JsonWebToken.getClaim(...) → JsonArray,
+                                      # falling back to identity.getAttribute("cognito:groups")
+  if adminGroup not in groups:
+    abort(403, {"error": "Access denied"})
+```
+
+**Configuration:** `app.admin.group` (default `administrators`). No per-profile override — the `isAnonymous()` skip already covers dev/it/test.
+
+**Why `isAnonymous()`-skip is safe:** In dev/it/test profiles, OIDC is disabled (`%dev.quarkus.oidc.enabled=false`, etc.), so `SecurityIdentity` is always anonymous and the local data browser must keep working without a token — same reasoning `AllowedUsersFilter` already relies on. In production, `/admin/*` routes are JWT-protected at API Gateway (see `docs/llds/cloud-platform.md`), so a tokenless request is rejected with 401 before the Lambda is invoked; the filter only ever observes authenticated identities there.
+
+**Cognito groups:** Membership in the `administrators` Cognito group injects a `cognito:groups` claim into ID/access tokens automatically — no Lambda trigger required. API Gateway's JWT authorizer validates issuer + audience only; the group check is enforced entirely in this filter.
+
+**`AdminDataResource`** (`@Path("/admin/data") @AdminOnly`) — full DynamoDB `scan()` over the Games and Players tables (`GET /games`, `GET /players`), returned as `DataListResponse<GameState>` / `DataListResponse<PlayerProfile>`. Formerly `DevDataResource` under `/dev/data`, unauthenticated and shipped to production by accident (see `docs/planning/infra-review.md` finding H1) — moved here and gated so the same functionality (needed for admin visibility into live data) requires both a valid JWT and `administrators` group membership.
+
+**Residual risk:** the `dynamodb:Scan` IAM grants this resource depends on live on the shared main-app Lambda execution role (`docs/llds/cloud-platform.md` — IAM), not an isolated admin role. A bug in `AdminAuthorizationFilter` is the only thing standing between an authenticated non-admin user and a full table scan. Fully isolating this would require a separate admin Lambda — out of scope for now.
+
 ## Cross-Cutting Request Filters
 
 ### DevUserFilter (`@IfBuildProfile(anyOf = {"dev", "it", "test"})`)
@@ -210,6 +237,7 @@ Observes `StartupEvent`, runs only in dev profile, auto-creates DynamoDB tables 
 | `upsert` as full overwrite | DynamoDB `PutItem` | UpdateExpression on specific fields | PlayerProfile has few fields; full overwrite is simpler and correct |
 | Profile update via PATCH | PATCH /players/me for displayName + avatarKey | Read-only after creation | Users need to personalise their display name and avatar across devices |
 | avatarKey not server-validated | Free string; client defines valid values | Enum allowlist on backend | Icon set is UI-defined; future custom upload will use a different prefix convention |
+| Admin authorization via Cognito group | `cognito:groups` claim checked in `AdminAuthorizationFilter` (name-bound `@AdminOnly`) | API Gateway resource policy; separate admin-only API Gateway/Lambda; IAM-based per-user policy | Cognito groups need no new infrastructure (no Lambda trigger, no separate API); consistent with the existing JWT-claim-based `AllowedUsersFilter` pattern; group membership changes without a deploy |
 
 ## Technical Debt & Inconsistencies
 
@@ -219,6 +247,7 @@ Observes `StartupEvent`, runs only in dev profile, auto-creates DynamoDB tables 
 - `AllowedUsersFilter` passes anonymous requests silently. If the OIDC stack fails to populate the `SecurityIdentity` for an authenticated route, the request would slip through the allowlist check. API Gateway's JWT authorizer is the actual enforcement point; this filter is defence-in-depth.
 - `ApiLoggingFilter` buffers the entire request body in memory for logging. For large payloads (e.g., image uploads), this doubles memory usage. Image upload goes through the image recognition Lambda, not this path, so current exposure is low.
 - The production allowlist is hardcoded in `application.properties` rather than injected via an environment variable. Adding a new user requires a code commit. [D]
+- `/admin/*` endpoints are gated by both `AllowedUsersFilter` (global) and `AdminAuthorizationFilter` (name-bound `@AdminOnly`) — a caller must be on the email allowlist *and* in the `administrators` Cognito group. This is intentional layering (matches the existing defence-in-depth pattern) rather than a bug, but means removing someone from the email allowlist alone is sufficient to revoke their admin access without touching the Cognito group.
 
 ## Behavioral Quirks
 
@@ -311,6 +340,8 @@ const idToken = tokens.idToken.toString();
 | `PATCH /api/v1/players/me` | JWT required |
 | `POST /api/v1/ai/coach` | JWT required |
 | `POST /api/v1/ai/image-to-puzzle` | JWT required |
+| `GET /api/v1/admin/data/games` | JWT required + `administrators` Cognito group |
+| `GET /api/v1/admin/data/players` | JWT required + `administrators` Cognito group |
 
 The JWT authorizer is configured at API Gateway level (`identity_sources = ["$request.header.Authorization"]`, `issuer` = Cognito pool URL, `audience` = web client ID). The Lambda never validates the JWT itself.
 
@@ -334,7 +365,8 @@ No Cognito-specific env vars needed — the backend trusts API Gateway's injecte
 ## References
 
 - `backend/src/main/java/.../player/` (all player files)
-- `backend/src/main/java/.../auth/AllowedUsersFilter.java`
+- `backend/src/main/java/.../web/filter/AllowedUsersFilter.java`
+- `backend/src/main/java/.../admin/AdminOnly.java`, `AdminAuthorizationFilter.java`, `AdminDataResource.java`
 - `backend/src/main/java/.../developer/DevUserFilter.java`
 - `backend/src/main/java/.../developer/DevDatabaseInitializer.java`
 - `backend/src/main/java/.../cors/CorsFilter.java`

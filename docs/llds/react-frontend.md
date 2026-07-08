@@ -20,7 +20,7 @@ Five `VITE_*` flags control feature visibility and are baked into the bundle at 
 | `VITE_MOCK_API` | Replace all API calls with canned data — no backend needed |
 | `VITE_SKIP_AUTH` | Skip Amplify Authenticator — no Cognito needed |
 | `VITE_LOG_API` | Log all requests/responses to browser console |
-| `VITE_DEV_TOOLS` | Show developer submenu (11 demo techniques + data browser) |
+| `VITE_DEV_TOOLS` | Show developer submenu (11 demo techniques + data browser). The data browser alone also shows for admin Cognito group members regardless of this flag — see `docs/llds/user-management.md` Admin Authorization. |
 | `VITE_AI_COACH` | Mount the `CoachWidget` — enables the AI coaching chat panel (desktop only) |
 
 Local dev uses `.env.development` (`MOCK_API=false`, `SKIP_AUTH=false`, `DEV_TOOLS=true`). Tests use `.env.test` (`MOCK_API=true`, `SKIP_AUTH=true`).
@@ -39,7 +39,7 @@ App (MUI theme, auth wrapper, forbidden-state handler)
     ├── PauseOverlay (blur screen + resume)
     ├── NewGameModal (difficulty picker)
     ├── ImportModal (image upload + preview)
-    ├── DevDataDialog (DynamoDB browser, VITE_DEV_TOOLS only)
+    ├── DevDataDialog (DynamoDB browser, VITE_DEV_TOOLS or admin Cognito group)
     ├── StatusBar (toast notifications)
     └── AppView (full-screen view overlay, zIndex 1200)
         ├── ProfileView    (currentView === 'profile')
@@ -191,7 +191,8 @@ Mock paths also call the unwrap helpers so the hook receives the same plain-arra
 | `updatePlayerProfile(patch)` | PATCH | `/api/v1/players/me` | Yes |
 | `getLeaderboard()` | GET | `/api/v1/leaderboard` | Yes |
 | `getDemoGrid(technique)` | GET | `/dev/hint-demo` | No |
-| `getDevData(entity)` | GET | `/dev/data/{entity}` | No |
+| `getAdminData(entity)` | GET | `/admin/data/{entity}` | Yes (+ `administrators` Cognito group) |
+| `isAdmin()` / `getAdminGroups()` | — | (reads `cognito:groups` from the ID token; no request) | — |
 
 `importPuzzle` converts the file to base64 before sending.
 
@@ -240,7 +241,7 @@ Stage progression buttons:
 
 Left: hamburger game menu (New Game, Import, Developer submenu). Centre: elapsed time chip + hints-used chip. Right: pause/resume button + avatar with account dropdown.
 
-Developer submenu (VITE_DEV_TOOLS only): 11 technique demo entries (`loadDemoGame(slug)`) + Data Browser.
+Developer submenu (VITE_DEV_TOOLS only): 11 technique demo entries (`loadDemoGame(slug)`). The Data Browser entry alongside it shows under `VITE_DEV_TOOLS` **or** admin Cognito group membership (see `docs/llds/user-management.md` Admin Authorization).
 
 Avatar menu: Edit Profile, Puzzle History, Statistics, League Table, Dark Mode toggle, Sign Out. Each player-flow item calls `onNavigate(view)` — no dialogs are opened from the menu.
 

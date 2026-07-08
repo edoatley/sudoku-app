@@ -45,6 +45,20 @@ locals {
       integration        = local._lambda_integration
     }
 
+    # Admin data browser — JWT proves the caller is authenticated; the additional
+    # "administrators" Cognito group check happens in the Lambda (AdminAuthorizationFilter).
+    "GET /api/v1/admin/data/games" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
+    "GET /api/v1/admin/data/players" = {
+      authorization_type = "JWT"
+      authorizer_key     = "cognito_jwt"
+      integration        = local._lambda_integration
+    }
+
     "POST /api/v1/ai/image-to-puzzle" = {
       authorization_type = "JWT"
       authorizer_key     = "cognito_jwt"
@@ -155,7 +169,7 @@ module "api_gateway" {
   # Routes — $default is public; game/player/scan routes require JWT.
   # ai_coach_routes are merged in when local.ai_coach_enabled is true (rc-* workspaces).
   # Image recognition scan routes live in base_routes — always enabled on all workspaces.
-  # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game and ai routes use explicit JWT-protected routes
+  # checkov:skip=CKV_AWS_309: $default catches only public routes (/puzzles/*, /health) — game, ai, and admin data routes use explicit JWT-protected routes
   routes = {
     for k, v in merge(local.base_routes, local.ai_coach_routes) :
     k => v if !contains(keys(local.ai_coach_routes), k) || local.ai_coach_enabled

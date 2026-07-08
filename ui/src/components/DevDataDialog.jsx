@@ -18,7 +18,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
-import { getDevData } from '../api/sudokuApi.js';
+import { getAdminData } from '../api/sudokuApi.js';
 
 const TABS = [
   { label: 'Games', entity: 'games' },
@@ -153,7 +153,7 @@ export default function DevDataDialog({ open, onClose }) {
       if (dataByEntity[entity] !== undefined) return;
       setLoadingEntity(entity);
       try {
-        const result = await getDevData(entity);
+        const result = await getAdminData(entity);
         setDataByEntity((prev) => ({ ...prev, [entity]: result?.items ?? [] }));
       } catch (err) {
         setErrorByEntity((prev) => ({ ...prev, [entity]: err.message }));

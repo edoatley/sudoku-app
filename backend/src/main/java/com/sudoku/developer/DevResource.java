@@ -18,7 +18,11 @@ import java.util.stream.Collectors;
 
 /**
  * Developer-only endpoints for testing hint strategies in the UI.
- * All paths are under /dev and should only be exposed in non-production deployments.
+ * All paths are under /dev. Deliberately NOT {@code @IfBuildProfile}-guarded: the Java
+ * Lambda is built once (quarkus.profile=prod) and shared by every Terraform workspace, so
+ * a profile guard would remove this from RC/beta too — where VITE_DEV_TOOLS=true still
+ * exposes the demo menu in the frontend. Safe to leave reachable everywhere: no user data,
+ * just a canned puzzle grid per technique (unlike the data browser, moved to /admin/data).
  */
 @ApplicationScoped
 @Path("/dev")

@@ -20,7 +20,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 
 resource "aws_iam_policy" "sudoku_dynamodb" {
   name        = "SudokuDynamoDBPolicy${local.suffix}"
-  description = "Grants the Sudoku Lambda minimal DynamoDB access"
+  description = "Grants the Sudoku Lambda DynamoDB access to the SudokuGames table; Scan is used by the admin data browser"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -47,7 +47,7 @@ resource "aws_iam_role_policy_attachment" "sudoku_dynamodb" {
 
 resource "aws_iam_policy" "sudoku_players_dynamodb" {
   name        = "SudokuPlayersPolicy${local.suffix}"
-  description = "Grants the Sudoku Lambda minimal DynamoDB access to the SudokuPlayers table"
+  description = "Grants the Sudoku Lambda DynamoDB access to the SudokuPlayers table; Scan is used by the admin data browser"
 
   policy = jsonencode({
     Version = "2012-10-17"
