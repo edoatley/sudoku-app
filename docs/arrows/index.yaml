@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-04-22
+updated: 2026-07-08
 
 arrows:
   - id: api-error-handling
@@ -9,8 +9,8 @@ arrows:
     arrow: docs/arrows/api-error-handling.md
     spec_count: 22
     implemented: 20
-    deferred: 2
-    gaps: 0
+    deferred: 0
+    gaps: 2
     next: ~
 
   - id: sudoku-logic
@@ -29,8 +29,8 @@ arrows:
     lld: docs/llds/hint-engine.md
     specs: docs/specs/hint-engine-specs.md
     arrow: docs/arrows/hint-engine.md
-    spec_count: 30
-    implemented: 30
+    spec_count: 40
+    implemented: 40
     deferred: 0
     gaps: 0
     next: ~
@@ -95,8 +95,8 @@ arrows:
     lld: docs/llds/react-frontend.md
     specs: docs/specs/react-frontend-specs.md
     arrow: docs/arrows/react-frontend.md
-    spec_count: 39
-    implemented: 39
+    spec_count: 45
+    implemented: 45
     deferred: 0
     gaps: 0
     next: ~
@@ -142,8 +142,8 @@ arrows:
     lld: docs/llds/game-history.md
     specs: docs/specs/game-history-specs.md
     arrow: docs/arrows/game-history.md
-    spec_count: 17
-    implemented: 17
+    spec_count: 18
+    implemented: 18
     deferred: 0
     gaps: 0
     next: ~
@@ -153,8 +153,8 @@ arrows:
     lld: docs/llds/navigation.md
     specs: docs/specs/navigation-specs.md
     arrow: docs/arrows/navigation.md
-    spec_count: 20
-    implemented: 20
+    spec_count: 25
+    implemented: 25
     deferred: 0
     gaps: 0
     next: ~
@@ -164,8 +164,8 @@ arrows:
     lld: docs/llds/league-table.md
     specs: docs/specs/league-table-specs.md
     arrow: docs/arrows/league-table.md
-    spec_count: 31
-    implemented: 31
+    spec_count: 37
+    implemented: 37
     deferred: 0
     gaps: 0
     next: ~
@@ -174,9 +174,9 @@ arrows:
     status: IN_PROGRESS
     lld: docs/llds/sudoku-coach.md
     specs: docs/specs/sudoku-coach-specs.md
-    arrow: ~
-    spec_count: 40
-    implemented: 34
+    arrow: docs/arrows/sudoku-coach.md
+    spec_count: 56
+    implemented: 53
     deferred: 0
-    gaps: 6
-    next: Verify E2E tests pass; wire revealHint→hint disclosure flow in frontend
+    gaps: 3
+    next: SC-UI-013 (Escape closes panel), SC-UI-050/051 (revealHint frontend disclosure)

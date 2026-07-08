@@ -21,6 +21,7 @@ Five `VITE_*` flags control feature visibility and are baked into the bundle at 
 | `VITE_SKIP_AUTH` | Skip Amplify Authenticator — no Cognito needed |
 | `VITE_LOG_API` | Log all requests/responses to browser console |
 | `VITE_DEV_TOOLS` | Show developer submenu (11 demo techniques + data browser) |
+| `VITE_AI_COACH` | Mount the `CoachWidget` — enables the AI coaching chat panel (desktop only) |
 
 Local dev uses `.env.development` (`MOCK_API=false`, `SKIP_AUTH=false`, `DEV_TOOLS=true`). Tests use `.env.test` (`MOCK_API=true`, `SKIP_AUTH=true`).
 

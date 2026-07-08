@@ -24,22 +24,24 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 - backend/src/test/java/com/sudoku/game/GameResourceTest.java — covers GL-API-001 to 005; @spec annotations added
 
 ### Code
-- backend/src/main/java/.../game/GameResource.java
+- backend/src/main/java/.../game/web/GameResource.java
 - backend/src/main/java/.../game/GameService.java
 - backend/src/main/java/.../game/GameServiceImpl.java
 - backend/src/main/java/.../game/GameRepository.java
-- backend/src/main/java/.../game/DynamoDbGameRepository.java
-- backend/src/main/java/.../game/GameItem.java
+- backend/src/main/java/.../game/persistence/DynamoDbGameRepository.java
+- backend/src/main/java/.../game/persistence/GameItem.java
 - backend/src/main/java/.../game/GameStatus.java
 - backend/src/main/java/.../game/InvalidPuzzleException.java
 - backend/src/main/java/.../game/DuplicateDigitsException.java
 - backend/src/main/java/.../game/PuzzleHasNoSolutionException.java
 - backend/src/main/java/.../game/PuzzleHasMultipleSolutionsException.java
 - backend/src/main/java/.../game/GameNotFoundException.java
-- backend/src/main/java/.../exception/GameNotFoundExceptionMapper.java
-- backend/src/main/java/.../dto/GameState.java
-- backend/src/main/java/.../dto/GameUpdateRequest.java
-- backend/src/main/java/.../dto/CreateGameFromGridRequest.java
+- backend/src/main/java/.../web/exception/GameNotFoundExceptionMapper.java
+- backend/src/main/java/.../game/web/GameState.java
+- backend/src/main/java/.../game/web/GameUpdateRequest.java
+- backend/src/main/java/.../game/web/CreateGameFromGridRequest.java
+- backend/src/main/java/.../game/web/GameHistoryEntry.java
+- backend/src/main/java/.../game/web/GameHistoryResponse.java
 - backend/src/main/java/.../domain/Grid.java
 - backend/src/main/java/.../domain/CandidatesGrid.java
 

@@ -7,7 +7,7 @@
 
 The Game Lifecycle component owns all stateful game operations: creating games, persisting player progress, enforcing the single-active-game invariant, and managing the state machine from `IN_PROGRESS` through to `SOLVED` or `ABANDONED`. It is the only component that reads and writes game records in DynamoDB.
 
-Files: `game/GameResource.java`, `game/GameService.java`, `game/GameServiceImpl.java`, `game/GameRepository.java`, `game/DynamoDbGameRepository.java`, `game/GameItem.java`, `game/GameStatus.java`, `game/InvalidPuzzleException.java`, `game/DuplicateDigitsException.java`, `game/PuzzleHasNoSolutionException.java`, `game/PuzzleHasMultipleSolutionsException.java`, `game/GameNotFoundException.java`, `exception/GameNotFoundExceptionMapper.java`, `dto/GameState.java`, `dto/GameUpdateRequest.java`, `dto/CreateGameFromGridRequest.java`.
+Files: `game/web/GameResource.java`, `game/GameService.java`, `game/GameServiceImpl.java`, `game/GameRepository.java`, `game/persistence/DynamoDbGameRepository.java`, `game/persistence/GameItem.java`, `game/GameStatus.java`, `game/InvalidPuzzleException.java`, `game/DuplicateDigitsException.java`, `game/PuzzleHasNoSolutionException.java`, `game/PuzzleHasMultipleSolutionsException.java`, `game/GameNotFoundException.java`, `web/exception/GameNotFoundExceptionMapper.java`, `game/web/GameState.java`, `game/web/GameUpdateRequest.java`, `game/web/CreateGameFromGridRequest.java`, `game/web/GameHistoryEntry.java`, `game/web/GameHistoryResponse.java`.
 
 ## State Machine
 
@@ -211,22 +211,24 @@ Single-field record: `Grid originalGrid`. Used by the image import flow.
 
 ## References
 
-- `backend/src/main/java/.../game/GameResource.java`
+- `backend/src/main/java/.../game/web/GameResource.java`
 - `backend/src/main/java/.../game/GameService.java`
 - `backend/src/main/java/.../game/GameServiceImpl.java`
 - `backend/src/main/java/.../game/GameRepository.java`
-- `backend/src/main/java/.../game/DynamoDbGameRepository.java`
-- `backend/src/main/java/.../game/GameItem.java`
+- `backend/src/main/java/.../game/persistence/DynamoDbGameRepository.java`
+- `backend/src/main/java/.../game/persistence/GameItem.java`
 - `backend/src/main/java/.../game/GameStatus.java`
 - `backend/src/main/java/.../game/InvalidPuzzleException.java`
 - `backend/src/main/java/.../game/DuplicateDigitsException.java`
 - `backend/src/main/java/.../game/PuzzleHasNoSolutionException.java`
 - `backend/src/main/java/.../game/PuzzleHasMultipleSolutionsException.java`
 - `backend/src/main/java/.../game/GameNotFoundException.java`
-- `backend/src/main/java/.../exception/GameNotFoundExceptionMapper.java`
-- `backend/src/main/java/.../dto/GameState.java`
-- `backend/src/main/java/.../dto/GameUpdateRequest.java`
-- `backend/src/main/java/.../dto/CreateGameFromGridRequest.java`
+- `backend/src/main/java/.../web/exception/GameNotFoundExceptionMapper.java`
+- `backend/src/main/java/.../game/web/GameState.java`
+- `backend/src/main/java/.../game/web/GameUpdateRequest.java`
+- `backend/src/main/java/.../game/web/CreateGameFromGridRequest.java`
+- `backend/src/main/java/.../game/web/GameHistoryEntry.java`
+- `backend/src/main/java/.../game/web/GameHistoryResponse.java`
 - `backend/src/main/java/.../domain/Grid.java`
 - `backend/src/main/java/.../domain/CandidatesGrid.java`
 - Depends on: Puzzle Generation & Validation (generatePuzzle, solveGrid, hasSingleSolution, validatePuzzle)

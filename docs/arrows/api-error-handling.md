@@ -15,7 +15,7 @@ Cross-cutting layer: uniform `ErrorResponse` envelope, specific domain exception
 - docs/llds/api-error-handling.md
 
 ### EARS
-- docs/specs/api-error-handling-specs.md (22 specs: 20 [x], 2 [D])
+- docs/specs/api-error-handling-specs.md (22 specs: 20 [x], 2 [ ])
 - docs/specs/domain-types-specs.md — DT-DTO-* and DT-SVC-* specs also touch error surface
 - docs/specs/game-lifecycle-specs.md — GL-BE-004/005/006, GL-API-004 all [x]
 
@@ -24,16 +24,16 @@ Cross-cutting layer: uniform `ErrorResponse` envelope, specific domain exception
 - backend/src/test/java/com/sudoku/game/GameServiceImplTest.java — updated for specific exception types
 
 ### Code
-- backend/src/main/java/.../dto/ErrorResponse.java
+- backend/src/main/java/.../web/ErrorResponse.java
 - backend/src/main/java/.../game/InvalidPuzzleException.java (abstract)
 - backend/src/main/java/.../game/DuplicateDigitsException.java
 - backend/src/main/java/.../game/PuzzleHasNoSolutionException.java
 - backend/src/main/java/.../game/PuzzleHasMultipleSolutionsException.java
 - backend/src/main/java/.../game/GameNotFoundException.java
-- backend/src/main/java/.../exception/InvalidGridExceptionMapper.java
-- backend/src/main/java/.../exception/InvalidPuzzleExceptionMapper.java
-- backend/src/main/java/.../exception/GameNotFoundExceptionMapper.java
-- backend/src/main/java/.../exception/GlobalExceptionMapper.java
+- backend/src/main/java/.../web/exception/InvalidGridExceptionMapper.java
+- backend/src/main/java/.../web/exception/InvalidPuzzleExceptionMapper.java
+- backend/src/main/java/.../web/exception/GameNotFoundExceptionMapper.java
+- backend/src/main/java/.../web/exception/GlobalExceptionMapper.java
 
 ## Architecture
 
@@ -42,7 +42,7 @@ Cross-cutting layer: uniform `ErrorResponse` envelope, specific domain exception
 **Key Components:**
 1. `ErrorResponse` — shared DTO record; two constructors; null-safe `detail()` accessor; error code constants
 2. Exception hierarchy in `com.sudoku.game` — `InvalidPuzzleException` (abstract base), three specific subclasses, `GameNotFoundException`
-3. Exception mappers in `com.sudoku.exception` — four `@Provider` classes; specificity rules ensure correct mapper fires
+3. Exception mappers in `com.sudoku.web.exception` — four `@Provider` classes; specificity rules ensure correct mapper fires
 4. `GlobalExceptionMapper` — catch-all with UUID correlation ID; logs at ERROR; never leaks internals
 
 ## EARS Coverage

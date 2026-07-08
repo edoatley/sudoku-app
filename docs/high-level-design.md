@@ -85,7 +85,7 @@ The system is divided into 8 components by domain concept:
 | **Image Recognition**              | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring                 | `image_recognition/handler.py`                      |
 | **Cloud Platform**                 | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM                         | `infra/*.tf`                                        |
 | **League Table**                   | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard`      | `backend/.../leaderboard/`                          |
-| **AI Coach**                       | Conversational coaching via Amazon Bedrock; one InvokeModel call per player message; deterministic pre-analysis (hint engine) provides context; fallback to nudge text on failure | `backend/.../puzzle/BedrockCoachClient.java`, `SudokuCoachServiceImpl.java` |
+| **AI Coach**                       | Conversational coaching via Amazon Bedrock; one InvokeModel call per player message; deterministic pre-analysis (hint engine) provides context; fallback to nudge text on failure | `backend/.../coach/`, `backend/.../coach/bedrock/BedrockCoachClient.java` |
 | **React Frontend**                 | Browser SPA: game UI, full-screen navigation, hint UX, coach chat panel, state hooks, API client, localStorage persistence | `ui/src/`                                           |
 
 ## Dependency Order
@@ -309,9 +309,9 @@ Patterns and decisions that only became visible after reading all components tog
 
 ## References
 
-- Low-level designs: `docs/llds/` (10 files, including `sudoku-coach.md`)
-- EARS specifications: `docs/specs/` (11 files, including `sudoku-coach-specs.md`)
-- Arrow tracking: `docs/arrows/index.yaml` (12 arrows, including `sudoku-coach`)
+- Low-level designs: `docs/llds/` (14 files, including `sudoku-coach.md`)
+- EARS specifications: `docs/specs/` (15 files, including `sudoku-coach-specs.md`)
+- Arrow tracking: `docs/arrows/index.yaml` (17 arrows, including `sudoku-coach`)
 - Backend standards: `docs/standards/java-quarkus.md`
 - Security standards: `docs/arrows/security-standards.md`
 - Testing strategy: `docs/arrows/testing-strategy.md`

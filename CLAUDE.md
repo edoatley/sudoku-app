@@ -103,7 +103,7 @@ npm run lint
 npm run preview
 ```
 
-No test framework configured yet (Vitest would be the natural choice given Vite).
+Test framework: Vitest + jsdom + React Testing Library (unit/component tests); Playwright for E2E.
 
 ## Infrastructure (Terraform)
 
@@ -137,11 +137,11 @@ The script runs: image recognition (pytest), frontend lint, npm audit, E2E (Play
 
 ## Security & Cost Protection Standards
 
-**`docs/security.md` must be followed for all generated code.**
+**`docs/arrows/security-standards.md` must be followed for all generated code.**
 
 ## Infrastructure Coding Standards
 
-**`docs/infrastructure.md` must be followed for all generated infrastructure code.**
+**`docs/llds/cloud-platform.md` must be followed for all generated infrastructure code.**
 
 ## Backend Coding Standards
 
@@ -169,7 +169,7 @@ The script runs: image recognition (pytest), frontend lint, npm audit, E2E (Play
 - Native compilation with GraalVM is supported via the `native` Maven profile for cold-start optimization
 - Integration tests (`*IT.java`) are skipped by default; enable with `-DskipITs=false`
 - Frontend uses plain JSX (no TypeScript); ESLint uses flat config format (ESLint 9+)
-- MUI v7 with Emotion as the styling engine
+- MUI v9 with Emotion as the styling engine
 
 ## Linked-Intent Development (MANDATORY)
 

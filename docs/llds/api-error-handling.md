@@ -7,7 +7,7 @@
 
 The API Error Handling layer is a cross-cutting concern that ensures every error reaching the REST boundary produces a consistent `{"code":"...","message":"...","detail":"..."}` JSON body with a predictable HTTP status code. Specific domain exceptions replace previously generic string-message exceptions so callers can programmatically distinguish failure modes.
 
-Files: `dto/ErrorResponse.java`, `game/InvalidPuzzleException.java`, `game/DuplicateDigitsException.java`, `game/PuzzleHasNoSolutionException.java`, `game/PuzzleHasMultipleSolutionsException.java`, `game/GameNotFoundException.java`, `exception/InvalidGridExceptionMapper.java`, `exception/InvalidPuzzleExceptionMapper.java`, `exception/GameNotFoundExceptionMapper.java`, `exception/GlobalExceptionMapper.java`.
+Files: `web/ErrorResponse.java`, `game/InvalidPuzzleException.java`, `game/DuplicateDigitsException.java`, `game/PuzzleHasNoSolutionException.java`, `game/PuzzleHasMultipleSolutionsException.java`, `game/GameNotFoundException.java`, `web/exception/InvalidGridExceptionMapper.java`, `web/exception/InvalidPuzzleExceptionMapper.java`, `web/exception/GameNotFoundExceptionMapper.java`, `web/exception/GlobalExceptionMapper.java`.
 
 ## ErrorResponse DTO
 
@@ -55,7 +55,7 @@ Each concrete subclass carries a fixed, user-readable message set in the no-arg 
 
 ## Exception Mappers
 
-All mappers reside in `com.sudoku.exception` and implement `ExceptionMapper<T>`. All are annotated `@Provider` for automatic JAX-RS registration. All set `Content-Type: application/json`.
+All mappers reside in `com.sudoku.web.exception` and implement `ExceptionMapper<T>`. All are annotated `@Provider` for automatic JAX-RS registration. All set `Content-Type: application/json`.
 
 | Mapper | Catches | HTTP | Code |
 | --- | --- | --- | --- |
@@ -128,23 +128,23 @@ Note: `DynamoDbGameRepository.findById()` and `update()` do not yet throw `GameN
 **Why not a single `AppException` with a code field?**
 A single exception type with an enum discriminator would require callers to check the code at runtime. Specific subclasses allow `catch (DuplicateDigitsException e)` which is more idiomatic and statically checkable. The tradeoff is more classes, but each is trivial (no-arg constructor + fixed message).
 
-**Why are mappers in `com.sudoku.exception`, not `com.sudoku.game`?**
+**Why are mappers in `com.sudoku.web.exception`, not `com.sudoku.game`?**
 The mappers are infrastructure — they translate domain exceptions to HTTP responses. Keeping them in a separate package prevents the game domain from depending on JAX-RS types, and allows a future extraction of shared infrastructure without touching domain code.
 
 ## References
 
-- `backend/src/main/java/.../dto/ErrorResponse.java`
+- `backend/src/main/java/.../web/ErrorResponse.java`
 - `backend/src/main/java/.../domain/InvalidGridException.java`
 - `backend/src/main/java/.../game/InvalidPuzzleException.java`
 - `backend/src/main/java/.../game/DuplicateDigitsException.java`
 - `backend/src/main/java/.../game/PuzzleHasNoSolutionException.java`
 - `backend/src/main/java/.../game/PuzzleHasMultipleSolutionsException.java`
 - `backend/src/main/java/.../game/GameNotFoundException.java`
-- `backend/src/main/java/.../exception/InvalidGridExceptionMapper.java`
-- `backend/src/main/java/.../exception/InvalidPuzzleExceptionMapper.java`
-- `backend/src/main/java/.../exception/GameNotFoundExceptionMapper.java`
-- `backend/src/main/java/.../exception/GlobalExceptionMapper.java`
-- `backend/src/test/java/.../game/GameResourceTest.java`
+- `backend/src/main/java/.../web/exception/InvalidGridExceptionMapper.java`
+- `backend/src/main/java/.../web/exception/InvalidPuzzleExceptionMapper.java`
+- `backend/src/main/java/.../web/exception/GameNotFoundExceptionMapper.java`
+- `backend/src/main/java/.../web/exception/GlobalExceptionMapper.java`
+- `backend/src/test/java/.../web/HealthResourceTest.java`
 - `backend/src/test/java/.../game/GameServiceImplTest.java`
 - Depends on: nothing (cross-cutting layer, no domain dependencies)
 - Depended on by: Game Lifecycle (throws GameNotFoundException, InvalidPuzzleException subclasses), Puzzle Generation (throws InvalidGridException via Board)

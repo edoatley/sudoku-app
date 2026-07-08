@@ -1,19 +1,19 @@
 # League Table
 
 **Created**: 2026-05-31
-**Status**: Planned
+**Status**: Complete
 
 ## Context and Current State
 
-Players currently have no way to compare performance with each other. Scoring is computed client-side only (a deferred TODO marked as `FE-UI-042b` in `PuzzleHistoryDialog.jsx`). There is no leaderboard endpoint, no cross-player data model, and no ranking UI.
+The League Table component provides cross-player performance comparison. Scoring is computed server-side when a game is solved and stored in `GameItem`. A write-through `SudokuLeaderboard` DynamoDB table aggregates stats per player. The `GET /api/v1/leaderboard` endpoint returns ranked player stats. A full-screen `LeaderboardView` renders the league table in the frontend.
 
-This LLD introduces:
+This LLD introduced:
 1. Server-side scoring (computed on game solve, stored in `GameItem`)
 2. A write-through leaderboard aggregate table updated on every solve
 3. A `GET /api/v1/leaderboard` endpoint returning ranked player stats
 4. A `LeaderboardView` full-screen UI component
 
-Files: `backend/.../game/ScoringConstants.java`, `backend/.../game/GameItem.java`, `backend/.../dto/GameHistoryEntry.java`, `backend/.../dto/GameState.java`, `backend/.../leaderboard/` (all new), `backend/.../player/PlayerRepository.java`, `backend/.../player/DynamoDbPlayerRepository.java`, `backend/.../game/GameServiceImpl.java`, `infra/dynamodb.tf`, `infra/iam.tf`, `ui/src/components/views/LeaderboardView.jsx`, `ui/src/hooks/useLeaderboard.js`, `ui/src/api/sudokuApi.js`.
+Files: `backend/.../game/ScoringConstants.java`, `backend/.../game/persistence/GameItem.java`, `backend/.../game/web/GameHistoryEntry.java`, `backend/.../game/web/GameState.java`, `backend/.../leaderboard/` (all new), `backend/.../player/PlayerRepository.java`, `backend/.../player/persistence/DynamoDbPlayerRepository.java`, `backend/.../game/GameServiceImpl.java`, `infra/dynamodb.tf`, `infra/iam.tf`, `ui/src/components/views/LeaderboardView.jsx`, `ui/src/hooks/useLeaderboard.js`, `ui/src/api/sudokuApi.js`.
 
 ## Scoring Formula
 
@@ -121,7 +121,7 @@ New package `com.sudoku.leaderboard`:
 - `LeaderboardServiceImpl.java` — `@ApplicationScoped` implementation
 - `LeaderboardResource.java` — `@Path("/api/v1/leaderboard")` JAX-RS resource
 
-New DTOs in `com.sudoku.dto`:
+DTOs in `com.sudoku.leaderboard.web`:
 - `LeaderboardEntry.java` — record
 - `LeaderboardResponse.java` — record wrapping `List<LeaderboardEntry>`
 
