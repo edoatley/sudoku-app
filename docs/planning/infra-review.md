@@ -1,7 +1,7 @@
 # Infrastructure Review — `infra/` Terraform
 
 **Created**: 2026-07-08
-**Status**: Findings report — H1 fixed (PR #115, 2026-07-08); H2–L5 not yet actioned
+**Status**: Findings report — H1–H4 fixed (H1: PR #115, 2026-07-08; H2–H4: 2026-07-08); M1–L5 not yet actioned
 **Scope**: All 15 `infra/*.tf` files, cross-checked against `infra/README.md`, `docs/llds/cloud-platform.md`, `.github/workflows/`, and backend code where a claim depended on it.
 
 Each finding lists what/where, impact, recommended fix, and effort (S/M/L).
@@ -33,7 +33,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Fix implemented**: see `docs/planning/old/admin-namespace-security-fix.md` — the data browser was promoted to an admin-group-gated `/admin/data/*` namespace (kept in prod for admins) rather than compiled out, so the Games/Players Scan grants are retained; see `docs/llds/user-management.md` — Admin Authorization. The `hint-demo` dev aid is deliberately **not** compiled out of prod (a first attempt at that broke RC smoke tests — the Lambda is built once and shared by every Terraform workspace, so it would have removed hint-demo from RC/beta too); it stays reachable everywhere, which is an accepted trade-off since it carries no user data. See `docs/llds/cloud-platform.md` — API Gateway.
 
-### H2 — Bedrock budget kill-switch does not cover the image recognition Lambda
+### H2 — Bedrock budget kill-switch does not cover the image recognition Lambda — **FIXED 2026-07-08**
+
+**Fix implemented**: `aws_iam_role.image_recognition_lambda_exec.name`/`.arn` added to the budget action's `roles` list and the budgets execution role's `iam:AttachRolePolicy`/`iam:DetachRolePolicy` resource list (`infra/budgets.tf`). Confirmed `image_recognition/handler.py` already degrades gracefully on Bedrock `ClientError` (including `AccessDeniedException`), falling back through remaining models and ultimately raising a handled `ValueError` — no backend change needed.
+
 
 **Where**: `infra/budgets.tf:104-124` (`aws_budgets_budget_action.deny_bedrock_on_limit`)
 
@@ -43,7 +46,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### H3 — `required_version = ">= 1.5"` is below what the backend config needs
+### H3 — `required_version = ">= 1.5"` is below what the backend config needs — **FIXED 2026-07-08**
+
+**Fix implemented**: `infra/terraform.tf` now requires `>= 1.10`. CI's `hashicorp/setup-terraform@v4` installs latest by default (no pinned older version), and local dev Terraform is v1.15.5, so both satisfy the new constraint.
+
 
 **Where**: `infra/terraform.tf:2` vs `infra/terraform.tf:15`
 
@@ -53,7 +59,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### H4 — No deletion protection on production stateful resources
+### H4 — No deletion protection on production stateful resources — **FIXED 2026-07-08**
+
+**Fix implemented**: `deletion_protection_enabled = local.is_default` added to the Games, Players, and Leaderboard tables (rate-limits table left unprotected — ephemeral by design); `lifecycle { prevent_destroy = true }` added to both Route53 zones in `infra/domain.tf`. `teardown.yml` already requires a typed `DESTROY` confirmation input for any workspace, including default, so the "consider a typed confirmation" suggestion was left as-is.
+
 
 **Where**: `infra/dynamodb.tf` (all four tables), `infra/domain.tf:5-19` (both Route53 zones)
 
@@ -166,16 +175,16 @@ Auto branch creation is enabled only on the **production** app — meaning any p
 
 ### L5 — Documentation drift (fixes are out of scope here; see `docs/architecture.md` for current-state truth)
 
-| Doc | Stale claim | Actual |
-| --- | --- | --- |
-| `infra/README.md:3` | AWS provider `~> 5.0` | `~> 6.39` |
-| `infra/README.md:100` | Runtime `java21` | `java25` |
-| `infra/README.md:90-96`, `docs/llds/cloud-platform.md` (CORS Two-Step) | CORS tightened post-deploy with `ignore_changes` | API GW CORS now fully Terraform-managed (`api_gateway.tf:88-92`); only Cognito callback URLs still use the two-step pattern |
-| `infra/README.md:349-352` | Workflows `ci-main.yml` / `ci-rc.yml` | `ci-deploy.yml` handles both |
-| `docs/llds/cloud-platform.md` (Storage) | 2 DynamoDB tables | 4 (adds Leaderboard, CoachRateLimits) |
-| `docs/llds/cloud-platform.md` (IAM) | Games: no Scan; Players: 3 actions | Both include `Scan`; Leaderboard + CoachRateLimits policies missing entirely |
-| `docs/llds/cloud-platform.md` (Amplify env vars) | — | `VITE_AI_COACH` missing |
-| `infra/outputs.tf:7` | "used by the deploy workflow to tighten CORS post-apply" | CORS tightening step no longer exists |
+| Doc                                                                    | Stale claim                                              | Actual                                                                                                                      |
+| ---------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `infra/README.md:3`                                                    | AWS provider `~> 5.0`                                    | `~> 6.39`                                                                                                                   |
+| `infra/README.md:100`                                                  | Runtime `java21`                                         | `java25`                                                                                                                    |
+| `infra/README.md:90-96`, `docs/llds/cloud-platform.md` (CORS Two-Step) | CORS tightened post-deploy with `ignore_changes`         | API GW CORS now fully Terraform-managed (`api_gateway.tf:88-92`); only Cognito callback URLs still use the two-step pattern |
+| `infra/README.md:349-352`                                              | Workflows `ci-main.yml` / `ci-rc.yml`                    | `ci-deploy.yml` handles both                                                                                                |
+| `docs/llds/cloud-platform.md` (Storage)                                | 2 DynamoDB tables                                        | 4 (adds Leaderboard, CoachRateLimits)                                                                                       |
+| `docs/llds/cloud-platform.md` (IAM)                                    | Games: no Scan; Players: 3 actions                       | Both include `Scan`; Leaderboard + CoachRateLimits policies missing entirely                                                |
+| `docs/llds/cloud-platform.md` (Amplify env vars)                       | —                                                        | `VITE_AI_COACH` missing                                                                                                     |
+| `infra/outputs.tf:7`                                                   | "used by the deploy workflow to tighten CORS post-apply" | CORS tightening step no longer exists                                                                                       |
 
 ---
 

@@ -6,6 +6,10 @@ resource "aws_route53_zone" "sudoku" {
   count   = local.is_default ? 1 : 0
   name    = "sudoku.edoatley.co.uk"
   comment = "Delegated zone for the Sudoku Amplify app"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Route53 hosted zone for the beta subdomain.
@@ -16,6 +20,10 @@ resource "aws_route53_zone" "sudoku_beta" {
   count   = local.is_default ? 1 : 0
   name    = "sudoku-beta.edoatley.co.uk"
   comment = "Delegated zone for the Sudoku beta (RC) Amplify app"
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # RC workspaces read both zone IDs from the default workspace's remote state

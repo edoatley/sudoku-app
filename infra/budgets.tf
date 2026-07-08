@@ -53,9 +53,12 @@ resource "aws_iam_role_policy" "budgets_execution" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["iam:AttachRolePolicy", "iam:DetachRolePolicy"]
-        Resource = aws_iam_role.lambda_exec.arn
+        Effect = "Allow"
+        Action = ["iam:AttachRolePolicy", "iam:DetachRolePolicy"]
+        Resource = [
+          aws_iam_role.lambda_exec.arn,
+          aws_iam_role.image_recognition_lambda_exec.arn,
+        ]
       },
       {
         Effect   = "Allow"
@@ -118,7 +121,10 @@ resource "aws_budgets_budget_action" "deny_bedrock_on_limit" {
   definition {
     iam_action_definition {
       policy_arn = aws_iam_policy.bedrock_deny[0].arn
-      roles      = [aws_iam_role.lambda_exec.name]
+      roles = [
+        aws_iam_role.lambda_exec.name,
+        aws_iam_role.image_recognition_lambda_exec.name,
+      ]
     }
   }
 
