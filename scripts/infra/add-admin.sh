@@ -71,6 +71,26 @@ if [[ -z "${POOL_ID}" ]]; then
   fi
 fi
 
+GROUP_NAME="administrators"
+
+# The "administrators" group is Terraform-managed (aws_cognito_user_group in
+# cognito.tf / cognito-rc-shared.tf), but only actually created once someone
+# applies to the owning workspace ("rc-shared" for the shared RC pool) — which
+# may not have happened yet. Create it here if missing so this script doesn't
+# depend on that manual apply step having already run.
+if ! aws cognito-idp get-group --user-pool-id "${POOL_ID}" --group-name "${GROUP_NAME}" &>/dev/null; then
+  echo "Group '${GROUP_NAME}' does not exist in pool ${POOL_ID} yet — creating it..."
+  aws cognito-idp create-group \
+    --user-pool-id "${POOL_ID}" \
+    --group-name "${GROUP_NAME}" \
+    --description "Members may reach /admin/* endpoints" >/dev/null
+  echo "  Created. Note: this pool's group is also declared in Terraform (cognito.tf /"
+  echo "  cognito-rc-shared.tf) — if that workspace is applied later, reconcile state with:"
+  echo "    terraform import 'aws_cognito_user_group.admin[0]' ${POOL_ID}/${GROUP_NAME}"
+  echo "  (or 'aws_cognito_user_group.rc_admin[0]' for the rc-shared pool), otherwise apply"
+  echo "  will fail trying to create a group that already exists."
+fi
+
 echo "Looking up federated username for ${EMAIL} in pool ${POOL_ID}..."
 USERNAME=$(aws cognito-idp list-users \
   --user-pool-id "${POOL_ID}" \
