@@ -290,6 +290,7 @@ jobs:
       cognito_user_pool_id: ${{ needs.deploy.outputs.cognito_user_pool_id }}
       cognito_client_id: ${{ needs.deploy.outputs.is_main == 'true' && needs.deploy.outputs.cognito_client_id || '' }}
       environment_type: ${{ needs.deploy.outputs.is_main == 'true' && 'main' || 'rc' }}
+      workspace: ${{ needs.deploy.outputs.workspace }}
 
   notify:
     name: Notify

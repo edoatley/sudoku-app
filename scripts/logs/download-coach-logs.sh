@@ -6,8 +6,9 @@
 #   bash scripts/logs/download-coach-logs.sh [options]
 #
 # Options:
-#   --workspace <name>   Terraform workspace name (default: rc-ai-coach)
-#                        Use "default" for production.
+#   --workspace <name>   Terraform workspace name (default: derived from the current git
+#                        branch, same sanitize/truncate rule as resolve-environment.sh —
+#                        "main" -> "default"). Pass explicitly to override.
 #   --hours <n>          How many hours back to search (default: 24)
 #   --output <file>      Write NDJSON to file instead of stdout
 #   --profile <name>     AWS CLI profile name (optional)
@@ -31,7 +32,16 @@
 
 set -euo pipefail
 
-WORKSPACE="rc-ai-coach"
+# Default workspace mirrors resolve-environment.sh's branch->workspace rule (not sourced —
+# that script is CI-output-oriented; this stays a pure local tool).
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+if [[ "${BRANCH}" == "main" ]]; then
+  WORKSPACE="default"
+elif [[ -n "${BRANCH}" && "${BRANCH}" != "HEAD" ]]; then
+  WORKSPACE="$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)"
+else
+  WORKSPACE=""
+fi
 HOURS=24
 OUTPUT=""
 PROFILE_ARGS=()
@@ -45,6 +55,11 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
+
+if [[ -z "${WORKSPACE}" ]]; then
+  echo "ERROR: could not determine git branch — pass --workspace explicitly" >&2
+  exit 1
+fi
 
 if [[ "$WORKSPACE" == "default" ]]; then
   LOG_GROUP="/aws/lambda/sudoku"

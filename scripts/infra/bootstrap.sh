@@ -289,7 +289,8 @@ DEPLOY_POLICY=$(cat <<EOF
         "logs:CreateLogGroup", "logs:DeleteLogGroup",
         "logs:PutRetentionPolicy", "logs:DescribeLogGroups",
         "logs:ListTagsLogGroup", "logs:TagLogGroup", "logs:UntagLogGroup",
-        "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource"
+        "logs:ListTagsForResource", "logs:TagResource", "logs:UntagResource",
+        "logs:FilterLogEvents", "logs:GetLogEvents"
       ],
       "Resource": "arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:*"
     },

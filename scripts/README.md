@@ -8,7 +8,8 @@ Helper scripts for local development, testing, and infrastructure management.
 scripts/
 ├── local/       — Local dev and test scripts (run on your machine)
 ├── infra/       — Infrastructure setup and deployment scripts
-└── github/      — CI/CD scripts called by GitHub Actions workflows
+├── github/      — CI/CD scripts called by GitHub Actions workflows
+└── logs/        — Ad-hoc log retrieval and analysis tools
 ```
 
 `.env.local` lives in `scripts/` and is sourced automatically by all scripts that need secrets.
@@ -363,3 +364,50 @@ bash scripts/github/image-smoke-test.sh \
 
 The token can also be supplied via the `SMOKE_ID_TOKEN` environment variable instead of the
 third argument.
+
+---
+
+### github/coach-smoke-test.sh
+
+Posts a fixed naked-single board to `/api/v1/ai/coach` with a distinctive marker in
+`userMessage`, asserts a 200 response with a non-blank `aiMessage`, then polls CloudWatch
+Logs for the matching `COACH_REQUEST`/`COACH_RESPONSE` pair (correlated by `cid`) and asserts
+the logged content — `userMessage`, `board`, `candidatesGrid`, `aiMessage` — matches what was
+actually sent/received. RC-only (coach is disabled on `main`/`default`). Used by the
+`smoke-tests.yml` workflow; also runnable locally against any RC-deployed environment.
+
+```bash
+AWS_PROFILE=sandbox bash scripts/github/coach-smoke-test.sh \
+  https://<api-id>.execute-api.eu-west-2.amazonaws.com \
+  rc-ai-coach-improvements-1 \
+  "${ID_TOKEN}"
+```
+
+Requires the CI/deploy role to have `logs:FilterLogEvents`/`logs:GetLogEvents` (see
+`scripts/infra/bootstrap.sh`). Tunable via `COACH_LOG_POLL_ATTEMPTS` (default 6) and
+`COACH_LOG_POLL_DELAY` (default 5s) if CloudWatch ingestion lag needs more headroom.
+
+---
+
+## scripts/logs/
+
+### download-coach-logs.sh
+
+Downloads AI coach interaction logs (`COACH_REQUEST`/`COACH_RESPONSE` structured JSON lines,
+including full conversation content — user message, AI reply, board, candidates) from CloudWatch
+for a given workspace, for manual review of coaching quality.
+
+```bash
+AWS_PROFILE=sandbox bash scripts/logs/download-coach-logs.sh --hours 1
+
+# Reconstruct paired turns (prompt + reply), joined by cid:
+AWS_PROFILE=sandbox bash scripts/logs/download-coach-logs.sh --hours 1 | \
+  jq -s 'group_by(.cid)[] | {cid: .[0].cid, userMessage: .[0].userMessage,
+         aiMessage: (map(select(.type=="COACH_RESPONSE"))[0].aiMessage)}'
+```
+
+`--workspace` defaults to the current git branch's Terraform workspace (same sanitize/truncate
+rule as `resolve-environment.sh` — `main` maps to `default`); pass it explicitly to target a
+different workspace than the one you're currently on.
+
+Prerequisites: `aws` CLI, `jq`.
