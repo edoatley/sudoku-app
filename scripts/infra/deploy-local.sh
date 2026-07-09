@@ -131,6 +131,22 @@ if [ "${WORKSPACE}" != "default" ]; then
   )
 fi
 
+# Reconcile the standalone log group before the main plan runs. module.lambda's
+# use_existing_cloudwatch_log_group=true does a `data` lookup that fails outright on a
+# brand-new workspace's first-ever apply, since there is nothing yet to adopt — data
+# sources are resolved during plan, before this same run could create the resource.
+# Unconditional and idempotent: a no-op once the group already exists.
+AWS_PROFILE=sandbox terraform apply -auto-approve -input=false \
+  -target=aws_cloudwatch_log_group.lambda \
+  -var "github_token=${AMPLIFY_GITHUB_TOKEN}" \
+  -var "lambda_zip_path=${ZIP_PATH}" \
+  -var "google_client_id=${GOOGLE_CLIENT_ID}" \
+  -var "google_client_secret=${GOOGLE_CLIENT_SECRET}" \
+  -var "smoke_test_user_email=${SMOKE_TEST_USER_EMAIL}" \
+  -var "smoke_test_user_password=${SMOKE_TEST_USER_PASSWORD}" \
+  -var "image_recognition_image_uri=${IMAGE_RECOGNITION_IMAGE_URI}" \
+  "${RC_COGNITO_VARS[@]}"
+
 AWS_PROFILE=sandbox terraform plan -out=tfplan \
   -input=false \
   -var "github_token=${AMPLIFY_GITHUB_TOKEN}" \
