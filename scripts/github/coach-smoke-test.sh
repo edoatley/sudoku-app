@@ -45,10 +45,12 @@ fi
 MARKER="SMOKE_TEST_COACH_CHECK_${GITHUB_RUN_ID:-local}_$(date +%s)"
 
 # Known naked-single fixture — same board used in CoachResourceTest.java / BedrockCoachClientTest.java.
+# Grid's wire format is {"rows": [[...]]} (custom serializer/deserializer, not a bare array —
+# see domain/Grid.java's Javadoc and GridDeserializer.java).
 jq -n --arg msg "${MARKER}" '{
-  board: [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],
-          [8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],
-          [0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]],
+  board: { rows: [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],
+                  [8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],
+                  [0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]] },
   history: [],
   userMessage: $msg
 }' > /tmp/coach_smoke_body.json
