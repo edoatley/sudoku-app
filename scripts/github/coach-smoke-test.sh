@@ -46,18 +46,24 @@ else
 fi
 
 # Distinctive marker for unambiguous CloudWatch correlation — real players won't type this.
-MARKER="SMOKE_TEST_COACH_CHECK_${GITHUB_RUN_ID:-local}_$(date +%s)"
+# Suffixed per HTTP attempt below: a retried call sends a fresh request with its own marker,
+# so a timed-out first attempt's COACH_REQUEST (which never gets a COACH_RESPONSE, since that
+# invocation was killed mid-flight) can never be mistaken for the attempt that actually
+# succeeded — MARKER is only ever set to the successful attempt's exact value.
+BASE_MARKER="SMOKE_TEST_COACH_CHECK_${GITHUB_RUN_ID:-local}_$(date +%s)"
 
 # Known naked-single fixture — same board used in CoachResourceTest.java / BedrockCoachClientTest.java.
 # Grid's wire format is {"rows": [[...]]} (custom serializer/deserializer, not a bare array —
 # see domain/Grid.java's Javadoc and GridDeserializer.java).
-jq -n --arg msg "${MARKER}" '{
-  board: { rows: [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],
-                  [8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],
-                  [0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]] },
-  history: [],
-  userMessage: $msg
-}' > /tmp/coach_smoke_body.json
+build_body() {
+  jq -n --arg msg "$1" '{
+    board: { rows: [[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],
+                    [8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],
+                    [0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]] },
+    history: [],
+    userMessage: $msg
+  }' > /tmp/coach_smoke_body.json
+}
 
 printf 'Authorization: Bearer %s\n' "${ID_TOKEN}" > /tmp/coach-auth-header.txt
 
@@ -66,7 +72,11 @@ printf 'Authorization: Bearer %s\n' "${ID_TOKEN}" > /tmp/coach-auth-header.txt
 # Bedrock SDK client), which can exceed the Lambda's 8s hard timeout on that first call.
 # A retry lands in the same, now-warm execution environment shortly after. Same class of
 # problem api-smoke-tests.sh's retry_check already tolerates for cold-JVM 503s.
+MARKER=""
 for attempt in $(seq 1 "${HTTP_RETRY_ATTEMPTS}"); do
+  ATTEMPT_MARKER="${BASE_MARKER}_a${attempt}"
+  build_body "${ATTEMPT_MARKER}"
+
   STATUS=$(curl -s -o /tmp/coach_smoke_response.json -w "%{http_code}" \
     -X POST "${API_BASE}/api/v1/ai/coach" \
     -H "Content-Type: application/json" \
@@ -77,6 +87,7 @@ for attempt in $(seq 1 "${HTTP_RETRY_ATTEMPTS}"); do
   cat /tmp/coach_smoke_response.json
 
   if [[ "${STATUS}" == "200" ]]; then
+    MARKER="${ATTEMPT_MARKER}"
     break
   fi
 
