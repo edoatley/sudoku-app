@@ -1,6 +1,6 @@
 # Backend — Java / Quarkus
 
-Java 21 REST API built with Quarkus, deployed as an AWS Lambda function behind API Gateway HTTP v2.
+Java 25 REST API built with Quarkus, deployed as an AWS Lambda function behind API Gateway HTTP v2.
 
 ---
 
@@ -8,7 +8,7 @@ Java 21 REST API built with Quarkus, deployed as an AWS Lambda function behind A
 
 | | |
 |---|---|
-| Language | Java 21 |
+| Language | Java 25 |
 | Framework | Quarkus 3.36.1 (`quarkus-amazon-lambda-rest`) |
 | Auth | `quarkus-oidc` — JWT validation via Cognito OIDC discovery |
 | Database | AWS DynamoDB (`quarkus-amazon-dynamodb-enhanced`) |

@@ -38,7 +38,7 @@ a structured hint the UI reveals in stages. The coach is a multi-turn dialogue.
 
 | Layer        | Technology                                    |
 | ------------ | --------------------------------------------- |
-| Runtime      | Java 21 / Quarkus (existing Lambda)           |
+| Runtime      | Java 25 / Quarkus (existing Lambda)           |
 | Compute      | AWS Lambda with Quarkus SnapStart             |
 | LLM          | Amazon Bedrock — Claude Haiku                 |
 | LLM Client   | LangChain4j (quarkus-langchain4j-bedrock)     |
