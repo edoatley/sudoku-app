@@ -427,6 +427,12 @@ an active hint, but it does override the visual highlight.
 
 - **CRaC vs. GraalVM native vs. SnapStart**: Spike needed to confirm which cold-start strategy
   works best with the raw `BedrockRuntimeClient`. See §12 of `docs/planning/ai-guide.md`.
+  **Concrete evidence this matters**: the coach's first invocation after a fresh deploy hit the
+  Lambda's 8s hard timeout — `COACH_REQUEST` logged fine, but the Bedrock `InvokeModel` call
+  never completed (`Status: timeout` in the Lambda REPORT line). The existing SnapStart warm-up
+  only primes the HTTP layer (`GET /health`), not the Bedrock SDK client. A second call on the
+  same (now-warm) execution environment completed in ~1.8–2.0s. Observed running
+  `scripts/github/coach-smoke-test.sh` against a brand-new RC workspace's first-ever deploy.
 - **System prompt caching threshold**: Claude Haiku models require ≥2,048 tokens (not 1,024)
   for prompt caching. The current `SYSTEM_PROMPT` exceeds this. Monitor cache hit metrics in
   CloudWatch logs (`cacheReadTokens` / `cacheWriteTokens` in COACH_RESPONSE log events).
