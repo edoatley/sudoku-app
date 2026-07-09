@@ -35,12 +35,20 @@
 
 ## Acceptance criteria
 
-- [ ] `COACH_REQUEST` log line includes the full user prompt text, the board grid, and the per-cell candidates grid
-- [ ] `COACH_RESPONSE` log line includes the full AI response text
-- [ ] Request and response for the same turn are still joinable via `cid`
-- [ ] EARS specs and LLD updated to describe the new logged content
-- [ ] `docs/arrows/security-standards.md` Logging Policy followed (or explicitly reconciled if it conflicts)
-- [ ] `download-coach-logs.sh` header docs/examples updated to match new fields
+- [x] `COACH_REQUEST` log line includes the full user prompt text, the board grid, and the per-cell candidates grid
+- [x] `COACH_RESPONSE` log line includes the full AI response text (on every path, including the fallback path — logs the nudge text actually shown to the player)
+- [x] Request and response for the same turn are still joinable via `cid` (now also formally specified as SC-BE-019 — was previously undocumented, not just unimplemented)
+- [x] EARS specs and LLD updated to describe the new logged content
+- [x] `docs/arrows/security-standards.md` Logging Policy followed — no conflict; the policy already explicitly sanctioned this content for this app's threat model
+- [x] `download-coach-logs.sh` header docs/examples updated to match new fields
+
+**Corrections found during implementation** (this doc's original context was stale on these points):
+- `SudokuCoachServiceImpl.coach()` did **not** already call `calculateAllCandidates()` — it never built a `Board` at all, only ever had the raw `Grid`. The candidates-populated `Board` had to be built fresh; this was actually a pre-existing gap between the LLD/HLD (which documented this step) and the shipped code. Implementing it closed that gap as part of this task.
+- `BedrockCoachClient.call()`'s 4th parameter changed from `Grid` to `Board` (domain object, candidates already populated by the caller) — this matches what the LLD's `Orchestration Flow` pseudocode had always specified, the code just hadn't caught up.
+- Found and fixed a real bug risk during the LLD edge audit: the existing `COACH_REQUEST`/`COACH_RESPONSE` logging used hand-templated `LOG.infof("%s", ...)` strings, which would produce invalid JSON once freeform `userMessage`/`aiMessage` text (containing quotes or newlines) was added. Switched to building both log lines via the already-injected `ObjectMapper` (tracked as new spec `SC-BE-018`, with a test proving it).
+- Also retroactively wrote `SC-BE-009` (referenced in code/test `@spec` annotations since before this task, but never actually defined in the spec file) and `SC-BE-019` (the `cid`-correlation invariant, same kind of gap) while in the area.
+
+Full backend test suite and `mvn verify` (JaCoCo coverage gate + OWASP dependency check) both pass. Safe to delete this file.
 
 ## Related specs / docs
 

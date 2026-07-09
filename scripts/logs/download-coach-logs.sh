@@ -13,15 +13,21 @@
 #   --profile <name>     AWS CLI profile name (optional)
 #
 # Output fields (COACH_REQUEST):
-#   type, cid, modelId, technique, historyLen, userMsgLen, ts
+#   type, cid, modelId, technique, historyLen, userMsgLen, ts,
+#   userMessage, board (9x9 placed-digit rows), candidatesGrid ({"rows": [...]})
 #
 # Output fields (COACH_RESPONSE):
 #   type, cid, revealHint, inputTokens, outputTokens,
-#   cacheReadTokens, cacheWriteTokens, latencyMs, fallback
+#   cacheReadTokens, cacheWriteTokens, latencyMs, fallback, aiMessage,
+#   errorType, errorMsg (fallback events only)
 #
 # Example — show token usage and latency for each call:
 #   bash scripts/logs/download-coach-logs.sh | \
 #     jq 'select(.type == "COACH_RESPONSE") | {cid, inputTokens, outputTokens, latencyMs, fallback}'
+#
+# Example — reconstruct a full conversation turn (prompt + reply), joined by cid:
+#   bash scripts/logs/download-coach-logs.sh | \
+#     jq -s 'group_by(.cid)[] | {cid: .[0].cid, userMessage: (.[0].userMessage), aiMessage: (map(select(.type=="COACH_RESPONSE"))[0].aiMessage)}'
 
 set -euo pipefail
 

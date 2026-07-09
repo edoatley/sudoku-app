@@ -1,6 +1,7 @@
 package com.sudoku.coach;
 
 import com.sudoku.coach.bedrock.BedrockCoachClient;
+import com.sudoku.domain.Board;
 import com.sudoku.puzzle.SudokuService;
 import com.sudoku.puzzle.web.BoardRequest;
 import com.sudoku.coach.web.ChatMessage;
@@ -12,7 +13,7 @@ import jakarta.inject.Inject;
 
 import java.util.List;
 
-// @spec SC-BE-001, SC-BE-002, SC-BE-003, SC-BE-009, SC-API-004
+// @spec SC-BE-001, SC-BE-002, SC-BE-003, SC-BE-007, SC-BE-009, SC-API-004
 
 /**
  * Orchestrates coaching responses by running the deterministic hint engine first,
@@ -50,8 +51,13 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
 
             // @spec SC-BE-003, SC-BE-009 — one Bedrock call; falls back to nudge on error
             case HintResult.Found f -> {
+                // @spec SC-BE-007 — candidates computed once here (only on this path — PuzzleSolved
+                // and NoStrategyApplied never reach BedrockCoachClient, so computing them there
+                // would be wasted work), then passed through rather than recomputed downstream.
+                Board board = Board.fromGrid(request.board());
+                board.calculateAllCandidates();
                 BedrockCoachClient.CallResult result = bedrockCoachClient.call(
-                        request.userMessage(), f.hint(), trimmedHistory, request.board());
+                        request.userMessage(), f.hint(), trimmedHistory, board);
                 yield new CoachResult.Response(
                         new CoachResponse(result.reply().aiMessage(), f.hint(), result.reply().revealHint()),
                         result.tokensUsed());
