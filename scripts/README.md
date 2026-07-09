@@ -387,6 +387,12 @@ Requires the CI/deploy role to have `logs:FilterLogEvents`/`logs:GetLogEvents` (
 `scripts/infra/bootstrap.sh`). Tunable via `COACH_LOG_POLL_ATTEMPTS` (default 6) and
 `COACH_LOG_POLL_DELAY` (default 5s) if CloudWatch ingestion lag needs more headroom.
 
+Retries the coach call itself on 500/503 (`COACH_HTTP_RETRY_ATTEMPTS`, default 2;
+`COACH_HTTP_RETRY_DELAY`, default 3s) — the coach's Bedrock client can be genuinely cold on
+its first-ever invocation after a fresh deploy (the existing SnapStart warm-up only primes
+the HTTP layer, not the Bedrock SDK client), occasionally exceeding the Lambda's 8s timeout
+on that first call.
+
 ---
 
 ## scripts/logs/

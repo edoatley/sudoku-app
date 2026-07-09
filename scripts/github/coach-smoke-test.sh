@@ -18,6 +18,8 @@
 # Env (optional):
 #   COACH_LOG_POLL_ATTEMPTS  How many times to poll CloudWatch before giving up (default: 6)
 #   COACH_LOG_POLL_DELAY     Seconds to sleep between polls (default: 5)
+#   COACH_HTTP_RETRY_ATTEMPTS  How many times to retry the coach call on 500/503 (default: 2)
+#   COACH_HTTP_RETRY_DELAY     Seconds to sleep between HTTP retries (default: 3)
 #
 # Exits 0 on success, 1 on failure.
 set -euo pipefail
@@ -29,6 +31,8 @@ ID_TOKEN="${3:-${SMOKE_ID_TOKEN:-}}"
 
 POLL_ATTEMPTS="${COACH_LOG_POLL_ATTEMPTS:-6}"
 POLL_DELAY="${COACH_LOG_POLL_DELAY:-5}"
+HTTP_RETRY_ATTEMPTS="${COACH_HTTP_RETRY_ATTEMPTS:-2}"
+HTTP_RETRY_DELAY="${COACH_HTTP_RETRY_DELAY:-3}"
 
 if [[ -z "${ID_TOKEN}" ]]; then
   echo "ERROR: ID token required — pass as \$3 or set SMOKE_ID_TOKEN" >&2
@@ -57,14 +61,30 @@ jq -n --arg msg "${MARKER}" '{
 
 printf 'Authorization: Bearer %s\n' "${ID_TOKEN}" > /tmp/coach-auth-header.txt
 
-STATUS=$(curl -s -o /tmp/coach_smoke_response.json -w "%{http_code}" \
-  -X POST "${API_BASE}/api/v1/ai/coach" \
-  -H "Content-Type: application/json" \
-  -H @/tmp/coach-auth-header.txt \
-  --data-binary @/tmp/coach_smoke_body.json)
+# Retry on 500/503 — the coach's Bedrock client can be genuinely cold on its first-ever
+# invocation after a fresh deploy (SnapStart's own warm-up primes the HTTP layer, not the
+# Bedrock SDK client), which can exceed the Lambda's 8s hard timeout on that first call.
+# A retry lands in the same, now-warm execution environment shortly after. Same class of
+# problem api-smoke-tests.sh's retry_check already tolerates for cold-JVM 503s.
+for attempt in $(seq 1 "${HTTP_RETRY_ATTEMPTS}"); do
+  STATUS=$(curl -s -o /tmp/coach_smoke_response.json -w "%{http_code}" \
+    -X POST "${API_BASE}/api/v1/ai/coach" \
+    -H "Content-Type: application/json" \
+    -H @/tmp/coach-auth-header.txt \
+    --data-binary @/tmp/coach_smoke_body.json)
 
-echo "POST /api/v1/ai/coach → HTTP ${STATUS}"
-cat /tmp/coach_smoke_response.json
+  echo "POST /api/v1/ai/coach → HTTP ${STATUS} (attempt ${attempt}/${HTTP_RETRY_ATTEMPTS})"
+  cat /tmp/coach_smoke_response.json
+
+  if [[ "${STATUS}" == "200" ]]; then
+    break
+  fi
+
+  if [[ ( "${STATUS}" == "500" || "${STATUS}" == "503" ) && "${attempt}" -lt "${HTTP_RETRY_ATTEMPTS}" ]]; then
+    echo "  ⏳ ${STATUS} — retrying in ${HTTP_RETRY_DELAY}s"
+    sleep "${HTTP_RETRY_DELAY}"
+  fi
+done
 
 if [[ "${STATUS}" != "200" ]]; then
   echo "❌ Expected 200, got ${STATUS}"
