@@ -18,26 +18,28 @@
 
 ## CORS Lifecycle
 
-- [x] **CP-INFRA-020**: The system shall apply baseline wildcard CORS origins at terraform apply time.
-- [x] **CP-INFRA-021**: The post-apply CI workflow shall tighten CORS allowed origins to the exact Amplify URL after infrastructure is created.
-- [x] **CP-INFRA-022**: The system shall ignore CORS configuration changes in Terraform state to preserve post-apply tightening across subsequent applies.
+- [x] **CP-INFRA-020**: The system shall set API Gateway CORS allowed origins directly in Terraform to the static custom domain(s) for each workspace type, with no post-apply tightening step.
+- [x] **CP-INFRA-021**: The system shall tighten Cognito app client callback/logout URLs via a post-apply CI workflow once the exact Amplify branch URL is known.
+- [x] **CP-INFRA-022**: The system shall ignore Cognito callback/logout URL changes in Terraform state to preserve post-apply additions across subsequent applies.
 
 ## Cognito
 
 - [x] **CP-INFRA-030**: The system shall configure Cognito for social-only login via Google OAuth, with no native username/password sign-up.
 - [x] **CP-INFRA-031**: The system shall maintain a single shared Cognito pool for all rc-* workspaces to avoid multiplying Google OAuth redirect URIs.
 - [x] **CP-INFRA-032**: The system shall provision a smoke-test Cognito user with username/password auth for use by CI pipelines.
+- [x] **CP-INFRA-033**: The system shall NOT enable native username/password auth on the public web app client; CI pipelines shall instead authenticate the smoke-test user via a separate, secret-bearing smoke-test app client.
 
 ## Amplify & Frontend Delivery
 
 - [x] **CP-INFRA-040**: The system shall disable Amplify auto-build and trigger builds explicitly via CI after terraform apply.
-- [x] **CP-INFRA-041**: The system shall inject VITE_API_URL, VITE_COGNITO_USER_POOL_ID, VITE_COGNITO_CLIENT_ID, VITE_COGNITO_DOMAIN, VITE_MOCK_API, and VITE_DEV_TOOLS as Amplify environment variables at build time.
+- [x] **CP-INFRA-041**: The system shall inject VITE_API_URL, VITE_COGNITO_USER_POOL_ID, VITE_COGNITO_CLIENT_ID, VITE_COGNITO_DOMAIN, VITE_MOCK_API, VITE_DEV_TOOLS, and VITE_AI_COACH as Amplify environment variables at build time.
 - [x] **CP-INFRA-042**: The system shall set VITE_DEV_TOOLS=false in the default (production) workspace and VITE_DEV_TOOLS=true in all other workspaces.
 
 ## DynamoDB
 
 - [x] **CP-INFRA-050**: The system shall provision DynamoDB tables with PAY_PER_REQUEST billing.
-- [x] **CP-INFRA-051**: The system shall enable point-in-time recovery on DynamoDB tables in the default workspace only.
+- [x] **CP-INFRA-051**: The system shall enable point-in-time recovery on the Games, Players, and Leaderboard tables in the default workspace only (not the ephemeral, TTL-based CoachRateLimits table).
+- [x] **CP-INFRA-052**: The system shall enable deletion protection on the Games, Players, and Leaderboard tables in the default workspace only.
 
 ## Workspace Isolation
 
