@@ -86,6 +86,9 @@ module "lambda" {
   # exhaust the 10-unit unreserved minimum AWS requires, causing a deployment error.
 
   environment_variables = {
+    # Third branch (neither default nor rc-*) is unreachable today — workspaces
+    # are always one or the other — but falls back to localhost-only rather
+    # than a custom domain that wouldn't exist for such a workspace.
     CORS_ALLOWED_ORIGINS = (
       local.is_default ? "https://sudoku.edoatley.co.uk,http://localhost:5173" :
       local.is_rc ? "https://sudoku-beta.edoatley.co.uk,http://localhost:5173" :
