@@ -1,6 +1,6 @@
 # Infrastructure
 
-Terraform configuration for the Serverless Sudoku application. Target region: **eu-west-2** (London). AWS provider ~> 5.0.
+Terraform configuration for the Serverless Sudoku application. Target region: **eu-west-2** (London). AWS provider ~> 6.39.
 
 ---
 
@@ -97,7 +97,7 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 
 ### Lambda
 
-- Runtime: `java21`, handler: `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest`
+- Runtime: `java25`, handler: `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest`
 - Architecture: `x86_64`, memory: 512 MB, timeout: 8 s
 - SnapStart: enabled on published versions (reduces cold starts)
 - Deployment: zip uploaded to S3 (`sudoku-lambda-zip-{account_id}`)
@@ -346,12 +346,11 @@ cd infra && AWS_PROFILE=sandbox terraform init
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
-| `ci-main.yml` | Push to `main` | Full deploy to `default` workspace (production) |
-| `ci-rc.yml` | Push to `rc-*` | Full deploy to a named workspace per branch |
+| `ci-deploy.yml` | Push to `main` or `rc-*` | Full deploy — to `default` workspace (production) for `main`, or a named workspace per branch for `rc-*` |
 | `teardown.yml` | Manual | `terraform destroy` on the `default` workspace |
 | `teardown-rc.yml` | Manual | `terraform destroy` + workspace delete for a named `rc-*` workspace |
 
-### Deploy Flow (both `ci-main.yml` and `ci-rc.yml`)
+### Deploy Flow (`ci-deploy.yml`, both `main` and `rc-*`)
 
 ```
 build backend zip

@@ -44,6 +44,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "lambda_zip" {
   }
 }
 
+# Not consumed by module.lambda below — it deploys from local_existing_package
+# (the local jar), not this object. Uploaded purely so deploy-local.sh can
+# download it as a fallback when no local jar is present. etag forces
+# re-upload detection but plays no role in Lambda versioning.
 resource "aws_s3_object" "lambda_zip" {
   bucket = local.lambda_zip_bucket_id
   key    = "${terraform.workspace}/function.zip"
@@ -90,7 +94,7 @@ module "lambda" {
     DYNAMODB_TABLE_NAME         = aws_dynamodb_table.sudoku_games.name
     PLAYERS_TABLE_NAME          = aws_dynamodb_table.sudoku_players.name
     COACH_RATE_LIMIT_TABLE_NAME = aws_dynamodb_table.sudoku_coach_rate_limits.name
-    COGNITO_ISSUER_URL          = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
+    COGNITO_ISSUER_URL          = "https://cognito-idp.${local.aws_region}.amazonaws.com/${local.cognito_user_pool_id}"
     COGNITO_CLIENT_ID           = local.cognito_web_client_id
   }
 

@@ -80,7 +80,7 @@ module "image_recognition_lambda" {
   tracing_mode  = "PassThrough"
 
   environment_variables = {
-    AWS_REGION_NAME = "eu-west-2"
+    AWS_REGION_NAME = local.aws_region
     BEDROCK_MODELS  = join(",", local.bedrock_models)
   }
 

@@ -1,7 +1,9 @@
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
+  aws_region = data.aws_region.current.region
   is_default = terraform.workspace == "default"
   is_rc      = startswith(terraform.workspace, "rc-")
   suffix     = local.is_default ? "" : "-${terraform.workspace}"

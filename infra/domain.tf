@@ -35,7 +35,7 @@ data "terraform_remote_state" "default" {
   config = {
     bucket = "sudoku-tf-state"
     key    = "sudoku/terraform.tfstate"
-    region = "eu-west-2"
+    region = local.aws_region
   }
 }
 

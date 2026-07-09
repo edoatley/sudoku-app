@@ -1,7 +1,7 @@
 # Infrastructure Review — `infra/` Terraform
 
 **Created**: 2026-07-08
-**Status**: Findings report — H1–H4 fixed (H1: PR #115, 2026-07-08; H2–H4: 2026-07-08); M1–L5 not yet actioned
+**Status**: All findings addressed. H1: PR #115, 2026-07-08. H2–L5: 2026-07-08 to 2026-07-09 (M7 partial — see its entry). Fixed iteratively, each batch verified via live CI/Deploy on `rc-terraform-review` before moving to the next.
 **Scope**: All 15 `infra/*.tf` files, cross-checked against `infra/README.md`, `docs/llds/cloud-platform.md`, `.github/workflows/`, and backend code where a claim depended on it.
 
 Each finding lists what/where, impact, recommended fix, and effort (S/M/L).
@@ -175,27 +175,35 @@ Not verified end-to-end (would require a live Playwright run against a deployed 
 
 ## Low priority / polish
 
-### L1 — `aws_s3_object.lambda_zip` is not consumed by the Lambda
+### L1 — `aws_s3_object.lambda_zip` is not consumed by the Lambda — **FIXED 2026-07-09**
 
 **Where**: `infra/lambda.tf:47-52`
 
 The module deploys from `local_existing_package` (local file), not from this S3 object — the upload exists only as the deploy-script download fallback (`deploy-local.sh`). Add a comment saying so, or remove it if the fallback is obsolete. Note `etag` on the object forces re-upload detection but the object plays no role in Lambda versioning.
 
-### L2 — Region hardcoded in ~6 places
+**Fix implemented**: Confirmed the fallback is still live (`deploy-local.sh` downloads from this object when no local jar exists) — added a comment rather than removing it.
+
+### L2 — Region hardcoded in ~6 places — **FIXED 2026-07-09**
 
 `eu-west-2` appears in the provider, both Cognito issuer URLs (`main.tf` via `api_gateway.tf:149`, `lambda.tf:89`), `VITE_COGNITO_DOMAIN` (`amplify.tf:30`), `AWS_REGION_NAME` (`image_recognition_lambda.tf:88`), and `domain.tf` remote-state config. Hoist to `data.aws_region.current.name` / a local so a region move is one edit.
 
-### L3 — No validation on `image_recognition_image_uri`
+**Fix implemented**: Added `data "aws_region" "current" {}` and `local.aws_region` in `main.tf`; all 6 non-authoritative occurrences now reference it. Left two literals alone deliberately: the `terraform { backend "s3" { region = ... } }` block (backend config cannot use interpolation at all) and the `provider "aws" { region = ... }` block itself (the actual source of truth — a data source can't derive the provider's own region without circularity).
+
+### L3 — No validation on `image_recognition_image_uri` — **FIXED 2026-07-09**
 
 Default `""` produces an opaque apply-time error from the Lambda module. Add a `validation` block (non-empty, ECR URI shape) or a `precondition` with a clear message pointing at the CI build step.
 
-### L4 — `enable_auto_branch_creation = local.is_default` looks inverted
+**Fix implemented**: Added a `validation` block on the variable requiring a full ECR image URI shape, with an error message pointing at the CI build job / `scripts/bootstrap.sh`. Confirmed this doesn't regress any currently-working flow: `deploy-local.sh` always resolves a real URI (from `.env.local` or a live `aws lambda get-function` lookup) before invoking Terraform for any workspace with an existing deployment; a workspace with no prior deployment and no URI would already fail deep inside the Lambda module with an opaque AWS API error — this just surfaces the same failure earlier with a clear message. Regex tested against real and invalid inputs.
+
+### L4 — `enable_auto_branch_creation = local.is_default` looks inverted — **FIXED 2026-07-09**
 
 **Where**: `infra/amplify.tf:39`
 
 Auto branch creation is enabled only on the **production** app — meaning any pushed git branch creates an Amplify branch on the prod app (with auto-build off, so inert, but noisy and unexpected). RC apps, where branch churn actually happens, have it off. Confirm intent; likely should be `false` everywhere.
 
-### L5 — Documentation drift (fixes are out of scope here; see `docs/architecture.md` for current-state truth)
+**Fix implemented**: No comment or commit history explained the original conditional — set to `false` unconditionally as the finding recommended.
+
+### L5 — Documentation drift — **FIXED 2026-07-09**
 
 | Doc                                                                    | Stale claim                                              | Actual                                                                                                                      |
 | ---------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -207,6 +215,8 @@ Auto branch creation is enabled only on the **production** app — meaning any p
 | `docs/llds/cloud-platform.md` (IAM)                                    | Games: no Scan; Players: 3 actions                       | Both include `Scan`; Leaderboard + CoachRateLimits policies missing entirely                                                |
 | `docs/llds/cloud-platform.md` (Amplify env vars)                       | —                                                        | `VITE_AI_COACH` missing                                                                                                     |
 | `infra/outputs.tf:7`                                                   | "used by the deploy workflow to tighten CORS post-apply" | CORS tightening step no longer exists                                                                                       |
+
+**Fix implemented**: All eight rows corrected in `infra/README.md` and `docs/llds/cloud-platform.md` (provider version, runtime, CI workflow name, CORS two-step scoped down to Cognito-only, DynamoDB table count/IAM grants, `VITE_AI_COACH`, `outputs.tf:7` description). Also fixed a stale `var.environment` code example in `cloud-platform.md`'s Tagging section introduced by this session's own M4 fix. **New issue found, not fixed** (out of scope for a doc-only pass): `scripts/infra/deploy-local.sh` still runs a manual `aws apigatewayv2 update-api` CORS-tightening step that's now redundant — API Gateway CORS is fully Terraform-managed, so the next `terraform apply` (local or CI) simply overwrites it back to the Terraform-declared values. Harmless (no persistent drift) but dead weight worth removing in a future pass.
 
 ---
 

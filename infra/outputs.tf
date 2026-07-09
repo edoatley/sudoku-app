@@ -4,7 +4,7 @@ output "api_gateway_url" {
 }
 
 output "api_gateway_api_id" {
-  description = "API Gateway HTTP v2 API ID (used by the deploy workflow to tighten CORS post-apply)."
+  description = "API Gateway HTTP v2 API ID. CORS is now fully Terraform-managed; this output is unused by ci-deploy.yml (feeds an --api-id flag amplify-post-deploy.sh explicitly ignores for backwards-compat) but is still used by deploy-local.sh's own (now redundant) CORS-tightening step."
   value       = module.api_gateway.api_id
 }
 
@@ -68,7 +68,7 @@ output "cognito_client_id" {
 
 output "cognito_domain" {
   description = "Cognito hosted UI domain (used by the deploy workflow to tighten callback URLs post-apply)."
-  value       = "${local.cognito_domain}.auth.eu-west-2.amazoncognito.com"
+  value       = "${local.cognito_domain}.auth.${local.aws_region}.amazoncognito.com"
 }
 
 output "cognito_smoke_test_client_id" {
