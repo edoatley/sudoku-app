@@ -343,7 +343,7 @@ const idToken = tokens.idToken.toString();
 | `GET /api/v1/admin/data/games` | JWT required + `administrators` Cognito group |
 | `GET /api/v1/admin/data/players` | JWT required + `administrators` Cognito group |
 
-The JWT authorizer is configured at API Gateway level (`identity_sources = ["$request.header.Authorization"]`, `issuer` = Cognito pool URL, `audience` = web client ID). The Lambda never validates the JWT itself.
+The JWT authorizer is configured at API Gateway level (`identity_sources = ["$request.header.Authorization"]`, `issuer` = Cognito pool URL, `audience` = both the web client ID and the smoke-test client ID — CI authenticates via the latter). The Lambda never validates the JWT itself.
 
 ## Environment Variables Reference
 

@@ -27,7 +27,7 @@ resource "aws_amplify_app" "sudoku" {
     VITE_MOCK_API             = "false"
     VITE_COGNITO_USER_POOL_ID = local.cognito_user_pool_id
     VITE_COGNITO_CLIENT_ID    = local.cognito_web_client_id
-    VITE_COGNITO_DOMAIN       = "${local.cognito_domain}.auth.eu-west-2.amazoncognito.com"
+    VITE_COGNITO_DOMAIN       = "${local.cognito_domain}.auth.${local.aws_region}.amazoncognito.com"
     VITE_DEV_TOOLS            = local.is_default ? "false" : "true"
     VITE_AI_COACH             = local.ai_coach_enabled ? "true" : "false"
   }
@@ -36,7 +36,10 @@ resource "aws_amplify_app" "sudoku" {
     enable_auto_build = false
   }
 
-  enable_auto_branch_creation = local.is_default
+  # Off everywhere — RC apps (where branch churn actually happens) already had
+  # it off; it was previously on for the production app only, which meant any
+  # pushed git branch created an inert-but-noisy Amplify branch there.
+  enable_auto_branch_creation = false
 }
 
 resource "aws_amplify_branch" "main" {

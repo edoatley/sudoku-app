@@ -1,8 +1,9 @@
 resource "aws_dynamodb_table" "sudoku_games" {
-  name         = "SudokuGames${local.suffix}"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "userId"
-  range_key    = "gameId"
+  name                        = "SudokuGames${local.suffix}"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "userId"
+  range_key                   = "gameId"
+  deletion_protection_enabled = local.is_default
 
   attribute {
     name = "userId"
@@ -23,9 +24,10 @@ resource "aws_dynamodb_table" "sudoku_games" {
 }
 
 resource "aws_dynamodb_table" "sudoku_leaderboard" {
-  name         = "SudokuLeaderboard${local.suffix}"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "userId"
+  name                        = "SudokuLeaderboard${local.suffix}"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "userId"
+  deletion_protection_enabled = local.is_default
 
   attribute {
     name = "userId"
@@ -41,9 +43,10 @@ resource "aws_dynamodb_table" "sudoku_leaderboard" {
 }
 
 resource "aws_dynamodb_table" "sudoku_players" {
-  name         = "SudokuPlayers${local.suffix}"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "userId"
+  name                        = "SudokuPlayers${local.suffix}"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "userId"
+  deletion_protection_enabled = local.is_default
 
   attribute {
     name = "userId"

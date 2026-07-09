@@ -1,7 +1,7 @@
 # Infrastructure Review — `infra/` Terraform
 
 **Created**: 2026-07-08
-**Status**: Findings report — H1 fixed (PR #115, 2026-07-08); H2–L5 not yet actioned
+**Status**: All findings addressed. H1: PR #115, 2026-07-08. H2–L5: 2026-07-08 to 2026-07-09 (M7 partial — see its entry). Fixed iteratively, each batch verified via live CI/Deploy on `rc-terraform-review` before moving to the next.
 **Scope**: All 15 `infra/*.tf` files, cross-checked against `infra/README.md`, `docs/llds/cloud-platform.md`, `.github/workflows/`, and backend code where a claim depended on it.
 
 Each finding lists what/where, impact, recommended fix, and effort (S/M/L).
@@ -33,7 +33,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Fix implemented**: see `docs/planning/old/admin-namespace-security-fix.md` — the data browser was promoted to an admin-group-gated `/admin/data/*` namespace (kept in prod for admins) rather than compiled out, so the Games/Players Scan grants are retained; see `docs/llds/user-management.md` — Admin Authorization. The `hint-demo` dev aid is deliberately **not** compiled out of prod (a first attempt at that broke RC smoke tests — the Lambda is built once and shared by every Terraform workspace, so it would have removed hint-demo from RC/beta too); it stays reachable everywhere, which is an accepted trade-off since it carries no user data. See `docs/llds/cloud-platform.md` — API Gateway.
 
-### H2 — Bedrock budget kill-switch does not cover the image recognition Lambda
+### H2 — Bedrock budget kill-switch does not cover the image recognition Lambda — **FIXED 2026-07-08**
+
+**Fix implemented**: `aws_iam_role.image_recognition_lambda_exec.name`/`.arn` added to the budget action's `roles` list and the budgets execution role's `iam:AttachRolePolicy`/`iam:DetachRolePolicy` resource list (`infra/budgets.tf`). Confirmed `image_recognition/handler.py` already degrades gracefully on Bedrock `ClientError` (including `AccessDeniedException`), falling back through remaining models and ultimately raising a handled `ValueError` — no backend change needed.
+
 
 **Where**: `infra/budgets.tf:104-124` (`aws_budgets_budget_action.deny_bedrock_on_limit`)
 
@@ -43,7 +46,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### H3 — `required_version = ">= 1.5"` is below what the backend config needs
+### H3 — `required_version = ">= 1.5"` is below what the backend config needs — **FIXED 2026-07-08**
+
+**Fix implemented**: `infra/terraform.tf` now requires `>= 1.10`. CI's `hashicorp/setup-terraform@v4` installs latest by default (no pinned older version), and local dev Terraform is v1.15.5, so both satisfy the new constraint.
+
 
 **Where**: `infra/terraform.tf:2` vs `infra/terraform.tf:15`
 
@@ -53,7 +59,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### H4 — No deletion protection on production stateful resources
+### H4 — No deletion protection on production stateful resources — **FIXED 2026-07-08**
+
+**Fix implemented**: `deletion_protection_enabled = local.is_default` added to the Games, Players, and Leaderboard tables (rate-limits table left unprotected — ephemeral by design); `lifecycle { prevent_destroy = true }` added to both Route53 zones in `infra/domain.tf`. `teardown.yml` already requires a typed `DESTROY` confirmation input for any workspace, including default, so the "consider a typed confirmation" suggestion was left as-is.
+
 
 **Where**: `infra/dynamodb.tf` (all four tables), `infra/domain.tf:5-19` (both Route53 zones)
 
@@ -70,7 +79,10 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 ## Medium priority
 
-### M1 — CORS origins disagree between API Gateway and the Lambda
+### M1 — CORS origins disagree between API Gateway and the Lambda — **FIXED 2026-07-08**
+
+**Fix implemented**: Dropped the raw `*.amplifyapp.com` URL from the Lambda's `CORS_ALLOWED_ORIGINS` (`infra/lambda.tf`) so it agrees with API Gateway's existing exclusion, and replaced the `local.is_rc ? beta : prod` ternary with an explicit three-way branch (`is_default` / `is_rc` / else → localhost-only). `infra/README.md`'s CORS section updated to match. Verified via `terraform validate`.
+
 
 **Where**: `infra/api_gateway.tf:105-116` vs `infra/lambda.tf:85`
 
@@ -90,7 +102,9 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### M3 — Main Lambda log-group retention unmanaged in production
+**Fix implemented**: Hoisted into `local.bedrock_invoke_resources` in `main.tf`; both `iam.tf` and `image_recognition_lambda.tf` now reference it. — **FIXED 2026-07-08**
+
+### M3 — Main Lambda log-group retention unmanaged in production — **FIXED 2026-07-08**
 
 **Where**: `infra/lambda.tf:96` (`use_existing_cloudwatch_log_group = local.is_default`)
 
@@ -100,7 +114,9 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### M4 — `Environment` tag defaults to `prod` on every workspace
+**Fix implemented**: More involved than "S" — confirmed via `terraform state list` (live sandbox creds) that on `default`, the module only ever *adopts* the log group via a `data` source, which never sets retention; setting `cloudwatch_logs_retention_in_days` alone would have silently no-opped in production. Instead: log-group management moved to a standalone `aws_cloudwatch_log_group.lambda` resource (`infra/lambda.tf`, mirrors the existing `aws_cloudwatch_log_group.api_gateway` pattern) with `retention_in_days = local.is_default ? 7 : 3`; a `moved{}` block in `migrations.tf` migrates existing RC state with zero resource replacement (verified via live-state `terraform plan` on `rc-terraform-review`: clean in-place update); an `import{}` block (`for_each` gated on `local.is_default`) brings production's pre-existing, previously-untracked `/aws/lambda/sudoku` group under management (verified via live-state `terraform plan` on `default`: clean import + in-place `retention_in_days: 0 → 7`, no destroy/recreate). Confirmed via `aws logs describe-log-groups` that `/aws/lambda/sudoku` currently has no retention limit, and that several long-destroyed RC workspaces (e.g. `rc-auth`, `rc-mobile`) have orphaned log groups still accruing storage cost — not fixed here, worth a follow-up cleanup.
+
+### M4 — `Environment` tag defaults to `prod` on every workspace — **FIXED 2026-07-08**
 
 **Where**: `infra/variables.tf:19-23`, `infra/terraform.tf:27`
 
@@ -110,7 +126,9 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### M5 — "Bedrock" anomaly monitor is actually account-wide
+**Fix implemented**: `local.is_default ? "prod" : terraform.workspace` used directly in the provider block (locals *are* usable there — confirmed via `terraform validate` — the original note about needing `terraform.workspace` directly was overcautious). Removed `variable "environment"` entirely and its five `-var "environment=..."` call sites (`scripts/github/terraform-plan.sh` and its `--environment` flag, `scripts/infra/destroy-rc.sh`, `scripts/infra/deploy-local.sh`, `.github/workflows/teardown.yml`, `.github/workflows/teardown-rc.yml`, `.github/workflows/ci-deploy.yml`'s call site, `scripts/README.md`), since Terraform errors on `-var` for an undeclared variable.
+
+### M5 — "Bedrock" anomaly monitor is actually account-wide — **FIXED 2026-07-08**
 
 **Where**: `infra/budgets.tf:132-161`
 
@@ -120,7 +138,9 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S
 
-### M6 — Smoke tests use the public web client, making `ALLOW_USER_PASSWORD_AUTH` load-bearing on it
+**Fix implemented**: Kept account-wide (more useful) and renamed: `aws_ce_anomaly_monitor.bedrock` → `.account_wide` (`SudokuBedrockAnomalyMonitor` → `SudokuAccountWideAnomalyMonitor`), `aws_ce_anomaly_subscription.bedrock` → `.account_wide` (`SudokuBedrockAnomalyAlert` → `SudokuAccountWideAnomalyAlert`), with `moved{}` blocks in `migrations.tf`. Verified via live-state `terraform plan` on `default`: the monitor rename is a clean in-place update, but **the subscription rename forces a destroy/recreate** (`name` is immutable on `aws_ce_anomaly_subscription`) — a one-time, low-risk replacement of an alert subscription (no data loss beyond a brief detection gap) that will happen on the next production apply.
+
+### M6 — Smoke tests use the public web client, making `ALLOW_USER_PASSWORD_AUTH` load-bearing on it — **FIXED 2026-07-08**
 
 **Where**: `infra/cognito.tf:181`, `infra/cognito-rc-shared.tf:100`, `.github/workflows/smoke-tests.yml:170-186`, `scripts/github/amplify-post-deploy.sh:109`
 
@@ -130,7 +150,16 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: M
 
-### M7 — Completed `moved{}` migrations linger in `migrations.tf`
+**Fix implemented**: More involved than the finding anticipated — the Playwright smoke tests seed a fake logged-in browser session by writing the ID token into localStorage under a key prefixed with the token's own `aud` claim (`ui/tests/integration/auth-setup.js`). Switching token acquisition to the smoke client would have changed `aud` to the smoke client's ID while the deployed frontend is configured with the *web* client's ID, breaking session recognition. Fixed by:
+1. Validating the SECRET_HASH mechanics live first, against the real `sudoku-smoke-test-rc` client in the `rc-shared` pool, using a disposable admin-created test user (created, authenticated, deleted — no residue) — confirmed `initiate-auth` with a computed `SECRET_HASH` succeeds and the token's `aud` matches the smoke client.
+2. `smoke-tests.yml`: resolves both the web client ID (unchanged, still needed for the frontend session key) and the smoke-test client ID by name (`sudoku-smoke-test` / `sudoku-smoke-test-rc`) for both environments uniformly, fetches its secret via `describe-user-pool-client` (masked immediately), computes `SECRET_HASH`, and authenticates against the smoke client instead of the web client.
+3. `ui/tests/integration/auth-setup.js`: now keys the seeded localStorage session off `process.env.COGNITO_CLIENT_ID` (the actual web client ID) instead of the token's `aud`, falling back to the old aud-derivation only if that env var is empty.
+4. Removed `ALLOW_USER_PASSWORD_AUTH` from both web clients (`cognito.tf`, `cognito-rc-shared.tf`) — verified via live-state `terraform plan` on both `default` and `rc-shared`: clean in-place update, no replacement.
+5. Removed it from `amplify-post-deploy.sh:109` too — this script runs `update-user-pool-client` on *every* deploy and would otherwise have silently re-added the flag Terraform just removed.
+
+Not verified end-to-end (would require a live Playwright run against a deployed Amplify app on the `rc-terraform-review` branch) — validated at the mechanics/unit level as far as possible without deploying.
+
+### M7 — Completed `moved{}` migrations linger in `migrations.tf` — **PARTIALLY FIXED 2026-07-08**
 
 **Where**: `infra/migrations.tf` (all 133 lines)
 
@@ -140,42 +169,56 @@ Its javadoc claims the paths are "intentionally not registered in any production
 
 **Effort**: S (verification is the work)
 
+**Fix implemented**: Ran `terraform state list` (live sandbox creds) against every listed workspace and found a 4th, undocumented one: `rc-test-cicd` — still on the pre-module bespoke addresses (Phase 1-4 never applied), *and* its state had been locked since 2026-04-02 by a GitHub Actions runner that apparently crashed mid-apply. Its git branch no longer existed, so it was an orphan silently accruing AWS cost (Lambda, API Gateway, DynamoDB tables, etc.) with no path to ever self-heal via `teardown-rc.yml` (branch-delete triggered, but the branch was already gone). Force-unlocked it, ran `terraform destroy` (33 resources destroyed cleanly), and deleted the workspace. With `rc-test-cicd` gone, `default`, `rc-shared`, and `rc-terraform-review` are all confirmed on module-based addresses — Phase 1-4 `moved{}` blocks removed, verified via a full `terraform plan` against `default` (live sandbox creds) showing zero API-Gateway/Lambda-address-related diffs. The file is **not yet fully deletable**: Phase 5 (M3) and Phase 6 (M5) `moved{}`/`import{}` blocks added this session are still pending a production apply (they only ever run against the `default` workspace, which this iterative RC-verification loop doesn't reach) — remove them once `main` has deployed successfully.
+
 ---
 
 ## Low priority / polish
 
-### L1 — `aws_s3_object.lambda_zip` is not consumed by the Lambda
+### L1 — `aws_s3_object.lambda_zip` is not consumed by the Lambda — **FIXED 2026-07-09**
 
 **Where**: `infra/lambda.tf:47-52`
 
 The module deploys from `local_existing_package` (local file), not from this S3 object — the upload exists only as the deploy-script download fallback (`deploy-local.sh`). Add a comment saying so, or remove it if the fallback is obsolete. Note `etag` on the object forces re-upload detection but the object plays no role in Lambda versioning.
 
-### L2 — Region hardcoded in ~6 places
+**Fix implemented**: Confirmed the fallback is still live (`deploy-local.sh` downloads from this object when no local jar exists) — added a comment rather than removing it.
+
+### L2 — Region hardcoded in ~6 places — **FIXED 2026-07-09**
 
 `eu-west-2` appears in the provider, both Cognito issuer URLs (`main.tf` via `api_gateway.tf:149`, `lambda.tf:89`), `VITE_COGNITO_DOMAIN` (`amplify.tf:30`), `AWS_REGION_NAME` (`image_recognition_lambda.tf:88`), and `domain.tf` remote-state config. Hoist to `data.aws_region.current.name` / a local so a region move is one edit.
 
-### L3 — No validation on `image_recognition_image_uri`
+**Fix implemented**: Added `data "aws_region" "current" {}` and `local.aws_region` in `main.tf`; all 6 non-authoritative occurrences now reference it. Left two literals alone deliberately: the `terraform { backend "s3" { region = ... } }` block (backend config cannot use interpolation at all) and the `provider "aws" { region = ... }` block itself (the actual source of truth — a data source can't derive the provider's own region without circularity).
+
+### L3 — No validation on `image_recognition_image_uri` — **FIXED 2026-07-09**
 
 Default `""` produces an opaque apply-time error from the Lambda module. Add a `validation` block (non-empty, ECR URI shape) or a `precondition` with a clear message pointing at the CI build step.
 
-### L4 — `enable_auto_branch_creation = local.is_default` looks inverted
+**Fix implemented**: Added a `validation` block on the variable requiring a full ECR image URI shape, with an error message pointing at the CI build job / `scripts/bootstrap.sh`. Confirmed this doesn't regress any currently-working flow: `deploy-local.sh` always resolves a real URI (from `.env.local` or a live `aws lambda get-function` lookup) before invoking Terraform for any workspace with an existing deployment; a workspace with no prior deployment and no URI would already fail deep inside the Lambda module with an opaque AWS API error — this just surfaces the same failure earlier with a clear message. Regex tested against real and invalid inputs.
+
+**PR review follow-up (2026-07-09)**: [PR #116's review](https://github.com/edoatley/sudoku-app/pull/116#issuecomment-4924986021) correctly caught that Terraform evaluates variable `validation` blocks on *every* operation that needs the variable's value, including `terraform destroy` — not just `plan`/`apply`. Three teardown call sites never pass `-var image_recognition_image_uri=...` (`.github/workflows/teardown.yml`, `.github/workflows/teardown-rc.yml`, `scripts/infra/destroy-rc.sh`), so they'd fall through to the empty default and fail validation before destroying anything — ironic given M7 in this same PR was about cleaning up an orphaned RC workspace caused by teardown not running cleanly. Fixed by adding a regex-shaped placeholder `-var "image_recognition_image_uri=000000000000.dkr.ecr.eu-west-2.amazonaws.com/placeholder:latest"` to all three call sites, matching the placeholder pattern already used there for other required variables. (Relaxing the regex to also accept an empty string was considered and rejected — that would reintroduce the exact silent-empty-value gap this finding closed, just one step removed.)
+
+### L4 — `enable_auto_branch_creation = local.is_default` looks inverted — **FIXED 2026-07-09**
 
 **Where**: `infra/amplify.tf:39`
 
 Auto branch creation is enabled only on the **production** app — meaning any pushed git branch creates an Amplify branch on the prod app (with auto-build off, so inert, but noisy and unexpected). RC apps, where branch churn actually happens, have it off. Confirm intent; likely should be `false` everywhere.
 
-### L5 — Documentation drift (fixes are out of scope here; see `docs/architecture.md` for current-state truth)
+**Fix implemented**: No comment or commit history explained the original conditional — set to `false` unconditionally as the finding recommended.
 
-| Doc | Stale claim | Actual |
-| --- | --- | --- |
-| `infra/README.md:3` | AWS provider `~> 5.0` | `~> 6.39` |
-| `infra/README.md:100` | Runtime `java21` | `java25` |
-| `infra/README.md:90-96`, `docs/llds/cloud-platform.md` (CORS Two-Step) | CORS tightened post-deploy with `ignore_changes` | API GW CORS now fully Terraform-managed (`api_gateway.tf:88-92`); only Cognito callback URLs still use the two-step pattern |
-| `infra/README.md:349-352` | Workflows `ci-main.yml` / `ci-rc.yml` | `ci-deploy.yml` handles both |
-| `docs/llds/cloud-platform.md` (Storage) | 2 DynamoDB tables | 4 (adds Leaderboard, CoachRateLimits) |
-| `docs/llds/cloud-platform.md` (IAM) | Games: no Scan; Players: 3 actions | Both include `Scan`; Leaderboard + CoachRateLimits policies missing entirely |
-| `docs/llds/cloud-platform.md` (Amplify env vars) | — | `VITE_AI_COACH` missing |
-| `infra/outputs.tf:7` | "used by the deploy workflow to tighten CORS post-apply" | CORS tightening step no longer exists |
+### L5 — Documentation drift — **FIXED 2026-07-09**
+
+| Doc                                                                    | Stale claim                                              | Actual                                                                                                                      |
+| ---------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `infra/README.md:3`                                                    | AWS provider `~> 5.0`                                    | `~> 6.39`                                                                                                                   |
+| `infra/README.md:100`                                                  | Runtime `java21`                                         | `java25`                                                                                                                    |
+| `infra/README.md:90-96`, `docs/llds/cloud-platform.md` (CORS Two-Step) | CORS tightened post-deploy with `ignore_changes`         | API GW CORS now fully Terraform-managed (`api_gateway.tf:88-92`); only Cognito callback URLs still use the two-step pattern |
+| `infra/README.md:349-352`                                              | Workflows `ci-main.yml` / `ci-rc.yml`                    | `ci-deploy.yml` handles both                                                                                                |
+| `docs/llds/cloud-platform.md` (Storage)                                | 2 DynamoDB tables                                        | 4 (adds Leaderboard, CoachRateLimits)                                                                                       |
+| `docs/llds/cloud-platform.md` (IAM)                                    | Games: no Scan; Players: 3 actions                       | Both include `Scan`; Leaderboard + CoachRateLimits policies missing entirely                                                |
+| `docs/llds/cloud-platform.md` (Amplify env vars)                       | —                                                        | `VITE_AI_COACH` missing                                                                                                     |
+| `infra/outputs.tf:7`                                                   | "used by the deploy workflow to tighten CORS post-apply" | CORS tightening step no longer exists                                                                                       |
+
+**Fix implemented**: All eight rows corrected in `infra/README.md` and `docs/llds/cloud-platform.md` (provider version, runtime, CI workflow name, CORS two-step scoped down to Cognito-only, DynamoDB table count/IAM grants, `VITE_AI_COACH`, `outputs.tf:7` description). Also fixed a stale `var.environment` code example in `cloud-platform.md`'s Tagging section introduced by this session's own M4 fix. **New issue found, not fixed** (out of scope for a doc-only pass): `scripts/infra/deploy-local.sh` still runs a manual `aws apigatewayv2 update-api` CORS-tightening step that's now redundant — API Gateway CORS is fully Terraform-managed, so the next `terraform apply` (local or CI) simply overwrites it back to the Terraform-declared values. Harmless (no persistent drift) but dead weight worth removing in a future pass.
 
 ---
 

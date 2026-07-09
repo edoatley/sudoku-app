@@ -40,8 +40,8 @@ Diagram convention: each row is a box; the **Zone** column is its containing bou
 | User pool `sudoku-rc` | `cognito-rc-shared.tf` | Same shape; owned by the `rc-shared` workspace | All `rc-*` workspaces reference it via data sources (one Google redirect URI for all RC branches) |
 | Hosted UI domain | `cognito.tf` / `cognito-rc-shared.tf` | `sudoku-auth{suffix}` / `sudoku-auth-rc` `.auth.eu-west-2.amazoncognito.com` | Per pool |
 | Google identity provider | both cognito files | OAuth scopes `openid email profile`; maps email/name/sub | Per pool |
-| App client `sudoku-web{suffix}` | both | Public (no secret), auth-code flow, Google-only IdP, `USER_PASSWORD_AUTH` also enabled (used by CI smoke tests); callback URLs baseline then tightened post-deploy (`ignore_changes`) | Per pool |
-| App client `sudoku-smoke-test{suffix}` | both | Confidential (secret), `USER_PASSWORD_AUTH`; intended for CI | Per pool |
+| App client `sudoku-web{suffix}` | both | Public (no secret), auth-code flow, Google-only IdP, no `USER_PASSWORD_AUTH` (social login only); callback URLs baseline then tightened post-deploy (`ignore_changes`) | Per pool |
+| App client `sudoku-smoke-test{suffix}` | both | Confidential (secret), `USER_PASSWORD_AUTH`; used by CI smoke tests (`SECRET_HASH`-authenticated) | Per pool |
 | Smoke-test user | both | Admin-created, permanent password, never surfaced in UI | Per pool |
 
 ### 2.4 API layer
@@ -187,6 +187,8 @@ A non-default, non-`rc-*` workspace (feature env) gets its own Cognito pool and 
 ## 6. Diagram (Mermaid)
 
 Boxes and arrows match §2/§3; labels carry the edge IDs for cross-reference.
+
+A rendered AWS-icon version of this diagram is also available: [`docs/images/architecture.drawio.png`](images/architecture.drawio.png) (editable source: [`docs/diagram/architecture.drawio`](diagram/architecture.drawio)).
 
 ```mermaid
 flowchart TB

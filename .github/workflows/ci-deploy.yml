@@ -215,7 +215,6 @@ jobs:
           TF_VAR_budget_alert_email:       ${{ secrets.BUDGET_ALERT_EMAIL }}
         run: |
           bash scripts/github/terraform-plan.sh \
-            --environment "${{ steps.env.outputs.environment }}" \
             --is-main     "${{ steps.env.outputs.is_main }}" \
             --out         tfplan \
             $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file rc-override.tfvars' )

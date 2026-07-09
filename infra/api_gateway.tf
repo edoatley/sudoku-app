@@ -160,7 +160,7 @@ module "api_gateway" {
       identity_sources = ["$request.header.Authorization"]
       name             = "cognito-jwt${local.suffix}"
       jwt_configuration = {
-        issuer   = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
+        issuer   = "https://cognito-idp.${local.aws_region}.amazonaws.com/${local.cognito_user_pool_id}"
         audience = [local.cognito_web_client_id, local.cognito_smoke_client_id]
       }
     }

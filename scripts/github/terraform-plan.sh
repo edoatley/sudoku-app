@@ -9,7 +9,6 @@
 #
 # Usage:
 #   bash scripts/github/terraform-plan.sh \
-#     --environment  prod|<rc-workspace>  \
 #     --is-main      true|false           \
 #     --out          <tfplan-file>        \
 #     [--rc-vars-file <path-to.tfvars>]
@@ -21,14 +20,12 @@
 
 set -euo pipefail
 
-ENVIRONMENT=""
 IS_MAIN=""
 PLAN_OUT=""
 RC_VARS_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --environment)  ENVIRONMENT="$2";  shift 2 ;;
     --is-main)      IS_MAIN="$2";      shift 2 ;;
     --out)          PLAN_OUT="$2";     shift 2 ;;
     --rc-vars-file) RC_VARS_FILE="$2"; shift 2 ;;
@@ -36,14 +33,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-for var in ENVIRONMENT IS_MAIN PLAN_OUT; do
+for var in IS_MAIN PLAN_OUT; do
   [ -n "${!var}" ] || { echo "Missing required argument: --${var,,}" >&2; exit 1; }
 done
 
 ARGS=(
   -out="${PLAN_OUT}"
   -input=false
-  -var "environment=${ENVIRONMENT}"
 )
 
 if [ -n "${RC_VARS_FILE}" ] && [ "${IS_MAIN}" = "false" ]; then

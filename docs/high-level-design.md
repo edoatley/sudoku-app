@@ -148,9 +148,9 @@ Hints are returned fully-populated in a single response; the frontend controls w
 
 The React frontend persists game state in both localStorage (instant, no network) and DynamoDB (cross-device). On page load: localStorage first, then `GET /games/current` if nothing local. This gives sub-100ms resume on reload without sacrificing cross-device continuity.
 
-### CORS Circular Dependency Resolution
+### CORS / Callback URL Circular Dependency Resolution
 
-API Gateway CORS and Cognito callback URLs cannot reference the Amplify URL at Terraform apply time (the URL doesn't exist yet). The solution: Terraform applies baseline wildcards; a post-apply CI script tightens to the exact URL; `ignore_changes` in Terraform state preserves the tightened values across subsequent applies.
+API Gateway CORS is set directly in Terraform to the known static custom domain(s) per workspace type — no circular dependency, since the raw Amplify URL is intentionally unsupported. Cognito callback URLs still can't reference the Amplify URL at Terraform apply time (the exact branch URL doesn't exist yet): Terraform applies a baseline URL list; a post-apply CI script adds the exact URL; `ignore_changes` in Terraform state preserves the added value across subsequent applies.
 
 ### Multi-Workspace Infrastructure
 

@@ -53,9 +53,12 @@ resource "aws_iam_role_policy" "budgets_execution" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["iam:AttachRolePolicy", "iam:DetachRolePolicy"]
-        Resource = aws_iam_role.lambda_exec.arn
+        Effect = "Allow"
+        Action = ["iam:AttachRolePolicy", "iam:DetachRolePolicy"]
+        Resource = [
+          aws_iam_role.lambda_exec.arn,
+          aws_iam_role.image_recognition_lambda_exec.arn,
+        ]
       },
       {
         Effect   = "Allow"
@@ -118,7 +121,10 @@ resource "aws_budgets_budget_action" "deny_bedrock_on_limit" {
   definition {
     iam_action_definition {
       policy_arn = aws_iam_policy.bedrock_deny[0].arn
-      roles      = [aws_iam_role.lambda_exec.name]
+      roles = [
+        aws_iam_role.lambda_exec.name,
+        aws_iam_role.image_recognition_lambda_exec.name,
+      ]
     }
   }
 
@@ -128,23 +134,26 @@ resource "aws_budgets_budget_action" "deny_bedrock_on_limit" {
   }
 }
 
-# SERVICE-dimensional monitor lets AWS detect anomalies per-service independently.
-resource "aws_ce_anomaly_monitor" "bedrock" {
+# NOT Bedrock-specific: DIMENSIONAL/SERVICE monitors every AWS service
+# independently, so this fires for an anomaly in any service, not just Bedrock.
+# Kept account-wide deliberately (more useful for a single-developer project
+# than a narrower Bedrock-only monitor would be) — named accordingly.
+resource "aws_ce_anomaly_monitor" "account_wide" {
   count = local.create_budget ? 1 : 0
 
-  name              = "SudokuBedrockAnomalyMonitor"
+  name              = "SudokuAccountWideAnomalyMonitor"
   monitor_type      = "DIMENSIONAL"
   monitor_dimension = "SERVICE"
 }
 
-# Alert when Bedrock anomalous spend exceeds $5 in a day.
-resource "aws_ce_anomaly_subscription" "bedrock" {
+# Alert when anomalous spend in any service exceeds $5 in a day.
+resource "aws_ce_anomaly_subscription" "account_wide" {
   count = local.create_budget ? 1 : 0
 
-  name      = "SudokuBedrockAnomalyAlert"
+  name      = "SudokuAccountWideAnomalyAlert"
   frequency = "DAILY"
 
-  monitor_arn_list = [aws_ce_anomaly_monitor.bedrock[0].arn]
+  monitor_arn_list = [aws_ce_anomaly_monitor.account_wide[0].arn]
 
   subscriber {
     type    = "EMAIL"

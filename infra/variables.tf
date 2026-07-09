@@ -16,12 +16,6 @@ variable "github_repo" {
   default     = "sudoku-app"
 }
 
-variable "environment" {
-  description = "Deployment environment label applied to all resources via provider default_tags."
-  type        = string
-  default     = "prod"
-}
-
 variable "lambda_zip_path" {
   description = "Local path to the Lambda deployment zip produced by the Maven build."
   type        = string
@@ -80,6 +74,11 @@ variable "image_recognition_image_uri" {
   description = "ECR image URI for the image recognition Lambda (e.g. 123456789.dkr.ecr.eu-west-2.amazonaws.com/sudoku-image-recognition:latest)."
   type        = string
   default     = ""
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/.+:.+$", var.image_recognition_image_uri))
+    error_message = "image_recognition_image_uri must be a full ECR image URI (e.g. <account>.dkr.ecr.<region>.amazonaws.com/sudoku-image-recognition:<tag>). Build and push one first (see the image-recognition CI build job or scripts/bootstrap.sh), or pass -var \"image_recognition_image_uri=...\" explicitly."
+  }
 }
 
 variable "git_branch" {

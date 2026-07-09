@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.10"
 
   required_providers {
     aws = {
@@ -24,7 +24,7 @@ provider "aws" {
     tags = {
       Project     = "Sudoku"
       ManagedBy   = "Terraform"
-      Environment = var.environment
+      Environment = local.is_default ? "prod" : terraform.workspace
     }
   }
 }

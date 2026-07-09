@@ -134,7 +134,6 @@ fi
 AWS_PROFILE=sandbox terraform plan -out=tfplan \
   -input=false \
   -var "github_token=${AMPLIFY_GITHUB_TOKEN}" \
-  -var "environment=${ENV}" \
   -var "lambda_zip_path=${ZIP_PATH}" \
   -var "google_client_id=${GOOGLE_CLIENT_ID}" \
   -var "google_client_secret=${GOOGLE_CLIENT_SECRET}" \

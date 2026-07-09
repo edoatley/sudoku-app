@@ -1,6 +1,6 @@
 # Infrastructure
 
-Terraform configuration for the Serverless Sudoku application. Target region: **eu-west-2** (London). AWS provider ~> 5.0.
+Terraform configuration for the Serverless Sudoku application. Target region: **eu-west-2** (London). AWS provider ~> 6.39.
 
 ---
 
@@ -87,17 +87,17 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 - Throttling: 25 req/s rate, 50 burst
 - Access logs: JSON format, 7-day retention (3 days on `rc-*`)
 
-**CORS:** Origins are set directly in `api_gateway.tf` using Terraform-computed values (`aws_amplify_branch.main.branch_name` + `aws_amplify_app.sudoku.default_domain`), so `terraform apply` always sets them correctly — no post-deploy tightening step required. Allowed origins:
+**CORS:** Origins are set directly in `api_gateway.tf` and the Lambda's `CORS_ALLOWED_ORIGINS` env var (`lambda.tf`), so `terraform apply` always sets them correctly — no post-deploy tightening step required. The raw `*.amplifyapp.com` URL is intentionally unsupported at both layers (referencing `aws_amplify_app`/`aws_amplify_branch` from `api_gateway.tf` would create a dependency cycle). Allowed origins:
 
-- `default` workspace: `https://sudoku.edoatley.co.uk`
-- `rc-*` workspaces: `https://sudoku-beta.edoatley.co.uk`
-- All workspaces: `https://<branch>.<amplify-app-id>.amplifyapp.com`, `http://localhost:5173`
+- `default` workspace: `https://sudoku.edoatley.co.uk`, `http://localhost:5173`
+- `rc-*` workspaces: `https://sudoku-beta.edoatley.co.uk`, `http://localhost:5173`
+- Any other workspace: `http://localhost:5173` only (no custom domain)
 
 **JWT Authorizer:** Protects `/games/*`, `/players/me`, `/ai/coach`, and `/ai/image-to-puzzle`. The `$default` catch-all route remains public (used by `/puzzles/*` and `/health`). `/ai/image-to-puzzle/warmup` is also public (probe only, no Bedrock call).
 
 ### Lambda
 
-- Runtime: `java21`, handler: `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest`
+- Runtime: `java25`, handler: `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest`
 - Architecture: `x86_64`, memory: 512 MB, timeout: 8 s
 - SnapStart: enabled on published versions (reduces cold starts)
 - Deployment: zip uploaded to S3 (`sudoku-lambda-zip-{account_id}`)
@@ -346,12 +346,11 @@ cd infra && AWS_PROFILE=sandbox terraform init
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
-| `ci-main.yml` | Push to `main` | Full deploy to `default` workspace (production) |
-| `ci-rc.yml` | Push to `rc-*` | Full deploy to a named workspace per branch |
+| `ci-deploy.yml` | Push to `main` or `rc-*` | Full deploy — to `default` workspace (production) for `main`, or a named workspace per branch for `rc-*` |
 | `teardown.yml` | Manual | `terraform destroy` on the `default` workspace |
 | `teardown-rc.yml` | Manual | `terraform destroy` + workspace delete for a named `rc-*` workspace |
 
-### Deploy Flow (both `ci-main.yml` and `ci-rc.yml`)
+### Deploy Flow (`ci-deploy.yml`, both `main` and `rc-*`)
 
 ```
 build backend zip

@@ -1,7 +1,9 @@
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
+  aws_region = data.aws_region.current.region
   is_default = terraform.workspace == "default"
   is_rc      = startswith(terraform.workspace, "rc-")
   suffix     = local.is_default ? "" : "-${terraform.workspace}"
@@ -12,6 +14,16 @@ locals {
   bedrock_models = [
     "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
   ]
+
+  # Single source of truth for the Bedrock InvokeModel Resource list — shared by
+  # SudokuCoachBedrockPolicy (iam.tf) and SudokuImageRecognitionBedrockPolicy
+  # (image_recognition_lambda.tf) so a model change only needs editing here.
+  bedrock_invoke_resources = concat(
+    # Inference-profile ARNs — what the Lambda code actually calls
+    [for model in local.bedrock_models : "arn:aws:bedrock:*:*:inference-profile/${model}"],
+    # Foundation-model ARNs — required by Bedrock when the profile routes to a regional endpoint
+    [for model in local.bedrock_models : "arn:aws:bedrock:*::foundation-model/${replace(model, "/^(eu|us|ap)\\./", "")}"]
+  )
 
   lambda_zip_bucket_id = local.is_default ? aws_s3_bucket.lambda_zip[0].id : data.aws_s3_bucket.lambda_zip_shared[0].id
 

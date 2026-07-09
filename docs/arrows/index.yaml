@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-07-08
+updated: 2026-07-09
 
 arrows:
   - id: api-error-handling
@@ -84,8 +84,8 @@ arrows:
     lld: docs/llds/cloud-platform.md
     specs: docs/specs/cloud-platform-specs.md
     arrow: docs/arrows/cloud-platform.md
-    spec_count: 23
-    implemented: 23
+    spec_count: 25
+    implemented: 25
     deferred: 0
     gaps: 0
     next: ~

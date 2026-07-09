@@ -9,3 +9,6 @@ test-results/
 .agent
 node_modules
 .ruff_cache
+.claude
+!.claude/settings.json
+!.claude/commands

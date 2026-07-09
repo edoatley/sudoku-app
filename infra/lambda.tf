@@ -44,6 +44,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "lambda_zip" {
   }
 }
 
+# Not consumed by module.lambda below — it deploys from local_existing_package
+# (the local jar), not this object. Uploaded purely so deploy-local.sh can
+# download it as a fallback when no local jar is present. etag forces
+# re-upload detection but plays no role in Lambda versioning.
 resource "aws_s3_object" "lambda_zip" {
   bucket = local.lambda_zip_bucket_id
   key    = "${terraform.workspace}/function.zip"
@@ -82,23 +86,43 @@ module "lambda" {
   # exhaust the 10-unit unreserved minimum AWS requires, causing a deployment error.
 
   environment_variables = {
-    CORS_ALLOWED_ORIGINS        = local.is_rc ? "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku-beta.edoatley.co.uk,http://localhost:5173" : "https://${aws_amplify_branch.main.branch_name}.${aws_amplify_app.sudoku.default_domain},https://sudoku.edoatley.co.uk,http://localhost:5173"
+    # Third branch (neither default nor rc-*) is unreachable today — workspaces
+    # are always one or the other — but falls back to localhost-only rather
+    # than a custom domain that wouldn't exist for such a workspace.
+    CORS_ALLOWED_ORIGINS = (
+      local.is_default ? "https://sudoku.edoatley.co.uk,http://localhost:5173" :
+      local.is_rc ? "https://sudoku-beta.edoatley.co.uk,http://localhost:5173" :
+      "http://localhost:5173"
+    )
     DYNAMODB_TABLE_NAME         = aws_dynamodb_table.sudoku_games.name
     PLAYERS_TABLE_NAME          = aws_dynamodb_table.sudoku_players.name
     COACH_RATE_LIMIT_TABLE_NAME = aws_dynamodb_table.sudoku_coach_rate_limits.name
-    COGNITO_ISSUER_URL          = "https://cognito-idp.eu-west-2.amazonaws.com/${local.cognito_user_pool_id}"
+    COGNITO_ISSUER_URL          = "https://cognito-idp.${local.aws_region}.amazonaws.com/${local.cognito_user_pool_id}"
     COGNITO_CLIENT_ID           = local.cognito_web_client_id
   }
 
-  # For the default workspace the Lambda has been invoked before and auto-created
-  # its log group; tell the module to adopt it. For RC environments the Lambda is
-  # brand-new so there is no existing log group — let the module create it.
-  use_existing_cloudwatch_log_group = local.is_default
+  # Log group is managed as a standalone resource below (so retention can be set
+  # uniformly, including on production's pre-existing group) — the module only
+  # ever adopts it.
+  use_existing_cloudwatch_log_group = true
 
   # checkov:skip=CKV_AWS_116: Synchronous HTTP API invocation — DLQ only applies to async Lambda invocations
   # checkov:skip=CKV_AWS_117: No VPC required — adding one would incur NAT Gateway cost (~$32/month) with no security benefit for this public API
   # checkov:skip=CKV_AWS_272: Single-developer project — AWS Signer code-signing setup not warranted
   # checkov:skip=CKV_TF_1: Terraform Registry modules are version-pinned (~>8.8); commit-hash pinning requires forking off the registry
+}
+
+# ── CloudWatch log group (standalone to control retention uniformly) ──────────
+# Kept outside the module (same pattern as aws_cloudwatch_log_group.api_gateway)
+# so a single resource sets retention for both freshly-created RC groups and
+# production's group, which Lambda auto-created before Terraform managed it —
+# see the moved{}/import{} blocks in migrations.tf.
+resource "aws_cloudwatch_log_group" "lambda" {
+  name              = "/aws/lambda/sudoku${local.suffix}"
+  retention_in_days = local.is_default ? 7 : 3
+
+  # checkov:skip=CKV_AWS_338: short retention is intentional to minimise log storage cost for a personal project
+  # checkov:skip=CKV_AWS_158: KMS CMK encryption costs ~$1/month with no meaningful benefit over AWS-managed encryption here
 }
 
 # Alias and permission are kept standalone because the module (v7) does not

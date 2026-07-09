@@ -97,15 +97,17 @@ The JWT authorizer validates Cognito tokens (issuer URL + audience = web client 
 
 **CloudWatch Logs:** JSON-format access logs, 7-day retention (default workspace), 3-day (others).
 
-### CORS Two-Step Pattern
+### CORS / Callback URL Configuration
 
-CORS and Cognito callback URLs cannot be set to exact values at `terraform apply` time because the Amplify URL is only known after Amplify is created — a circular dependency. The solution:
+API Gateway CORS origins are set directly in `api_gateway.tf` and the Lambda's `CORS_ALLOWED_ORIGINS` env var to the known static custom domains (`sudoku.edoatley.co.uk` / `sudoku-beta.edoatley.co.uk` / `localhost`) — fully Terraform-managed, no post-apply tightening step, no `ignore_changes`. The raw `*.amplifyapp.com` URL is intentionally unsupported at both layers (referencing `aws_amplify_app`/`aws_amplify_branch` from `api_gateway.tf` would create a dependency cycle, since Amplify's `VITE_API_URL` depends on the API Gateway endpoint).
 
-1. Terraform applies **baseline wildcard** origins (`http://localhost:5173`)
-2. Post-apply CI workflow calls `aws apigatewayv2 update-api` to tighten to the exact Amplify URL
-3. `ignore_changes = [cors_configuration]` (API GW) and `ignore_changes = [callback_urls, logout_urls]` (Cognito) prevent the next `terraform apply` from reverting the tightened values
+Cognito callback/logout URLs are the one remaining two-step case, since the exact Amplify branch URL is only known after Amplify creates it:
 
-If a workspace is torn down and recreated, step 2 must be re-run — the tightened values are not stored in Terraform state.
+1. Terraform applies a baseline URL list (`http://localhost:5173`, custom domain)
+2. Post-apply CI workflow (`amplify-post-deploy.sh`) calls `aws cognito-idp update-user-pool-client` to add the exact Amplify branch URL
+3. `ignore_changes = [callback_urls, logout_urls]` prevents the next `terraform apply` from reverting the added values
+
+If a workspace is torn down and recreated, step 2 must be re-run — the added callback URLs are not stored in Terraform state.
 
 ### Storage
 
@@ -115,8 +117,10 @@ If a workspace is torn down and recreated, step 2 must be re-run — the tighten
 | --- | --- | --- | --- |
 | `SudokuGames{suffix}` | `userId` (String) | `gameId` (String) | Default workspace only |
 | `SudokuPlayers{suffix}` | `userId` (String) | — | Default workspace only |
+| `SudokuLeaderboard{suffix}` | `userId` (String) | — | Default workspace only |
+| `SudokuCoachRateLimits{suffix}` | `userId` (String) | `window` (String) | Not enabled (ephemeral, TTL-based expiry) |
 
-Both tables use `PAY_PER_REQUEST` (on-demand) billing. AWS-managed encryption (no CMK).
+All four tables use `PAY_PER_REQUEST` (on-demand) billing. AWS-managed encryption (no CMK).
 
 **S3 (Lambda artifacts):**
 
@@ -183,6 +187,7 @@ frontend:
 | `VITE_COGNITO_DOMAIN` | Cognito domain |
 | `VITE_MOCK_API` | `"false"` |
 | `VITE_DEV_TOOLS` | `"false"` (default), `"true"` (all others) |
+| `VITE_AI_COACH` | `"false"` (default), `"true"` (all others) — AI coach feature flag |
 
 ### DNS & TLS
 
@@ -202,8 +207,11 @@ TLS certificates provisioned automatically by Amplify via ACM. No manual certifi
 - `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
 - DynamoDB Games: `GetItem, PutItem, UpdateItem, Query, Scan`
 - DynamoDB Players: `GetItem, PutItem, UpdateItem, Scan` (no Query — single-key access only)
+- DynamoDB Leaderboard: `GetItem, UpdateItem, Scan` (Scan used by `DynamoDbLeaderboardRepository`, not admin-gated)
+- DynamoDB CoachRateLimits: `GetItem, UpdateItem` (no Scan — per-user rate-limit counters only)
+- `bedrock:InvokeModel` on the same Bedrock inference-profile/foundation-model ARNs as the image recognition role (AI coach feature)
 
-`Scan` on both tables is used solely by `AdminDataResource` (the admin data browser, `docs/llds/user-management.md` — Admin Authorization). These grants live on the same role as every other game/player operation — there is no separate, more restricted role for admin-only actions, so a bug in the admin group check is the last line of defence against a full table scan by any authenticated user. Isolating this would require a dedicated admin Lambda; out of scope for now.
+`Scan` on Games/Players is used solely by `AdminDataResource` (the admin data browser, `docs/llds/user-management.md` — Admin Authorization). These grants live on the same role as every other game/player operation — there is no separate, more restricted role for admin-only actions, so a bug in the admin group check is the last line of defence against a full table scan by any authenticated user. Isolating this would require a dedicated admin Lambda; out of scope for now.
 
 **Image Recognition Lambda role (`SudokuImageRecognitionExecRole{suffix}`):**
 
@@ -222,7 +230,7 @@ TLS certificates provisioned automatically by Amplify via ACM. No manual certifi
 | `lambda.tf` | Java Lambda function, alias, S3 artifact |
 | `image_recognition_lambda.tf` | Image Recognition Lambda (container image) |
 | `api_gateway.tf` | HTTP API v2, routes, integrations, JWT authorizer, throttling |
-| `dynamodb.tf` | SudokuGames and SudokuPlayers tables |
+| `dynamodb.tf` | SudokuGames, SudokuPlayers, SudokuLeaderboard, SudokuCoachRateLimits tables |
 | `cognito.tf` | User Pool, App Clients, Google IdP, Cognito domain |
 | `cognito-rc-shared.tf` | Shared RC Cognito pool (rc-shared workspace only) |
 | `amplify.tf` | Amplify app, branch, environment variables |
@@ -250,7 +258,7 @@ provider "aws" {
     tags = {
       Project     = "Sudoku"
       ManagedBy   = "Terraform"
-      Environment = var.environment
+      Environment = local.is_default ? "prod" : terraform.workspace
     }
   }
 }
@@ -259,7 +267,7 @@ provider "aws" {
 ### Infrastructure Standards
 
 - **API Gateway:** Always use API Gateway v2 (HTTP API). Never use REST API v1.
-- **CORS:** Use the two-step pattern described in the CORS Two-Step Pattern section.
+- **CORS:** API Gateway CORS is fully Terraform-managed (see the CORS / Callback URL Configuration section) — only Cognito callback/logout URLs use the two-step pattern.
 - **Amplify auto-build:** Always set `enable_auto_build = false` — CI triggers builds explicitly after Terraform has applied correct `VITE_*` variables.
 - **Sensitive variables:** Google credentials and CI secrets are passed as `sensitive = true` Terraform variables, injected via GitHub Actions secrets.
 
@@ -389,7 +397,8 @@ Reusable workflow called after every deploy. Also dispatchable via `workflow_dis
 
 | Decision | Chosen | Alternatives Considered | Rationale |
 | --- | --- | --- | --- |
-| CORS two-step | Baseline wildcard + post-apply tighten | Terraform-only | Amplify URL unknown at apply time; circular dependency resolved by post-apply script |
+| API Gateway CORS fully Terraform-managed | Static custom-domain origins set directly in `api_gateway.tf` | Post-apply tighten step (former design) | Avoids the Amplify-URL-unknown-at-apply-time cycle by simply not supporting the raw `*.amplifyapp.com` origin |
+| Cognito callback URLs two-step | Baseline URL list + post-apply add | Terraform-only | Amplify branch URL unknown at apply time; circular dependency resolved by post-apply script |
 | Amplify auto-build disabled | CI triggers `amplify start-job` manually | Amplify webhook auto-build | `VITE_*` vars baked at build time; auto-build uses stale values |
 | SnapStart for Java Lambda | Enabled on published versions | Provisioned Concurrency | SnapStart is free; Provisioned Concurrency costs per-second even when idle |
 | RC Cognito pool sharing | Single `sudoku-rc` pool via `rc-shared` workspace | Per-branch Cognito pool | Google OAuth requires fixed redirect URIs; one pool = one set of URIs |
@@ -406,7 +415,7 @@ Reusable workflow called after every deploy. Also dispatchable via `workflow_dis
 - The Amplify branch name defaults to `terraform.workspace` if `var.git_branch` is not set. If the workspace name does not match the actual git branch (e.g., workspace `rc-v2` but branch `release/v2`), Amplify will target the wrong branch.
 - RC workspaces share one Cognito pool but each has its own API Gateway and Lambda. A user authenticated against one RC environment's Cognito can present that token to any other RC environment's API — the JWT is valid across all RC APIs.
 - The `$default` API Gateway route sends all unmatched paths to the Java Lambda. Unrecognised routes return Java's 404/405, not API Gateway's native response.
-- `ignore_changes` on CORS and callback URLs means Terraform state drifts from actual configuration after every post-apply tightening. `terraform plan` will always show these values as "no changes" even when the live config differs from the baseline.
+- `ignore_changes` on Cognito callback/logout URLs means Terraform state drifts from actual configuration after every post-apply addition. `terraform plan` will always show these values as "no changes" even when the live config differs from the baseline.
 
 ## References
 
