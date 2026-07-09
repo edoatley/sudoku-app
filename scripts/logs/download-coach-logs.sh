@@ -87,10 +87,16 @@ fi
 
 echo "Found ${COUNT} log event(s). Extracting JSON lines..." >&2
 
+# CloudWatch message is a full log line (timestamp LEVEL [logger] (thread) {json}), not bare
+# JSON — take everything from the first '{' onward rather than assuming the line already
+# starts with one.
 NDJSON=$(echo "${RAW}" | jq -r '.[]' | while IFS= read -r line; do
-  trimmed="${line#"${line%%[![:space:]]*}"}"
-  if echo "${trimmed}" | jq -e . >/dev/null 2>&1; then
-    echo "${trimmed}"
+  json_part="${line#*\{}"
+  if [[ "${json_part}" != "${line}" ]]; then
+    json_part="{${json_part}"
+    if echo "${json_part}" | jq -e . >/dev/null 2>&1; then
+      echo "${json_part}"
+    fi
   fi
 done)
 
