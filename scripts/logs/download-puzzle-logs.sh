@@ -134,28 +134,27 @@ fi
 
 render() {
   if [[ "${SUMMARY}" == true ]]; then
-    echo "${FILTERED}" | jq -s -r '
-      def hhmm(ms): (ms/1000) | gmtime | strftime("%Y-%m-%dT%H:%M:%SZ");
-      group_by(.pid)[]
-      | (.[0].pid) as $pid
-      | ((map(.userId) | map(select(. != null)))[0] // "?") as $user
-      | (map(.ts) | map(select(. != null))) as $ts
-      | (map(select(.type=="NUMBER")) | length) as $placed
-      | (map(select(.type=="NUMBER_RESULT" and .correct==true)) | length) as $correct
-      | (map(select(.type=="NUMBER_RESULT" and .correct==false)) | length) as $incorrect
-      | (map(select(.type=="NUMBER_CLEAR")) | length) as $clears
-      | (map(select(.type=="HINT_REQUEST")) | length) as $hints
-      | (map(select(.type=="COACH_REQUEST")) | length) as $coach
-      | (map(select(.type=="EVENTS_TRUNCATED")) | length) as $trunc
-      | (map(select(.type=="HINT_RESPONSE") | (.techniqueName // "none"))
-          | group_by(.) | map("\(.[0]) x\(length)") | join(", ")) as $techniques
-      | "Puzzle \($pid)   user=\($user)",
-        "  span:    \(if ($ts|length)>0 then hhmm($ts|min) + "  ->  " + hhmm($ts|max) else "n/a" end)",
-        "  numbers: \($placed) placed  (\($correct) correct, \($incorrect) incorrect)",
-        "  clears:  \($clears)",
-        "  hints:   \($hints)\(if $techniques != "" then "  [" + $techniques + "]" else "" end)",
-        "  coach:   \($coach) turn(s)\(if $trunc>0 then "   (\($trunc) truncated batch marker[s])" else "" end)",
-        ""
+    # We drop the -s (slurp) flag so jq processes the NDJSON stream line-by-line.
+    echo "${FILTERED}" | jq -r '
+      if .type == "HINT_REQUEST" then
+        "HINT_REQUEST - excludedRanks \(.excludedRanks | tojson)"
+      elif .type == "HINT_RESPONSE" then
+        "HINT_RESPONSE - found \(.found)\(if .techniqueName then ", technique \(.techniqueName)" else "" end)"
+      elif .type == "NUMBER" then
+        "NUMBER - row: \(.r), column: \(.c), value: \(.v)"
+      elif .type == "NUMBER_RESULT" then
+        "NUMBER_RESULT - row: \(.r), column: \(.c), value: \(.v), correct: \(.correct)"
+      elif .type == "COACH_REQUEST" then
+        "COACH_REQUEST - userMessage: \(.userMessage), technique \(.technique)"
+      elif .type == "COACH_RESPONSE" then
+        "COACH_RESPONSE - aiMessage: \(.aiMessage), fallback \(.fallback)"
+      elif .type == "NUMBER_CLEAR" then
+        "NUMBER_CLEAR - row: \(.r), column: \(.c)"
+      elif .type == "EVENTS_TRUNCATED" then
+        "EVENTS_TRUNCATED"
+      else
+        .type
+      end
     '
   else
     echo "${FILTERED}"
