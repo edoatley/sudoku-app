@@ -48,8 +48,14 @@ test('hint — advancing to reveal fills the hinted cell with the correct value'
   await page.getByRole('button', { name: 'Hint' }).click();
   await expect(page.getByTestId('hint-panel')).toBeVisible();
 
-  // nudge → focus → reveal (fills cell)
+  // nudge → focus → reveal (fills cell). Wait for the focus-stage text to actually render
+  // before the second click — firing both clicks back-to-back races the first stage
+  // transition's React commit under a slow/loaded runner (observed flake in CI).
+  // Note: formatHintText converts 0-indexed coordinates in the raw text to 1-indexed for
+  // display (HINT_RESPONSE.focus's "(0, 2)" renders as "(1, 3)"), so match on a
+  // coordinate-free substring rather than the raw fixture text.
   await page.getByRole('button', { name: 'Show Me' }).click();
+  await expect(page.getByTestId('hint-panel')).toContainText('eliminate 8 numbers');
   await page.getByRole('button', { name: 'Show Me' }).click();
 
   await expect(page.getByTestId('cell-0-2')).toContainText('4');

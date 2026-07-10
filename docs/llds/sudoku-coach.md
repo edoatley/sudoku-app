@@ -169,6 +169,18 @@ Orchestration Flow step 3) and passed through, not recomputed here. `aiMessage` 
 response, but it is still what the player saw, and logging it keeps `COACH_RESPONSE` a
 complete record of "what did the coach actually say" regardless of which path produced it.
 
+`fallback` has two distinct triggers, both of which must set `fallback: true`: the outer
+`catch (Exception e)` in `call()` (network/timeout/SDK errors — `bedrockRuntimeClient.invokeModel()`
+itself threw), and `parseResponse()` falling back *internally* (the call succeeded, but the
+response text was blank or failed to parse as the expected JSON schema). The second case never
+throws out of `parseResponse()` — it returns a `ParsedResponse` whose `fallbackReason` is
+non-null — so `call()` must check `fallbackReason() != null` rather than hardcoding
+`fallback: false` for the non-exception path (→ SC-BE-021). Before parsing, `parseResponse()`
+also strips markdown code fences or stray surrounding text by extracting the first top-level
+`{...}` object, since Claude models occasionally wrap the mandated JSON-only output despite the
+system prompt's instruction not to (→ SC-BE-022) — this reduces how often a benign formatting
+deviation triggers the fallback path at all.
+
 `pid` is the game's `gameId`, carried on both lines so a coach turn can be joined with the
 player's puzzle-play events (`NUMBER`, `HINT_REQUEST`, …) for the same game, which carry the
 same `pid` (see `docs/llds/game-lifecycle.md` Puzzle-Play Event Logging). Whereas `cid` pairs
