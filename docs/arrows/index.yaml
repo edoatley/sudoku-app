@@ -119,6 +119,13 @@ arrows:
     arrow: docs/arrows/security-standards.md
     notes: Cross-cutting security policy — IAM, throttling, IDOR prevention, input validation
 
+  - id: observability
+    status: OK
+    lld: docs/llds/observability.md
+    specs: ~
+    arrow: docs/arrows/observability.md
+    notes: Cross-cutting structured-logging schema — spans game-lifecycle, sudoku-coach, react-frontend; owns no spec IDs of its own (see GL-BE-040..047, SC-BE-005..022, FE-BE-020..025 in their owning spec files)
+
   - id: keyboard-input
     status: OK
     lld: docs/llds/keyboard-input.md

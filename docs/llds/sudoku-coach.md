@@ -145,57 +145,21 @@ reach this threshold if needed.
 `cache_control` blocks at the message level, so the raw SDK was chosen.
 
 **Content logging:**
-Each call to `BedrockCoachClient.call()` emits two structured JSON lines to the standard
-Quarkus/Lambda logger, sharing a `cid` (UUID, generated per call) so the pair can be joined.
-Lines are built via `objectMapper.writeValueAsString(...)` (the already-injected `ObjectMapper`)
-rather than the hand-templated `LOG.infof("{\"...\":\"%s\"}", ...)` string substitution used
-today — `userMessage` and `aiMessage` are the first freeform, user-/LLM-authored text this
-logging handles, and naive `%s` substitution breaks on embedded quotes or newlines (the
-existing exception-path `errorMsg` field already works around this narrowly, via
-`.replace("\"", "'")`, for the one freeform field that existed before this change — a proper
-serializer replaces that workaround too, correctly, for all fields):
+Each call to `BedrockCoachClient.call()` emits a `COACH_REQUEST`/`COACH_RESPONSE` pair to the
+standard Quarkus/Lambda logger, sharing a `cid` (UUID, generated per call) so the two can be
+joined, and `pid` (the game's `gameId`) so a coach turn can be joined with the player's
+puzzle-play events for the same game. **Full field catalogue, the `pid`/`cid` correlation
+model, and storage policy are documented centrally in `docs/llds/observability.md`** — this
+section covers only this component's part: `board` and `candidatesGrid` are derived from the
+single `Board` computed once in `SudokuCoachServiceImpl.coach()` (see Orchestration Flow step
+3) and passed through, not recomputed here; `gameId` reaches the client via the `CoachRequest`
+DTO and is threaded through `SudokuCoachServiceImpl.coach()` into `BedrockCoachClient.call()`
+— if a client omits it (e.g. the coach is invoked outside a saved game), `pid` is logged as
+null rather than failing the request. Lines are built via `objectMapper.writeValueAsString(...)`
+(the already-injected `ObjectMapper`), never string templating, so freeform fields
+(`userMessage`, `aiMessage`) escape correctly.
 
-```
-COACH_REQUEST  { type, pid, cid, modelId, technique, historyLen, userMsgLen, ts,
-                  userMessage, board, candidatesGrid }
-COACH_RESPONSE { type, pid, cid, revealHint, inputTokens, outputTokens,
-                  cacheReadTokens, cacheWriteTokens, latencyMs, fallback,
-                  aiMessage }
-```
-
-`board` is the `Board`'s placed digits (row-major, not the wire-format `Grid` object — built
-inline from `Board.getRow()`) and `candidatesGrid` is `Board.toCandidatesGrid()`. Both are
-derived from the single `Board` computed once in `SudokuCoachServiceImpl.coach()` (see
-Orchestration Flow step 3) and passed through, not recomputed here. `aiMessage` is logged on **every** path, including the
-`fallback: true` path — it is the deterministic nudge text there rather than an actual Bedrock
-response, but it is still what the player saw, and logging it keeps `COACH_RESPONSE` a
-complete record of "what did the coach actually say" regardless of which path produced it.
-
-`fallback` has two distinct triggers, both of which must set `fallback: true`: the outer
-`catch (Exception e)` in `call()` (network/timeout/SDK errors — `bedrockRuntimeClient.invokeModel()`
-itself threw), and `parseResponse()` falling back *internally* (the call succeeded, but the
-response text was blank or failed to parse as the expected JSON schema). The second case never
-throws out of `parseResponse()` — it returns a `ParsedResponse` whose `fallbackReason` is
-non-null — so `call()` must check `fallbackReason() != null` rather than hardcoding
-`fallback: false` for the non-exception path (→ SC-BE-021). Before parsing, `parseResponse()`
-also strips markdown code fences or stray surrounding text by extracting the first top-level
-`{...}` object, since Claude models occasionally wrap the mandated JSON-only output despite the
-system prompt's instruction not to (→ SC-BE-022) — this reduces how often a benign formatting
-deviation triggers the fallback path at all.
-
-`pid` is the game's `gameId`, carried on both lines so a coach turn can be joined with the
-player's puzzle-play events (`NUMBER`, `HINT_REQUEST`, …) for the same game, which carry the
-same `pid` (see `docs/llds/game-lifecycle.md` Puzzle-Play Event Logging). Whereas `cid` pairs
-one request with its response, `pid` groups the whole play session. `gameId` reaches the client
-via the `CoachRequest` DTO and is threaded through `SudokuCoachServiceImpl.coach()` into
-`BedrockCoachClient.call()`; if a client omits it (e.g. the coach is invoked outside a saved
-game), `pid` is logged as null rather than failing the request.
-
-These logs go to the **same CloudWatch log group** as all other Lambda logs
-(`/aws/lambda/sudoku{suffix}`), at the existing 30-day retention — no separate log store, per
-`docs/arrows/security-standards.md` Logging Policy. That policy already sanctions logging full
-coach conversation content (userMessage, aiMessage, board, candidatesGrid) for this app's
-threat model: a personal project with a small, known, non-anonymous allowlisted user set.
+Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..022`.
 
 ### Constants
 

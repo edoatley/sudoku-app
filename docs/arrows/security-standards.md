@@ -103,6 +103,10 @@ Puzzle generation is near-instant; the Java timeout is set to 8s to allow for Sn
 
 **Rule:** Log what is needed for diagnosis. Do not log what is not needed for diagnosis. Never log credentials, session tokens, or raw HTTP `Authorization` headers.
 
+This section is the policy and threat-model rationale for *what category* of data may be
+logged. For the exact field-by-field schema of every structured log line (`COACH_*`,
+`NUMBER`, `HINT_*`, …) and the `pid`/`cid` correlation model, see `docs/llds/observability.md`.
+
 **What may be logged at INFO level in production:**
 
 | Category | Acceptable | Not acceptable |
