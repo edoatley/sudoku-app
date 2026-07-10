@@ -13,16 +13,15 @@ export default function CoachWidget({ gameId, currentGrid, setHighlightCells, pl
   // @spec SC-UI-001 — desktop only; hide on screens narrower than md breakpoint
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const { isOpen, open, close, history, isLoading, sendMessage } = useCoachSession({
+  const { isOpen, open, close, history, isLoading, sendMessage, tokensUsedThisMonth } = useCoachSession({
     gameId,
     currentGrid,
     setHighlightCells,
+    initialTokensUsedThisMonth: playerProfile?.coachTokensUsedThisMonth ?? 0,
   });
 
   // @spec SC-RL-008 — hide FAB when AI coach is disabled in profile
   if (isMobile || playerProfile?.aiCoachEnabled === false) return null;
-
-  const tokensUsed = playerProfile?.coachTokensUsedThisMonth ?? 0;
 
   return (
     <>
@@ -32,7 +31,7 @@ export default function CoachWidget({ gameId, currentGrid, setHighlightCells, pl
           isLoading={isLoading}
           onSend={sendMessage}
           onClose={close}
-          tokensUsed={tokensUsed}
+          tokensUsed={tokensUsedThisMonth}
           monthlyTokenLimit={MONTHLY_TOKEN_LIMIT}
         />
       )}

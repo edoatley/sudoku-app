@@ -47,7 +47,7 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
             case HintResult.PuzzleSolved ignored -> new CoachResult.PuzzleSolved();
 
             case HintResult.NoStrategyApplied ignored -> new CoachResult.Response(
-                    new CoachResponse(NO_MOVES_MESSAGE, null, false), 0L);
+                    new CoachResponse(NO_MOVES_MESSAGE, null, false, 0L), 0L);
 
             // @spec SC-BE-003, SC-BE-009 — one Bedrock call; falls back to nudge on error
             case HintResult.Found f -> {
@@ -59,7 +59,7 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
                 BedrockCoachClient.CallResult result = bedrockCoachClient.call(
                         request.gameId(), request.userMessage(), f.hint(), trimmedHistory, board);
                 yield new CoachResult.Response(
-                        new CoachResponse(result.reply().aiMessage(), f.hint(), result.reply().revealHint()),
+                        new CoachResponse(result.reply().aiMessage(), f.hint(), result.reply().revealHint(), 0L),
                         result.tokensUsed());
             }
         };

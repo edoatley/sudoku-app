@@ -6,6 +6,7 @@ export const CANNED_COACH_RESPONSE = {
     "Let's look at the board together. Can you spot any rows or columns that are almost complete? Look for rows with only one or two empty cells — those are the easiest places to start.",
   hint: null,
   revealHint: false,
+  tokensUsedThisMonth: 1250,
 };
 
 export const CANNED_PUZZLES = {

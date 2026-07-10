@@ -1,5 +1,5 @@
 // @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { postCoachMessage } from '../api/sudokuApi.js';
 
 const WELCOME_MESSAGE = {
@@ -18,10 +18,22 @@ const SOLVED_MESSAGE = {
   content: 'Congratulations — the puzzle is complete! No more moves needed.',
 };
 
-export function useCoachSession({ gameId, currentGrid, setHighlightCells }) {
+export function useCoachSession({ gameId, currentGrid, setHighlightCells, initialTokensUsedThisMonth = 0 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  // @spec SC-RL-010 — seeded from the profile fetched at load, then kept current from each
+  // coach response's cumulative total so the counter moves within the session without refetching.
+  const [tokensUsedThisMonth, setTokensUsedThisMonth] = useState(initialTokensUsedThisMonth);
+  const hasLiveTokenUpdate = useRef(false);
+
+  // playerProfile loads asynchronously and may arrive after this hook's first render, so keep
+  // following it until a real coach response supersedes it with a live count.
+  useEffect(() => {
+    if (!hasLiveTokenUpdate.current) {
+      setTokensUsedThisMonth(initialTokensUsedThisMonth);
+    }
+  }, [initialTokensUsedThisMonth]);
 
   const open = useCallback(() => {
     setIsOpen(true);
@@ -56,6 +68,10 @@ export function useCoachSession({ gameId, currentGrid, setHighlightCells }) {
 
         setHistory((prev) => [...prev, { role: 'assistant', content: response.aiMessage }]);
         setHighlightCells?.(response.hint?.highlightCells ?? []);
+        if (response.tokensUsedThisMonth != null) {
+          hasLiveTokenUpdate.current = true;
+          setTokensUsedThisMonth(response.tokensUsedThisMonth);
+        }
       } catch {
         setHistory((prev) => [...prev, ERROR_MESSAGE]);
       } finally {
@@ -65,5 +81,5 @@ export function useCoachSession({ gameId, currentGrid, setHighlightCells }) {
     [gameId, currentGrid, history, isLoading, setHighlightCells]
   );
 
-  return { isOpen, open, close, history, isLoading, sendMessage };
+  return { isOpen, open, close, history, isLoading, sendMessage, tokensUsedThisMonth };
 }

@@ -27,7 +27,7 @@ import static org.mockito.Mockito.when;
 
 // @spec SC-API-002, SC-API-003, SC-API-004, SC-API-010, SC-API-011, SC-API-012
 // @spec SC-BE-001, SC-BE-002, SC-BE-003, SC-BE-009
-// @spec SC-RL-001, SC-RL-002, SC-RL-003
+// @spec SC-RL-001, SC-RL-002, SC-RL-003, SC-RL-010
 @QuarkusTest
 class CoachResourceTest {
 
@@ -101,7 +101,10 @@ class CoachResourceTest {
                 .body("hint.nudge", notNullValue())
                 .body("hint.strategyRank", greaterThan(0))
                 .body("hint.highlightCells", notNullValue())
-                .body("revealHint", is(false));
+                .body("revealHint", is(false))
+                // @spec SC-RL-010 — ENABLED_PLAYER starts at 0 tokens; the stubbed Bedrock call
+                // reports 1500L used, so the response should reflect the post-call cumulative total.
+                .body("tokensUsedThisMonth", is(1500));
     }
 
     @Test
