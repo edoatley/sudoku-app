@@ -21,6 +21,7 @@
 - [x] **CP-INFRA-020**: The system shall set API Gateway CORS allowed origins directly in Terraform to the static custom domain(s) for each workspace type, with no post-apply tightening step.
 - [x] **CP-INFRA-021**: The system shall tighten Cognito app client callback/logout URLs via a post-apply CI workflow once the exact Amplify branch URL is known.
 - [x] **CP-INFRA-022**: The system shall ignore Cognito callback/logout URL changes in Terraform state to preserve post-apply additions across subsequent applies.
+- [x] **CP-INFRA-023**: When an rc-* branch is deleted, the system shall remove that branch's Amplify URL from the shared rc Cognito client's callback/logout URL lists as a best-effort step that does not block the underlying Terraform destroy on failure, and shall never remove the shared beta domain or localhost entries.
 
 ## Cognito
 
