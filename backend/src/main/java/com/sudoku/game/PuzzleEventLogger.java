@@ -45,7 +45,7 @@ public class PuzzleEventLogger {
      * @param solution the game's solution grid, used to derive {@code NUMBER_RESULT}
      * @param events   the buffered client actions (may be null)
      */
-    // @spec GL-BE-040, GL-BE-041, GL-BE-042, GL-BE-043, GL-BE-044, GL-BE-045
+    // @spec GL-BE-040, GL-BE-041, GL-BE-042, GL-BE-043, GL-BE-044, GL-BE-045, GL-BE-047
     public void log(String pid, String userId, Grid solution, List<PuzzleEvent> events) {
         for (String line : buildLines(pid, userId, solution, events)) {
             LOG.info(line);
@@ -133,6 +133,21 @@ public class PuzzleEventLogger {
                 }
                 emit(lines, node);
             }
+            case "UNDO" -> {
+                if (!validCell(event.r(), event.c()) || !validDigit(event.v()) || !validPrevValue(event.prevV())) {
+                    warnSkip(event);
+                    return;
+                }
+                ObjectNode node = base("UNDO", pid, userId, ts, event.clientTs());
+                node.put("r", event.r());
+                node.put("c", event.c());
+                node.put("v", event.v());
+                node.put("prevV", event.prevV());
+                if (event.undoneType() != null) {
+                    node.put("undoneType", event.undoneType());
+                }
+                emit(lines, node);
+            }
             case "EVENTS_TRUNCATED" -> emit(lines, base("EVENTS_TRUNCATED", pid, userId, ts, event.clientTs()));
             default -> warnSkip(event);
         }
@@ -164,6 +179,10 @@ public class PuzzleEventLogger {
 
     private static boolean validDigit(Integer v) {
         return v != null && v >= 1 && v <= 9;
+    }
+
+    private static boolean validPrevValue(Integer v) {
+        return v != null && v >= 0 && v <= 9;
     }
 
     private static void warnSkip(PuzzleEvent event) {

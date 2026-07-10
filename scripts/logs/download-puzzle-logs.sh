@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download puzzle-play observability logs from CloudWatch Logs for analysis.
 # Covers the whole play session for a puzzle: COACH_*, HINT_REQUEST/HINT_RESPONSE,
-# NUMBER / NUMBER_RESULT / NUMBER_CLEAR, and EVENTS_TRUNCATED markers — all correlated
+# NUMBER / NUMBER_RESULT / NUMBER_CLEAR, UNDO, and EVENTS_TRUNCATED markers — all correlated
 # by pid (the gameId). By default prints newline-delimited JSON (one event per line);
 # with --summary prints a human-readable digest per puzzle.
 #
@@ -30,6 +30,7 @@
 #   NUMBER          pid, userId, r, c, v, ts
 #   NUMBER_RESULT   pid, userId, r, c, v, correct        (server-derived move validity)
 #   NUMBER_CLEAR    pid, userId, r, c, ts
+#   UNDO            pid, userId, r, c, v (removed), prevV (restored), undoneType, ts
 #   HINT_REQUEST    pid, userId, cid, minRank, excludedRanks
 #   HINT_RESPONSE   pid, userId, cid, techniqueName, strategyRank, difficulty, found
 #   COACH_REQUEST / COACH_RESPONSE   pid, cid, ... (see download-coach-logs.sh)
@@ -130,7 +131,7 @@ if [[ -n "${PUZZLE_ID}" ]]; then
 elif [[ -n "${USER_ID}" ]]; then
   FILTER_PATTERN="\"${USER_ID}\""
 else
-  FILTER_PATTERN='?COACH_ ?HINT_ ?NUMBER ?EVENTS_TRUNCATED'
+  FILTER_PATTERN='?COACH_ ?HINT_ ?NUMBER ?UNDO ?EVENTS_TRUNCATED'
 fi
 
 START_TIME=$(( ($(date +%s) - HOURS * 3600) * 1000 ))
@@ -170,7 +171,7 @@ for LOG_GROUP in "${LOG_GROUPS[@]}"; do
   # Keep only our event types, and honour the pid/user filters exactly (the CloudWatch pattern is
   # a coarse substring match that can catch neighbouring lines).
   GROUP_FILTERED=$(echo "${NDJSON}" | jq -c --arg pid "${PUZZLE_ID}" --arg uid "${USER_ID}" '
-    select(.type as $t | ["COACH_REQUEST","COACH_RESPONSE","HINT_REQUEST","HINT_RESPONSE","NUMBER","NUMBER_RESULT","NUMBER_CLEAR","EVENTS_TRUNCATED"] | index($t))
+    select(.type as $t | ["COACH_REQUEST","COACH_RESPONSE","HINT_REQUEST","HINT_RESPONSE","NUMBER","NUMBER_RESULT","NUMBER_CLEAR","UNDO","EVENTS_TRUNCATED"] | index($t))
     | select($pid == "" or .pid == $pid)
     | select($uid == "" or .userId == $uid)
   ' || true)
@@ -207,6 +208,8 @@ render() {
         "COACH_RESPONSE - aiMessage: \(.aiMessage), fallback \(.fallback)"
       elif .type == "NUMBER_CLEAR" then
         "NUMBER_CLEAR - row: \(.r), column: \(.c)"
+      elif .type == "UNDO" then
+        "UNDO - row: \(.r), column: \(.c), removed: \(.v), restored: \(.prevV), undoneType: \(.undoneType)"
       elif .type == "EVENTS_TRUNCATED" then
         "EVENTS_TRUNCATED"
       else

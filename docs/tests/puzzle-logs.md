@@ -22,6 +22,7 @@ All lines share `type`, `pid`, `ts` (server epoch-ms). Action lines also carry `
 | `NUMBER` | player placed a digit | `r`, `c`, `v` |
 | `NUMBER_RESULT` | server-derived | `r`, `c`, `v`, `correct` (matches the solution) |
 | `NUMBER_CLEAR` | player cleared a cell | `r`, `c` |
+| `UNDO` | player undid a normal-mode placement | `r`, `c`, `v` (digit removed), `prevV` (digit or 0 restored), `undoneType` |
 | `HINT_REQUEST` | player asked for a hint | `cid`, `minRank`, `excludedRanks` |
 | `HINT_RESPONSE` | hint resolved | `cid`, `techniqueName`, `strategyRank`, `difficulty`, `found` |
 | `EVENTS_TRUNCATED` | client buffer overflowed before flush | — |
@@ -32,6 +33,9 @@ Notes:
   never shown to the player.
 - `HINT_RESPONSE` is recorded on every resolution — `found:false` when no strategy applies.
   A hint that fails with a transport error leaves a `HINT_REQUEST` whose `cid` never pairs.
+- `UNDO` is only logged for reversing a normal-mode digit placement; undoing a candidate-mode
+  toggle or a "fill candidates" bulk action is not logged, matching those actions never being
+  buffered as `NUMBER`/`NUMBER_CLEAR` in the first place.
 - Demo/practice games have no persisted `gameId`, so they never sync and are not logged;
   the coach logs `pid:null` for them.
 - Logging is at-least-once: a retry after an ambiguous save may duplicate lines.

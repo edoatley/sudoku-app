@@ -546,6 +546,17 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       const next = [...prev];
       const entry = next.pop();
       if (entry.type === 'normal') {
+        // @spec FE-BE-025 — mirror the NUMBER event being reversed; candidate-mode undos are
+        // not logged, matching candidate toggles never being buffered in the first place.
+        const removedValue = currentGridRef.current?.[entry.row]?.[entry.col] ?? 0;
+        recordEvent({
+          type: 'UNDO',
+          undoneType: 'NUMBER',
+          r: entry.row,
+          c: entry.col,
+          v: removedValue,
+          prevV: entry.prevValue,
+        });
         setCurrentGrid((g) => {
           const ng = g.map((r) => [...r]);
           ng[entry.row][entry.col] = entry.prevValue;
@@ -572,7 +583,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
       }
       return next;
     });
-  }, []);
+  }, [recordEvent]);
 
   const clearCell = useCallback(
     (row, col) => {
