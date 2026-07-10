@@ -11,6 +11,7 @@
 - [x] **FE-UI-007**: The system shall display candidate digits as a 3×3 mini-grid within cells that have no placed value.
 - [x] **FE-UI-008a**: The system shall render candidate digit text in a colour that meets WCAG AA contrast (≥ 4.5:1) against the cell background in both light and dark colour modes.
 - [x] **FE-UI-008**: When the player triggers undo, the system shall restore the grid to the state before the most recent cell edit.
+- [x] **FE-UI-053**: While a game is active, the system shall display a colour-coded chip in the header showing the capitalised difficulty (easy=green, medium=orange, hard=red, imported=purple).
 
 ## Hint UX
 
