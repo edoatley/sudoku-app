@@ -244,7 +244,7 @@ then a `NUMBER_RESULT` whose `correct = (solutionGrid[r][c] == v)`. Correctness 
 computed server-side against the stored solution — authoritative, and never shown to
 the player (the game does not reveal move correctness during play). Splitting into two
 lines keeps the player's action stream (`NUMBER`) distinct from the server's verdict
-and keeps per-type counting clean for the `download-puzzle-logs.sh` summary.
+and keeps per-type formatting clean for the `download-puzzle-logs.sh` summary.
 
 **Robustness.** `r`, `c`, and `v` are client-supplied and untrusted. An event with an
 unknown `type`, missing required fields, or out-of-range coordinates/digit is logged at
