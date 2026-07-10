@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-07-09
+updated: 2026-07-10
 
 arrows:
   - id: api-error-handling
@@ -51,8 +51,8 @@ arrows:
     lld: docs/llds/game-lifecycle.md
     specs: docs/specs/game-lifecycle-specs.md
     arrow: docs/arrows/game-lifecycle.md
-    spec_count: 22
-    implemented: 22
+    spec_count: 29
+    implemented: 29
     deferred: 0
     gaps: 0
     next: ~
@@ -95,8 +95,8 @@ arrows:
     lld: docs/llds/react-frontend.md
     specs: docs/specs/react-frontend-specs.md
     arrow: docs/arrows/react-frontend.md
-    spec_count: 45
-    implemented: 45
+    spec_count: 50
+    implemented: 50
     deferred: 0
     gaps: 0
     next: ~
@@ -175,8 +175,8 @@ arrows:
     lld: docs/llds/sudoku-coach.md
     specs: docs/specs/sudoku-coach-specs.md
     arrow: docs/arrows/sudoku-coach.md
-    spec_count: 56
-    implemented: 53
+    spec_count: 57
+    implemented: 54
     deferred: 0
     gaps: 3
     next: SC-UI-013 (Escape closes panel), SC-UI-050/051 (revealHint frontend disclosure)

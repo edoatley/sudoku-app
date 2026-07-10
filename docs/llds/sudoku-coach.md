@@ -154,9 +154,9 @@ existing exception-path `errorMsg` field already works around this narrowly, via
 serializer replaces that workaround too, correctly, for all fields):
 
 ```
-COACH_REQUEST  { type, cid, modelId, technique, historyLen, userMsgLen, ts,
+COACH_REQUEST  { type, pid, cid, modelId, technique, historyLen, userMsgLen, ts,
                   userMessage, board, candidatesGrid }
-COACH_RESPONSE { type, cid, revealHint, inputTokens, outputTokens,
+COACH_RESPONSE { type, pid, cid, revealHint, inputTokens, outputTokens,
                   cacheReadTokens, cacheWriteTokens, latencyMs, fallback,
                   aiMessage }
 ```
@@ -168,6 +168,14 @@ Orchestration Flow step 3) and passed through, not recomputed here. `aiMessage` 
 `fallback: true` path — it is the deterministic nudge text there rather than an actual Bedrock
 response, but it is still what the player saw, and logging it keeps `COACH_RESPONSE` a
 complete record of "what did the coach actually say" regardless of which path produced it.
+
+`pid` is the game's `gameId`, carried on both lines so a coach turn can be joined with the
+player's puzzle-play events (`NUMBER`, `HINT_REQUEST`, …) for the same game, which carry the
+same `pid` (see `docs/llds/game-lifecycle.md` Puzzle-Play Event Logging). Whereas `cid` pairs
+one request with its response, `pid` groups the whole play session. `gameId` reaches the client
+via the `CoachRequest` DTO and is threaded through `SudokuCoachServiceImpl.coach()` into
+`BedrockCoachClient.call()`; if a client omits it (e.g. the coach is invoked outside a saved
+game), `pid` is logged as null rather than failing the request.
 
 These logs go to the **same CloudWatch log group** as all other Lambda logs
 (`/aws/lambda/sudoku{suffix}`), at the existing 30-day retention — no separate log store, per
@@ -417,6 +425,7 @@ an active hint, but it does override the visual highlight.
 | Frontend owns conversation history | Client sends last N turns each request | DynamoDB per-session storage | Stateless backend; no schema change; no extra DynamoDB read per request |
 | Fallback to nudge text | `hint.nudge()` returned on Bedrock failure | Return 5xx on failure | Coaching endpoint always returns something useful; Bedrock unavailability doesn't break the game |
 | Log full conversation content (userMessage, aiMessage, board, candidates) | INFO-level structured JSON, same CloudWatch log group as other Lambda logs, existing 30-day retention | Metadata-only logs; separate log store; log to a third-party sink | Personal project with a small, known, non-anonymous allowlisted user set — content logging is needed to review coaching quality and isn't a privacy risk under this threat model (see `docs/arrows/security-standards.md` Logging Policy); revisit if the app ever opens to anonymous users |
+| Carry `pid` (gameId) on `COACH_REQUEST`/`COACH_RESPONSE` | `gameId` threaded from `CoachRequest` through the service into the log lines; null if the client omits it | Correlate coach and gameplay via `cid` only; a separate join table; require gameId (reject if absent) | `cid` only pairs a single request/response; `pid` is the session-wide key that joins coach turns with puzzle-play events for the same game. Logging null when absent keeps the coach usable outside a saved game rather than coupling it to game persistence |
 | Build COACH_REQUEST/COACH_RESPONSE via `ObjectMapper`, not `LOG.infof` string templating | `objectMapper.writeValueAsString(...)` on an `ObjectNode` | Keep `%s`-templated strings; keep templating but add manual escaping (e.g. extend the existing `.replace("\"", "'")` pattern to more characters) | `userMessage`/`aiMessage` are the first freeform (user- or LLM-authored) fields in this log line; naive string substitution produces invalid JSON on embedded quotes/newlines, silently dropping the line from `jq`-based tooling downstream. A real serializer handles all escaping correctly instead of chasing individual special characters |
 | Desktop only | `useMediaQuery` guard in `CoachWidget` | Bottom sheet on mobile | Board + chat can't coexist usefully on small screens; simpler to exclude mobile than to build a bad experience |
 | Bottom-right floating widget | Fixed-position `Paper`, chat-window style | Side panel drawer | Zero layout disruption; board stays at full width; familiar pattern for users |

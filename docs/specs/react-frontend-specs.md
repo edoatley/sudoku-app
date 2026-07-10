@@ -31,6 +31,14 @@
 - [x] **FE-BE-006**: When the browser tab becomes visible again, the system shall resume the timer.
 - [x] **FE-BE-007**: When the authenticated user changes, the system shall clear all localStorage game data and perform a fresh game check.
 
+## Puzzle-Play Event Buffer
+
+- [x] **FE-BE-020**: When the player places a digit in normal input mode, clears a cell, or requests a hint, the system shall append a corresponding puzzle-play event (NUMBER, NUMBER_CLEAR, or HINT_REQUEST/HINT_RESPONSE) carrying a client timestamp to an in-memory buffer; candidate-mode toggles shall not be buffered.
+- [x] **FE-BE-021**: When the player requests a hint, the system shall generate a correlation id, record a HINT_REQUEST event with it, and on resolution record a HINT_RESPONSE event with the same correlation id — carrying the technique name and strategy rank with found=true when a hint is returned, or found=false when no strategy applies; when the request fails with a transport error, no HINT_RESPONSE is recorded.
+- [x] **FE-BE-022**: The system shall include the buffered puzzle-play events as the events field of the PATCH /api/v1/games/{gameId} autosave payload, and shall clear the buffer only after the PATCH succeeds, retaining the events for the next sync if it fails.
+- [x] **FE-BE-023**: When the puzzle-play event buffer exceeds 500 entries, the system shall drop the oldest entries and mark the batch as truncated.
+- [x] **FE-BE-024**: The system shall reset the puzzle-play event buffer when a new game starts and when the current game is finished, so buffered events are never sent on a PATCH for a different game.
+
 ## Timer & Pause
 
 - [x] **FE-UI-020**: While a game is in progress and not paused, the system shall increment the elapsed time display every second.

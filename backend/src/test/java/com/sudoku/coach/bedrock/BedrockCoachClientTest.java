@@ -68,7 +68,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Great question! Let's look at Row 1 together.\\",\\"revealHint\\":false}"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("I'm stuck", HINT, List.of(), board()).reply();
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("game-1", "I'm stuck", HINT, List.of(), board()).reply();
 
         assertEquals("Great question! Let's look at Row 1 together.", reply.aiMessage());
         assertFalse(reply.revealHint());
@@ -80,7 +80,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Place 4 in Row 1, Column 3.\\",\\"revealHint\\":true}"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Just tell me", HINT, List.of(), board()).reply();
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("game-1", "Just tell me", HINT, List.of(), board()).reply();
 
         assertTrue(reply.revealHint());
     }
@@ -92,7 +92,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"This is not JSON at all"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), board()).reply();
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("game-1", "Help", HINT, List.of(), board()).reply();
 
         assertEquals(HINT.nudge(), reply.aiMessage());
         assertFalse(reply.revealHint());
@@ -105,7 +105,7 @@ class BedrockCoachClientTest {
                 {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"\\",\\"revealHint\\":false}"}]}
                 """);
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), board()).reply();
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("game-1", "Help", HINT, List.of(), board()).reply();
 
         assertEquals(HINT.nudge(), reply.aiMessage());
     }
@@ -116,7 +116,7 @@ class BedrockCoachClientTest {
         when(bedrockRuntimeClient.invokeModel(any(InvokeModelRequest.class)))
                 .thenThrow(SdkClientException.builder().message("connection refused").build());
 
-        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("Help", HINT, List.of(), board()).reply();
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("game-1", "Help", HINT, List.of(), board()).reply();
 
         assertEquals(HINT.nudge(), reply.aiMessage());
         assertFalse(reply.revealHint());
@@ -160,7 +160,7 @@ class BedrockCoachClientTest {
     void buildRequestLogLine_includesUserMessageBoardAndCandidates() throws Exception {
         // @spec SC-BE-005, SC-BE-006, SC-BE-007
         String cid = UUID.randomUUID().toString();
-        String logLine = bedrockCoachClient.buildRequestLogLine(cid, 1000L, "I'm stuck", HINT, List.of(), board());
+        String logLine = bedrockCoachClient.buildRequestLogLine("game-1", cid, 1000L, "I'm stuck", HINT, List.of(), board());
 
         JsonNode node = objectMapper.readTree(logLine);
         assertEquals("COACH_REQUEST", node.path("type").asText());
@@ -181,7 +181,7 @@ class BedrockCoachClientTest {
     void buildRequestLogLine_producesValidJsonWithQuotesAndNewlinesInUserMessage() throws Exception {
         // @spec SC-BE-018 — naive string templating would break on embedded quotes/newlines
         String tricky = "She said \"go\" and then\nhit enter";
-        String logLine = bedrockCoachClient.buildRequestLogLine(
+        String logLine = bedrockCoachClient.buildRequestLogLine("game-1",
                 UUID.randomUUID().toString(), 1000L, tricky, HINT, List.of(), board());
 
         JsonNode node = objectMapper.readTree(logLine);
@@ -192,7 +192,7 @@ class BedrockCoachClientTest {
     void buildResponseLogLine_includesAiMessageOnSuccessPath() throws Exception {
         // @spec SC-BE-008
         BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great question! Let's look at Row 1.", false);
-        String logLine = bedrockCoachClient.buildResponseLogLine(
+        String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 UUID.randomUUID().toString(), reply, 100, 50, 0, 0, 250L, false, null, null);
 
         JsonNode node = objectMapper.readTree(logLine);
@@ -205,7 +205,7 @@ class BedrockCoachClientTest {
     void buildResponseLogLine_includesAiMessageOnFallbackPath() throws Exception {
         // @spec SC-BE-008 — fallback path logs the nudge text actually shown to the player
         BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false);
-        String logLine = bedrockCoachClient.buildResponseLogLine(
+        String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 UUID.randomUUID().toString(), fallbackReply, 0, 0, 0, 0, 6000L, true,
                 "SdkClientException", "connection refused");
 
@@ -215,11 +215,23 @@ class BedrockCoachClientTest {
     }
 
     @Test
+    void requestAndResponseLogLines_carryPidFromGameId() throws Exception {
+        // @spec SC-BE-020 — pid (gameId) on both lines so coach turns join with puzzle-play events
+        String cid = UUID.randomUUID().toString();
+        String requestLine = bedrockCoachClient.buildRequestLogLine("game-42", cid, 1000L, "Help", HINT, List.of(), board());
+        String responseLine = bedrockCoachClient.buildResponseLogLine(
+                "game-42", cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null);
+
+        assertEquals("game-42", objectMapper.readTree(requestLine).path("pid").asText());
+        assertEquals("game-42", objectMapper.readTree(responseLine).path("pid").asText());
+    }
+
+    @Test
     void requestAndResponseLogLines_shareSameCid() throws Exception {
         // @spec SC-BE-019
         String cid = UUID.randomUUID().toString();
-        String requestLine = bedrockCoachClient.buildRequestLogLine(cid, 1000L, "Help", HINT, List.of(), board());
-        String responseLine = bedrockCoachClient.buildResponseLogLine(
+        String requestLine = bedrockCoachClient.buildRequestLogLine("game-1", cid, 1000L, "Help", HINT, List.of(), board());
+        String responseLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null);
 
         assertEquals(objectMapper.readTree(requestLine).path("cid").asText(),

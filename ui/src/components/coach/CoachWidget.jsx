@@ -8,12 +8,13 @@ import { useCoachSession } from '../../hooks/useCoachSession.js';
 
 const MONTHLY_TOKEN_LIMIT = 100_000;
 
-export default function CoachWidget({ currentGrid, setHighlightCells, playerProfile }) {
+export default function CoachWidget({ gameId, currentGrid, setHighlightCells, playerProfile }) {
   const theme = useTheme();
   // @spec SC-UI-001 — desktop only; hide on screens narrower than md breakpoint
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const { isOpen, open, close, history, isLoading, sendMessage } = useCoachSession({
+    gameId,
     currentGrid,
     setHighlightCells,
   });

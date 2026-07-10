@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
@@ -50,7 +51,8 @@ class CoachResourceTest {
 
     @BeforeEach
     void stubDependencies() {
-        when(bedrockCoachClient.call(anyString(), any(), anyList(), any()))
+        // pid (first arg) is null when the request carries no gameId, so it must match nullable
+        when(bedrockCoachClient.call(nullable(String.class), anyString(), any(), anyList(), any()))
                 .thenReturn(new BedrockCoachClient.CallResult(
                         new BedrockCoachClient.AiReply("Let's look at the board together.", false), 1500L));
         when(playerService.getOrCreateProfile(anyString(), any(), any())).thenReturn(ENABLED_PLAYER);

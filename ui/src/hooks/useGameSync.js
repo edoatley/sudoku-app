@@ -13,9 +13,12 @@ export function useGameSync({
   pauseTimer,
   resumeTimerIfActive,
   gameActiveRef,
+  takeEventBatch,
+  restoreEventBatch,
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // @spec FE-BE-022 — flush buffered puzzle-play events, restoring them if the save fails
   const syncToBackend = useCallback(() => {
     const gid = gameIdRef.current;
     const grid = currentGridRef.current;
@@ -29,13 +32,17 @@ export function useGameSync({
       /* storage full */
     }
     setIsSyncing(true);
+    const batch = takeEventBatch?.();
     saveGame(gid, {
       currentGrid: grid,
       candidates: candidates ?? [],
       timeSpentSeconds: elapsedSecondsRef.current,
       hintsUsed: hintsUsedRef.current,
-    }).finally(() => setIsSyncing(false));
-  }, [gameIdRef, currentGridRef, candidateGridRef, elapsedSecondsRef, hintsUsedRef]);
+      events: batch?.wire,
+    })
+      .catch(() => restoreEventBatch?.(batch))
+      .finally(() => setIsSyncing(false));
+  }, [gameIdRef, currentGridRef, candidateGridRef, elapsedSecondsRef, hintsUsedRef, takeEventBatch, restoreEventBatch]);
 
   useEffect(() => {
     const interval = setInterval(syncToBackend, 60_000);

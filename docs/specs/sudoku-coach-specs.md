@@ -22,6 +22,7 @@
 - [x] **SC-BE-008**: When `BedrockCoachClient.call()` logs a `COACH_RESPONSE` event, the system shall include the full `aiMessage` text that was returned to the caller, on every path — the actual Bedrock response text on success, or the deterministic nudge text on the fallback path.
 - [x] **SC-BE-009**: When the deterministic hint engine returns a `Found` result, the system shall delegate to `BedrockCoachClient.call()` exactly once to obtain the coaching response; it shall not call `BedrockCoachClient` for `PuzzleSolved` or `NoStrategyApplied` outcomes.
 - [x] **SC-BE-019**: The system shall generate one `cid` (correlation ID) per `BedrockCoachClient.call()` invocation and include it in both the `COACH_REQUEST` and `COACH_RESPONSE` log lines for that call, so the two can be joined.
+- [x] **SC-BE-020**: The system shall include `pid` (the gameId supplied on the coach request) in both the `COACH_REQUEST` and `COACH_RESPONSE` log lines, logging `pid` as null when the request omits a gameId, so coach turns can be joined with puzzle-play events for the same game.
 
 ## Bedrock Integration (Backend)
 

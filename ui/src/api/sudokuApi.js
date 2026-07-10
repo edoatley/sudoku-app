@@ -218,7 +218,10 @@ export async function getCurrentGame() {
   return unwrapGameState(data);
 }
 
-export async function saveGame(gameId, { currentGrid, candidates, timeSpentSeconds, isComplete = false, hintsUsed }) {
+export async function saveGame(
+  gameId,
+  { currentGrid, candidates, timeSpentSeconds, isComplete = false, hintsUsed, events }
+) {
   if (MOCK_API) {
     await delay(100);
     return;
@@ -236,6 +239,7 @@ export async function saveGame(gameId, { currentGrid, candidates, timeSpentSecon
         timeSpentSeconds,
         isComplete,
         hintsUsed,
+        ...(events && events.length > 0 ? { events } : {}),
       }),
     },
     true
@@ -375,7 +379,7 @@ export async function getLeaderboard() {
 
 // @spec SC-API-001, SC-API-002, SC-API-003, SC-API-004
 // Returns CoachResponse, or null when the board is already solved (204).
-export async function postCoachMessage(currentGrid, history, userMessage) {
+export async function postCoachMessage(currentGrid, history, userMessage, gameId = null) {
   if (MOCK_API) {
     await delay(1200);
     return CANNED_COACH_RESPONSE;
@@ -390,6 +394,7 @@ export async function postCoachMessage(currentGrid, history, userMessage) {
         board: gridToWire(currentGrid),
         history,
         userMessage,
+        gameId,
       }),
     },
     true,

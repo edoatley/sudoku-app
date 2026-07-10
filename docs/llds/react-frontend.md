@@ -97,6 +97,44 @@ The main game hook — owns the complete game loop. Internally composed of three
 | `pauseGame()` / `resumeGame()` | Stops/starts timer, sets isPaused |
 | `finishGame()` | Calls onGameComplete, clears all state |
 
+#### Puzzle-Play Event Buffer
+
+To give backend observability into what the player does during a game (for coach
+tuning — see `docs/llds/game-lifecycle.md` Puzzle-Play Event Logging), the game hook
+records player actions into an in-memory buffer and flushes them with the existing
+backend sync. The buffer is observability-only: it never affects gameplay, grids, or
+rendering, and losing it (hard crash before a flush) degrades gracefully to missing
+log lines.
+
+Actions recorded (each with a `clientTs` of `Date.now()`):
+
+| Producer method | Event pushed |
+| --- | --- |
+| `writeCellValue` (normal-mode digit) | `NUMBER` `{r, c, v}` |
+| `clearCell` | `NUMBER_CLEAR` `{r, c}` |
+| `requestHint` / `requestAlternateHint` | `HINT_REQUEST` (with a freshly generated `cid`, plus `minRank`/`excludedRanks`) on call, then `HINT_RESPONSE` `{cid, techniqueName, strategyRank, difficulty, found}` when the hint resolves |
+
+`HINT_RESPONSE` is recorded on every resolution: `found: true` with technique/rank
+when a hint comes back, `found: false` (technique/rank null) when the engine has no
+applicable strategy. A transport error records **no** `HINT_RESPONSE` — the dangling
+`HINT_REQUEST` (its `cid` never paired) is itself the signal that a hint failed.
+`advanceHint` (nudge→focus→reveal stage cycling) is not a new request and logs nothing.
+
+The buffer is capped (500 entries, drop-oldest); on overflow it sets a `truncated`
+flag so the server can emit an `EVENTS_TRUNCATED` marker. `useGameSync` includes the
+current buffer as the `events` field of the `PATCH /api/v1/games/{gameId}` payload,
+then clears it **only after** the PATCH succeeds — on failure the buffer is retained
+so events are re-sent on the next sync rather than lost. Candidate-mode toggles are
+not logged (they are not placements). `pid` is implicit: the PATCH is per-`gameId`.
+
+The buffer is **per-game**: it is reset when a new game starts and when the current
+game is finished, so events never attach to the wrong `gameId`. The completion sync
+flushes any pending events (including the puzzle-solving final placement) before game
+state is cleared. Demo/practice games (`loadDemoGame`) have no persisted `gameId` and
+never sync, so their actions are not logged — an accepted boundary, since observability
+targets real saved puzzle play. Logging is at-least-once: a retry after an ambiguous
+PATCH failure may re-send buffered events, so duplicate log lines are possible.
+
 ### `usePlayerProfile(user, { onForbidden })`
 
 Manages user identity and game history.
@@ -129,7 +167,7 @@ Game state is persisted in two places simultaneously:
 | Store | Contents | Trigger |
 | --- | --- | --- |
 | `localStorage` | gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds, hintsUsed | Every state change |
-| DynamoDB (via API) | currentGrid, candidates, timeSpentSeconds, status, hintsUsed | Auto-save every 60s; tab hidden; game complete |
+| DynamoDB (via API) | currentGrid, candidates, timeSpentSeconds, status, hintsUsed, buffered puzzle-play `events` | Auto-save every 60s; tab hidden; game complete |
 
 On mount, the hook checks localStorage first (instant, no network). If no local game found, calls `GET /api/v1/games/current` to resume a server-side active game. This two-tier approach gives instant resume on page reload and cross-device continuity.
 

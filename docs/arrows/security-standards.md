@@ -111,10 +111,11 @@ Puzzle generation is near-instant; the Java timeout is set to 8s to allow for Sn
 | Game events | gameId, difficulty, outcome, score | currentGrid, solutionGrid contents |
 | Coach events (metadata) | cid, modelId, technique, token counts, latency, fallback flag | — |
 | Coach events (content) | userMessage, aiMessage, board grid, candidatesGrid | — (these are user-generated but not sensitive for this app's threat model — see note below) |
+| Puzzle-play events | pid (gameId), userId, cell coordinates, placed digit, move correctness, hint technique/rank | — (gameplay actions; non-sensitive under this threat model) |
 | API errors | HTTP status, error code, correlation ID | Exception stack traces in 5xx response body (fine in logs, never in response) |
 
 **Note on coach conversation content:** This app is a personal project operated for a small, known allowlisted user set. Users are not anonymous. Logging full coach conversation turns (user prompts, AI responses, and board state) is acceptable under this threat model but requires conscious acknowledgement before implementation:
-- Content logs must go to the **same CloudWatch log group** as other Lambda logs (`/aws/lambda/SudokuJavaLambda{suffix}`), not a separate store.
+- Content logs must go to the **same CloudWatch log group** as other Lambda logs (`/aws/lambda/sudoku{suffix}`), not a separate store.
 - Log group retention must be set explicitly in Terraform (no indefinite retention). Current policy: 30 days for all log groups.
 - If this app is ever opened to non-allowlisted or anonymous users, coach content logging must be revisited before that change ships.
 

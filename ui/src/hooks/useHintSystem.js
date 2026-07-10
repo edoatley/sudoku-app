@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getHint, ForbiddenError } from '../api/sudokuApi.js';
+import { newCid } from './useEventLog.js';
 
 export function useHintSystem({
   currentGridRef,
@@ -10,7 +11,24 @@ export function useHintSystem({
   setIsLoading,
   setCandidateGrid,
   setCurrentGrid,
+  recordEvent,
 }) {
+  // Records a HINT_REQUEST / HINT_RESPONSE pair sharing a cid. Called by both the primary and
+  // alternate hint flows. On a transport error no HINT_RESPONSE is recorded (see FE-BE-021).
+  // @spec FE-BE-020, FE-BE-021
+  const recordHintResponse = useCallback(
+    (cid, hint) => {
+      recordEvent?.({
+        type: 'HINT_RESPONSE',
+        cid,
+        techniqueName: hint?.techniqueName ?? null,
+        strategyRank: hint?.strategyRank ?? null,
+        difficulty: hint?.difficulty ?? null,
+        found: !!hint,
+      });
+    },
+    [recordEvent]
+  );
   const [activeHint, setActiveHint] = useState(null);
   const [hintStage, setHintStage] = useState('nudge');
   const [highlightCells, setHighlightCells] = useState([]);
@@ -40,8 +58,11 @@ export function useHintSystem({
   const requestHint = useCallback(async () => {
     if (!currentGridRef.current) return;
     setIsLoading(true);
+    const cid = newCid();
+    recordEvent?.({ type: 'HINT_REQUEST', cid, minRank: hintMinRankRef.current, excludedRanks: excludedHintRanks });
     try {
       const { hint, didReset } = await fetchHintWithFallback(excludedHintRanks);
+      recordHintResponse(cid, hint);
       if (!hint) {
         setExcludedHintRanks([]);
         setStatusMessage('No more hints available.');
@@ -77,13 +98,19 @@ export function useHintSystem({
     setIsLoading,
     setStatusMessage,
     setGameStatus,
+    recordEvent,
+    recordHintResponse,
+    hintMinRankRef,
   ]);
 
   const requestAlternateHint = useCallback(async () => {
     if (!currentGridRef.current) return;
     setIsLoading(true);
+    const cid = newCid();
+    recordEvent?.({ type: 'HINT_REQUEST', cid, minRank: hintMinRankRef.current, excludedRanks: excludedHintRanks });
     try {
       const { hint, didReset } = await fetchHintWithFallback(excludedHintRanks);
+      recordHintResponse(cid, hint);
       if (!hint) {
         setExcludedHintRanks([]);
         setStatusMessage('No more alternate hints. Starting over from the easiest.');
@@ -118,6 +145,9 @@ export function useHintSystem({
     setIsLoading,
     setStatusMessage,
     setGameStatus,
+    recordEvent,
+    recordHintResponse,
+    hintMinRankRef,
   ]);
 
   const advanceHint = useCallback(() => {
