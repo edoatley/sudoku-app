@@ -23,7 +23,7 @@ import java.util.UUID;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 
-// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-010, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019
+// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-010, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022
 
 @ApplicationScoped
 public class BedrockCoachClient {
@@ -172,7 +172,11 @@ public class BedrockCoachClient {
 
     public record CallResult(AiReply reply, long tokensUsed) {}
 
-    record ParsedResponse(AiReply reply, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens) {}
+    // fallbackReason is null on a genuine successful parse; non-null identifies why parseResponse
+    // fell back internally, so the caller can log fallback=true instead of silently misreporting
+    // an internally-swallowed failure as a successful response (see @spec SC-BE-013, SC-BE-021).
+    record ParsedResponse(AiReply reply, int inputTokens, int outputTokens, int cacheReadTokens,
+                           int cacheWriteTokens, String fallbackReason) {}
 
     // @spec SC-BE-009 — single Bedrock call per request; @spec SC-BE-015, SC-BE-016 — fallback on error
     public CallResult call(String pid, String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
@@ -191,8 +195,13 @@ public class BedrockCoachClient {
                             .build());
             ParsedResponse parsed = parseResponse(response, hint);
             long latencyMs = System.currentTimeMillis() - startMs;
+            // @spec SC-BE-021 — a fallback triggered inside parseResponse (blank aiMessage or
+            // unparseable response text) must be logged as fallback=true, not misreported as a
+            // genuine successful reply just because no exception escaped to this catch block.
+            boolean parseFallback = parsed.fallbackReason() != null;
             LOG.info(buildResponseLogLine(pid, cid, parsed.reply(), parsed.inputTokens(), parsed.outputTokens(),
-                    parsed.cacheReadTokens(), parsed.cacheWriteTokens(), latencyMs, false, null, null));
+                    parsed.cacheReadTokens(), parsed.cacheWriteTokens(), latencyMs, parseFallback,
+                    parseFallback ? "ResponseParseFailure" : null, parsed.fallbackReason()));
             long totalTokens = parsed.inputTokens() + parsed.outputTokens();
             return new CallResult(parsed.reply(), totalTokens);
         } catch (Exception e) {
@@ -296,15 +305,15 @@ public class BedrockCoachClient {
                 "\n\nPLAYER MESSAGE: " + userMessage;
     }
 
-    // @spec SC-BE-013 — fallback on JSON parse failure
-    private ParsedResponse parseResponse(InvokeModelResponse invokeResponse, HintResponse hint) {
+    // @spec SC-BE-016, SC-BE-021, SC-BE-022 — fallback on JSON parse failure, correctly flagged
+    ParsedResponse parseResponse(InvokeModelResponse invokeResponse, HintResponse hint) {
         try {
             JsonNode root = objectMapper.readTree(invokeResponse.body().asUtf8String());
             String text = root.path("content").get(0).path("text").asText("");
-            JsonNode parsed = objectMapper.readTree(text);
+            JsonNode parsed = objectMapper.readTree(extractJsonObject(text));
             String aiMessage = parsed.path("aiMessage").asText("");
             if (aiMessage.isBlank()) {
-                return new ParsedResponse(fallback(hint), 0, 0, 0, 0);
+                return new ParsedResponse(fallback(hint), 0, 0, 0, 0, "aiMessage blank in parsed Bedrock response");
             }
             boolean revealHint = parsed.path("revealHint").asBoolean(false);
             JsonNode usage = root.path("usage");
@@ -312,10 +321,26 @@ public class BedrockCoachClient {
             int outputTokens = usage.path("output_tokens").asInt(0);
             int cacheReadTokens = usage.path("cache_read_input_tokens").asInt(0);
             int cacheWriteTokens = usage.path("cache_creation_input_tokens").asInt(0);
-            return new ParsedResponse(new AiReply(aiMessage, revealHint), inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
+            return new ParsedResponse(new AiReply(aiMessage, revealHint), inputTokens, outputTokens,
+                    cacheReadTokens, cacheWriteTokens, null);
         } catch (Exception e) {
-            return new ParsedResponse(fallback(hint), 0, 0, 0, 0);
+            return new ParsedResponse(fallback(hint), 0, 0, 0, 0,
+                    "parse failure: " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+    }
+
+    // @spec SC-BE-022 — Claude models occasionally wrap the mandated JSON-only output in markdown
+    // code fences (```json ... ```) or add stray surrounding text despite the system prompt's
+    // explicit instruction not to. Extract the first top-level JSON object rather than assuming
+    // the model's raw text is bare JSON, so a benign formatting deviation doesn't trigger a
+    // fallback that a human would consider a genuine, well-formed reply.
+    private static String extractJsonObject(String text) {
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start == -1 || end == -1 || end < start) {
+            return text;
+        }
+        return text.substring(start, end + 1);
     }
 
     // @spec SC-BE-012 — fallback on Bedrock timeout or error

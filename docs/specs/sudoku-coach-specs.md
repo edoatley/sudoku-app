@@ -35,6 +35,8 @@
 - [x] **SC-BE-016**: When the Bedrock response cannot be parsed as the expected JSON schema, the system shall fall back to the deterministic hint's nudge text as `aiMessage` and `revealHint: false`.
 - [x] **SC-BE-017**: The system shall never return a 5xx status code due to a Bedrock failure; all AI failures shall degrade to the nudge-text fallback and return 200.
 - [x] **SC-BE-018**: When building the `COACH_REQUEST` or `COACH_RESPONSE` log line, the system shall serialize it as JSON via a JSON library rather than string templating, so that `userMessage` and `aiMessage` values containing quotes, newlines, or other characters requiring escaping still produce a valid, parseable JSON log line.
+- [x] **SC-BE-021**: When the Bedrock response cannot be parsed as the expected JSON schema or its `aiMessage` field is blank, the `COACH_RESPONSE` log line shall record `fallback: true` with a non-null `errorMsg` describing why, even though `bedrockRuntimeClient.invokeModel()` itself did not throw — this failure must not be logged identically to a genuine successful reply.
+- [x] **SC-BE-022**: Before parsing the Bedrock response text as JSON, the system shall extract the first top-level `{...}` object from the text rather than assuming the entire text is bare JSON, so a response wrapped in markdown code fences or surrounding prose does not needlessly trigger the fallback path.
 
 ## Coach Response (Backend)
 
