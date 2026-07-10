@@ -109,6 +109,8 @@ Cognito callback/logout URLs are the one remaining two-step case, since the exac
 
 If a workspace is torn down and recreated, step 2 must be re-run — the added callback URLs are not stored in Terraform state.
 
+`teardown-rc.yml` mirrors this for removal: before running `terraform destroy`, it captures the deleted branch's `amplify_default_url` (the branch-unique `*.amplifyapp.com` URL — **not** `amplify_app_url`, which for `rc-*` resolves to the shared `sudoku-beta.edoatley.co.uk` domain that every other active rc branch also depends on) and calls `scripts/github/amplify-remove-rc-urls.sh` to remove just that one URL from the shared `rc-shared` Cognito client. This step is best-effort (`continue-on-error: true`) so a Cognito API hiccup never blocks the actual resource teardown. The same script is reusable for a manual one-off sweep of already-stale entries that accumulated before this automation existed.
+
 ### Storage
 
 **DynamoDB:**
@@ -294,10 +296,11 @@ provider "aws" {
     integration-tests/          # Native quarkus:dev + npm dev + Playwright
 
 scripts/github/
-    amplify-post-deploy.sh    # Post-Terraform: CORS, Cognito, Amplify build trigger
-    api-smoke-tests.sh        # HTTP probes against the live API Gateway
-    resolve-environment.sh    # Derives workspace/environment/is_main from branch name
-    terraform-plan.sh         # Parameterised terraform plan (phase 1 & 2, RC vars)
+    amplify-post-deploy.sh     # Post-Terraform: CORS, Cognito, Amplify build trigger
+    amplify-remove-rc-urls.sh  # Removes URL(s) from the shared rc Cognito client (teardown + manual sweep)
+    api-smoke-tests.sh         # HTTP probes against the live API Gateway
+    resolve-environment.sh     # Derives workspace/environment/is_main from branch name
+    terraform-plan.sh          # Parameterised terraform plan (phase 1 & 2, RC vars)
 ```
 
 ### Trigger Matrix

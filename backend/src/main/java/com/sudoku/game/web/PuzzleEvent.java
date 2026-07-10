@@ -9,10 +9,14 @@ import java.util.List;
  * observability only (see {@code docs/llds/game-lifecycle.md} Puzzle-Play Event Logging).
  *
  * <p>A single flat shape covers every client event {@code type}
- * ({@code NUMBER}, {@code NUMBER_CLEAR}, {@code HINT_REQUEST}, {@code HINT_RESPONSE}, and the
- * {@code EVENTS_TRUNCATED} marker); fields not relevant to a given type are null. All fields
- * are client-supplied and untrusted — {@code NUMBER_RESULT} is never sent by the client, it is
- * derived server-side.
+ * ({@code NUMBER}, {@code NUMBER_CLEAR}, {@code HINT_REQUEST}, {@code HINT_RESPONSE},
+ * {@code UNDO}, and the {@code EVENTS_TRUNCATED} marker); fields not relevant to a given type
+ * are null. All fields are client-supplied and untrusted — {@code NUMBER_RESULT} is never sent
+ * by the client, it is derived server-side.
+ *
+ * <p>For {@code UNDO}, {@code v} is the digit removed from the cell and {@code prevV} is the
+ * digit (or 0 for empty) restored in its place; {@code undoneType} names the original action
+ * being reversed (currently always {@code NUMBER} — candidate-mode actions are never buffered).
  */
 public record PuzzleEvent(
         String type,
@@ -26,5 +30,7 @@ public record PuzzleEvent(
         String difficulty,
         Boolean found,
         Integer minRank,
-        List<Integer> excludedRanks
+        List<Integer> excludedRanks,
+        Integer prevV,
+        String undoneType
 ) {}

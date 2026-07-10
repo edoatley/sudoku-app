@@ -35,10 +35,12 @@
 - [x] **SC-BE-016**: When the Bedrock response cannot be parsed as the expected JSON schema, the system shall fall back to the deterministic hint's nudge text as `aiMessage` and `revealHint: false`.
 - [x] **SC-BE-017**: The system shall never return a 5xx status code due to a Bedrock failure; all AI failures shall degrade to the nudge-text fallback and return 200.
 - [x] **SC-BE-018**: When building the `COACH_REQUEST` or `COACH_RESPONSE` log line, the system shall serialize it as JSON via a JSON library rather than string templating, so that `userMessage` and `aiMessage` values containing quotes, newlines, or other characters requiring escaping still produce a valid, parseable JSON log line.
+- [x] **SC-BE-021**: When the Bedrock response cannot be parsed as the expected JSON schema or its `aiMessage` field is blank, the `COACH_RESPONSE` log line shall record `fallback: true` with a non-null `errorMsg` describing why, even though `bedrockRuntimeClient.invokeModel()` itself did not throw — this failure must not be logged identically to a genuine successful reply.
+- [x] **SC-BE-022**: Before parsing the Bedrock response text as JSON, the system shall extract the first top-level `{...}` object from the text rather than assuming the entire text is bare JSON, so a response wrapped in markdown code fences or surrounding prose does not needlessly trigger the fallback path.
 
 ## Coach Response (Backend)
 
-- [x] **SC-API-010**: The system shall return a `CoachResponse` containing `aiMessage`, the full `HintResponse` from the deterministic engine, and a `revealHint` boolean.
+- [x] **SC-API-010**: The system shall return a `CoachResponse` containing `aiMessage`, the full `HintResponse` from the deterministic engine, a `revealHint` boolean, and `tokensUsedThisMonth` — the player's cumulative monthly token count after this call.
 - [x] **SC-API-011**: The system shall always return the `HintResponse` fully populated regardless of `revealHint`; the frontend controls which fields to display.
 - [x] **SC-API-012**: The system shall set `revealHint: true` only when the LLM's response explicitly states a specific cell coordinate and digit value as the solution.
 
@@ -103,4 +105,5 @@
 - [x] **SC-RL-006**: `GET /players/me` shall return `aiCoachEnabled` (boolean) and `coachTokensUsedThisMonth` (number) in the player profile response; `PATCH /players/me` shall accept `aiCoachEnabled` as an optional boolean field.
 - [x] **SC-RL-007**: The ProfileView shall display an AI Coach toggle switch and a read-only token usage counter showing tokens used vs the monthly limit.
 - [x] **SC-RL-008**: The CoachWidget FAB shall not be rendered when `playerProfile.aiCoachEnabled` is `false`.
-- [x] **SC-RL-009**: The CoachPanel header shall display the current token usage and monthly limit in white text on the dark header background.
+- [x] **SC-RL-009**: The CoachPanel header shall display the current token usage and monthly limit in white text on the dark header background, alongside a coin icon so the counted unit is legible without a tooltip.
+- [x] **SC-RL-010**: The system shall update the CoachPanel's displayed token usage from `tokensUsedThisMonth` on each successful coach response, so the counter reflects the current session's usage without requiring a profile refetch.

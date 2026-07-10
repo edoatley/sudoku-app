@@ -21,9 +21,9 @@ below were already implemented before this arrow was registered.
 ### EARS
 This arrow owns no spec IDs of its own — the underlying specs remain owned by the producing
 components' own spec files, unchanged by this consolidation:
-- docs/specs/game-lifecycle-specs.md — `GL-BE-040..046`, `GL-API-005`
-- docs/specs/sudoku-coach-specs.md — `SC-BE-005..020`
-- docs/specs/react-frontend-specs.md — `FE-BE-020..024`
+- docs/specs/game-lifecycle-specs.md — `GL-BE-040..047`, `GL-API-005`
+- docs/specs/sudoku-coach-specs.md — `SC-BE-005..022`
+- docs/specs/react-frontend-specs.md — `FE-BE-020..025`
 
 ### Policy
 - docs/arrows/security-standards.md — Logging Policy (what may be logged, retention,

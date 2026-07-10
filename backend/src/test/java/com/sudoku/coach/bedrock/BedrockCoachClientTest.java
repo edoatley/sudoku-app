@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019
+// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022
 @QuarkusTest
 class BedrockCoachClientTest {
 
@@ -108,6 +108,55 @@ class BedrockCoachClientTest {
         BedrockCoachClient.AiReply reply = bedrockCoachClient.call("game-1", "Help", HINT, List.of(), board()).reply();
 
         assertEquals(HINT.nudge(), reply.aiMessage());
+    }
+
+    @Test
+    void parseResponse_extractsJsonWrappedInMarkdownFences_andDoesNotFallBack() {
+        // @spec SC-BE-022 — Claude sometimes wraps the mandated JSON-only output in code fences
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"```json\\n{\\"aiMessage\\":\\"Great question!\\",\\"revealHint\\":false}\\n```"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertNull(parsed.fallbackReason());
+        assertEquals("Great question!", parsed.reply().aiMessage());
+    }
+
+    @Test
+    void parseResponse_setsFallbackReason_whenTextIsNotJson() {
+        // @spec SC-BE-021 — must be flagged even though invokeModel() itself did not throw
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"This is not JSON at all"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertNotNull(parsed.fallbackReason());
+        assertEquals(HINT.nudge(), parsed.reply().aiMessage());
+    }
+
+    @Test
+    void parseResponse_setsFallbackReason_whenAiMessageBlank() {
+        // @spec SC-BE-021
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"\\",\\"revealHint\\":false}"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertNotNull(parsed.fallbackReason());
+    }
+
+    @Test
+    void parseResponse_fallbackReasonIsNull_onGenuineSuccess() {
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Great!\\",\\"revealHint\\":false}"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertNull(parsed.fallbackReason());
     }
 
     @Test
@@ -241,8 +290,13 @@ class BedrockCoachClientTest {
     // ---- helpers ----
 
     private void stubBedrockResponse(String responseBody) {
+        InvokeModelResponse mockResponse = invokeModelResponse(responseBody);
+        when(bedrockRuntimeClient.invokeModel(any(InvokeModelRequest.class))).thenReturn(mockResponse);
+    }
+
+    private static InvokeModelResponse invokeModelResponse(String responseBody) {
         InvokeModelResponse mockResponse = mock(InvokeModelResponse.class);
         when(mockResponse.body()).thenReturn(SdkBytes.fromUtf8String(responseBody.strip()));
-        when(bedrockRuntimeClient.invokeModel(any(InvokeModelRequest.class))).thenReturn(mockResponse);
+        return mockResponse;
     }
 }

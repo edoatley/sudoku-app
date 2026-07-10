@@ -112,9 +112,11 @@ lifecycle.
 | `writeCellValue` (normal-mode digit) | `NUMBER` |
 | `clearCell` | `NUMBER_CLEAR` |
 | `requestHint` / `requestAlternateHint` | `HINT_REQUEST` (fresh `cid`) on call, then `HINT_RESPONSE` (same `cid`) when the hint resolves |
+| `undoLastMove` (normal-mode entry only) | `UNDO` |
 
 `advanceHint` (nudge→focus→reveal stage cycling) is not a new request and logs nothing.
-Candidate-mode toggles are not buffered (they are not placements).
+Candidate-mode toggles are not buffered (they are not placements), and undoing one is not
+buffered either — only undoing a normal-mode digit placement is.
 
 The buffer is capped (500 entries, drop-oldest, `EVENTS_TRUNCATED` marker on overflow) and
 cleared only after the PATCH succeeds — on failure it is retained and re-sent on the next sync.
@@ -125,7 +127,7 @@ games (`loadDemoGame`) have no persisted `gameId` and never sync, so their actio
 logged. Logging is at-least-once: a retry after an ambiguous PATCH failure may re-send buffered
 events, so duplicate log lines are possible.
 
-Spec: `docs/specs/react-frontend-specs.md` — `FE-BE-020..024`.
+Spec: `docs/specs/react-frontend-specs.md` — `FE-BE-020..025`.
 
 ### `usePlayerProfile(user, { onForbidden })`
 

@@ -55,6 +55,7 @@ ordering).
 | `NUMBER` | client action | `r`, `c`, `v` |
 | `NUMBER_RESULT` | **server-derived** | `r`, `c`, `v`, `correct` (matches `solutionGrid`) |
 | `NUMBER_CLEAR` | client action | `r`, `c` |
+| `UNDO` | client action | `r`, `c`, `v` (digit removed), `prevV` (digit or 0 restored), `undoneType` |
 | `HINT_REQUEST` | client action | `cid`, `minRank?`, `excludedRanks?` |
 | `HINT_RESPONSE` | client action | `cid`, `techniqueName`, `strategyRank`, `difficulty`, `found` |
 | `EVENTS_TRUNCATED` | marker | — (client buffer overflowed before flush) |
@@ -65,10 +66,13 @@ authoritative solution and never shown to the player. `HINT_RESPONSE` is recorde
 resolution — `found: false` (technique/rank null) when the engine has no applicable strategy;
 a hint that fails with a transport error leaves a `HINT_REQUEST` whose `cid` never pairs, which
 is itself the signal that it failed. Candidate-mode toggles are not buffered at all (they are
-not placements) — see FE-BE-020.
+not placements) — see FE-BE-020 — and undoing one is not buffered either, only undoing a
+normal-mode digit placement is (`undoneType: "NUMBER"`); `v` is the digit removed and `prevV`
+is what was restored (0 for an empty cell), mirroring `NUMBER`/`NUMBER_CLEAR`'s conventions
+rather than introducing a new one.
 
-Full spec: `docs/specs/game-lifecycle-specs.md` — `GL-BE-040..046`, `GL-API-005`. Client
-buffering mechanics: `docs/specs/react-frontend-specs.md` — `FE-BE-020..024`.
+Full spec: `docs/specs/game-lifecycle-specs.md` — `GL-BE-040..047`, `GL-API-005`. Client
+buffering mechanics: `docs/specs/react-frontend-specs.md` — `FE-BE-020..025`.
 
 ### Coach events (sudoku-coach → `BedrockCoachClient`)
 
@@ -135,8 +139,12 @@ that document is the policy/threat-model rationale.
 | Script | Covers | Usage |
 | --- | --- | --- |
 | `scripts/logs/download-coach-logs.sh` | `COACH_REQUEST`/`COACH_RESPONSE` | `docs/tests/ai-coach.md` |
-| `scripts/logs/download-puzzle-logs.sh` | `NUMBER`/`NUMBER_RESULT`/`NUMBER_CLEAR`/`HINT_*`/`EVENTS_TRUNCATED`, plus `COACH_*` for the same `pid` | `docs/tests/puzzle-logs.md` |
+| `scripts/logs/download-puzzle-logs.sh` | `NUMBER`/`NUMBER_RESULT`/`NUMBER_CLEAR`/`UNDO`/`HINT_*`/`EVENTS_TRUNCATED`, plus `COACH_*` for the same `pid` | `docs/tests/puzzle-logs.md` |
 
 Both scripts derive the CloudWatch log group from the current git branch (mirroring the
 Terraform workspace naming rule) and support `--summary` for a human-readable digest instead
-of raw NDJSON. See the field-reference tables and worked examples in the linked test docs.
+of raw NDJSON. `download-puzzle-logs.sh` also supports `--branch <name>` to resolve the
+workspace from a branch other than the one currently checked out, and `--branch all` to scan
+every `/aws/lambda/sudoku*` log group when you don't know (or the environment has since been
+torn down and git can't help) which one a puzzle ran on. See the field-reference tables and
+worked examples in the linked test docs.

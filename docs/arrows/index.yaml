@@ -124,7 +124,7 @@ arrows:
     lld: docs/llds/observability.md
     specs: ~
     arrow: docs/arrows/observability.md
-    notes: Cross-cutting structured-logging schema — spans game-lifecycle, sudoku-coach, react-frontend; owns no spec IDs of its own (see GL-BE-040..046, SC-BE-005..020, FE-BE-020..024 in their owning spec files)
+    notes: Cross-cutting structured-logging schema — spans game-lifecycle, sudoku-coach, react-frontend; owns no spec IDs of its own (see GL-BE-040..047, SC-BE-005..022, FE-BE-020..025 in their owning spec files)
 
   - id: keyboard-input
     status: OK

@@ -11,6 +11,7 @@
 - [x] **FE-UI-007**: The system shall display candidate digits as a 3×3 mini-grid within cells that have no placed value.
 - [x] **FE-UI-008a**: The system shall render candidate digit text in a colour that meets WCAG AA contrast (≥ 4.5:1) against the cell background in both light and dark colour modes.
 - [x] **FE-UI-008**: When the player triggers undo, the system shall restore the grid to the state before the most recent cell edit.
+- [x] **FE-UI-053**: While a game is active, the system shall display a colour-coded chip in the header showing the capitalised difficulty (easy=green, medium=orange, hard=red, imported=purple).
 
 ## Hint UX
 
@@ -38,6 +39,7 @@
 - [x] **FE-BE-022**: The system shall include the buffered puzzle-play events as the events field of the PATCH /api/v1/games/{gameId} autosave payload, and shall clear the buffer only after the PATCH succeeds, retaining the events for the next sync if it fails.
 - [x] **FE-BE-023**: When the puzzle-play event buffer exceeds 500 entries, the system shall drop the oldest entries and mark the batch as truncated.
 - [x] **FE-BE-024**: The system shall reset the puzzle-play event buffer when a new game starts and when the current game is finished, so buffered events are never sent on a PATCH for a different game.
+- [x] **FE-BE-025**: When the player undoes a normal-mode digit placement, the system shall append an UNDO puzzle-play event carrying the cell coordinates, the digit removed, the digit (or empty) restored, and undoneType "NUMBER"; undoing a candidate-mode toggle or a "fill candidates" bulk action shall not be buffered, matching the buffering rule for those actions in FE-BE-020.
 
 ## Timer & Pause
 

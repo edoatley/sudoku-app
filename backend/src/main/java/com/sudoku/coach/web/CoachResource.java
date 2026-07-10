@@ -97,11 +97,18 @@ public class CoachResource {
         }
 
         return switch (coachService.coach(request)) {
+            // @spec SC-RL-010 — stamp the post-call cumulative total onto the response so the
+            // frontend can update its token counter without a separate profile fetch.
             case SudokuCoachService.CoachResult.Response r -> {
+                long tokensUsedThisMonth = usedThisMonth;
                 if (r.tokensUsed() > 0) {
                     playerRepository.incrementCoachTokens(userId, r.tokensUsed(), currentMonth);
+                    tokensUsedThisMonth += r.tokensUsed();
                 }
-                yield Response.ok(r.coachResponse()).build();
+                CoachResponse withTotal = new CoachResponse(
+                        r.coachResponse().aiMessage(), r.coachResponse().hint(),
+                        r.coachResponse().revealHint(), tokensUsedThisMonth);
+                yield Response.ok(withTotal).build();
             }
             case SudokuCoachService.CoachResult.PuzzleSolved ignored -> Response.noContent().build();
         };

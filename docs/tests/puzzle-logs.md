@@ -23,6 +23,7 @@ All lines share `type`, `pid`, `ts` (server epoch-ms). Action lines also carry `
 | `NUMBER` | player placed a digit | `r`, `c`, `v` |
 | `NUMBER_RESULT` | server-derived | `r`, `c`, `v`, `correct` (matches the solution) |
 | `NUMBER_CLEAR` | player cleared a cell | `r`, `c` |
+| `UNDO` | player undid a normal-mode placement | `r`, `c`, `v` (digit removed), `prevV` (digit or 0 restored), `undoneType` |
 | `HINT_REQUEST` | player asked for a hint | `cid`, `minRank`, `excludedRanks` |
 | `HINT_RESPONSE` | hint resolved | `cid`, `techniqueName`, `strategyRank`, `difficulty`, `found` |
 | `EVENTS_TRUNCATED` | client buffer overflowed before flush | — |
@@ -33,6 +34,9 @@ Notes:
   never shown to the player.
 - `HINT_RESPONSE` is recorded on every resolution — `found:false` when no strategy applies.
   A hint that fails with a transport error leaves a `HINT_REQUEST` whose `cid` never pairs.
+- `UNDO` is only logged for reversing a normal-mode digit placement; undoing a candidate-mode
+  toggle or a "fill candidates" bulk action is not logged, matching those actions never being
+  buffered as `NUMBER`/`NUMBER_CLEAR` in the first place.
 - Demo/practice games have no persisted `gameId`, so they never sync and are not logged;
   the coach logs `pid:null` for them.
 - Logging is at-least-once: a retry after an ambiguous save may duplicate lines.
@@ -49,11 +53,22 @@ AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --puzzle-id <gameI
 # Raw NDJSON for one user, piped to jq (e.g. every incorrect move):
 AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --user-id <sub> | \
   jq 'select(.type=="NUMBER_RESULT" and .correct==false)'
+
+# The puzzle ran on a different branch than the one you have checked out:
+AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --puzzle-id <gameId> --branch rc-foo
+
+# You don't remember (or the branch has since been deleted) which environment it ran on:
+AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --puzzle-id <gameId> --branch all
 ```
 
 Flags: `--puzzle-id`, `--user-id`, `--hours` (default 24), `--summary`, `--workspace`,
-`--output`, `--profile`. Default output is NDJSON (one event per line); `--summary` prints
-a digest per puzzle.
+`--branch <name>|all`, `--output`, `--profile`. Default output is NDJSON (one event per
+line); `--summary` prints a digest per puzzle. `--branch` resolves the workspace from an
+arbitrary branch name (same rule as auto-detection from the current git branch) rather
+than requiring the workspace name directly; `--branch all` scans every
+`/aws/lambda/sudoku*` log group and merges the results — slower (one CloudWatch query per
+environment) but useful when you don't know which environment a puzzle came from, or the
+branch has since been torn down and `git rev-parse` can't help.
 
 ### Example summary
 

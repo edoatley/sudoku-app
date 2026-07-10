@@ -75,7 +75,7 @@ const DIFFICULTY_COLORS = {
   imported: '#9c27b0',
 };
 
-// @spec UM-UI-007, NAV-STATE-004
+// @spec UM-UI-007, NAV-STATE-004, FE-UI-053
 export default function Header({
   elapsedSeconds,
   timerRunning,

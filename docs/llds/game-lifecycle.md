@@ -217,7 +217,7 @@ part: it already loads the `GameItem` on every PATCH (and therefore has the auth
 those directly rather than re-fetching them, and `NUMBER_RESULT`'s correctness check is
 derived here from the stored solution rather than trusting anything client-supplied.
 
-Spec: `docs/specs/game-lifecycle-specs.md` — `GL-BE-040..046`, `GL-API-005`.
+Spec: `docs/specs/game-lifecycle-specs.md` — `GL-BE-040..047`, `GL-API-005`.
 
 ## Observed Design Decisions
 
