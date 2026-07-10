@@ -6,6 +6,7 @@ import com.sudoku.puzzle.web.BoardRequest;
 import com.sudoku.puzzle.web.Coordinate;
 import com.sudoku.game.web.GameState;
 import com.sudoku.game.web.GameUpdateRequest;
+import com.sudoku.game.web.PuzzleEvent;
 import com.sudoku.puzzle.web.PuzzleResponse;
 import com.sudoku.puzzle.web.ValidationResponse;
 import com.sudoku.leaderboard.LeaderboardRepository;
@@ -30,6 +31,7 @@ class GameServiceImplTest {
     private SudokuService sudokuService;
     private GameRepository gameRepository;
     private LeaderboardRepository leaderboardRepository;
+    private PuzzleEventLogger puzzleEventLogger;
     private GameServiceImpl gameService;
 
     private static final String USER_ID = "test-user-123";
@@ -74,7 +76,8 @@ class GameServiceImplTest {
         sudokuService = mock(SudokuService.class);
         gameRepository = mock(GameRepository.class);
         leaderboardRepository = mock(LeaderboardRepository.class);
-        gameService = new GameServiceImpl(sudokuService, gameRepository, leaderboardRepository);
+        puzzleEventLogger = mock(PuzzleEventLogger.class);
+        gameService = new GameServiceImpl(sudokuService, gameRepository, leaderboardRepository, puzzleEventLogger);
     }
 
     @Test
@@ -224,6 +227,35 @@ class GameServiceImplTest {
         gameService.updateGame(USER_ID, gameId, request);
 
         verify(gameRepository).update(eq(USER_ID), eq(gameId), eq(request));
+    }
+
+    @Test
+    void updateGame_withoutEvents_doesNotLoadGameOrLog() {
+        // @spec GL-BE-045 — no events: normal save, no game load, no puzzle-play logging
+        String gameId = "test-id-456";
+        GameUpdateRequest request = new GameUpdateRequest(GRID, emptyCandidates(), 120, false, null);
+
+        gameService.updateGame(USER_ID, gameId, request);
+
+        verify(gameRepository, never()).findById(anyString(), anyString());
+        verifyNoInteractions(puzzleEventLogger);
+    }
+
+    @Test
+    void updateGame_withEvents_loadsGameAndLogsWithSolution() {
+        // @spec GL-BE-040 — events present: load the game and delegate to the logger with its solution
+        String gameId = "test-id-456";
+        List<PuzzleEvent> events = List.of(
+                new PuzzleEvent("NUMBER", 0, 0, 5, null, 1000L, null, null, null, null, null, null));
+        GameUpdateRequest request = new GameUpdateRequest(GRID, emptyCandidates(), 120, false, null, events);
+        GameState game = new GameState(USER_ID, gameId, "easy", GRID, SOLUTION, GRID,
+                emptyCandidates(), 120, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null, 0);
+        when(gameRepository.findById(USER_ID, gameId)).thenReturn(Optional.of(game));
+
+        gameService.updateGame(USER_ID, gameId, request);
+
+        verify(gameRepository).update(eq(USER_ID), eq(gameId), eq(request));
+        verify(puzzleEventLogger).log(eq(gameId), eq(USER_ID), eq(SOLUTION), eq(events));
     }
     @Test
     void createGame_whenInProgressGameExists_abandonsItBeforeCreatingNew() {

@@ -18,7 +18,7 @@ const SOLVED_MESSAGE = {
   content: 'Congratulations — the puzzle is complete! No more moves needed.',
 };
 
-export function useCoachSession({ currentGrid, setHighlightCells }) {
+export function useCoachSession({ gameId, currentGrid, setHighlightCells }) {
   const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +47,7 @@ export function useCoachSession({ currentGrid, setHighlightCells }) {
       setIsLoading(true);
 
       try {
-        const response = await postCoachMessage(currentGrid, apiHistory, text);
+        const response = await postCoachMessage(currentGrid, apiHistory, text, gameId);
 
         if (response === null) {
           setHistory((prev) => [...prev, SOLVED_MESSAGE]);
@@ -62,7 +62,7 @@ export function useCoachSession({ currentGrid, setHighlightCells }) {
         setIsLoading(false);
       }
     },
-    [currentGrid, history, isLoading, setHighlightCells]
+    [gameId, currentGrid, history, isLoading, setHighlightCells]
   );
 
   return { isOpen, open, close, history, isLoading, sendMessage };

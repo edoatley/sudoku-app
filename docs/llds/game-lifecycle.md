@@ -176,17 +176,102 @@ Sent by client on each autosave:
 | `timeSpentSeconds` | `int` | No | Cumulative total |
 | `isComplete` | `Boolean` | Yes | True triggers SOLVED transition |
 | `hintsUsed` | `Integer` | Yes | If null, hints count is not updated |
+| `events` | `List<PuzzleEvent>` | Yes | Buffered puzzle-play actions to log (see Puzzle-Play Event Logging). Null/absent on older clients — no logging, no error |
 
 The client always sends the full grid (not a diff). The server overwrites, not merges.
+The `events` array is observability-only: it never affects the persisted game state
+or the PATCH response, and a malformed or absent `events` array never fails the save.
+
+### PuzzleEvent (buffered action)
+
+Each entry describes one player action the client observed since the last sync. The
+shape is a single flat record covering all event types; fields not relevant to a
+given `type` are null.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `type` | `String` | One of `NUMBER`, `NUMBER_CLEAR`, `HINT_REQUEST`, `HINT_RESPONSE` |
+| `r`, `c` | `Integer` | Zero-based cell coordinates (`NUMBER`, `NUMBER_CLEAR`) |
+| `v` | `Integer` | Placed digit 1–9 (`NUMBER`) |
+| `cid` | `String` | Client-generated UUID pairing a `HINT_REQUEST` with its `HINT_RESPONSE` |
+| `clientTs` | `Long` | Client epoch-millis when the action happened (preserves ordering within the batch) |
+| `techniqueName`, `strategyRank`, `difficulty`, `found` | — | `HINT_RESPONSE` only: what the hint engine returned |
+| `minRank`, `excludedRanks` | — | `HINT_REQUEST` only: the parameters the client asked for |
+
+`NUMBER_RESULT` is **not** a client-supplied type — the server derives it (see below).
 
 ### CreateGameFromGridRequest
 
 Single-field record: `Grid originalGrid`. Used by the image import flow.
 
+## Puzzle-Play Event Logging (Observability)
+
+The AI Coach logs full request/response content (`COACH_*`) so coaching quality can
+be reviewed after the fact. On its own that is blind to what the player *did* around
+each coach turn — which digits they placed, whether those were correct, when they
+cleared cells, and when they asked for a hint. This component emits structured log
+lines for those player actions so a whole puzzle-play session can be reconstructed
+and correlated with the coach conversation.
+
+**Correlation key — `pid`.** Every structured log line for a play session carries
+`pid`, which is the game's `gameId`. `pid` is the single key that joins puzzle-play
+events with the `COACH_REQUEST`/`COACH_RESPONSE` lines for the same game (which also
+carry `pid` — see the Sudoku Coach LLD). `cid` remains a *within-interaction* pair
+key (one coach turn, or one hint request↔response); `pid` is the *whole-session* key.
+
+**Transport — the existing PATCH sync, not a new endpoint.** Individual placements
+and clears live in client state and are never sent to the server per-move. The client
+buffers them (see React Frontend LLD) and flushes the buffer as the `events` array on
+the existing `PATCH /api/v1/games/{gameId}` autosave. `GameServiceImpl.update` — which
+already loads the `GameItem` (and therefore has the authoritative `solutionGrid`,
+`gameId`, and JWT `userId` in hand) — walks `events` and emits one log line per event
+via `PuzzleEventLogger`. This adds no per-move network cost and no new attack surface.
+
+**Emitted event types.** Common fields on every line: `type`, `pid`, `userId`, `ts`
+(server epoch-millis). `userId` is taken from the JWT principal (the same value used
+for the game write), so it is trustworthy, not client-asserted.
+
+| Type | Origin | Fields beyond common |
+| --- | --- | --- |
+| `NUMBER` | client action | `r`, `c`, `v`, `clientTs` |
+| `NUMBER_RESULT` | **server-derived** | `r`, `c`, `v`, `correct`, `clientTs` |
+| `NUMBER_CLEAR` | client action | `r`, `c`, `clientTs` |
+| `HINT_REQUEST` | client action | `cid`, `clientTs`, `minRank?`, `excludedRanks?` |
+| `HINT_RESPONSE` | client action | `cid`, `clientTs`, `techniqueName`, `strategyRank`, `difficulty`, `found` |
+
+For each buffered `NUMBER`, the server emits **two** lines: the raw `NUMBER` action,
+then a `NUMBER_RESULT` whose `correct = (solutionGrid[r][c] == v)`. Correctness is
+computed server-side against the stored solution — authoritative, and never shown to
+the player (the game does not reveal move correctness during play). Splitting into two
+lines keeps the player's action stream (`NUMBER`) distinct from the server's verdict
+and keeps per-type counting clean for the `download-puzzle-logs.sh` summary.
+
+**Robustness.** `r`, `c`, and `v` are client-supplied and untrusted. An event with an
+unknown `type`, missing required fields, or out-of-range coordinates/digit is logged at
+WARN and skipped — in particular, the `NUMBER_RESULT` solution lookup is bounds-guarded
+so a bad coordinate degrades to a dropped event rather than throwing and failing the
+PATCH. Event logging must never break progress persistence. The server processes at
+most 500 events per request; if the
+client marks the batch truncated (its buffer overflowed before flush), the server
+emits an `EVENTS_TRUNCATED` marker line so the gap is visible downstream.
+
+**Storage.** These lines go to the same CloudWatch log group as all other Lambda logs
+at the existing 30-day retention — no separate store — and log gameplay actions (cell
+coordinates, placed digits, move correctness, hint technique), which are non-sensitive
+under this app's threat model per `docs/arrows/security-standards.md` Logging Policy.
+
+Lines are built with the injected Jackson `ObjectMapper` (`writeValueAsString` on an
+`ObjectNode`), never string templating, so freeform fields escape correctly — the same
+rule the coach logging follows.
+
 ## Observed Design Decisions
 
 | Decision | Chosen | Alternatives Considered | Rationale |
 | --- | --- | --- | --- |
+| Puzzle-play events ride the existing PATCH autosave | `events` array on `GameUpdateRequest`, flushed with the 60s/visibility/complete sync | New per-move telemetry endpoint; derive moves by diffing the synced grid server-side | Per-move endpoint multiplies Lambda invocations and CloudWatch writes per keystroke; grid-diffing loses ordering, timing, and any move cleared before a sync. Buffer-and-flush keeps ~1 call per 60s while preserving faithful per-action data |
+| `NUMBER_RESULT.correct` computed server-side | Compare `v` against the loaded `solutionGrid` in `GameServiceImpl.update` | Trust a `correct` flag sent by the client | Server already holds the authoritative solution; client-asserted correctness is spoofable and redundant |
+| Emit `NUMBER` and `NUMBER_RESULT` as two lines | Raw action line + separate server verdict line | Single `NUMBER` line with an inline `correct` field | Keeps the player action stream separate from the server verdict, matches the named event vocabulary, and makes per-type counts in the summary tool straightforward |
+| Malformed/unknown events skipped, not rejected | Log WARN and continue; never 500 the PATCH | Reject the whole PATCH with 400 | Observability must not break progress persistence; a bad event from a stale client should degrade to a dropped log line, not a lost save |
 | Single-active-game enforced server-side | `abandonAnyInProgressGame` on create | Client sends explicit abandon request | Simpler client; server owns invariant; no race condition if client crashes mid-session |
 | Validation before abandonment in import flow | 3-stage validation first, then abandon | Abandon first regardless | Avoids wasting a DB write on grids that will be rejected; better UX (no "ghost" abandonment) |
 | Full grid overwrite on PATCH | Client sends complete state | Server applies delta/diff | Eliminates merge conflict logic; client is source of truth for current state |
@@ -226,6 +311,8 @@ Single-field record: `Grid originalGrid`. Used by the image import flow.
 - `backend/src/main/java/.../web/exception/GameNotFoundExceptionMapper.java`
 - `backend/src/main/java/.../game/web/GameState.java`
 - `backend/src/main/java/.../game/web/GameUpdateRequest.java`
+- `backend/src/main/java/.../game/web/PuzzleEvent.java`
+- `backend/src/main/java/.../game/PuzzleEventLogger.java`
 - `backend/src/main/java/.../game/web/CreateGameFromGridRequest.java`
 - `backend/src/main/java/.../game/web/GameHistoryEntry.java`
 - `backend/src/main/java/.../game/web/GameHistoryResponse.java`

@@ -140,6 +140,7 @@ function SudokuApp({ user, signOut }) {
   }, [user]);
 
   const {
+    gameId,
     originalGrid,
     currentGrid,
     candidateGrid,
@@ -407,6 +408,7 @@ function SudokuApp({ user, signOut }) {
       {AI_COACH && (
         <CoachWidget
           key={originalGrid ? originalGrid[0].join(',') : 'no-game'}
+          gameId={gameId}
           currentGrid={currentGrid}
           setHighlightCells={setHighlightCells}
           playerProfile={playerProfile}

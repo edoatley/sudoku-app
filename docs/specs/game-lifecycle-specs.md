@@ -18,10 +18,20 @@
 
 ## Game Progress
 
-- [x] **GL-API-005**: The system shall expose PATCH /api/v1/games/{gameId} requiring JWT authentication, accepting currentGrid, candidates, timeSpentSeconds, optional isComplete, and optional hintsUsed.
+- [x] **GL-API-005**: The system shall expose PATCH /api/v1/games/{gameId} requiring JWT authentication, accepting currentGrid, candidates, timeSpentSeconds, optional isComplete, optional hintsUsed, and an optional events array of buffered puzzle-play actions.
 - [x] **GL-BE-010**: When PATCH is received with isComplete=true, the system shall set game status to SOLVED and record endedAt as the current UTC timestamp.
 - [x] **GL-BE-011**: When PATCH is received with isComplete=false or isComplete absent, the system shall keep game status as IN_PROGRESS.
 - [x] **GL-BE-012**: The system shall overwrite currentGrid, candidates, and timeSpentSeconds with the client-submitted values on every PATCH (full overwrite, not diff).
+
+## Puzzle-Play Event Logging
+
+- [x] **GL-BE-040**: When a PATCH /api/v1/games/{gameId} request includes an events array, the system shall emit one structured JSON log line per processed event to the standard Lambda logger, each carrying its type, pid (the gameId), userId (from the JWT principal), and a server-generated ts.
+- [x] **GL-BE-041**: For each NUMBER event, the system shall log a NUMBER line with the cell coordinates and placed digit, followed by a NUMBER_RESULT line whose correct field is true if and only if the placed digit equals the stored solutionGrid value for that cell.
+- [x] **GL-BE-042**: For each NUMBER_CLEAR, HINT_REQUEST, and HINT_RESPONSE event, the system shall log a line of the corresponding type, carrying through the client-supplied fields for that type — the cell coordinates for NUMBER_CLEAR, and the cid plus (for HINT_RESPONSE) the technique name and strategy rank for hint events — so a HINT_REQUEST and its HINT_RESPONSE can be joined.
+- [x] **GL-BE-043**: When an event has an unrecognized type, is missing fields required for its type, or carries out-of-range coordinates or digit values, the system shall log a warning and skip that event without throwing or failing the PATCH.
+- [x] **GL-BE-044**: The system shall process at most 500 events per PATCH request, and when the client marks the batch as truncated the system shall emit an EVENTS_TRUNCATED marker line.
+- [x] **GL-BE-045**: When a PATCH request has a null or absent events array, the system shall persist game progress normally and emit no puzzle-play event log lines.
+- [x] **GL-BE-046**: The system shall serialize every puzzle-play event log line as JSON via a JSON library rather than string templating.
 
 ## State Machine
 

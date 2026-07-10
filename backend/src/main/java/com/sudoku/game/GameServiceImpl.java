@@ -39,14 +39,17 @@ public class GameServiceImpl implements GameService {
     private final SudokuService sudokuService;
     private final GameRepository gameRepository;
     private final LeaderboardRepository leaderboardRepository;
+    private final PuzzleEventLogger puzzleEventLogger;
 
     @Inject
     public GameServiceImpl(SudokuService sudokuService,
                            GameRepository gameRepository,
-                           LeaderboardRepository leaderboardRepository) {
+                           LeaderboardRepository leaderboardRepository,
+                           PuzzleEventLogger puzzleEventLogger) {
         this.sudokuService = sudokuService;
         this.gameRepository = gameRepository;
         this.leaderboardRepository = leaderboardRepository;
+        this.puzzleEventLogger = puzzleEventLogger;
     }
 
     @Override
@@ -129,17 +132,29 @@ public class GameServiceImpl implements GameService {
         return gameRepository.findInProgress(userId);
     }
 
-    // @spec LT-BE-005, LT-BE-006
+    // @spec LT-BE-005, LT-BE-006, GL-BE-040, GL-BE-045
     @Override
     public void updateGame(String userId, String gameId, GameUpdateRequest request) {
-        if (Boolean.TRUE.equals(request.isComplete())) {
-            GameState game = gameRepository.findById(userId, gameId)
+        boolean complete = Boolean.TRUE.equals(request.isComplete());
+        boolean hasEvents = request.events() != null && !request.events().isEmpty();
+
+        // Load the game only when we need its solution (for NUMBER_RESULT) or its scoring data.
+        GameState game = null;
+        if (complete) {
+            game = gameRepository.findById(userId, gameId)
                     .orElseThrow(() -> new GameNotFoundException(gameId));
-            gameRepository.update(userId, gameId, request);
+        } else if (hasEvents) {
+            game = gameRepository.findById(userId, gameId).orElse(null);
+        }
+
+        gameRepository.update(userId, gameId, request);
+
+        if (complete) {
             int score = ScoringConstants.computeScore(game.difficulty(), request.timeSpentSeconds(), game.hintsUsed());
             leaderboardRepository.updateOnSolve(userId, game.difficulty(), request.timeSpentSeconds(), score, "won");
-        } else {
-            gameRepository.update(userId, gameId, request);
+        }
+        if (hasEvents && game != null) {
+            puzzleEventLogger.log(gameId, userId, game.solutionGrid(), request.events());
         }
     }
 

@@ -175,12 +175,12 @@ public class BedrockCoachClient {
     record ParsedResponse(AiReply reply, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens) {}
 
     // @spec SC-BE-009 — single Bedrock call per request; @spec SC-BE-015, SC-BE-016 — fallback on error
-    public CallResult call(String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
+    public CallResult call(String pid, String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
         String cid = UUID.randomUUID().toString();
         long startMs = System.currentTimeMillis();
         try {
             String requestJson = buildRequestJson(userMessage, hint, history, board);
-            LOG.info(buildRequestLogLine(cid, startMs, userMessage, hint, history, board));
+            LOG.info(buildRequestLogLine(pid, cid, startMs, userMessage, hint, history, board));
             InvokeModelResponse response = bedrockRuntimeClient.invokeModel(
                     InvokeModelRequest.builder()
                             .modelId(modelId)
@@ -191,7 +191,7 @@ public class BedrockCoachClient {
                             .build());
             ParsedResponse parsed = parseResponse(response, hint);
             long latencyMs = System.currentTimeMillis() - startMs;
-            LOG.info(buildResponseLogLine(cid, parsed.reply(), parsed.inputTokens(), parsed.outputTokens(),
+            LOG.info(buildResponseLogLine(pid, cid, parsed.reply(), parsed.inputTokens(), parsed.outputTokens(),
                     parsed.cacheReadTokens(), parsed.cacheWriteTokens(), latencyMs, false, null, null));
             long totalTokens = parsed.inputTokens() + parsed.outputTokens();
             return new CallResult(parsed.reply(), totalTokens);
@@ -199,7 +199,7 @@ public class BedrockCoachClient {
             long latencyMs = System.currentTimeMillis() - startMs;
             AiReply fallbackReply = fallback(hint);
             try {
-                LOG.info(buildResponseLogLine(cid, fallbackReply, 0, 0, 0, 0, latencyMs, true,
+                LOG.info(buildResponseLogLine(pid, cid, fallbackReply, 0, 0, 0, 0, latencyMs, true,
                         e.getClass().getSimpleName(), e.getMessage()));
             } catch (Exception logException) {
                 LOG.warn("Failed to build COACH_RESPONSE log line for cid=" + cid, logException);
@@ -210,10 +210,11 @@ public class BedrockCoachClient {
 
     // @spec SC-BE-005, SC-BE-006, SC-BE-007 — full content logged for post-hoc conversation review
     // @spec SC-BE-018 — real JSON serialization, not string templating (userMessage is freeform text)
-    String buildRequestLogLine(String cid, long ts, String userMessage, HintResponse hint,
+    String buildRequestLogLine(String pid, String cid, long ts, String userMessage, HintResponse hint,
             List<ChatMessage> history, Board board) throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("type", "COACH_REQUEST");
+        root.put("pid", pid);
         root.put("cid", cid);
         root.put("modelId", modelId);
         root.put("technique", hint.techniqueName());
@@ -228,11 +229,12 @@ public class BedrockCoachClient {
 
     // @spec SC-BE-008 — aiMessage logged on every path, including fallback
     // @spec SC-BE-019 — cid correlates this line with its COACH_REQUEST counterpart
-    String buildResponseLogLine(String cid, AiReply reply, int inputTokens, int outputTokens,
+    String buildResponseLogLine(String pid, String cid, AiReply reply, int inputTokens, int outputTokens,
             int cacheReadTokens, int cacheWriteTokens, long latencyMs, boolean fallback,
             String errorType, String errorMsg) throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("type", "COACH_RESPONSE");
+        root.put("pid", pid);
         root.put("cid", cid);
         root.put("revealHint", reply.revealHint());
         root.put("inputTokens", inputTokens);

@@ -57,7 +57,7 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
                 Board board = Board.fromGrid(request.board());
                 board.calculateAllCandidates();
                 BedrockCoachClient.CallResult result = bedrockCoachClient.call(
-                        request.userMessage(), f.hint(), trimmedHistory, board);
+                        request.gameId(), request.userMessage(), f.hint(), trimmedHistory, board);
                 yield new CoachResult.Response(
                         new CoachResponse(result.reply().aiMessage(), f.hint(), result.reply().revealHint()),
                         result.tokensUsed());
