@@ -48,11 +48,22 @@ AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --puzzle-id <gameI
 # Raw NDJSON for one user, piped to jq (e.g. every incorrect move):
 AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --user-id <sub> | \
   jq 'select(.type=="NUMBER_RESULT" and .correct==false)'
+
+# The puzzle ran on a different branch than the one you have checked out:
+AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --puzzle-id <gameId> --branch rc-foo
+
+# You don't remember (or the branch has since been deleted) which environment it ran on:
+AWS_PROFILE=sandbox bash scripts/logs/download-puzzle-logs.sh --puzzle-id <gameId> --branch all
 ```
 
 Flags: `--puzzle-id`, `--user-id`, `--hours` (default 24), `--summary`, `--workspace`,
-`--output`, `--profile`. Default output is NDJSON (one event per line); `--summary` prints
-a digest per puzzle.
+`--branch <name>|all`, `--output`, `--profile`. Default output is NDJSON (one event per
+line); `--summary` prints a digest per puzzle. `--branch` resolves the workspace from an
+arbitrary branch name (same rule as auto-detection from the current git branch) rather
+than requiring the workspace name directly; `--branch all` scans every
+`/aws/lambda/sudoku*` log group and merges the results — slower (one CloudWatch query per
+environment) but useful when you don't know which environment a puzzle came from, or the
+branch has since been torn down and `git rev-parse` can't help.
 
 ### Example summary
 
