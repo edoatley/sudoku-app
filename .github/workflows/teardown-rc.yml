@@ -50,6 +50,38 @@ jobs:
             exit 0
           fi
 
+      # amplify_default_url is the branch-unique *.amplifyapp.com URL — the one
+      # amplify-post-deploy.sh actually registers with Cognito for rc-* branches.
+      # amplify_app_url is NOT used here: for rc-* it resolves to the shared
+      # sudoku-beta.edoatley.co.uk domain, which every other active rc-* branch also
+      # depends on and must never be removed by a single branch's teardown.
+      - name: Capture branch's Amplify URL (for Cognito cleanup)
+        id: branch_urls
+        working-directory: infra
+        continue-on-error: true
+        run: |
+          DEFAULT_URL=$(terraform output -raw amplify_default_url 2>/dev/null || true)
+          echo "default_url=${DEFAULT_URL}" >> "$GITHUB_OUTPUT"
+
+      # Section A of amplify-post-deploy.sh only ever adds a branch's Amplify URL to the
+      # shared rc-* Cognito client; nothing removes it on teardown. This step closes that
+      # gap. Best-effort: a Cognito cleanup hiccup must never block the actual resource
+      # teardown below, so failures here only warn (continue-on-error).
+      - name: Remove branch URL from shared rc Cognito client
+        if: steps.branch_urls.outputs.default_url != ''
+        working-directory: infra
+        continue-on-error: true
+        run: |
+          terraform workspace select rc-shared
+          USER_POOL_ID=$(terraform output -raw rc_shared_cognito_user_pool_id)
+          CLIENT_ID=$(terraform output -raw rc_shared_cognito_web_client_id)
+          terraform workspace select "${{ steps.workspace.outputs.workspace }}"
+
+          # amplify-post-deploy.sh registers URLs with a trailing slash (BRANCH_URL="${AMPLIFY_URL}/")
+          bash ../scripts/github/amplify-remove-rc-urls.sh \
+            --user-pool-id "${USER_POOL_ID}" --client-id "${CLIENT_ID}" \
+            --url "${{ steps.branch_urls.outputs.default_url }}/"
+
       - name: Terraform destroy
         working-directory: infra
         run: >-
