@@ -4,23 +4,26 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sudoku.domain.Grid;
+import com.sudoku.domain.Board;
+import com.sudoku.domain.Cell;
 import com.sudoku.coach.web.ChatMessage;
 import com.sudoku.puzzle.web.HintResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-// @spec SC-BE-009, SC-BE-010, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016
+import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
+
+// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-010, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019
 
 @ApplicationScoped
 public class BedrockCoachClient {
@@ -172,13 +175,12 @@ public class BedrockCoachClient {
     record ParsedResponse(AiReply reply, int inputTokens, int outputTokens, int cacheReadTokens, int cacheWriteTokens) {}
 
     // @spec SC-BE-009 — single Bedrock call per request; @spec SC-BE-015, SC-BE-016 — fallback on error
-    public CallResult call(String userMessage, HintResponse hint, List<ChatMessage> history, Grid board) {
+    public CallResult call(String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
         String cid = UUID.randomUUID().toString();
         long startMs = System.currentTimeMillis();
         try {
             String requestJson = buildRequestJson(userMessage, hint, history, board);
-            LOG.infof("{\"type\":\"COACH_REQUEST\",\"cid\":\"%s\",\"modelId\":\"%s\",\"technique\":\"%s\",\"historyLen\":%d,\"userMsgLen\":%d,\"ts\":%d}",
-                    cid, modelId, hint.techniqueName(), history.size(), userMessage.length(), startMs);
+            LOG.info(buildRequestLogLine(cid, startMs, userMessage, hint, history, board));
             InvokeModelResponse response = bedrockRuntimeClient.invokeModel(
                     InvokeModelRequest.builder()
                             .modelId(modelId)
@@ -189,20 +191,80 @@ public class BedrockCoachClient {
                             .build());
             ParsedResponse parsed = parseResponse(response, hint);
             long latencyMs = System.currentTimeMillis() - startMs;
-            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":%b,\"inputTokens\":%d,\"outputTokens\":%d,\"cacheReadTokens\":%d,\"cacheWriteTokens\":%d,\"latencyMs\":%d,\"fallback\":false}",
-                    cid, parsed.reply().revealHint(), parsed.inputTokens(), parsed.outputTokens(), parsed.cacheReadTokens(), parsed.cacheWriteTokens(), latencyMs);
+            LOG.info(buildResponseLogLine(cid, parsed.reply(), parsed.inputTokens(), parsed.outputTokens(),
+                    parsed.cacheReadTokens(), parsed.cacheWriteTokens(), latencyMs, false, null, null));
             long totalTokens = parsed.inputTokens() + parsed.outputTokens();
             return new CallResult(parsed.reply(), totalTokens);
         } catch (Exception e) {
             long latencyMs = System.currentTimeMillis() - startMs;
-            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"cid\":\"%s\",\"revealHint\":false,\"inputTokens\":0,\"outputTokens\":0,\"cacheReadTokens\":0,\"cacheWriteTokens\":0,\"latencyMs\":%d,\"fallback\":true,\"errorType\":\"%s\",\"errorMsg\":\"%s\"}",
-                    cid, latencyMs, e.getClass().getSimpleName(), e.getMessage() == null ? "" : e.getMessage().replace("\"", "'"));
-            return new CallResult(fallback(hint), 0L);
+            AiReply fallbackReply = fallback(hint);
+            try {
+                LOG.info(buildResponseLogLine(cid, fallbackReply, 0, 0, 0, 0, latencyMs, true,
+                        e.getClass().getSimpleName(), e.getMessage()));
+            } catch (Exception logException) {
+                LOG.warn("Failed to build COACH_RESPONSE log line for cid=" + cid, logException);
+            }
+            return new CallResult(fallbackReply, 0L);
         }
     }
 
+    // @spec SC-BE-005, SC-BE-006, SC-BE-007 — full content logged for post-hoc conversation review
+    // @spec SC-BE-018 — real JSON serialization, not string templating (userMessage is freeform text)
+    String buildRequestLogLine(String cid, long ts, String userMessage, HintResponse hint,
+            List<ChatMessage> history, Board board) throws Exception {
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("type", "COACH_REQUEST");
+        root.put("cid", cid);
+        root.put("modelId", modelId);
+        root.put("technique", hint.techniqueName());
+        root.put("historyLen", history.size());
+        root.put("userMsgLen", userMessage.length());
+        root.put("ts", ts);
+        root.put("userMessage", userMessage);
+        root.set("board", objectMapper.valueToTree(boardDigits(board)));
+        root.set("candidatesGrid", objectMapper.valueToTree(board.toCandidatesGrid()));
+        return objectMapper.writeValueAsString(root);
+    }
+
+    // @spec SC-BE-008 — aiMessage logged on every path, including fallback
+    // @spec SC-BE-019 — cid correlates this line with its COACH_REQUEST counterpart
+    String buildResponseLogLine(String cid, AiReply reply, int inputTokens, int outputTokens,
+            int cacheReadTokens, int cacheWriteTokens, long latencyMs, boolean fallback,
+            String errorType, String errorMsg) throws Exception {
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("type", "COACH_RESPONSE");
+        root.put("cid", cid);
+        root.put("revealHint", reply.revealHint());
+        root.put("inputTokens", inputTokens);
+        root.put("outputTokens", outputTokens);
+        root.put("cacheReadTokens", cacheReadTokens);
+        root.put("cacheWriteTokens", cacheWriteTokens);
+        root.put("latencyMs", latencyMs);
+        root.put("fallback", fallback);
+        root.put("aiMessage", reply.aiMessage());
+        if (errorType != null) {
+            root.put("errorType", errorType);
+        }
+        if (errorMsg != null) {
+            root.put("errorMsg", errorMsg);
+        }
+        return objectMapper.writeValueAsString(root);
+    }
+
+    private static List<List<Integer>> boardDigits(Board board) {
+        List<List<Integer>> rows = new ArrayList<>(UNIT_SIZE);
+        for (int r = 0; r < UNIT_SIZE; r++) {
+            List<Integer> row = new ArrayList<>(UNIT_SIZE);
+            for (Cell cell : board.getRow(r)) {
+                row.add(cell.value());
+            }
+            rows.add(row);
+        }
+        return rows;
+    }
+
     // @spec SC-BE-010 — system prompt with cache_control for prompt caching
-    String buildRequestJson(String userMessage, HintResponse hint, List<ChatMessage> history, Grid board) throws Exception {
+    String buildRequestJson(String userMessage, HintResponse hint, List<ChatMessage> history, Board board) throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("anthropic_version", ANTHROPIC_VERSION);
         root.put("max_tokens", MAX_TOKENS);
@@ -224,9 +286,9 @@ public class BedrockCoachClient {
         return objectMapper.writeValueAsString(root);
     }
 
-    private String buildContextBlock(String userMessage, HintResponse hint, Grid board) {
+    private String buildContextBlock(String userMessage, HintResponse hint, Board board) {
         return "CURRENT BOARD STATE:\n" +
-                BoardFormatter.format(com.sudoku.domain.Board.fromGrid(board)) +
+                BoardFormatter.format(board) +
                 "\n\nAPPLICABLE TECHNIQUE: " + hint.techniqueName() +
                 "\nCONTEXT NOTES: " + hint.nudge() +
                 "\n\nPLAYER MESSAGE: " + userMessage;

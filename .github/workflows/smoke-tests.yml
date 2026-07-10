@@ -24,6 +24,11 @@ on:
         description: "main or rc — controls Lambda warm-up, image fixture, and Cognito client resolution"
         required: true
         type: string
+      workspace:
+        description: "Terraform workspace name — used to build the CloudWatch log group for the coach smoke test"
+        required: false
+        type: string
+        default: ""
     secrets:
       AWS_DEPLOY_ROLE_ARN:
         required: true
@@ -63,6 +68,11 @@ on:
           - main
           - rc
         default: main
+      workspace:
+        description: "Terraform workspace name (leave blank if not testing the coach smoke check)"
+        required: false
+        type: string
+        default: ""
 
 # Reusable workflows do not inherit caller permissions — declare them explicitly.
 permissions:
@@ -76,6 +86,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       api_smoke_result: ${{ steps.api-smoke.outcome }}
+      coach_smoke_result: ${{ steps.coach-smoke.outcome }}
       playwright_result: ${{ steps.playwright.outcome }}
     steps:
       - uses: actions/checkout@v7
@@ -219,6 +230,14 @@ jobs:
           echo "SMOKE_ID_TOKEN=${ID_TOKEN}"         >> "$GITHUB_ENV"
           echo "SMOKE_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
 
+      - name: AI coach smoke test (RC only — verifies CloudWatch logging)
+        id: coach-smoke
+        if: inputs.environment_type == 'rc'
+        env:
+          API_URL: ${{ inputs.api_gateway_url }}
+          SMOKE_ID_TOKEN: ${{ env.SMOKE_ID_TOKEN }}
+        run: bash scripts/github/coach-smoke-test.sh "${API_URL}" "${{ inputs.workspace }}"
+
       - name: Warm up image recognition Lambda (RC only — handles cold starts)
         if: inputs.environment_type == 'rc'
         env:
@@ -290,6 +309,7 @@ jobs:
         if: always()
         env:
           API_RESULT: ${{ steps.api-smoke.outcome }}
+          COACH_RESULT: ${{ steps.coach-smoke.outcome }}
           IMPORT_RESULT: ${{ steps.import-smoke.outcome }}
           PLAYWRIGHT_RESULT: ${{ steps.playwright.outcome }}
         run: |
@@ -301,6 +321,7 @@ jobs:
             echo "| Suite | Result |"
             echo "|-------|--------|"
             echo "| API smoke tests | $(icon "${API_RESULT}") |"
+            echo "| AI coach (CloudWatch-verified) | $(icon "${COACH_RESULT}") |"
             echo "| Image recognition import | $(icon "${IMPORT_RESULT}") |"
             echo "| Playwright UI tests | $(icon "${PLAYWRIGHT_RESULT}") |"
           } >> "$GITHUB_STEP_SUMMARY"

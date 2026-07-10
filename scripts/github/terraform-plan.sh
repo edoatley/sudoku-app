@@ -42,9 +42,25 @@ ARGS=(
   -input=false
 )
 
+TARGETED_ARGS=(
+  -auto-approve
+  -input=false
+  -target=aws_cloudwatch_log_group.lambda
+)
+
 if [ -n "${RC_VARS_FILE}" ] && [ "${IS_MAIN}" = "false" ]; then
   ARGS+=("-var-file=${RC_VARS_FILE}")
+  TARGETED_ARGS+=("-var-file=${RC_VARS_FILE}")
 fi
 
 cd infra
+
+# Reconcile the standalone log group before the main plan runs. module.lambda's
+# use_existing_cloudwatch_log_group=true does a `data` lookup that fails outright on a
+# brand-new workspace's first-ever apply, since there is nothing yet to adopt — data
+# sources are resolved during plan, before this same run could create the resource.
+# Unconditional and idempotent: a no-op once the group already exists (every workspace
+# after its first deploy).
+terraform apply "${TARGETED_ARGS[@]}"
+
 terraform plan "${ARGS[@]}"

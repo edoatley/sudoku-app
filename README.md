@@ -30,7 +30,7 @@ flowchart LR
         amplify["🌐 Amplify"]
         cognito["🔒 Cognito"]
         apigw["🌐 API Gateway + JWT Authorizer"]
-        lambda["⚙️ Lambda\nQuarkus Java 21"]
+        lambda["⚙️ Lambda\nQuarkus Java 25"]
         imgrec["🖼️ Image Recognition Lambda\nPython 3.14"]
         bedrock["🤖 Amazon Bedrock\nClaude Haiku"]
         dynamo[("🗄️ DynamoDB")]
@@ -62,7 +62,7 @@ See [`infra/README.md`](infra/README.md) for the full deployment-level architect
 | Layer      | Technology                                                         |
 |------------|--------------------------------------------------------------------|
 | Frontend   | React 19, Vite 8, MUI v9, aws-amplify v6                          |
-| Backend    | Java 21, Quarkus 3.36.1, quarkus-amazon-lambda-rest, quarkus-oidc |
+| Backend    | Java 25, Quarkus 3.36.1, quarkus-amazon-lambda-rest, quarkus-oidc |
 | Auth       | Amazon Cognito User Pool (Google social login via OAuth 2.0)       |
 | Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, `SudokuCoachRateLimits`) |
 | Hosting    | AWS Amplify (frontend), AWS Lambda (backend)                       |
@@ -74,7 +74,7 @@ See [`infra/README.md`](infra/README.md) for the full deployment-level architect
 
 ```
 sudoku-app/
-├── backend/          # Java 21 + Quarkus REST API (Lambda-optimized)  → backend/README.md
+├── backend/          # Java 25 + Quarkus REST API (Lambda-optimized)  → backend/README.md
 │   └── src/
 ├── ui/               # React 19 + Vite frontend with MUI               → ui/README.md
 │   ├── src/
@@ -114,7 +114,7 @@ This project follows a **Linked-Intent** approach, where intent flows `HLD → L
 
 | Tool          | Version  | Notes                                  |
 |---------------|----------|----------------------------------------|
-| Java          | 21       | Temurin distribution recommended       |
+| Java          | 25       | Temurin distribution recommended       |
 | Node.js       | 22       |                                        |
 | Maven Wrapper | bundled  | Use `./mvnw` — no separate install     |
 | Terraform     | latest   | Required for infra work only           |

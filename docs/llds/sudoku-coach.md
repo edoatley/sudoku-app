@@ -79,17 +79,19 @@ monthly token counter only when `tokensUsed > 0`.
 ### Orchestration Flow (`SudokuCoachServiceImpl.coach()`)
 
 ```
-1. board = Board.fromGrid(request.board())
-   board.calculateAllCandidates()
-
-2. hint = sudokuService.getHint(BoardRequest.of(request.board()))
+1. hint = sudokuService.getHint(BoardRequest.of(request.board()))
    // Uses existing hint engine — same chain as /puzzles/hint
 
-3. if hint is PuzzleSolved:
+2. if hint is PuzzleSolved:
        return CoachResult.PuzzleSolved()         // CoachResource maps to 204
 
    if hint is NoStrategyApplied:
        return CoachResult.Response(NO_MOVES_MESSAGE, 0L)  // no Bedrock call
+
+3. board = Board.fromGrid(request.board())
+   board.calculateAllCandidates()
+   // Computed here, only on the Found path — PuzzleSolved/NoStrategyApplied never reach
+   // BedrockCoachClient, so computing candidates for those outcomes would be wasted work
 
 4. context = BoardFormatter.format(board, hint)
    // Human-readable grid + technique name + relevant cells
@@ -128,6 +130,7 @@ Responsible for:
 4. Making a single Bedrock call
 5. Parsing the structured JSON response `{ "aiMessage": "...", "revealHint": true|false }`
 6. Falling back to `hint.nudge()` + `revealHint=false` on timeout or parse failure
+7. Logging a structured `COACH_REQUEST`/`COACH_RESPONSE` JSON line per turn, correlated by `cid`
 
 **Prompt caching:**
 The system prompt is marked with `cache_control: {type: ephemeral}`. Bedrock caches the KV
@@ -138,6 +141,39 @@ reach this threshold if needed.
 **Raw Bedrock client:**
 `BedrockRuntimeClient` is used directly (not LangChain4j). LangChain4j did not expose
 `cache_control` blocks at the message level, so the raw SDK was chosen.
+
+**Content logging:**
+Each call to `BedrockCoachClient.call()` emits two structured JSON lines to the standard
+Quarkus/Lambda logger, sharing a `cid` (UUID, generated per call) so the pair can be joined.
+Lines are built via `objectMapper.writeValueAsString(...)` (the already-injected `ObjectMapper`)
+rather than the hand-templated `LOG.infof("{\"...\":\"%s\"}", ...)` string substitution used
+today — `userMessage` and `aiMessage` are the first freeform, user-/LLM-authored text this
+logging handles, and naive `%s` substitution breaks on embedded quotes or newlines (the
+existing exception-path `errorMsg` field already works around this narrowly, via
+`.replace("\"", "'")`, for the one freeform field that existed before this change — a proper
+serializer replaces that workaround too, correctly, for all fields):
+
+```
+COACH_REQUEST  { type, cid, modelId, technique, historyLen, userMsgLen, ts,
+                  userMessage, board, candidatesGrid }
+COACH_RESPONSE { type, cid, revealHint, inputTokens, outputTokens,
+                  cacheReadTokens, cacheWriteTokens, latencyMs, fallback,
+                  aiMessage }
+```
+
+`board` is the `Board`'s placed digits (row-major, not the wire-format `Grid` object — built
+inline from `Board.getRow()`) and `candidatesGrid` is `Board.toCandidatesGrid()`. Both are
+derived from the single `Board` computed once in `SudokuCoachServiceImpl.coach()` (see
+Orchestration Flow step 3) and passed through, not recomputed here. `aiMessage` is logged on **every** path, including the
+`fallback: true` path — it is the deterministic nudge text there rather than an actual Bedrock
+response, but it is still what the player saw, and logging it keeps `COACH_RESPONSE` a
+complete record of "what did the coach actually say" regardless of which path produced it.
+
+These logs go to the **same CloudWatch log group** as all other Lambda logs
+(`/aws/lambda/sudoku{suffix}`), at the existing 30-day retention — no separate log store, per
+`docs/arrows/security-standards.md` Logging Policy. That policy already sanctions logging full
+coach conversation content (userMessage, aiMessage, board, candidatesGrid) for this app's
+threat model: a personal project with a small, known, non-anonymous allowlisted user set.
 
 ### Constants
 
@@ -380,6 +416,8 @@ an active hint, but it does override the visual highlight.
 | One Bedrock call per HTTP request | Single `InvokeModel` call | Streaming or multi-step chain | Predictable latency; simpler error handling; Lambda timeout safety |
 | Frontend owns conversation history | Client sends last N turns each request | DynamoDB per-session storage | Stateless backend; no schema change; no extra DynamoDB read per request |
 | Fallback to nudge text | `hint.nudge()` returned on Bedrock failure | Return 5xx on failure | Coaching endpoint always returns something useful; Bedrock unavailability doesn't break the game |
+| Log full conversation content (userMessage, aiMessage, board, candidates) | INFO-level structured JSON, same CloudWatch log group as other Lambda logs, existing 30-day retention | Metadata-only logs; separate log store; log to a third-party sink | Personal project with a small, known, non-anonymous allowlisted user set — content logging is needed to review coaching quality and isn't a privacy risk under this threat model (see `docs/arrows/security-standards.md` Logging Policy); revisit if the app ever opens to anonymous users |
+| Build COACH_REQUEST/COACH_RESPONSE via `ObjectMapper`, not `LOG.infof` string templating | `objectMapper.writeValueAsString(...)` on an `ObjectNode` | Keep `%s`-templated strings; keep templating but add manual escaping (e.g. extend the existing `.replace("\"", "'")` pattern to more characters) | `userMessage`/`aiMessage` are the first freeform (user- or LLM-authored) fields in this log line; naive string substitution produces invalid JSON on embedded quotes/newlines, silently dropping the line from `jq`-based tooling downstream. A real serializer handles all escaping correctly instead of chasing individual special characters |
 | Desktop only | `useMediaQuery` guard in `CoachWidget` | Bottom sheet on mobile | Board + chat can't coexist usefully on small screens; simpler to exclude mobile than to build a bad experience |
 | Bottom-right floating widget | Fixed-position `Paper`, chat-window style | Side panel drawer | Zero layout disruption; board stays at full width; familiar pattern for users |
 
@@ -389,6 +427,12 @@ an active hint, but it does override the visual highlight.
 
 - **CRaC vs. GraalVM native vs. SnapStart**: Spike needed to confirm which cold-start strategy
   works best with the raw `BedrockRuntimeClient`. See §12 of `docs/planning/ai-guide.md`.
+  **Concrete evidence this matters**: the coach's first invocation after a fresh deploy hit the
+  Lambda's 8s hard timeout — `COACH_REQUEST` logged fine, but the Bedrock `InvokeModel` call
+  never completed (`Status: timeout` in the Lambda REPORT line). The existing SnapStart warm-up
+  only primes the HTTP layer (`GET /health`), not the Bedrock SDK client. A second call on the
+  same (now-warm) execution environment completed in ~1.8–2.0s. Observed running
+  `scripts/github/coach-smoke-test.sh` against a brand-new RC workspace's first-ever deploy.
 - **System prompt caching threshold**: Claude Haiku models require ≥2,048 tokens (not 1,024)
   for prompt caching. The current `SYSTEM_PROMPT` exceeds this. Monitor cache hit metrics in
   CloudWatch logs (`cacheReadTokens` / `cacheWriteTokens` in COACH_RESPONSE log events).

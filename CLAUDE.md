@@ -54,7 +54,7 @@ A serverless Sudoku app with a Java/Quarkus backend deployed to AWS Lambda, Reac
 
 ## Repository Structure
 
-- `backend/` — Java 21 + Quarkus REST API (Lambda-optimized)
+- `backend/` — Java 25 + Quarkus REST API (Lambda-optimized)
 - `ui/` — React 19 + Vite frontend with MUI (Material UI)
 - `infra/` — Terraform IaC (AWS provider configured, resources TBD)
 - `image_recognition` - Python based AWS lambda

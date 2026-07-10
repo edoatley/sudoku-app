@@ -14,6 +14,15 @@
 - [x] **SC-BE-003**: When the hint engine returns a result, the system shall extract the technique name and relevant cells from that result and include them as context in the Bedrock prompt.
 - [x] **SC-BE-004**: The system shall format the board as a human-readable row-by-row string with box separators before injecting it into the Bedrock prompt, and shall not use `Arrays.deepToString` or any equivalent dense array format.
 
+## Coordination and Content Logging (Backend)
+
+- [x] **SC-BE-005**: When `BedrockCoachClient.call()` logs a `COACH_REQUEST` event, the system shall include the full `userMessage` text as received from the player.
+- [x] **SC-BE-006**: When `BedrockCoachClient.call()` logs a `COACH_REQUEST` event, the system shall include the board's placed-digit grid (the raw `Grid` — distinct from the human-readable prompt format specified in SC-BE-004).
+- [x] **SC-BE-007**: When `BedrockCoachClient.call()` logs a `COACH_REQUEST` event, the system shall include the full per-cell candidates grid, computed once by the caller (`SudokuCoachServiceImpl`) and passed in — not recomputed inside `BedrockCoachClient`.
+- [x] **SC-BE-008**: When `BedrockCoachClient.call()` logs a `COACH_RESPONSE` event, the system shall include the full `aiMessage` text that was returned to the caller, on every path — the actual Bedrock response text on success, or the deterministic nudge text on the fallback path.
+- [x] **SC-BE-009**: When the deterministic hint engine returns a `Found` result, the system shall delegate to `BedrockCoachClient.call()` exactly once to obtain the coaching response; it shall not call `BedrockCoachClient` for `PuzzleSolved` or `NoStrategyApplied` outcomes.
+- [x] **SC-BE-019**: The system shall generate one `cid` (correlation ID) per `BedrockCoachClient.call()` invocation and include it in both the `COACH_REQUEST` and `COACH_RESPONSE` log lines for that call, so the two can be joined.
+
 ## Bedrock Integration (Backend)
 
 - [x] **SC-BE-010**: The system shall make exactly one Bedrock call per coaching request; it shall not use an agentic tool-calling loop.
@@ -24,6 +33,7 @@
 - [x] **SC-BE-015**: When the Bedrock call times out or exceeds 6 seconds, the system shall return a 200 response using the deterministic hint's nudge text as `aiMessage` and `revealHint: false`.
 - [x] **SC-BE-016**: When the Bedrock response cannot be parsed as the expected JSON schema, the system shall fall back to the deterministic hint's nudge text as `aiMessage` and `revealHint: false`.
 - [x] **SC-BE-017**: The system shall never return a 5xx status code due to a Bedrock failure; all AI failures shall degrade to the nudge-text fallback and return 200.
+- [x] **SC-BE-018**: When building the `COACH_REQUEST` or `COACH_RESPONSE` log line, the system shall serialize it as JSON via a JSON library rather than string templating, so that `userMessage` and `aiMessage` values containing quotes, newlines, or other characters requiring escaping still produce a valid, parseable JSON log line.
 
 ## Coach Response (Backend)
 

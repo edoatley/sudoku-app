@@ -1,10 +1,10 @@
 # Backend Development Guidelines
 
-**Stack:** Java 21, Quarkus, AWS Lambda (REST)
+**Stack:** Java 25, Quarkus, AWS Lambda (REST)
 
 ## Java & Quarkus Standards
 
-- **Modern Java:** Aggressively use Java 21 features. Use `record` classes for all Data Transfer Objects (DTOs) (e.g., `public record SudokuBoard(int[][] grid) {}`).
+- **Modern Java:** Aggressively use Java 25 features. Use `record` classes for all Data Transfer Objects (DTOs) (e.g., `public record SudokuBoard(int[][] grid) {}`).
 - **Contextual Javadocs:** Every class must include a class-level Javadoc at the top describing its overarching purpose. This documentation must focus strictly on the *why* (the domain context, business requirement, or overarching intent) and entirely omit the *how* (the implementation details are expected to be clean enough to be self-documenting).
 - **Routing:** Use standard JAX-RS annotations (`@Path`, `@GET`, `@POST`) for REST controllers.
 - **Serialization:** Rely on `resteasy-reactive-jackson` for all JSON parsing. Do not manually parse JSON strings.
