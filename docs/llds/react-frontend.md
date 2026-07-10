@@ -113,6 +113,7 @@ Actions recorded (each with a `clientTs` of `Date.now()`):
 | `writeCellValue` (normal-mode digit) | `NUMBER` `{r, c, v}` |
 | `clearCell` | `NUMBER_CLEAR` `{r, c}` |
 | `requestHint` / `requestAlternateHint` | `HINT_REQUEST` (with a freshly generated `cid`, plus `minRank`/`excludedRanks`) on call, then `HINT_RESPONSE` `{cid, techniqueName, strategyRank, difficulty, found}` when the hint resolves |
+| `undoLastMove` (normal-mode entry only) | `UNDO` `{r, c, v, prevV, undoneType: "NUMBER"}` — `v` is the digit removed, `prevV` the digit or 0 restored |
 
 `HINT_RESPONSE` is recorded on every resolution: `found: true` with technique/rank
 when a hint comes back, `found: false` (technique/rank null) when the engine has no
@@ -125,7 +126,8 @@ flag so the server can emit an `EVENTS_TRUNCATED` marker. `useGameSync` includes
 current buffer as the `events` field of the `PATCH /api/v1/games/{gameId}` payload,
 then clears it **only after** the PATCH succeeds — on failure the buffer is retained
 so events are re-sent on the next sync rather than lost. Candidate-mode toggles are
-not logged (they are not placements). `pid` is implicit: the PATCH is per-`gameId`.
+not logged (they are not placements), and undoing one is not logged either — only
+undoing a normal-mode digit placement is. `pid` is implicit: the PATCH is per-`gameId`.
 
 The buffer is **per-game**: it is reset when a new game starts and when the current
 game is finished, so events never attach to the wrong `gameId`. The completion sync

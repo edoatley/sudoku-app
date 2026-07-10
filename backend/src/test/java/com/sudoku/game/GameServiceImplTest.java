@@ -246,7 +246,7 @@ class GameServiceImplTest {
         // @spec GL-BE-040 — events present: load the game and delegate to the logger with its solution
         String gameId = "test-id-456";
         List<PuzzleEvent> events = List.of(
-                new PuzzleEvent("NUMBER", 0, 0, 5, null, 1000L, null, null, null, null, null, null));
+                new PuzzleEvent("NUMBER", 0, 0, 5, null, 1000L, null, null, null, null, null, null, null, null));
         GameUpdateRequest request = new GameUpdateRequest(GRID, emptyCandidates(), 120, false, null, events);
         GameState game = new GameState(USER_ID, gameId, "easy", GRID, SOLUTION, GRID,
                 emptyCandidates(), 120, "IN_PROGRESS", 0, "2026-01-01T10:00:00Z", null, 0);

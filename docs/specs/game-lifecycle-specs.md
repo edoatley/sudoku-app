@@ -32,6 +32,7 @@
 - [x] **GL-BE-044**: The system shall process at most 500 events per PATCH request, and when the client marks the batch as truncated the system shall emit an EVENTS_TRUNCATED marker line.
 - [x] **GL-BE-045**: When a PATCH request has a null or absent events array, the system shall persist game progress normally and emit no puzzle-play event log lines.
 - [x] **GL-BE-046**: The system shall serialize every puzzle-play event log line as JSON via a JSON library rather than string templating.
+- [x] **GL-BE-047**: For each UNDO event, the system shall log an UNDO line carrying the cell coordinates, the digit removed (v), the digit or empty value restored (prevV), and the undoneType of the reversed action, applying the same coordinate/digit validation as NUMBER.
 
 ## State Machine
 

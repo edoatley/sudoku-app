@@ -38,6 +38,7 @@
 - [x] **FE-BE-022**: The system shall include the buffered puzzle-play events as the events field of the PATCH /api/v1/games/{gameId} autosave payload, and shall clear the buffer only after the PATCH succeeds, retaining the events for the next sync if it fails.
 - [x] **FE-BE-023**: When the puzzle-play event buffer exceeds 500 entries, the system shall drop the oldest entries and mark the batch as truncated.
 - [x] **FE-BE-024**: The system shall reset the puzzle-play event buffer when a new game starts and when the current game is finished, so buffered events are never sent on a PATCH for a different game.
+- [x] **FE-BE-025**: When the player undoes a normal-mode digit placement, the system shall append an UNDO puzzle-play event carrying the cell coordinates, the digit removed, the digit (or empty) restored, and undoneType "NUMBER"; undoing a candidate-mode toggle or a "fill candidates" bulk action shall not be buffered, matching the buffering rule for those actions in FE-BE-020.
 
 ## Timer & Pause
 

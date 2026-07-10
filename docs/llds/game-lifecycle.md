@@ -238,6 +238,7 @@ for the game write), so it is trustworthy, not client-asserted.
 | `NUMBER_CLEAR` | client action | `r`, `c`, `clientTs` |
 | `HINT_REQUEST` | client action | `cid`, `clientTs`, `minRank?`, `excludedRanks?` |
 | `HINT_RESPONSE` | client action | `cid`, `clientTs`, `techniqueName`, `strategyRank`, `difficulty`, `found` |
+| `UNDO` | client action | `r`, `c`, `v` (digit removed), `prevV` (digit or 0 restored), `undoneType`, `clientTs` |
 
 For each buffered `NUMBER`, the server emits **two** lines: the raw `NUMBER` action,
 then a `NUMBER_RESULT` whose `correct = (solutionGrid[r][c] == v)`. Correctness is
@@ -245,6 +246,13 @@ computed server-side against the stored solution — authoritative, and never sh
 the player (the game does not reveal move correctness during play). Splitting into two
 lines keeps the player's action stream (`NUMBER`) distinct from the server's verdict
 and keeps per-type counting clean for the `download-puzzle-logs.sh` summary.
+
+**`UNDO`** is buffered only for undoing a normal-mode digit placement (`undoneType:
+"NUMBER"`) — candidate-mode toggles and the "fill candidates" bulk action are never
+buffered in the first place (see React Frontend LLD), so undoing them is not logged
+either. `v` is the digit removed from the cell and `prevV` is what was restored (0 for
+an empty cell), mirroring the semantics of `NUMBER`/`NUMBER_CLEAR` rather than
+introducing a new value convention.
 
 **Robustness.** `r`, `c`, and `v` are client-supplied and untrusted. An event with an
 unknown `type`, missing required fields, or out-of-range coordinates/digit is logged at
