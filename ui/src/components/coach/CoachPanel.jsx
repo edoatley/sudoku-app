@@ -9,6 +9,8 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import Tooltip from '@mui/material/Tooltip';
 import CoachMessage from './CoachMessage.jsx';
 
 const QUICK_REPLIES = ["I'm stuck", 'Tell me more', 'Why does that work?'];
@@ -67,9 +69,14 @@ export default function CoachPanel({
         <Typography variant="subtitle2" sx={{ flexGrow: 1, color: 'white' }}>
           Sudoku Coach
         </Typography>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
-          {tokensUsed.toLocaleString()} / {monthlyTokenLimit.toLocaleString()}
-        </Typography>
+        <Tooltip title="AI tokens used this month">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+            <MonetizationOnIcon sx={{ fontSize: 16, color: 'rgba(255,215,0,0.9)' }} />
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap' }}>
+              {tokensUsed.toLocaleString()} / {monthlyTokenLimit.toLocaleString()}
+            </Typography>
+          </Box>
+        </Tooltip>
         <IconButton size="small" onClick={onClose} sx={{ color: 'white' }}>
           <CloseIcon fontSize="small" />
         </IconButton>

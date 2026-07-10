@@ -102,7 +102,9 @@ monthly token counter only when `tokensUsed > 0`.
 6. result = bedrockCoachClient.call(userMessage, hint, history, board)
    // Single Bedrock call; falls back to hint.nudge() on failure (tokensUsed = 0 on fallback)
 
-7. return CoachResult.Response(CoachResponse(result.reply, hint, result.revealHint), result.tokensUsed)
+7. return CoachResult.Response(CoachResponse(result.reply, hint, result.revealHint, 0), result.tokensUsed)
+   // tokensUsedThisMonth is a placeholder here — CoachResource rebuilds the record with the
+   // real cumulative total before returning to the client (see CoachResponse below)
 ```
 
 ### `BoardFormatter` (new utility)
@@ -300,7 +302,8 @@ public record ChatMessage(
 public record CoachResponse(
     String aiMessage,
     HintResponse hint,
-    boolean revealHint
+    boolean revealHint,
+    long tokensUsedThisMonth
 ) {}
 ```
 
@@ -309,6 +312,7 @@ public record CoachResponse(
 | `aiMessage` | `String` | Coaching prose from LLM (or fallback nudge text) |
 | `hint` | `HintResponse` | Full deterministic hint — unchanged existing DTO |
 | `revealHint` | `boolean` | Frontend uses this to control whether to show `hint.reveal`, `solvedCells`, `eliminatedCandidates` |
+| `tokensUsedThisMonth` | `long` | Player's cumulative monthly token count *after* this call. The domain layer (`SudokuCoachServiceImpl`) always passes 0; `CoachResource` rebuilds the record with the real total once it has computed the post-increment value, so the frontend can update its counter from the response instead of refetching the player profile (→ SC-RL-010). |
 
 `HintResponse` is returned in full. The frontend decides which fields to show based on
 `revealHint` and its own conversation state. The backend never partially populates it.

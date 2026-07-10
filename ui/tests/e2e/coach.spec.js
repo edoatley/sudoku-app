@@ -112,6 +112,21 @@ test('coach — closing panel hides it and FAB shows Open label', async ({ page 
   await expect(page.getByRole('button', { name: 'Open coach' })).toBeVisible();
 });
 
+test('coach — token counter updates from the coach response after a message is sent', async ({ page }) => {
+  await setupGameRoutes(page);
+  await page.route('**/ai/coach', (route) => route.fulfill({ json: { ...COACH_RESPONSE, tokensUsedThisMonth: 4242 } }));
+  await page.goto('/');
+  await waitForGrid(page);
+
+  await page.getByRole('button', { name: 'Open coach' }).click();
+  await expect(page.getByTestId('coach-panel')).toContainText('0 / 100,000');
+
+  await page.getByPlaceholder('Ask your coach…').fill("I'm stuck on row 1");
+  await page.getByPlaceholder('Ask your coach…').press('Enter');
+
+  await expect(page.getByTestId('coach-panel')).toContainText('4,242 / 100,000');
+});
+
 test('coach — coach response with hint highlights cells on the board', async ({ page }) => {
   await setupGameRoutes(page);
   await page.route('**/ai/coach', (route) => route.fulfill({ json: COACH_RESPONSE_WITH_HINT }));

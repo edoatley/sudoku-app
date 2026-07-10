@@ -40,7 +40,7 @@
 
 ## Coach Response (Backend)
 
-- [x] **SC-API-010**: The system shall return a `CoachResponse` containing `aiMessage`, the full `HintResponse` from the deterministic engine, and a `revealHint` boolean.
+- [x] **SC-API-010**: The system shall return a `CoachResponse` containing `aiMessage`, the full `HintResponse` from the deterministic engine, a `revealHint` boolean, and `tokensUsedThisMonth` — the player's cumulative monthly token count after this call.
 - [x] **SC-API-011**: The system shall always return the `HintResponse` fully populated regardless of `revealHint`; the frontend controls which fields to display.
 - [x] **SC-API-012**: The system shall set `revealHint: true` only when the LLM's response explicitly states a specific cell coordinate and digit value as the solution.
 
@@ -105,4 +105,5 @@
 - [x] **SC-RL-006**: `GET /players/me` shall return `aiCoachEnabled` (boolean) and `coachTokensUsedThisMonth` (number) in the player profile response; `PATCH /players/me` shall accept `aiCoachEnabled` as an optional boolean field.
 - [x] **SC-RL-007**: The ProfileView shall display an AI Coach toggle switch and a read-only token usage counter showing tokens used vs the monthly limit.
 - [x] **SC-RL-008**: The CoachWidget FAB shall not be rendered when `playerProfile.aiCoachEnabled` is `false`.
-- [x] **SC-RL-009**: The CoachPanel header shall display the current token usage and monthly limit in white text on the dark header background.
+- [x] **SC-RL-009**: The CoachPanel header shall display the current token usage and monthly limit in white text on the dark header background, alongside a coin icon so the counted unit is legible without a tooltip.
+- [x] **SC-RL-010**: The system shall update the CoachPanel's displayed token usage from `tokensUsedThisMonth` on each successful coach response, so the counter reflects the current session's usage without requiring a profile refetch.
