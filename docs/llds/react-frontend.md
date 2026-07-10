@@ -99,41 +99,33 @@ The main game hook — owns the complete game loop. Internally composed of three
 
 #### Puzzle-Play Event Buffer
 
-To give backend observability into what the player does during a game (for coach
-tuning — see `docs/llds/game-lifecycle.md` Puzzle-Play Event Logging), the game hook
-records player actions into an in-memory buffer and flushes them with the existing
-backend sync. The buffer is observability-only: it never affects gameplay, grids, or
-rendering, and losing it (hard crash before a flush) degrades gracefully to missing
-log lines.
-
-Actions recorded (each with a `clientTs` of `Date.now()`):
+`useEventLog` buffers player actions in memory and `useGameSync` flushes them as the `events`
+field of the existing `PATCH /api/v1/games/{gameId}` autosave. The buffer is observability-only:
+it never affects gameplay, grids, or rendering, and losing it (hard crash before a flush)
+degrades gracefully to missing log lines. **Full event-field catalogue and the `pid`/`cid`
+correlation model are documented centrally in `docs/llds/observability.md`** — this section
+covers only this component's part: which producer method pushes which event, and the buffer's
+lifecycle.
 
 | Producer method | Event pushed |
 | --- | --- |
-| `writeCellValue` (normal-mode digit) | `NUMBER` `{r, c, v}` |
-| `clearCell` | `NUMBER_CLEAR` `{r, c}` |
-| `requestHint` / `requestAlternateHint` | `HINT_REQUEST` (with a freshly generated `cid`, plus `minRank`/`excludedRanks`) on call, then `HINT_RESPONSE` `{cid, techniqueName, strategyRank, difficulty, found}` when the hint resolves |
+| `writeCellValue` (normal-mode digit) | `NUMBER` |
+| `clearCell` | `NUMBER_CLEAR` |
+| `requestHint` / `requestAlternateHint` | `HINT_REQUEST` (fresh `cid`) on call, then `HINT_RESPONSE` (same `cid`) when the hint resolves |
 
-`HINT_RESPONSE` is recorded on every resolution: `found: true` with technique/rank
-when a hint comes back, `found: false` (technique/rank null) when the engine has no
-applicable strategy. A transport error records **no** `HINT_RESPONSE` — the dangling
-`HINT_REQUEST` (its `cid` never paired) is itself the signal that a hint failed.
 `advanceHint` (nudge→focus→reveal stage cycling) is not a new request and logs nothing.
+Candidate-mode toggles are not buffered (they are not placements).
 
-The buffer is capped (500 entries, drop-oldest); on overflow it sets a `truncated`
-flag so the server can emit an `EVENTS_TRUNCATED` marker. `useGameSync` includes the
-current buffer as the `events` field of the `PATCH /api/v1/games/{gameId}` payload,
-then clears it **only after** the PATCH succeeds — on failure the buffer is retained
-so events are re-sent on the next sync rather than lost. Candidate-mode toggles are
-not logged (they are not placements). `pid` is implicit: the PATCH is per-`gameId`.
+The buffer is capped (500 entries, drop-oldest, `EVENTS_TRUNCATED` marker on overflow) and
+cleared only after the PATCH succeeds — on failure it is retained and re-sent on the next sync.
+It is **per-game**: reset when a new game starts and when the current game is finished, so
+events never attach to the wrong `gameId`. The completion sync flushes any pending events
+(including the puzzle-solving final placement) before game state is cleared. Demo/practice
+games (`loadDemoGame`) have no persisted `gameId` and never sync, so their actions are not
+logged. Logging is at-least-once: a retry after an ambiguous PATCH failure may re-send buffered
+events, so duplicate log lines are possible.
 
-The buffer is **per-game**: it is reset when a new game starts and when the current
-game is finished, so events never attach to the wrong `gameId`. The completion sync
-flushes any pending events (including the puzzle-solving final placement) before game
-state is cleared. Demo/practice games (`loadDemoGame`) have no persisted `gameId` and
-never sync, so their actions are not logged — an accepted boundary, since observability
-targets real saved puzzle play. Logging is at-least-once: a retry after an ambiguous
-PATCH failure may re-send buffered events, so duplicate log lines are possible.
+Spec: `docs/specs/react-frontend-specs.md` — `FE-BE-020..024`.
 
 ### `usePlayerProfile(user, { onForbidden })`
 

@@ -2,7 +2,8 @@
 
 Structured logs that capture what a player does around the AI coach, so coaching quality
 can be reviewed against the actual play session. Companion to `docs/tests/ai-coach.md`
-(which covers the `COACH_*` lines). Design: `docs/llds/game-lifecycle.md`
+(which covers the `COACH_*` lines). Full field catalogue and correlation model:
+`docs/llds/observability.md`. Component wiring: `docs/llds/game-lifecycle.md`
 (Puzzle-Play Event Logging) and `docs/llds/react-frontend.md` (Puzzle-Play Event Buffer).
 
 ## Correlation
