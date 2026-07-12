@@ -46,7 +46,15 @@ function renderStep(step) {
       );
     case 'ask': {
       const fb = result.logPair?.response?.fallback;
-      const fbNote = fb === undefined ? '(no log pair matched)' : fb ? '**FALLBACK**' : 'real reply';
+      const fbNote = result.logPair?.skipped
+        ? `(${result.logPair.skipped})`
+        : result.logPair?.error
+          ? `(${result.logPair.error})`
+          : fb === undefined
+            ? '(no log pair matched)'
+            : fb
+              ? '**FALLBACK**'
+              : 'real reply';
       return (
         `- **User:** ${action.text}\n` +
         `  - **AI** (${fbNote}, revealHint=${result.apiResponse?.revealHint ?? 'n/a'}): ${result.apiResponse?.aiMessage ?? '(204 — puzzle solved)'}`
@@ -88,6 +96,10 @@ function renderMarkdown(trace) {
     lines.push('```');
     lines.push(gridToLines(trace.finalGameState.currentGrid.rows));
     lines.push('```');
+    lines.push('');
+  } else if (trace.finalGameStateError) {
+    lines.push('## Final board (from GET /games/{id})');
+    lines.push(`_Could not fetch final game state: ${trace.finalGameStateError}_`);
     lines.push('');
   }
   lines.push('## Evidence — full structured log stream for this game (pid)');

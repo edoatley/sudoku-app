@@ -12,9 +12,10 @@
  *
  * Coach-turn correlation: the backend generates a `cid` per coach turn but never returns it
  * to the caller, so a turn can't be matched by id. Instead, COACH_REQUEST/COACH_RESPONSE lines
- * sharing a `pid` are paired in the order they appear in the log, and the Nth pair for a game
- * corresponds to the Nth `ask` action run against it — valid because the runner executes one
- * scenario's actions strictly serially.
+ * sharing a `pid` are paired FIFO (oldest outstanding request first), and the Nth pair for a
+ * game corresponds to the Nth `ask` action that actually invoked Bedrock (204/puzzle-solved
+ * turns never produce a pair and don't consume a turn index — see runner.js) — valid because
+ * the runner executes one scenario's actions strictly serially.
  */
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
@@ -25,8 +26,11 @@ const COMPOSE_ARGS = ['compose', '-f', 'docker-compose.test.yml', '-f', 'docker-
 
 const COACH_TYPES = new Set(['COACH_REQUEST', 'COACH_RESPONSE']);
 
-function fetchLogLines() {
-  const raw = execFileSync('docker', [...COMPOSE_ARGS, 'logs', 'backend', '--no-color'], {
+// @spec CQ-LOG-002
+function fetchLogLines(since) {
+  const args = [...COMPOSE_ARGS, 'logs', 'backend', '--no-color'];
+  if (since) args.push('--since', since);
+  const raw = execFileSync('docker', args, {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
@@ -47,22 +51,28 @@ function fetchLogLines() {
   return lines;
 }
 
-/** Every structured log line for one game (pid), in chronological order. */
-export function logsForGame(pid) {
-  return fetchLogLines().filter((e) => e.pid === pid);
+/**
+ * Every structured log line for one game (pid), in chronological order.
+ * @param {string} pid gameId
+ * @param {string} [since] RFC3339 timestamp — bounds the `docker compose logs` read to lines
+ *   emitted at or after this point (typically a scenario's `startedAt`) instead of scanning
+ *   the backend container's entire log history on every call.
+ */
+export function logsForGame(pid, since) {
+  return fetchLogLines(since).filter((e) => e.pid === pid);
 }
 
+// @spec CQ-LOG-001
 /** Chronologically-ordered COACH_REQUEST/COACH_RESPONSE pairs for one game (pid). */
-function coachPairsForGame(pid) {
-  const events = logsForGame(pid).filter((e) => COACH_TYPES.has(e.type));
+function coachPairsForGame(pid, since) {
+  const events = logsForGame(pid, since).filter((e) => COACH_TYPES.has(e.type));
   const pairs = [];
-  let pendingRequest = null;
+  const pendingRequests = [];
   for (const event of events) {
     if (event.type === 'COACH_REQUEST') {
-      pendingRequest = event;
-    } else if (event.type === 'COACH_RESPONSE' && pendingRequest) {
-      pairs.push({ request: pendingRequest, response: event });
-      pendingRequest = null;
+      pendingRequests.push(event);
+    } else if (event.type === 'COACH_RESPONSE' && pendingRequests.length > 0) {
+      pairs.push({ request: pendingRequests.shift(), response: event });
     }
   }
   return pairs;
@@ -77,12 +87,12 @@ function coachPairsForGame(pid) {
  *
  * @param {string} pid gameId
  * @param {number} turnIndex 0-based index of the coach turn within the scenario
- * @param {{timeoutMs?: number, pollIntervalMs?: number}} [opts]
+ * @param {{timeoutMs?: number, pollIntervalMs?: number, since?: string}} [opts]
  */
-export async function waitForCoachPair(pid, turnIndex, { timeoutMs = 15_000, pollIntervalMs = 500 } = {}) {
+export async function waitForCoachPair(pid, turnIndex, { timeoutMs = 15_000, pollIntervalMs = 500, since } = {}) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    const pairs = coachPairsForGame(pid);
+    const pairs = coachPairsForGame(pid, since);
     if (pairs.length > turnIndex) {
       return pairs[turnIndex];
     }

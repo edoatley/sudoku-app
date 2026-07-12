@@ -15,7 +15,7 @@
  */
 import { createApiClient } from './apiClient.js';
 import { waitForCoachPair, logsForGame } from './dockerLogs.js';
-import { isBoardValid } from './dynamo.js';
+import { isBoardValid } from './boardValidity.js';
 import { writeReport } from './report.js';
 
 function cloneGrid(grid) {
@@ -26,6 +26,15 @@ function newCid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+// @spec CQ-RUN-002
+// When waitForCoachPair couldn't produce a pair (204/no Bedrock call, or a real timeout),
+// surface that reason explicitly instead of letting assertions silently compare `undefined`.
+function logPairIssue(logPair) {
+  if (logPair?.error) return `waitForCoachPair failed: ${logPair.error}`;
+  if (logPair?.skipped) return logPair.skipped;
+  return null;
+}
+
 async function evaluateAssertion(action, ctx) {
   switch (action.kind) {
     case 'boardValid': {
@@ -34,6 +43,8 @@ async function evaluateAssertion(action, ctx) {
       return { pass: actual === action.expected, expected: action.expected, actual };
     }
     case 'coachFallback': {
+      const issue = logPairIssue(ctx.lastCoachStep?.logPair);
+      if (issue) return { pass: false, expected: action.expected, actual: `<${issue}>` };
       const actual = ctx.lastCoachStep?.logPair?.response?.fallback;
       return { pass: actual === action.expected, expected: action.expected, actual };
     }
@@ -60,6 +71,8 @@ async function evaluateAssertion(action, ctx) {
       // (no static `expected` needed) — the hint engine's own choice of technique vs. the
       // technique the coach call's CONTEXT NOTES were built from for the same board.
       const hintTechnique = ctx.lastHintResult?.status === 'found' ? ctx.lastHintResult.hint.techniqueName : null;
+      const issue = logPairIssue(ctx.lastCoachStep?.logPair);
+      if (issue) return { pass: false, expected: hintTechnique, actual: `<${issue}>` };
       const coachTechnique = ctx.lastCoachStep?.logPair?.request?.technique ?? null;
       return {
         pass: hintTechnique != null && hintTechnique === coachTechnique,
@@ -188,12 +201,22 @@ export async function runScenario(scenario) {
           if (apiResponse.body) {
             coachHistory.push({ role: 'assistant', content: apiResponse.body.aiMessage });
           }
-          const turnIndex = coachTurnCount++;
+          // @spec CQ-RUN-001
           let logPair;
-          try {
-            logPair = await waitForCoachPair(gameId, turnIndex);
-          } catch (err) {
-            logPair = { error: err.message };
+          if (apiResponse.status === 204) {
+            // Puzzle already solved — the backend returns 204 without ever calling Bedrock
+            // (SudokuCoachServiceImpl's PuzzleSolved branch), so no COACH_REQUEST/COACH_RESPONSE
+            // pair will ever appear for this turn. Don't wait for one, and don't consume a
+            // turn index — coachPairsForGame only contains pairs from turns that actually
+            // reached Bedrock, so incrementing here would desync every later `ask` in the scenario.
+            logPair = { skipped: 'puzzle already solved (204) — no Bedrock call was made' };
+          } else {
+            const turnIndex = coachTurnCount++;
+            try {
+              logPair = await waitForCoachPair(gameId, turnIndex, { since: startedAt });
+            } catch (err) {
+              logPair = { error: err.message };
+            }
           }
           result = { apiResponse: apiResponse.body, status: apiResponse.status, logPair };
           lastCoachStep = result;
@@ -229,10 +252,19 @@ export async function runScenario(scenario) {
     scenarioError = { message: err.message, stack: err.stack };
   }
 
+  // @spec CQ-RPT-001
   // Always fetch the persisted state and full log stream for the report, even if the
   // scenario never issued its own `sync` action or errored partway through.
-  const finalGameState = gameId ? await api.getGame(gameId).catch(() => null) : null;
-  const finalLogs = gameId ? logsForGame(gameId) : [];
+  let finalGameState = null;
+  let finalGameStateError = null;
+  if (gameId) {
+    try {
+      finalGameState = await api.getGame(gameId);
+    } catch (err) {
+      finalGameStateError = err.message;
+    }
+  }
+  const finalLogs = gameId ? logsForGame(gameId, startedAt) : [];
 
   const assertionSteps = steps.filter((s) => s.action.type === 'assert');
   const assertionSummary = {
@@ -252,6 +284,7 @@ export async function runScenario(scenario) {
     initialGrid: originalGrid,
     steps,
     finalGameState,
+    finalGameStateError,
     finalLogs,
     assertionSummary,
     error: scenarioError,

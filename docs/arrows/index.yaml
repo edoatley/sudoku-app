@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-07-10
+updated: 2026-07-12
 
 arrows:
   - id: api-error-handling
@@ -140,9 +140,14 @@ arrows:
   - id: testing-strategy
     status: OK
     lld: ~
-    specs: ~
+    specs: docs/specs/coach-quality-specs.md
     arrow: docs/arrows/testing-strategy.md
-    notes: Cross-cutting test pyramid — unit/integration/E2E, CI structure, environment variable rules
+    spec_count: 6
+    implemented: 6
+    deferred: 0
+    gaps: 0
+    next: ~
+    notes: Cross-cutting test pyramid — unit/integration/E2E, CI structure, environment variable rules. specs/spec_count cover only the Layer 2c coach-quality diagnostic runner; the rest of the arrow is process/architecture, not spec-tracked.
 
   - id: game-history
     status: OK
