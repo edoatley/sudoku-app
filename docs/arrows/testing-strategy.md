@@ -20,6 +20,8 @@ Cross-cutting test pyramid — unit, integration, and E2E layers across frontend
 - `ui/tests/e2e/` — frontend E2E tests (Playwright, mocked backend)
 - `ui/tests/integration/` — integration tests (Playwright, real backend)
 - `ui/playwright.integration.config.js`
+- `ui/tests/coach-quality/` — AI coach quality tests (Playwright, real backend + real Bedrock)
+- `ui/playwright.coach-quality.config.js`, `docker-compose.coach-quality.yml`, `scripts/local/coach-quality-test.sh`
 - `backend/src/test/java/com/sudoku/` — backend unit + API tests (JUnit 5, Rest-Assured)
 - `.github/actions/integration-tests/action.yml`
 
@@ -151,6 +153,59 @@ Do not duplicate edge-case scenarios from the mocked E2E layer. Keep to:
 - Click Check on valid partial board
 - Click Hint, dialog appears
 - Click Auto-Notes, candidates visible
+
+---
+
+## Layer 2c — AI Coach Quality Suite (opt-in, API-only diagnostic runner + real Bedrock)
+
+**Status: in place**
+
+### Purpose
+A diagnostic runner, not a conventional pass/fail test suite — it exists to replace the manual
+walkthroughs in `docs/tests/ai-coach.md` (play in a browser, download CloudWatch logs by hand)
+with a scripted scenario against the real backend, real DynamoDB Local, and real Bedrock, that
+writes out everything the system did (every request/response, every correlated structured log
+line) for manual analysis and to drive bug fixes. Assertions exist too, but the report is the
+primary deliverable — written whether or not they all pass.
+
+Deliberately **not** part of the CI gate or `local-alltests.sh`: real LLM calls are
+non-deterministic prose, cost real (small) tokens, and require AWS credentials with
+`bedrock:InvokeModel`. Run on demand when evaluating coach behaviour.
+
+### No browser
+Nothing here drives a UI. `POST /puzzles/hint` and `POST /ai/coach` both take the board
+directly in the request body — no persisted game state needed — and `PATCH /games/{id}`'s
+`events` field is untrusted, client-supplied observability data that `PuzzleEventLogger` logs
+verbatim regardless of where it came from. So scenarios construct
+`NUMBER`/`NUMBER_CLEAR`/`UNDO`/`HINT_REQUEST`/`HINT_RESPONSE` events directly and PATCH them
+in — no real UI interaction ever happens. `docker-compose.coach-quality.yml` forwards real AWS
+credentials into the `backend` container (keeping DynamoDB local) so coach replies are genuine,
+and `scripts/local/coach-quality-test.sh` never starts the `ui` container.
+
+### What it captures and asserts
+- The full trace of every action, request/response, and correlated structured log line,
+  written to `ui/tests/coach-quality/reports/` (JSON + human-readable Markdown) regardless of
+  outcome — see the README for the report contents.
+- `fallback` — read from the backend's structured log, since `CoachResponse` never returns
+  this field to the caller (see `backend/.../coach/web/CoachResponse.java`).
+- The hint engine's chosen technique cross-checked against the technique the coach's own
+  request context was built from, for the same board.
+- Board validity read back via `GET /games/{id}`, not just what was sent.
+
+### Location
+`ui/tests/coach-quality/` — scenarios as a starting grid + ordered action array
+(`scenarios/*.js`), interpreted by `lib/runner.js` and driven by the thin
+`coach-quality.spec.js` wrapper. Grids are seeded via the existing `POST /games/from-image`
+endpoint (real, persisted `gameId`) rather than the Layer 2b demo-grid loader, which
+intentionally never persists (`gameId: null`) and so can't be correlated against logs.
+
+See `ui/tests/coach-quality/README.md` for the full action/assertion reference and how to add
+a scenario.
+
+### Running
+```bash
+AWS_PROFILE=sandbox bash scripts/local/coach-quality-test.sh
+```
 
 ---
 
