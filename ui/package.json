@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:hint-demos": "playwright test tests/integration/hint-demos.spec.js --config playwright.integration.config.js",
-    "test:hint-demos:local": "playwright test tests/integration/hint-demos.spec.js --config playwright.hint-demos.local.config.js"
+    "test:hint-demos:local": "playwright test tests/integration/hint-demos.spec.js --config playwright.hint-demos.local.config.js",
+    "test:coach-quality": "playwright test --config playwright.coach-quality.config.js"
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.15.4",

@@ -1,5 +1,12 @@
 # AI Coach Manual Tests
 
+For repeatable regression scenarios, prefer the automated suite:
+`ui/tests/coach-quality/` (run via `AWS_PROFILE=sandbox bash scripts/local/coach-quality-test.sh`,
+see `docs/arrows/testing-strategy.md` § Layer 2c). It drives the same conversation flow
+described below against real Bedrock, and asserts against structured backend logs and the
+persisted DynamoDB game row. This doc remains useful for ad hoc/exploratory sessions and as
+a source of real, previously-validated puzzle grids for new scenarios.
+
 ## Attempt 1 - basic conversation
 
 **AI Coach conversation**

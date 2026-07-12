@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "files": {
-    "includes": ["**/*", "!dist", "!playwright-report", "!test-results", "!coverage", "!public"]
+    "includes": [
+      "**/*",
+      "!dist",
+      "!playwright-report",
+      "!test-results",
+      "!coverage",
+      "!public",
+      "!tests/coach-quality/reports"
+    ]
   },
   "formatter": {
     "enabled": true,

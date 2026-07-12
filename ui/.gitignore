@@ -15,6 +15,7 @@ playwright-report
 test-results
 coverage
 tests/integration/auth-state.json
+tests/coach-quality/reports
 
 # Editor directories and files
 .vscode/*
