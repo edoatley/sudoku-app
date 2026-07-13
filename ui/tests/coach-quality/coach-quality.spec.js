@@ -21,12 +21,20 @@ import naked_single_conversation from './scenarios/naked-single-conversation.js'
 import duplicate_digit_invalid_board from './scenarios/duplicate-digit-invalid-board.js';
 import stuck_single_turn from './scenarios/stuck-single-turn.js';
 import explicit_answer_request from './scenarios/explicit-answer-request.js';
+import off_topic_message from './scenarios/off-topic-message.js';
+import wrong_guess_acknowledgment from './scenarios/wrong-guess-acknowledgment.js';
+import deep_escalation_ladder from './scenarios/deep-escalation-ladder.js';
+import technique_explanation_ask from './scenarios/technique-explanation-ask.js';
 
 const SCENARIOS = [
   naked_single_conversation,
   duplicate_digit_invalid_board,
   stuck_single_turn,
   explicit_answer_request,
+  off_topic_message,
+  wrong_guess_acknowledgment,
+  deep_escalation_ladder,
+  technique_explanation_ask,
 ];
 
 for (const scenario of SCENARIOS) {

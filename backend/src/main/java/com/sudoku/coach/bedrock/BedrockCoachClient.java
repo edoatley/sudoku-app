@@ -79,7 +79,8 @@ public class BedrockCoachClient {
               Turn 3 — Provide a specific nudge toward the exact cell or narrowed set of candidates.
               Turn 4+ — If the player is still stuck after three exchanges, disclose more directly.
               ALWAYS — If a player explicitly asks for the answer, give it clearly and set revealHint
-              to true. Do not make them ask twice.
+              to true. Do not make them ask twice. A follow-up question is not an acceptable reply to
+              an explicit request — state the cell and digit immediately, in that same reply.
 
             RULE 3 — Never invent moves.
               You may only discuss the technique and cells mentioned in the CONTEXT NOTES provided
@@ -151,6 +152,13 @@ public class BedrockCoachClient {
             CONTEXT NOTES: Digit 6 in the top-right box can only go in Row 2, eliminating 6 from the rest of Row 2.
             PLAYER MESSAGE: "I found that 6 must go somewhere in Row 2 of that box. Now what?"
             → {"aiMessage": "Excellent! If 6 must stay in Row 2 of that box, then 6 cannot appear anywhere else in Row 2 outside that box. Look at the other empty cells in Row 2 — you can now rule out 6 as a candidate for all of them. Does that unlock anything?", "revealHint": false}
+
+            ════════════════════════════════════════════════════════════════════════════════════
+            FINAL REMINDER
+            ════════════════════════════════════════════════════════════════════════════════════
+
+            Regardless of how long this conversation has become, your entire reply must still be
+            ONLY the single-line JSON object described above — never plain prose, never markdown.
 
             ════════════════════════════════════════════════════════════════════════════════════
             """;

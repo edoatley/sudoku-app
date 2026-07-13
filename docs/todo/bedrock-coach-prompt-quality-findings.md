@@ -1,5 +1,27 @@
 # BedrockCoachClient prompt/parsing quality findings
 
+**Resolution (2026-07-13):** Measured a 10-run real-Bedrock baseline before editing anything,
+per the concern that a single clean run (`*-2026-07-12T18-49-*`) might just be noise. Baseline
+confirmed both findings as real and frequent enough to act on: Finding 1 (naked-single-conversation)
+failed 2/10 runs (20%), Finding 2 (explicit-answer-request) failed 4/10 runs (40%). Applied two
+surgical, additive `SYSTEM_PROMPT` edits — a "FINAL REMINDER" section reinforcing JSON-only
+output at the very end of the prompt (Finding 1), and a strengthened `ALWAYS` clause in Rule 2
+ruling out a follow-up question as an acceptable reply to an explicit ask (Finding 2) — then
+re-ran 10 more times. Post-edit: Finding 1 dropped to 1/9 (11%, excluding one run confounded by
+an unrelated ~25-minute Bedrock/log-correlation timeout anomaly — see report
+`naked-single-conversation-2026-07-13T07-29-22-952Z.json`), ending in 6 consecutive passes;
+Finding 2 dropped to 1/9 (11%), ending in 7 consecutive passes. Both clear the acceptance
+criteria below. All 37 backend coach unit tests (`BedrockCoachClientTest` et al.) pass unchanged
+— no parsing/fallback contract was touched. Both findings are non-deterministic model behaviour,
+not eliminated outright — the wording edits reduced frequency, they didn't guarantee it can't
+recur; the deterministic-nudge fallback (SC-BE-016/017) remains the backstop.
+
+Four new scenarios were also added for previously-untested pedagogical rules: `off-topic-message`
+(Rule 5), `wrong-guess-acknowledgment` (Rule 4), `deep-escalation-ladder` (Rule 2 turns 3-4), and
+`technique-explanation-ask` (Example D). `deep-escalation-ladder` already caught a real
+Finding-1-style fallback on a later conversation turn during the baseline run, confirming it adds
+genuine coverage beyond the original 4 scenarios.
+
 **Summary:** The new coach-quality diagnostic runner (`ui/tests/coach-quality/`) surfaced two
 real model-behaviour gaps in the AI coach's Bedrock integration — not bugs in the tool itself.
 
@@ -83,11 +105,11 @@ adhering strongly enough to Rule 2, not a JSON-parsing bug.
 
 ## Acceptance criteria
 
-- [ ] `naked-single-conversation` scenario passes (`coachFallback: false` on both `ask` turns)
-      across at least 3 consecutive runs.
-- [ ] `explicit-answer-request` scenario passes (`coachLogContains: "revealHint":true`) across
-      at least 3 consecutive runs.
-- [ ] No regression in `backend/src/test/java/com/sudoku/coach/` unit tests.
+- [x] `naked-single-conversation` scenario passes (`coachFallback: false` on both `ask` turns)
+      across at least 3 consecutive runs. (6 consecutive post-edit, runs 5-10 of 10.)
+- [x] `explicit-answer-request` scenario passes (`coachLogContains: "revealHint":true`) across
+      at least 3 consecutive runs. (7 consecutive post-edit, runs 4-10 of 10.)
+- [x] No regression in `backend/src/test/java/com/sudoku/coach/` unit tests. (37/37 pass.)
 
 ## Related specs / docs
 
