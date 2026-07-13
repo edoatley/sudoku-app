@@ -37,6 +37,7 @@
 - [x] **SC-BE-018**: When building the `COACH_REQUEST` or `COACH_RESPONSE` log line, the system shall serialize it as JSON via a JSON library rather than string templating, so that `userMessage` and `aiMessage` values containing quotes, newlines, or other characters requiring escaping still produce a valid, parseable JSON log line.
 - [x] **SC-BE-021**: When the Bedrock response cannot be parsed as the expected JSON schema or its `aiMessage` field is blank, the `COACH_RESPONSE` log line shall record `fallback: true` with a non-null `errorMsg` describing why, even though `bedrockRuntimeClient.invokeModel()` itself did not throw — this failure must not be logged identically to a genuine successful reply.
 - [x] **SC-BE-022**: Before parsing the Bedrock response text as JSON, the system shall extract the first top-level `{...}` object from the text rather than assuming the entire text is bare JSON, so a response wrapped in markdown code fences or surrounding prose does not needlessly trigger the fallback path.
+- [x] **SC-BE-023**: When `parseResponse()` falls back due to a blank `aiMessage` or a JSON-parse failure, the `COACH_RESPONSE` log line shall include the raw Bedrock response text (`rawResponseText`) that could not be parsed, so the failure can be diagnosed without reproducing it; on a genuine successful parse, `rawResponseText` shall be omitted from the log line entirely.
 
 ## Coach Response (Backend)
 

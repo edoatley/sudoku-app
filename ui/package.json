@@ -14,7 +14,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:hint-demos": "playwright test tests/integration/hint-demos.spec.js --config playwright.integration.config.js",
     "test:hint-demos:local": "playwright test tests/integration/hint-demos.spec.js --config playwright.hint-demos.local.config.js",
-    "test:coach-quality": "playwright test --config playwright.coach-quality.config.js"
+    "test:coach-quality": "playwright test --config playwright.coach-quality.config.js",
+    "test:coach-quality:aggregate": "node tests/coach-quality/lib/aggregate.js"
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.15.4",

@@ -43,6 +43,13 @@ services:
       AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
       AWS_REGION: "${AWS_REGION:-eu-west-2}"
       COACH_RATE_LIMIT_PER_MINUTE: "100"
+      # Bare key (no value): Compose passes this through from the host shell only when
+      # set there, and omits it from the container entirely otherwise. A literal ""
+      # default here would instead set the container's env var to an empty string,
+      # which application.properties's ${COACH_BEDROCK_MODEL_ID:default} expansion
+      # would treat as a present-but-empty override rather than falling back to the
+      # default model — breaking baseline (no-override) runs.
+      COACH_BEDROCK_MODEL_ID:
     depends_on:
       dynamodb-setup-coach-quality:
         condition: service_completed_successfully
