@@ -43,6 +43,12 @@ services:
       AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
       AWS_REGION: "${AWS_REGION:-eu-west-2}"
       COACH_RATE_LIMIT_PER_MINUTE: "100"
+      # Default is 100,000 (docs/specs SC-RL-002), consumed by ~1 real player per month.
+      # A single 8-scenario coach-quality suite run burns ~25,000 tokens, so the default
+      # exhausts partway through a 4-run session — this raises it well above what even a
+      # multi-model, many-repeat coach-quality-repeat.sh session would consume. Local/test
+      # only: this env var is never set in infra/lambda.tf, so production keeps the default.
+      COACH_MONTHLY_TOKEN_LIMIT: "2000000"
       # Bare key (no value): Compose passes this through from the host shell only when
       # set there, and omits it from the container entirely otherwise. A literal ""
       # default here would instead set the container's env var to an empty string,
