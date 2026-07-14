@@ -14,6 +14,13 @@
 # measured here, not a reason to abort the remaining runs, so failures are tolerated in the
 # loop and only reflected in the final summary.
 #
+# The Bedrock Haiku 4.5 cross-region inference profile is capped at 10 requests/minute for
+# this account (checked via `aws service-quotas list-service-quotas --service-code bedrock`)
+# — one full 8-scenario suite run already fires ~11 requests, so back-to-back runs with no
+# gap throttle almost immediately (ThrottlingException fallbacks that have nothing to do with
+# coach prompt/JSON quality). SLEEP_BETWEEN_RUNS pauses between iterations so the per-minute
+# window drains before the next run's burst starts.
+#
 # Usage:
 #   AWS_PROFILE=sandbox bash scripts/local/coach-quality-repeat.sh
 #   AWS_PROFILE=sandbox RUNS=10 LABEL=haiku-4-5-baseline bash scripts/local/coach-quality-repeat.sh
@@ -28,6 +35,7 @@ SERVICES=(dynamodb-local dynamodb-setup dynamodb-setup-coach-quality backend)
 REPORTS_DIR="${REPO_ROOT}/ui/tests/coach-quality/reports"
 
 RUNS="${RUNS:-10}"
+SLEEP_BETWEEN_RUNS="${SLEEP_BETWEEN_RUNS:-90}"
 LABEL="${LABEL:-repeat-$(date -u +%Y-%m-%dT%H-%M-%SZ)}"
 LABEL_DIR="${REPORTS_DIR}/${LABEL}"
 
@@ -72,6 +80,10 @@ for i in $(seq 1 "${RUNS}"); do
   if ! (cd "${REPO_ROOT}/ui" && CI=true npm run test:coach-quality); then
     FAILED_RUNS=$((FAILED_RUNS + 1))
     echo "Run ${i} had scenario failures — continuing (still counted in the summary)."
+  fi
+  if [[ "${i}" -lt "${RUNS}" ]]; then
+    echo "Sleeping ${SLEEP_BETWEEN_RUNS}s before the next run (staying under Bedrock's per-minute request quota)..."
+    sleep "${SLEEP_BETWEEN_RUNS}"
   fi
 done
 
