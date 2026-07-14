@@ -25,6 +25,9 @@ export function useHintSystem({
         strategyRank: hint?.strategyRank ?? null,
         difficulty: hint?.difficulty ?? null,
         found: !!hint,
+        nudge: hint?.nudge ?? null,
+        focus: hint?.focus ?? null,
+        reveal: hint?.reveal ?? null,
       });
     },
     [recordEvent]

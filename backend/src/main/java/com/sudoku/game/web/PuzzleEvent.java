@@ -17,6 +17,9 @@ import java.util.List;
  * <p>For {@code UNDO}, {@code v} is the digit removed from the cell and {@code prevV} is the
  * digit (or 0 for empty) restored in its place; {@code undoneType} names the original action
  * being reversed (currently always {@code NUMBER} — candidate-mode actions are never buffered).
+ *
+ * <p>For {@code HINT_RESPONSE}, {@code nudge}/{@code focus}/{@code reveal} are the three
+ * escalating explanation levels from the hint engine's result, null when {@code found} is false.
  */
 public record PuzzleEvent(
         String type,
@@ -32,5 +35,8 @@ public record PuzzleEvent(
         Integer minRank,
         List<Integer> excludedRanks,
         Integer prevV,
-        String undoneType
+        String undoneType,
+        String nudge,
+        String focus,
+        String reveal
 ) {}

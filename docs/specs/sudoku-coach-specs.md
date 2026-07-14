@@ -11,7 +11,7 @@
 
 - [x] **SC-BE-001**: When a coaching request is received, the system shall call the existing hint engine on the submitted board before making any call to Bedrock.
 - [x] **SC-BE-002**: When the hint engine finds no applicable strategy because the board is already solved, the system shall return 204 without calling Bedrock.
-- [x] **SC-BE-003**: When the hint engine returns a result, the system shall extract the technique name and relevant cells from that result and include them as context in the Bedrock prompt.
+- [x] **SC-BE-003**: When the hint engine returns a result, the system shall include the technique name and all three escalating explanation levels (`nudge`, `focus`, `reveal`) from that result as labeled context in the Bedrock prompt.
 - [x] **SC-BE-004**: The system shall format the board as a human-readable row-by-row string with box separators before injecting it into the Bedrock prompt, and shall not use `Arrays.deepToString` or any equivalent dense array format.
 
 ## Coordination and Content Logging (Backend)
@@ -38,6 +38,7 @@
 - [x] **SC-BE-021**: When the Bedrock response cannot be parsed as the expected JSON schema or its `aiMessage` field is blank, the `COACH_RESPONSE` log line shall record `fallback: true` with a non-null `errorMsg` describing why, even though `bedrockRuntimeClient.invokeModel()` itself did not throw — this failure must not be logged identically to a genuine successful reply.
 - [x] **SC-BE-022**: Before parsing the Bedrock response text as JSON, the system shall extract the first top-level `{...}` object from the text rather than assuming the entire text is bare JSON, so a response wrapped in markdown code fences or surrounding prose does not needlessly trigger the fallback path.
 - [x] **SC-BE-023**: When `parseResponse()` falls back due to a blank `aiMessage` or a JSON-parse failure, the `COACH_RESPONSE` log line shall include the raw Bedrock response text (`rawResponseText`) that could not be parsed, so the failure can be diagnosed without reproducing it; on a genuine successful parse, `rawResponseText` shall be omitted from the log line entirely.
+- [x] **SC-BE-024**: The system shall include a turn number derived from the trimmed conversation history's length, and a corresponding suggested escalation level (NUDGE, FOCUS, or REVEAL), in the Bedrock context block, without hard-restricting which of the three notes the LLM may draw upon in its response — an explicit request for the answer may still draw on the REVEAL note regardless of turn number.
 
 ## Coach Response (Backend)
 

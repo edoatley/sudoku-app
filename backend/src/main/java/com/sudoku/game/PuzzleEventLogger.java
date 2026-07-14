@@ -131,6 +131,15 @@ public class PuzzleEventLogger {
                 if (event.found() != null) {
                     node.put("found", event.found());
                 }
+                if (event.nudge() != null) {
+                    node.put("nudge", event.nudge());
+                }
+                if (event.focus() != null) {
+                    node.put("focus", event.focus());
+                }
+                if (event.reveal() != null) {
+                    node.put("reveal", event.reveal());
+                }
                 emit(lines, node);
             }
             case "UNDO" -> {

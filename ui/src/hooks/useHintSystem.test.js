@@ -39,7 +39,14 @@ describe('useHintSystem event logging', () => {
 
   it('records a HINT_REQUEST and HINT_RESPONSE sharing a cid, found=true when a hint returns', async () => {
     // @spec FE-BE-021
-    getHint.mockResolvedValue({ techniqueName: 'Naked Single', strategyRank: 1, difficulty: 'easy' });
+    getHint.mockResolvedValue({
+      techniqueName: 'Naked Single',
+      strategyRank: 1,
+      difficulty: 'easy',
+      nudge: 'A cell has been reduced to exactly one possible candidate.',
+      focus: 'Row 1, Column 3 has had every other digit eliminated.',
+      reveal: 'Row 1, Column 3 must be 4.',
+    });
     const recordEvent = vi.fn();
     const { result } = setup(recordEvent);
 
@@ -52,6 +59,9 @@ describe('useHintSystem event logging', () => {
     expect(req.cid).toBe(resp.cid);
     expect(resp.found).toBe(true);
     expect(resp.techniqueName).toBe('Naked Single');
+    expect(resp.nudge).toBe('A cell has been reduced to exactly one possible candidate.');
+    expect(resp.focus).toBe('Row 1, Column 3 has had every other digit eliminated.');
+    expect(resp.reveal).toBe('Row 1, Column 3 must be 4.');
   });
 
   it('records HINT_RESPONSE with found=false when no strategy applies', async () => {
@@ -67,6 +77,9 @@ describe('useHintSystem event logging', () => {
     const resp = recordEvent.mock.calls.find((c) => c[0].type === 'HINT_RESPONSE')[0];
     expect(resp.found).toBe(false);
     expect(resp.techniqueName).toBeNull();
+    expect(resp.nudge).toBeNull();
+    expect(resp.focus).toBeNull();
+    expect(resp.reveal).toBeNull();
   });
 
   it('records no HINT_RESPONSE when the hint request errors', async () => {
