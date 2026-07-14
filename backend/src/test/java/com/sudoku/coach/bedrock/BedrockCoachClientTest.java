@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022
+// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022, SC-BE-023
 @QuarkusTest
 class BedrockCoachClientTest {
 
@@ -137,6 +137,18 @@ class BedrockCoachClientTest {
     }
 
     @Test
+    void parseResponse_capturesRawResponseText_whenTextIsNotJson() {
+        // @spec SC-BE-023 — raw model text preserved for diagnosis when it isn't parseable at all
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"This is not JSON at all"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertEquals("This is not JSON at all", parsed.rawResponseText());
+    }
+
+    @Test
     void parseResponse_setsFallbackReason_whenAiMessageBlank() {
         // @spec SC-BE-021
         InvokeModelResponse response = invokeModelResponse("""
@@ -149,6 +161,18 @@ class BedrockCoachClientTest {
     }
 
     @Test
+    void parseResponse_capturesRawResponseText_whenAiMessageBlank() {
+        // @spec SC-BE-023
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"\\",\\"revealHint\\":false}"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertEquals("{\"aiMessage\":\"\",\"revealHint\":false}", parsed.rawResponseText());
+    }
+
+    @Test
     void parseResponse_fallbackReasonIsNull_onGenuineSuccess() {
         InvokeModelResponse response = invokeModelResponse("""
                 {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Great!\\",\\"revealHint\\":false}"}]}
@@ -157,6 +181,18 @@ class BedrockCoachClientTest {
         BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
 
         assertNull(parsed.fallbackReason());
+    }
+
+    @Test
+    void parseResponse_rawResponseTextIsNull_onGenuineSuccess() {
+        // @spec SC-BE-023 — aiMessage already carries the useful content on success; no duplication
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Great!\\",\\"revealHint\\":false}"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertNull(parsed.rawResponseText());
     }
 
     @Test
@@ -242,7 +278,7 @@ class BedrockCoachClientTest {
         // @spec SC-BE-008
         BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great question! Let's look at Row 1.", false);
         String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
-                UUID.randomUUID().toString(), reply, 100, 50, 0, 0, 250L, false, null, null);
+                UUID.randomUUID().toString(), reply, 100, 50, 0, 0, 250L, false, null, null, null);
 
         JsonNode node = objectMapper.readTree(logLine);
         assertEquals("COACH_RESPONSE", node.path("type").asText());
@@ -256,11 +292,35 @@ class BedrockCoachClientTest {
         BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false);
         String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 UUID.randomUUID().toString(), fallbackReply, 0, 0, 0, 0, 6000L, true,
-                "SdkClientException", "connection refused");
+                "SdkClientException", "connection refused", null);
 
         JsonNode node = objectMapper.readTree(logLine);
         assertEquals(HINT.nudge(), node.path("aiMessage").asText());
         assertTrue(node.path("fallback").asBoolean());
+    }
+
+    @Test
+    void buildResponseLogLine_includesRawResponseText_whenPresent() throws Exception {
+        // @spec SC-BE-023
+        BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false);
+        String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
+                UUID.randomUUID().toString(), fallbackReply, 0, 0, 0, 0, 250L, true,
+                "ResponseParseFailure", "parse failure: JsonParseException: Unrecognized token 'I'",
+                "I think you should look at Row 3.");
+
+        JsonNode node = objectMapper.readTree(logLine);
+        assertEquals("I think you should look at Row 3.", node.path("rawResponseText").asText());
+    }
+
+    @Test
+    void buildResponseLogLine_omitsRawResponseText_whenNull() throws Exception {
+        // @spec SC-BE-023 — no log bloat on a genuine successful reply
+        BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great!", false);
+        String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
+                UUID.randomUUID().toString(), reply, 100, 50, 0, 0, 250L, false, null, null, null);
+
+        JsonNode node = objectMapper.readTree(logLine);
+        assertTrue(node.path("rawResponseText").isMissingNode());
     }
 
     @Test
@@ -269,7 +329,7 @@ class BedrockCoachClientTest {
         String cid = UUID.randomUUID().toString();
         String requestLine = bedrockCoachClient.buildRequestLogLine("game-42", cid, 1000L, "Help", HINT, List.of(), board());
         String responseLine = bedrockCoachClient.buildResponseLogLine(
-                "game-42", cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null);
+                "game-42", cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null, null);
 
         assertEquals("game-42", objectMapper.readTree(requestLine).path("pid").asText());
         assertEquals("game-42", objectMapper.readTree(responseLine).path("pid").asText());
@@ -281,7 +341,7 @@ class BedrockCoachClientTest {
         String cid = UUID.randomUUID().toString();
         String requestLine = bedrockCoachClient.buildRequestLogLine("game-1", cid, 1000L, "Help", HINT, List.of(), board());
         String responseLine = bedrockCoachClient.buildResponseLogLine("game-1",
-                cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null);
+                cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null, null);
 
         assertEquals(objectMapper.readTree(requestLine).path("cid").asText(),
                      objectMapper.readTree(responseLine).path("cid").asText());
