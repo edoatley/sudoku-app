@@ -39,30 +39,30 @@ to validate the scripted result against real usage patterns before finalizing a 
 — don't treat the scripted run alone as satisfying the acceptance criteria below.
 
 **Scripted-scenario comparison (local, do this first):**
-1. `docker-compose.coach-quality.yml`'s `backend.environment` now forwards
-   `COACH_BEDROCK_MODEL_ID` from the host shell (bare-key passthrough — omitted from the
-   container entirely if unset, so baseline runs are unaffected). Bring the stack up once
-   per model to compare (`AWS_PROFILE=sandbox`, `COACH_BEDROCK_MODEL_ID=<id>` exported before
-   `docker compose -f docker-compose.test.yml -f docker-compose.coach-quality.yml up -d
-   --build --wait <services>`), then loop `cd ui && npm run test:coach-quality` ~10x per
-   model against the already-running stack (matches the 10-run precedent in
-   `docs/todo/bedrock-coach-prompt-quality-findings.md`).
-2. After each model's 10 runs, manually move `ui/tests/coach-quality/reports/*` into a
-   labelled subdirectory (e.g. `reports/haiku-4-5-<date>/`, `reports/sonnet-4-6-<date>/`) —
-   this is a manual convention (same as the existing `reports/baseline/`), not automated.
-3. Run `npm run test:coach-quality:aggregate -- <label-dir>` (wraps
-   `ui/tests/coach-quality/lib/aggregate.js`) to get fallback rate, mean/p50/p90 latency, and
-   token totals per model, both overall and per-scenario.
-4. Compute cost estimate from the aggregated token totals (`inputTokens * $/MTok +
-   outputTokens * $/MTok`, adjusted for cache read/write pricing) — Haiku 4.5 rates below;
-   Sonnet 4.6 rates need sourcing from the Bedrock console at run time (not in this repo).
+1. `docker-compose.coach-quality.yml`'s `backend.environment` forwards `COACH_BEDROCK_MODEL_ID`
+   from the host shell (bare-key passthrough — omitted from the container entirely if unset,
+   so baseline runs are unaffected). Run `scripts/local/coach-quality-repeat.sh` once per
+   model to compare — it brings the stack up once, loops `npm run test:coach-quality` `RUNS`
+   times (default 10, matching the precedent in `bedrock-coach-prompt-quality-findings.md`)
+   against the already-running stack, tears down, moves the new reports into a labelled
+   subdirectory, and prints/saves an aggregate summary — all in one command:
+   ```
+   AWS_PROFILE=sandbox RUNS=10 LABEL=haiku-4-5-baseline \
+     bash scripts/local/coach-quality-repeat.sh
+   AWS_PROFILE=sandbox COACH_BEDROCK_MODEL_ID=eu.anthropic.claude-sonnet-4-6-... \
+     RUNS=10 LABEL=sonnet-4-6 bash scripts/local/coach-quality-repeat.sh
+   ```
+2. Compute cost estimate from the aggregated token totals in each label's `summary.txt`
+   (`inputTokens * $/MTok + outputTokens * $/MTok`, adjusted for cache read/write pricing) —
+   Haiku 4.5 rates below; Sonnet 4.6 rates need sourcing from the Bedrock console at run time
+   (not in this repo).
 
 **Production log analysis (do second, to validate):**
-5. Collect at least 20–30 coach interactions via the UI on `rc-ai-coach`, then run `bash scripts/logs/download-coach-logs.sh --workspace rc-ai-coach --hours 72 --output /tmp/coach-logs.ndjson`
-6. Analyse the NDJSON: compute mean `latencyMs`, cache hit rate (`cacheReadTokens / inputTokens`), fallback rate, and cost estimate (`inputTokens * $0.80/MTok + outputTokens * $4/MTok` for Haiku 4.5; adjust for current pricing)
-7. If cache hit rate is low (< 50%) or latency is high (> 3 s p90), investigate why — likely the SnapStart snapshot doesn't persist the Bedrock client connection across invocations
-8. To trial a different model (e.g. Sonnet 4.6 for quality, or a newer Haiku) in production, add `COACH_BEDROCK_MODEL_ID = "eu.anthropic.claude-sonnet-4-6-..."` to the `environment_variables` block in `infra/lambda.tf` for the rc workspace only
-9. Update `application.properties` default and remove the env var override once a winner is chosen
+3. Collect at least 20–30 coach interactions via the UI on `rc-ai-coach`, then run `bash scripts/logs/download-coach-logs.sh --workspace rc-ai-coach --hours 72 --output /tmp/coach-logs.ndjson`
+4. Analyse the NDJSON: compute mean `latencyMs`, cache hit rate (`cacheReadTokens / inputTokens`), fallback rate, and cost estimate (`inputTokens * $0.80/MTok + outputTokens * $4/MTok` for Haiku 4.5; adjust for current pricing)
+5. If cache hit rate is low (< 50%) or latency is high (> 3 s p90), investigate why — likely the SnapStart snapshot doesn't persist the Bedrock client connection across invocations
+6. To trial a different model (e.g. Sonnet 4.6 for quality, or a newer Haiku) in production, add `COACH_BEDROCK_MODEL_ID = "eu.anthropic.claude-sonnet-4-6-..."` to the `environment_variables` block in `infra/lambda.tf` for the rc workspace only
+7. Update `application.properties` default and remove the env var override once a winner is chosen
 
 ## Model comparison results
 

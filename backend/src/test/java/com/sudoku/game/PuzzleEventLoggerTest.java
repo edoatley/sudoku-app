@@ -40,11 +40,11 @@ class PuzzleEventLoggerTest {
     }
 
     private static PuzzleEvent number(int r, int c, int v) {
-        return new PuzzleEvent("NUMBER", r, c, v, null, 1000L, null, null, null, null, null, null, null, null);
+        return new PuzzleEvent("NUMBER", r, c, v, null, 1000L, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     private static PuzzleEvent undo(int r, int c, int v, int prevV) {
-        return new PuzzleEvent("UNDO", r, c, v, null, 1000L, null, null, null, null, null, null, prevV, "NUMBER");
+        return new PuzzleEvent("UNDO", r, c, v, null, 1000L, null, null, null, null, null, null, prevV, "NUMBER", null, null, null);
     }
 
     private JsonNode parse(String line) throws Exception {
@@ -55,7 +55,7 @@ class PuzzleEventLoggerTest {
     void everyLineCarriesTypePidUserAndTs() throws Exception {
         // @spec GL-BE-040
         List<String> lines = logger.buildLines(PID, USER, SOLUTION, List.of(
-                new PuzzleEvent("NUMBER_CLEAR", 2, 3, null, null, 1000L, null, null, null, null, null, null, null, null)));
+                new PuzzleEvent("NUMBER_CLEAR", 2, 3, null, null, 1000L, null, null, null, null, null, null, null, null, null, null, null)));
 
         assertEquals(1, lines.size());
         JsonNode node = parse(lines.get(0));
@@ -96,9 +96,12 @@ class PuzzleEventLoggerTest {
     void clearAndHintEventsPassThroughWithTheirFields() throws Exception {
         // @spec GL-BE-042
         PuzzleEvent hintReq = new PuzzleEvent("HINT_REQUEST", null, null, null, "cid-9", 1000L,
-                null, null, null, null, 3, List.of(1, 2), null, null);
+                null, null, null, null, 3, List.of(1, 2), null, null, null, null, null);
         PuzzleEvent hintResp = new PuzzleEvent("HINT_RESPONSE", null, null, null, "cid-9", 1001L,
-                "Naked Single", 4, "easy", true, null, null, null, null);
+                "Naked Single", 4, "easy", true, null, null, null, null,
+                "A cell has been reduced to exactly one possible candidate.",
+                "Row 1, Column 3 has had every other digit eliminated.",
+                "Row 1, Column 3 must be 4.");
 
         List<String> lines = logger.buildLines(PID, USER, SOLUTION, List.of(hintReq, hintResp));
 
@@ -112,6 +115,10 @@ class PuzzleEventLoggerTest {
         assertEquals("Naked Single", resp.path("techniqueName").asText());
         assertEquals(4, resp.path("strategyRank").asInt());
         assertTrue(resp.path("found").asBoolean());
+        // @spec FE-BE-021
+        assertEquals("A cell has been reduced to exactly one possible candidate.", resp.path("nudge").asText());
+        assertEquals("Row 1, Column 3 has had every other digit eliminated.", resp.path("focus").asText());
+        assertEquals("Row 1, Column 3 must be 4.", resp.path("reveal").asText());
     }
 
     @Test
@@ -143,7 +150,7 @@ class PuzzleEventLoggerTest {
     void unknownTypeIsSkippedWithoutError() {
         // @spec GL-BE-043
         List<String> lines = logger.buildLines(PID, USER, SOLUTION, List.of(
-                new PuzzleEvent("BOGUS", 0, 0, 1, null, 1000L, null, null, null, null, null, null, null, null)));
+                new PuzzleEvent("BOGUS", 0, 0, 1, null, 1000L, null, null, null, null, null, null, null, null, null, null, null)));
 
         assertTrue(lines.isEmpty());
     }
@@ -163,7 +170,7 @@ class PuzzleEventLoggerTest {
     @Test
     void processesAtMostFiveHundredEvents() {
         // @spec GL-BE-044
-        PuzzleEvent clear = new PuzzleEvent("NUMBER_CLEAR", 0, 0, null, null, 1000L, null, null, null, null, null, null, null, null);
+        PuzzleEvent clear = new PuzzleEvent("NUMBER_CLEAR", 0, 0, null, null, 1000L, null, null, null, null, null, null, null, null, null, null, null);
         List<PuzzleEvent> many = java.util.Collections.nCopies(600, clear);
 
         List<String> lines = logger.buildLines(PID, USER, SOLUTION, many);
@@ -175,7 +182,7 @@ class PuzzleEventLoggerTest {
     void truncationMarkerIsLoggedAsItsOwnLine() throws Exception {
         // @spec GL-BE-044
         List<String> lines = logger.buildLines(PID, USER, SOLUTION, List.of(
-                new PuzzleEvent("EVENTS_TRUNCATED", null, null, null, null, 1000L, null, null, null, null, null, null, null, null)));
+                new PuzzleEvent("EVENTS_TRUNCATED", null, null, null, null, 1000L, null, null, null, null, null, null, null, null, null, null, null)));
 
         assertEquals(1, lines.size());
         assertEquals("EVENTS_TRUNCATED", parse(lines.get(0)).path("type").asText());
@@ -191,7 +198,7 @@ class PuzzleEventLoggerTest {
     void techniqueWithSpecialCharsStillProducesParseableJson() throws Exception {
         // @spec GL-BE-046 — JSON serialized via a library, not string templating
         PuzzleEvent hintResp = new PuzzleEvent("HINT_RESPONSE", null, null, null, "cid-1", 1000L,
-                "X-Wing \"tricky\"\nline", 7, "hard", false, null, null, null, null);
+                "X-Wing \"tricky\"\nline", 7, "hard", false, null, null, null, null, null, null, null);
 
         List<String> lines = logger.buildLines(PID, USER, SOLUTION, List.of(hintResp));
 

@@ -1,5 +1,17 @@
 # BedrockCoachClient prompt/parsing quality findings
 
+**Superseded (2026-07-14):** The wording-only fix below reduced both findings from ~20-40% to
+~11%. A follow-up change (PR #132, `docs/specs/sudoku-coach-specs.md` SC-BE-003/SC-BE-024) went
+further: `BedrockCoachClient` now sends all three of the hint engine's escalating explanation
+levels (`nudge`/`focus`/`reveal`) plus a suggested turn-based escalation level, instead of just
+`nudge` on every turn — giving the model solver-verified material (including an exact
+cell+digit statement for placement techniques) instead of asking it to compose the answer from
+scratch. A real 10-run baseline post-#132 measured both `naked-single-conversation` and
+`explicit-answer-request` (this doc's two named scenarios) at 0% fallback (0/20, 0/10) — see
+`ui/tests/coach-quality/reports/haiku-4-5-baseline/summary.txt`. This doc's own resolution and
+acceptance criteria below are left as the historical record of the wording-only fix; they are
+not the current state of the art for these two failure modes.
+
 **Resolution (2026-07-13):** Measured a 10-run real-Bedrock baseline before editing anything,
 per the concern that a single clean run (`*-2026-07-12T18-49-*`) might just be noise. Baseline
 confirmed both findings as real and frequent enough to act on: Finding 1 (naked-single-conversation)

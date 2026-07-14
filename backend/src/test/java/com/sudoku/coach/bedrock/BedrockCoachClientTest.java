@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022, SC-BE-023
+// @spec SC-BE-003, SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022, SC-BE-023, SC-BE-024
 @QuarkusTest
 class BedrockCoachClientTest {
 
@@ -237,6 +237,50 @@ class BedrockCoachClientTest {
         assertTrue(requestJson.contains("CURRENT BOARD STATE"));
         assertTrue(requestJson.contains(HINT.techniqueName()));
         assertTrue(requestJson.contains(HINT.nudge()));
+    }
+
+    @Test
+    void buildRequestJson_includesAllThreeHintLevels() throws Exception {
+        // @spec SC-BE-003, SC-BE-024 — nudge/focus/reveal all sent, not just nudge
+        String requestJson = bedrockCoachClient.buildRequestJson("Help", HINT, List.of(), board());
+
+        assertTrue(requestJson.contains(HINT.nudge()));
+        assertTrue(requestJson.contains(HINT.focus()));
+        assertTrue(requestJson.contains(HINT.reveal()));
+    }
+
+    @Test
+    void buildRequestJson_includesTurnNumberDerivedFromHistorySize() throws Exception {
+        // @spec SC-BE-024
+        List<ChatMessage> twoMessageHistory = List.of(
+                new ChatMessage("user", "I'm stuck"),
+                new ChatMessage("assistant", "{\"aiMessage\": \"Look at Row 1\", \"revealHint\": false}"));
+
+        String requestJson = bedrockCoachClient.buildRequestJson("Tell me more", HINT, twoMessageHistory, board());
+
+        assertTrue(requestJson.contains("TURN NUMBER: 2"));
+    }
+
+    @Test
+    void buildRequestJson_suggestsNudgeLevelOnFirstTurn() throws Exception {
+        // @spec SC-BE-024 — no history means this is the opening turn
+        String requestJson = bedrockCoachClient.buildRequestJson("Help", HINT, List.of(), board());
+
+        assertTrue(requestJson.contains("TURN NUMBER: 1 (suggested escalation level: NUDGE)"));
+    }
+
+    @Test
+    void buildRequestJson_suggestsRevealLevelOnLaterTurn() throws Exception {
+        // @spec SC-BE-024 — turn 3+ suggests REVEAL, but the LLM decides for itself
+        List<ChatMessage> fourMessageHistory = List.of(
+                new ChatMessage("user", "I'm stuck"),
+                new ChatMessage("assistant", "{\"aiMessage\": \"Look at Row 1\", \"revealHint\": false}"),
+                new ChatMessage("user", "Still not seeing it"),
+                new ChatMessage("assistant", "{\"aiMessage\": \"Look closer\", \"revealHint\": false}"));
+
+        String requestJson = bedrockCoachClient.buildRequestJson("Tell me more", HINT, fourMessageHistory, board());
+
+        assertTrue(requestJson.contains("TURN NUMBER: 3 (suggested escalation level: REVEAL)"));
     }
 
     // ---- content logging (SC-BE-005..009, SC-BE-018, SC-BE-019) ----

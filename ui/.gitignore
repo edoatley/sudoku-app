@@ -15,7 +15,14 @@ playwright-report
 test-results
 coverage
 tests/integration/auth-state.json
-tests/coach-quality/reports
+# Raw per-scenario JSON/MD traces stay ignored — large, vary run-to-run from model
+# non-determinism, no lasting value beyond debugging that specific session. The aggregate
+# summary.txt per labelled run (see scripts/local/coach-quality-repeat.sh) is small and
+# comparable across time, so it's tracked for baseline comparisons.
+tests/coach-quality/reports/*
+!tests/coach-quality/reports/*/
+tests/coach-quality/reports/*/*
+!tests/coach-quality/reports/*/summary.txt
 
 # Editor directories and files
 .vscode/*
