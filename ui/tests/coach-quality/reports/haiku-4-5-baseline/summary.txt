@@ -1,0 +1,48 @@
+
+Overall — /Users/edoatley/source/sudoku-app/ui/tests/coach-quality/reports/haiku-4-5-baseline
+  n=110 fallbackRate=0.9%
+  latencyMs: mean=1990 p50=1938 p90=2402
+  tokens: input=370192 output=10797 cacheRead=0 cacheWrite=0
+  fallbacks (1):
+    - deep-escalation-ladder [ResponseParseFailure] parse failure: JsonParseException: Unrecognized token 'I': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
+ at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 1]
+      rawResponseText: "I hear you—let me be more direct. Look at Row 4: it has 6, 2, and 8. Now look at Column 1 (the far left): it has 4, 5, 6, 8, 9, and 2. The empty cell in Row 4, Column 1 is missing from both of those lists. Work out which digits 1–9 are already in Row 4 or Column 1, and the one digit that's NOT there is the answer. That's your next number!"
+
+  deep-escalation-ladder
+  n=40 fallbackRate=2.5%
+  latencyMs: mean=2042 p50=1938 p90=2497
+  tokens: input=135373 output=4263 cacheRead=0 cacheWrite=0
+  fallbacks (1):
+    - deep-escalation-ladder [ResponseParseFailure] parse failure: JsonParseException: Unrecognized token 'I': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')
+ at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 1]
+      rawResponseText: "I hear you—let me be more direct. Look at Row 4: it has 6, 2, and 8. Now look at Column 1 (the far left): it has 4, 5, 6, 8, 9, and 2. The empty cell in Row 4, Column 1 is missing from both of those lists. Work out which digits 1–9 are already in Row 4 or Column 1, and the one digit that's NOT there is the answer. That's your next number!"
+
+  explicit-answer-request
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=2170 p50=2111 p90=2214
+  tokens: input=33460 output=983 cacheRead=0 cacheWrite=0
+
+  naked-single-conversation
+  n=20 fallbackRate=0.0%
+  latencyMs: mean=1861 p50=1803 p90=2112
+  tokens: input=67599 output=1872 cacheRead=0 cacheWrite=0
+
+  off-topic-message
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1784 p50=1685 p90=2047
+  tokens: input=33440 output=756 cacheRead=0 cacheWrite=0
+
+  stuck-single-turn
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1936 p50=1930 p90=2153
+  tokens: input=33390 output=881 cacheRead=0 cacheWrite=0
+
+  technique-explanation-ask
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=2160 p50=2084 p90=2433
+  tokens: input=33420 output=1109 cacheRead=0 cacheWrite=0
+
+  wrong-guess-acknowledgment
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1953 p50=1695 p90=2348
+  tokens: input=33510 output=933 cacheRead=0 cacheWrite=0
