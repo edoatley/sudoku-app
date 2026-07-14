@@ -187,8 +187,8 @@ arrows:
     lld: docs/llds/sudoku-coach.md
     specs: docs/specs/sudoku-coach-specs.md
     arrow: docs/arrows/sudoku-coach.md
-    spec_count: 57
-    implemented: 54
+    spec_count: 69
+    implemented: 66
     deferred: 0
     gaps: 3
     next: SC-UI-013 (Escape closes panel), SC-UI-050/051 (revealHint frontend disclosure)
