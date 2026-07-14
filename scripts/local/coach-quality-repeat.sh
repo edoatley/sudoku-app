@@ -70,8 +70,12 @@ COMPOSE_STARTED=true
 
 # Snapshot existing report filenames so only this session's new reports get moved into the
 # labelled subdirectory below — reports/ accumulates output from every past run too.
+# reports/ is gitignored and only created lazily by the Node reporter on its first write, so
+# it may not exist yet on a fresh checkout — `find` on a missing directory exits non-zero,
+# which under `set -e -o pipefail` would silently kill the whole script right here.
+mkdir -p "${REPORTS_DIR}"
 BEFORE_LIST="$(mktemp)"
-find "${REPORTS_DIR}" -maxdepth 1 -type f -name '*.json' 2>/dev/null | sort > "${BEFORE_LIST}"
+find "${REPORTS_DIR}" -maxdepth 1 -type f -name '*.json' | sort > "${BEFORE_LIST}"
 
 FAILED_RUNS=0
 for i in $(seq 1 "${RUNS}"); do
@@ -88,7 +92,7 @@ for i in $(seq 1 "${RUNS}"); do
 done
 
 AFTER_LIST="$(mktemp)"
-find "${REPORTS_DIR}" -maxdepth 1 -type f -name '*.json' 2>/dev/null | sort > "${AFTER_LIST}"
+find "${REPORTS_DIR}" -maxdepth 1 -type f -name '*.json' | sort > "${AFTER_LIST}"
 NEW_REPORTS="$(comm -13 "${BEFORE_LIST}" "${AFTER_LIST}")"
 rm -f "${BEFORE_LIST}" "${AFTER_LIST}"
 
