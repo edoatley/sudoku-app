@@ -13,8 +13,23 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.bedrockruntime.model.CachePointBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.CachePointType;
+import software.amazon.awssdk.services.bedrockruntime.model.ContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.ConversationRole;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.InferenceConfiguration;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.JsonSchemaDefinition;
+import software.amazon.awssdk.services.bedrockruntime.model.Message;
+import software.amazon.awssdk.services.bedrockruntime.model.OutputConfig;
+import software.amazon.awssdk.services.bedrockruntime.model.OutputFormat;
+import software.amazon.awssdk.services.bedrockruntime.model.OutputFormatStructure;
+import software.amazon.awssdk.services.bedrockruntime.model.OutputFormatType;
+import software.amazon.awssdk.services.bedrockruntime.model.SystemContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.TokenUsage;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -23,14 +38,17 @@ import java.util.UUID;
 
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 
-// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-010, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022, SC-BE-023
+// @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-010, SC-BE-011, SC-BE-012,
+// SC-BE-013, SC-BE-014, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022,
+// SC-BE-023, SC-BE-025, SC-BE-026, SC-BE-027
 
 @ApplicationScoped
 public class BedrockCoachClient {
 
     private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(BedrockCoachClient.class);
 
-    // Prompt caching requires ≥2,048 tokens on Claude Haiku models.
+    // Prompt caching requires ≥4,096 tokens on Claude Haiku models (confirmed against real
+    // Bedrock traffic — see docs/planning/bedrock-coach-structured-output-plan.md §2).
     // This constant is intentionally verbose to exceed that threshold and improve output quality.
     static final String SYSTEM_PROMPT = """
             You are a patient, encouraging Sudoku tutor helping novice players learn how to solve \
@@ -45,6 +63,10 @@ public class BedrockCoachClient {
               1. CURRENT BOARD STATE — a 9×9 grid with underscores (_) for empty cells.
                  Rows are numbered 1–9 (top to bottom). Columns are numbered 1–9 (left to right).
                  Three 3×3 boxes fill each row and column section, separated by vertical bars (|).
+                 Boxes are numbered 1–9 left-to-right, top-to-bottom (Box 1 is top-left, Box 5 is
+                 the centre, Box 9 is bottom-right) — hint notes may refer to a box by that number
+                 (e.g. "Block 3") or by its plain-English position (e.g. "the top-right box");
+                 both describe the same 3×3 region.
               2. APPLICABLE TECHNIQUE — the simplest solving step available on this board right now.
               3. TURN NUMBER — which exchange this is in the conversation, with a suggested
                  escalation level (NUDGE/FOCUS/REVEAL) based on how long the conversation has run.
@@ -60,6 +82,15 @@ public class BedrockCoachClient {
                  level and the player's message — put them in your own encouraging words, don't
                  quote them verbatim.
               5. PLAYER MESSAGE — what the player said or asked.
+              6. BOARD VALIDITY — the board state you receive is always a legal, in-progress
+                 partial solution, verified by the same solver that produced the hint notes. You
+                 never need to check it for rule violations yourself — trust it exactly as you
+                 trust the NUDGE/FOCUS/REVEAL notes, and never contradict what it shows.
+              7. TECHNIQUE MAY CHANGE BETWEEN TURNS — the APPLICABLE TECHNIQUE and its notes always
+                 describe the board's *current* state, which may differ from the previous turn if
+                 the player has placed a digit since. If the technique name changes from what you
+                 last discussed, that means the player made progress — treat it as a new topic
+                 (see Example H) rather than assuming it is a continuation of the previous one.
 
             ════════════════════════════════════════════════════════════════════════════════════
             YOUR PERSONA
@@ -114,24 +145,19 @@ public class BedrockCoachClient {
               help with their puzzle, then redirect their attention back to the board.
 
             ════════════════════════════════════════════════════════════════════════════════════
-            OUTPUT FORMAT — MANDATORY — READ CAREFULLY
+            OUTPUT FORMAT
             ════════════════════════════════════════════════════════════════════════════════════
 
-            You MUST respond with ONLY a valid JSON object in this exact format:
-
-              {"aiMessage": "<coaching text>", "revealHint": <true or false>}
-
-            Strict rules:
-              — "aiMessage" must be a non-empty string containing your entire coaching response.
-              — "revealHint" must be the boolean true or false (not a string, not "true"/"false").
-              — Set revealHint to true ONLY when your aiMessage explicitly names BOTH the exact
-                cell coordinates (row AND column) AND the exact digit to place there. For
+            Your reply is returned as structured JSON with two fields, "aiMessage" and
+            "revealHint" — the JSON shape itself is enforced automatically, so you do not need
+            to worry about syntax, code fences, or extra surrounding text. What you DO control is
+            the meaning of each field:
+              — "aiMessage": your entire coaching response, in your own words.
+              — "revealHint": set to true ONLY when your aiMessage explicitly names BOTH the
+                exact cell coordinates (row AND column) AND the exact digit to place there. For
                 techniques where the REVEAL note only describes an elimination (no single cell
                 and digit), quoting it in full does not by itself justify revealHint: true —
                 only a concrete cell + digit statement in your aiMessage does.
-              — Do NOT include any text before or after the JSON object.
-              — Do NOT wrap the JSON in markdown code fences, quotes, or any other markup.
-              — The entire response must be a single line of valid JSON. No line breaks inside it.
 
             ════════════════════════════════════════════════════════════════════════════════════
             FEW-SHOT COACHING EXAMPLES
@@ -189,12 +215,49 @@ public class BedrockCoachClient {
             → {"aiMessage": "Excellent! If 6 must stay in Row 2 of that box, then 6 cannot appear anywhere else in Row 2 outside that box. Look at the other empty cells in Row 2 — you can now rule out 6 as a candidate for all of them. Does that unlock anything?", "revealHint": false}
             (Note: this REVEAL note only describes an elimination, not a single cell + digit — so even quoting it in full would not justify revealHint: true.)
 
-            ════════════════════════════════════════════════════════════════════════════════════
-            FINAL REMINDER
-            ════════════════════════════════════════════════════════════════════════════════════
+            ── Example F: Player asks something unrelated to Sudoku ──────────────────────────
 
-            Regardless of how long this conversation has become, your entire reply must still be
-            ONLY the single-line JSON object described above — never plain prose, never markdown.
+            APPLICABLE TECHNIQUE: Naked Single
+            TURN NUMBER: 1 (suggested escalation level: NUDGE)
+            NUDGE NOTE (vaguest — use for early turns): A cell in Row 6 has been reduced to exactly one possible candidate.
+            FOCUS NOTE (more specific — names cell/unit): Row 6, Column 2 has had every other digit eliminated.
+            REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 6, Column 2 must be 5.
+            PLAYER MESSAGE: "What's the weather like today?"
+            → {"aiMessage": "Ha, I wish I knew! I'm just your Sudoku tutor, so I can't help with the weather. Let's get back to your puzzle instead — take a look at Row 6. What digits do you already see there?", "revealHint": false}
+            (Note: per RULE 5, redirect briefly and warmly rather than engaging with the off-topic question.)
+
+            ── Example G: Player suggests an incorrect cell or digit ─────────────────────────
+
+            APPLICABLE TECHNIQUE: Naked Pair
+            TURN NUMBER: 2 (suggested escalation level: FOCUS)
+            NUDGE NOTE (vaguest — use for early turns): Two cells in the same row share exactly the same pair of candidates.
+            FOCUS NOTE (more specific — names cell/unit): Row 2, Columns 5 and 6 both have candidates {3, 8} only.
+            REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Every other cell in Row 2 can have 3 and 8 removed as candidates.
+            PLAYER MESSAGE: "Is it Row 2, Column 7 that should be 3?"
+            → {"aiMessage": "Good effort, but have another look at Row 2, Columns 5 and 6 first — what candidates do those two cells share? Once you spot that pair, think about what it means for every other cell in that row.", "revealHint": false}
+            (Note: per RULE 4, redirect gently toward the missed detail rather than stating the guess is wrong outright.)
+
+            ── Example H: Player just placed a digit and is ready for the next step ──────────
+
+            APPLICABLE TECHNIQUE: Hidden Pair
+            TURN NUMBER: 1 (suggested escalation level: NUDGE)
+            NUDGE NOTE (vaguest — use for early turns): Two candidates in a box appear in only two cells, but those cells also list other candidates.
+            FOCUS NOTE (more specific — names cell/unit): In the top-right box, digits 2 and 9 each only appear as candidates in Row 1, Column 8 and Row 2, Column 9.
+            REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 1, Column 8 and Row 2, Column 9 can have every candidate except 2 and 9 removed.
+            PLAYER MESSAGE: "I just placed that 7 you helped me find — what's next?"
+            → {"aiMessage": "Well done, that's another cell solved! Now let's look at the top-right box. Two digits — 2 and 9 — can only go in two particular cells there, even though those cells currently show other possibilities too. Can you spot which two cells those are?", "revealHint": false}
+            (Note: acknowledging progress briefly before introducing the next technique keeps momentum without dwelling on the previous move.)
+
+            ── Example I: Player is confused by a more advanced elimination technique ────────
+
+            APPLICABLE TECHNIQUE: X-Wing
+            TURN NUMBER: 3 (suggested escalation level: REVEAL)
+            NUDGE NOTE (vaguest — use for early turns): A digit's candidates in two rows are each confined to the same two columns.
+            FOCUS NOTE (more specific — names cell/unit): Digit 4's candidates in Row 2 and Row 7 are both confined to Columns 3 and 6.
+            REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Digit 4 can be removed from every other cell in Columns 3 and 6.
+            PLAYER MESSAGE: "I really don't understand this one, it's confusing."
+            → {"aiMessage": "No worries, this is one of the trickier patterns! Picture Rows 2 and 7 — digit 4 can only go in Columns 3 or 6 in both of those rows. Because of that, digit 4 must eventually occupy one of those two columns in each row, which means no other cell in Columns 3 or 6 can be a 4. Take a look at Column 3 first — does removing 4 as a candidate there help anywhere?", "revealHint": false}
+            (Note: on later turns, or when a player expresses confusion rather than simply asking for the answer, a fuller explanation of the underlying logic — not just the REVEAL note's bare fact — is appropriate.)
 
             ════════════════════════════════════════════════════════════════════════════════════
             """;
@@ -203,8 +266,19 @@ public class BedrockCoachClient {
     private static final String ANTHROPIC_VERSION = "bedrock-2023-05-31";
     private static final int MAX_TOKENS = 512;
 
+    // @spec SC-BE-025 — shared structured-output schema, enforced identically by both API modes
+    static final String OUTPUT_SCHEMA_JSON = "{\"type\":\"object\",\"properties\":{\"aiMessage\":"
+            + "{\"type\":\"string\",\"description\":\"The coach's reply to the player.\"},"
+            + "\"revealHint\":{\"type\":\"boolean\",\"description\":\"true only when the reply "
+            + "explicitly gives the answer the deterministic hint would reveal.\"}},"
+            + "\"required\":[\"aiMessage\",\"revealHint\"],\"additionalProperties\":false}";
+
     @ConfigProperty(name = "coach.bedrock.model-id")
     String modelId;
+
+    // @spec SC-BE-026 — selects InvokeModel vs Converse; both enforce OUTPUT_SCHEMA_JSON identically
+    @ConfigProperty(name = "coach.bedrock.api-mode", defaultValue = "invoke")
+    String apiMode;
 
     @Inject
     BedrockRuntimeClient bedrockRuntimeClient;
@@ -226,21 +300,15 @@ public class BedrockCoachClient {
                            int cacheWriteTokens, String fallbackReason, String rawResponseText) {}
 
     // @spec SC-BE-009 — single Bedrock call per request; @spec SC-BE-015, SC-BE-016 — fallback on error
+    // @spec SC-BE-026 — dispatches to InvokeModel or Converse per coach.bedrock.api-mode
     public CallResult call(String pid, String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
         String cid = UUID.randomUUID().toString();
         long startMs = System.currentTimeMillis();
         try {
-            String requestJson = buildRequestJson(userMessage, hint, history, board);
             LOG.info(buildRequestLogLine(pid, cid, startMs, userMessage, hint, history, board));
-            InvokeModelResponse response = bedrockRuntimeClient.invokeModel(
-                    InvokeModelRequest.builder()
-                            .modelId(modelId)
-                            .contentType("application/json")
-                            .accept("application/json")
-                            .body(SdkBytes.fromUtf8String(requestJson))
-                            .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(BEDROCK_TIMEOUT_SECONDS)))
-                            .build());
-            ParsedResponse parsed = parseResponse(response, hint);
+            ParsedResponse parsed = "converse".equals(apiMode)
+                    ? parseConverseResponse(bedrockRuntimeClient.converse(buildConverseRequest(userMessage, hint, history, board)), hint)
+                    : parseResponse(bedrockRuntimeClient.invokeModel(buildInvokeRequest(userMessage, hint, history, board)), hint);
             long latencyMs = System.currentTimeMillis() - startMs;
             // @spec SC-BE-021 — a fallback triggered inside parseResponse (blank aiMessage or
             // unparseable response text) must be logged as fallback=true, not misreported as a
@@ -324,7 +392,8 @@ public class BedrockCoachClient {
         return rows;
     }
 
-    // @spec SC-BE-010 — system prompt with cache_control for prompt caching
+    // @spec SC-BE-010, SC-BE-011 — system prompt with cache_control for prompt caching
+    // @spec SC-BE-025 — output_config.format constrains the reply to OUTPUT_SCHEMA_JSON server-side
     String buildRequestJson(String userMessage, HintResponse hint, List<ChatMessage> history, Board board) throws Exception {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("anthropic_version", ANTHROPIC_VERSION);
@@ -344,7 +413,58 @@ public class BedrockCoachClient {
         String contextualUserMessage = buildContextBlock(userMessage, hint, history, board);
         messages.addObject().put("role", "user").put("content", contextualUserMessage);
 
+        ObjectNode format = root.putObject("output_config").putObject("format");
+        format.put("type", "json_schema");
+        format.set("schema", objectMapper.readTree(OUTPUT_SCHEMA_JSON));
+
         return objectMapper.writeValueAsString(root);
+    }
+
+    private InvokeModelRequest buildInvokeRequest(String userMessage, HintResponse hint, List<ChatMessage> history, Board board) throws Exception {
+        String requestJson = buildRequestJson(userMessage, hint, history, board);
+        return InvokeModelRequest.builder()
+                .modelId(modelId)
+                .contentType("application/json")
+                .accept("application/json")
+                .body(SdkBytes.fromUtf8String(requestJson))
+                .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(BEDROCK_TIMEOUT_SECONDS)))
+                .build();
+    }
+
+    // @spec SC-BE-011, SC-BE-027 — CachePointBlock caching; @spec SC-BE-025 — schema-enforced output
+    ConverseRequest buildConverseRequest(String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
+        List<Message> messages = new ArrayList<>();
+        for (ChatMessage msg : history) {
+            messages.add(Message.builder()
+                    .role(msg.role())
+                    .content(ContentBlock.fromText(msg.content()))
+                    .build());
+        }
+        String contextualUserMessage = buildContextBlock(userMessage, hint, history, board);
+        messages.add(Message.builder()
+                .role(ConversationRole.USER)
+                .content(ContentBlock.fromText(contextualUserMessage))
+                .build());
+
+        return ConverseRequest.builder()
+                .modelId(modelId)
+                .system(
+                        SystemContentBlock.fromText(SYSTEM_PROMPT),
+                        SystemContentBlock.fromCachePoint(CachePointBlock.builder().type(CachePointType.DEFAULT).build()))
+                .messages(messages)
+                .inferenceConfig(InferenceConfiguration.builder().maxTokens(MAX_TOKENS).build())
+                .outputConfig(OutputConfig.builder()
+                        .textFormat(OutputFormat.builder()
+                                .type(OutputFormatType.JSON_SCHEMA)
+                                .structure(OutputFormatStructure.fromJsonSchema(JsonSchemaDefinition.builder()
+                                        .schema(OUTPUT_SCHEMA_JSON)
+                                        .name("coach_reply")
+                                        .description("The Sudoku coach's structured reply.")
+                                        .build()))
+                                .build())
+                        .build())
+                .overrideConfiguration(c -> c.apiCallTimeout(Duration.ofSeconds(BEDROCK_TIMEOUT_SECONDS)))
+                .build();
     }
 
     // @spec SC-BE-003, SC-BE-024 — all three escalating hint levels, plus a suggested (not
@@ -385,6 +505,31 @@ public class BedrockCoachClient {
             int outputTokens = usage.path("output_tokens").asInt(0);
             int cacheReadTokens = usage.path("cache_read_input_tokens").asInt(0);
             int cacheWriteTokens = usage.path("cache_creation_input_tokens").asInt(0);
+            return new ParsedResponse(new AiReply(aiMessage, revealHint), inputTokens, outputTokens,
+                    cacheReadTokens, cacheWriteTokens, null, null);
+        } catch (Exception e) {
+            return new ParsedResponse(fallback(hint), 0, 0, 0, 0,
+                    "parse failure: " + e.getClass().getSimpleName() + ": " + e.getMessage(), text);
+        }
+    }
+
+    // @spec SC-BE-016, SC-BE-021, SC-BE-022 — mirrors parseResponse's fallback semantics for Converse
+    // @spec SC-BE-027 — reads cacheReadInputTokens/cacheWriteInputTokens from Converse's usage block
+    ParsedResponse parseConverseResponse(ConverseResponse converseResponse, HintResponse hint) {
+        String text = null;
+        try {
+            text = converseResponse.output().message().content().get(0).text();
+            JsonNode parsed = objectMapper.readTree(extractJsonObject(text));
+            String aiMessage = parsed.path("aiMessage").asText("");
+            if (aiMessage.isBlank()) {
+                return new ParsedResponse(fallback(hint), 0, 0, 0, 0, "aiMessage blank in parsed Bedrock response", text);
+            }
+            boolean revealHint = parsed.path("revealHint").asBoolean(false);
+            TokenUsage usage = converseResponse.usage();
+            int inputTokens = usage.inputTokens() == null ? 0 : usage.inputTokens();
+            int outputTokens = usage.outputTokens() == null ? 0 : usage.outputTokens();
+            int cacheReadTokens = usage.cacheReadInputTokens() == null ? 0 : usage.cacheReadInputTokens();
+            int cacheWriteTokens = usage.cacheWriteInputTokens() == null ? 0 : usage.cacheWriteInputTokens();
             return new ParsedResponse(new AiReply(aiMessage, revealHint), inputTokens, outputTokens,
                     cacheReadTokens, cacheWriteTokens, null, null);
         } catch (Exception e) {

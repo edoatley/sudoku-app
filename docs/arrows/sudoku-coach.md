@@ -4,7 +4,11 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 
 ## Status
 
-**IN_PROGRESS** — 2026-07-14. 66/69 specs implemented. 3 gaps remain in frontend reveal-hint handling and Escape key close.
+**IN_PROGRESS** — 2026-07-15. 69/72 specs implemented. 3 gaps remain, all pre-existing frontend
+gaps (reveal-hint handling, Escape key close). The Bedrock structured-output + caching-fix work
+(`docs/planning/bedrock-coach-structured-output-plan.md`) is code-complete and test-verified
+(346 backend tests passing); harness A/B validation against the coach-quality suite is still
+outstanding.
 
 ## References
 
@@ -66,7 +70,7 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 | Input Validation (BE) | SC-API-001 to SC-API-004 | 4 | 0 |
 | Deterministic Pre-Analysis (BE) | SC-BE-001 to SC-BE-004 | 4 | 0 |
 | Coordination and Content Logging (BE) | SC-BE-005 to SC-BE-009, SC-BE-019, SC-BE-020 | 7 | 0 |
-| Bedrock Integration (BE) | SC-BE-010 to SC-BE-018, SC-BE-021 to SC-BE-024 | 13 | 0 |
+| Bedrock Integration (BE) | SC-BE-010 to SC-BE-018, SC-BE-021 to SC-BE-027 | 16 | 0 |
 | Coach Response (BE) | SC-API-010 to SC-API-012 | 3 | 0 |
 | Widget Rendering (FE) | SC-UI-001 to SC-UI-004 | 4 | 0 |
 | Panel Open/Close (FE) | SC-UI-010 to SC-UI-014 | 4 | 1 (SC-UI-013) |
@@ -77,10 +81,17 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 | Conversation Lifecycle (FE) | SC-UI-060 to SC-UI-064 | 5 | 0 |
 | Rate Limiting & Cost (BE+FE) | SC-RL-001 to SC-RL-010 | 10 | 0 |
 
-**Summary:** 66 of 69 specs implemented; 0 deferred; 3 gaps.
+**Summary:** 69 of 72 specs implemented; 0 deferred; 3 gaps.
 
 ## Open Gaps
 
 - **SC-UI-013** — Escape key closes the coach panel. Not implemented.
 - **SC-UI-050** — When `revealHint=false`, suppress `hint.reveal`, `hint.solvedCells`, `hint.eliminatedCandidates`. Not implemented; frontend always exposes full hint object.
 - **SC-UI-051** — When `revealHint=true`, make all hint fields available alongside the AI message. Not implemented.
+
+SC-BE-011/012/014/025/026/027 (Bedrock structured output + caching fix) are now implemented and
+unit-tested (`BedrockCoachClientTest`, 346 backend tests passing) — see
+`docs/planning/bedrock-coach-structured-output-plan.md`. Outstanding before that plan's work is
+fully closed: the coach-quality harness A/B run comparing `api-mode=invoke` vs `api-mode=converse`
+against real Bedrock traffic (plan §Phase 3), which validates fallback-rate and cache-hit-rate
+in practice rather than in unit tests.
