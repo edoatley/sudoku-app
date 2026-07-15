@@ -43,7 +43,7 @@ to validate the scripted result against real usage patterns before finalizing a 
    from the host shell (bare-key passthrough — omitted from the container entirely if unset,
    so baseline runs are unaffected). Run `scripts/local/coach-quality-repeat.sh` once per
    model to compare — it brings the stack up once, loops `npm run test:coach-quality` `RUNS`
-   times (default 10, matching the precedent in `bedrock-coach-prompt-quality-findings.md`)
+   times (default 10, matching the prior coach-quality baseline runs)
    against the already-running stack, tears down, moves the new reports into a labelled
    subdirectory, and prints/saves an aggregate summary — all in one command:
    ```
