@@ -2,7 +2,7 @@
 
 **Status**: Approved — ready to implement
 **Created**: 2026-07-14
-**Origin**: `docs/todo/bedrock-coach-structured-output.md` (PR #132 follow-up)
+**Origin**: PR #132 follow-up (supersedes the removed `bedrock-coach-structured-output` todo)
 **Arrow**: `sudoku-coach` (`docs/arrows/sudoku-coach.md`)
 
 ---
