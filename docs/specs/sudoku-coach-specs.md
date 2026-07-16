@@ -92,10 +92,8 @@
 
 ## Reveal Hint Handling (Frontend)
 
-- [ ] **SC-UI-050**: When `revealHint` is false in a coach response, the system shall not display `hint.reveal`, `hint.solvedCells`, or `hint.eliminatedCandidates` to the player.
-- [ ] **SC-UI-051**: When `revealHint` is true in a coach response, the system shall make all hint fields available for display alongside the AI coaching message.
-
-*(SC-UI-050 and SC-UI-051 are not yet implemented — the frontend receives `revealHint` but does not conditionally show or hide hint fields based on its value.)*
+- [x] **SC-UI-050**: When `revealHint` is false in a coach response, the system shall not write `hint.solvedCells` into the current grid or remove `hint.eliminatedCandidates` from the candidate grid — only `hint.highlightCells` take effect, so the player is never shown a placed digit or struck-out candidate the coach's message didn't actually commit to.
+- [x] **SC-UI-051**: When `revealHint` is true in a coach response, the system shall write `hint.solvedCells` into the current grid (clearing that cell's candidates) and remove `hint.eliminatedCandidates` from the candidate grid, matching the deterministic Hint button's reveal-stage behaviour (`useHintSystem.js`'s `advanceHint()`) — so a coach reveal and a Hint-button reveal leave the board in the same state.
 
 ## Conversation Lifecycle (Frontend)
 

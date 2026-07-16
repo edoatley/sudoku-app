@@ -143,7 +143,9 @@ function SudokuApp({ user, signOut }) {
     gameId,
     originalGrid,
     currentGrid,
+    setCurrentGrid,
     candidateGrid,
+    setCandidateGrid,
     difficulty,
     errorCells,
     activeHint,
@@ -411,6 +413,8 @@ function SudokuApp({ user, signOut }) {
           gameId={gameId}
           currentGrid={currentGrid}
           setHighlightCells={setHighlightCells}
+          setCurrentGrid={setCurrentGrid}
+          setCandidateGrid={setCandidateGrid}
           playerProfile={playerProfile}
         />
       )}

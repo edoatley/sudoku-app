@@ -4,16 +4,21 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 
 ## Status
 
-**IN_PROGRESS** — 2026-07-16. 72/75 specs implemented. 3 gaps remain, all pre-existing frontend
-gaps (reveal-hint handling, Escape key close). The Bedrock structured-output + caching-fix work
+**IN_PROGRESS** — 2026-07-16. 74/75 specs implemented. 1 gap remains (`SC-UI-013`, Escape key
+close). The Bedrock structured-output + caching-fix work
 (`docs/planning/bedrock-coach-structured-output-plan.md`) is merged, code-complete and
 test-verified, including a `responseType` categorical field (SC-BE-028/029) that replaced a
 flaky prose-substring assertion in the coach-quality harness (CQ-AST-001); harness A/B
-validation against the coach-quality suite is still outstanding. Separately, `SC-BE-030` fixes
-a reported bug: the coach relayed 0-indexed hint coordinates verbatim (e.g. "Row 7, Column 3"
-for a cell that is Row 8, Column 4 on the 1-indexed board) — `HintTextFormatter` now converts
+validation against the coach-quality suite is still outstanding. `SC-BE-030` fixes a reported
+bug: the coach relayed 0-indexed hint coordinates verbatim (e.g. "Row 7, Column 3" for a cell
+that is Row 8, Column 4 on the 1-indexed board) — `HintTextFormatter` now converts
 `nudge`/`focus`/`reveal` text before it reaches the LLM, mirroring the frontend's existing
-`hintDisplay.js` conversion (375 backend tests passing).
+`hintDisplay.js` conversion. Investigating that report also surfaced a related, previously
+untracked inconsistency: the coach never acted on `revealHint` at all (highlight-only, even on
+an explicit reveal), unlike the Hint button's reveal stage (auto-fills the digit). `SC-UI-050`
+and `SC-UI-051` — already-specified but unimplemented — turned out to describe exactly this
+behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/removes
+`eliminatedCandidates` when `revealHint` is true, matching `useHintSystem.js`) closed both gaps.
 
 ## References
 
@@ -82,17 +87,15 @@ for a cell that is Row 8, Column 4 on the 1-indexed board) — `HintTextFormatte
 | Conversation Display (FE) | SC-UI-020 to SC-UI-025 | 6 | 0 |
 | Quick Reply Chips (FE) | SC-UI-030 to SC-UI-032 | 3 | 0 |
 | Board-Chat Linkage (FE) | SC-UI-040 to SC-UI-042 | 3 | 0 |
-| Reveal Hint Handling (FE) | SC-UI-050 to SC-UI-051 | 0 | 2 |
+| Reveal Hint Handling (FE) | SC-UI-050 to SC-UI-051 | 2 | 0 |
 | Conversation Lifecycle (FE) | SC-UI-060 to SC-UI-064 | 5 | 0 |
 | Rate Limiting & Cost (BE+FE) | SC-RL-001 to SC-RL-010 | 10 | 0 |
 
-**Summary:** 72 of 75 specs implemented; 0 deferred; 3 gaps.
+**Summary:** 74 of 75 specs implemented; 0 deferred; 1 gap.
 
 ## Open Gaps
 
 - **SC-UI-013** — Escape key closes the coach panel. Not implemented.
-- **SC-UI-050** — When `revealHint=false`, suppress `hint.reveal`, `hint.solvedCells`, `hint.eliminatedCandidates`. Not implemented; frontend always exposes full hint object.
-- **SC-UI-051** — When `revealHint=true`, make all hint fields available alongside the AI message. Not implemented.
 
 SC-BE-011/012/014/025/026/027/028/029 (Bedrock structured output + caching fix, plus the
 `responseType` categorical field) are now implemented and unit-tested (`BedrockCoachClientTest`,

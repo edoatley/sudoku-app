@@ -722,7 +722,9 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
   return {
     originalGrid,
     currentGrid,
+    setCurrentGrid,
     candidateGrid,
+    setCandidateGrid,
     difficulty,
     gameId,
     isSyncing,
