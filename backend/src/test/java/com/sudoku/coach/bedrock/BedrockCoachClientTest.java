@@ -7,16 +7,27 @@ import com.sudoku.domain.Grid;
 import com.sudoku.coach.web.ChatMessage;
 import com.sudoku.puzzle.web.HintResponse;
 import com.sudoku.puzzle.hint.Difficulty;
+import io.quarkus.arc.ClientProxy;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.bedrockruntime.model.ContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.ConversationRole;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseOutput;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.Message;
+import software.amazon.awssdk.services.bedrockruntime.model.SystemContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.TokenUsage;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,7 +36,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-// @spec SC-BE-003, SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022, SC-BE-023, SC-BE-024
+// @spec SC-BE-003, SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-012, SC-BE-013,
+// SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022, SC-BE-023, SC-BE-024,
+// SC-BE-025, SC-BE-026, SC-BE-027
 @QuarkusTest
 class BedrockCoachClientTest {
 
@@ -61,6 +74,12 @@ class BedrockCoachClientTest {
             "Naked Single", "naked-single", Difficulty.EASY, 1,
             "Only one digit can go in Row 1, Column 3.", "Look at Row 1.",
             "Place 4 in Row 1, Column 3.", List.of(), List.of(), List.of(), List.of());
+
+    @AfterEach
+    void resetApiMode() {
+        // @spec SC-BE-026 — tests that flip api-mode to "converse" must not leak into other tests
+        ClientProxy.unwrap(bedrockCoachClient).apiMode = "invoke";
+    }
 
     @Test
     void call_validBedrockResponse_returnsParsedAiReply() {
@@ -184,6 +203,31 @@ class BedrockCoachClientTest {
     }
 
     @Test
+    void parseResponse_mapsResponseTypeFromParsedJson() {
+        // @spec SC-BE-028
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"{\\"aiMessage\\":\\"Great!\\",\\"revealHint\\":false,\\"responseType\\":\\"nudge\\"}"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertEquals("nudge", parsed.reply().responseType());
+    }
+
+    @Test
+    void parseResponse_responseTypeIsNull_onFallback() {
+        // @spec SC-BE-028, SC-BE-029 — fallback never calls Bedrock's structured output, so there
+        // is no model-chosen category to report
+        InvokeModelResponse response = invokeModelResponse("""
+                {"content":[{"type":"text","text":"This is not JSON at all"}]}
+                """);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseResponse(response, HINT);
+
+        assertNull(parsed.reply().responseType());
+    }
+
+    @Test
     void parseResponse_rawResponseTextIsNull_onGenuineSuccess() {
         // @spec SC-BE-023 — aiMessage already carries the useful content on success; no duplication
         InvokeModelResponse response = invokeModelResponse("""
@@ -228,6 +272,155 @@ class BedrockCoachClientTest {
 
         assertTrue(requestJson.contains("cache_control"));
         assertTrue(requestJson.contains("ephemeral"));
+    }
+
+    @Test
+    void buildRequestJson_includesOutputConfigJsonSchema() throws Exception {
+        // @spec SC-BE-025 — invoke mode enforces the shared schema via output_config.format
+        String requestJson = bedrockCoachClient.buildRequestJson("Help", HINT, List.of(), board());
+
+        JsonNode root = objectMapper.readTree(requestJson);
+        JsonNode format = root.path("output_config").path("format");
+        assertEquals("json_schema", format.path("type").asText());
+        assertEquals("object", format.path("schema").path("type").asText());
+        JsonNode required = format.path("schema").path("required");
+        assertTrue(required.toString().contains("aiMessage"));
+        assertTrue(required.toString().contains("revealHint"));
+        assertTrue(required.toString().contains("responseType"));
+        assertFalse(format.path("schema").path("additionalProperties").asBoolean(true));
+    }
+
+    @Test
+    void outputSchema_constrainsResponseTypeToTheDocumentedEnum() throws Exception {
+        // @spec SC-BE-028 — responseType is enum-constrained, not free-form, in both API modes
+        JsonNode schema = objectMapper.readTree(BedrockCoachClient.OUTPUT_SCHEMA_JSON);
+        JsonNode enumValues = schema.path("properties").path("responseType").path("enum");
+
+        List<String> values = new ArrayList<>();
+        enumValues.forEach(v -> values.add(v.asText()));
+
+        assertEquals(List.of("nudge", "focus-hint", "reveal-answer", "gentle-redirect",
+                "off-topic-redirect", "celebrate-progress", "clarify-technique"), values);
+    }
+
+    // ---- converse mode (SC-BE-025, SC-BE-026, SC-BE-027) ----
+
+    @Test
+    void buildConverseRequest_appendsCachePointToSystemBlocks() {
+        ConverseRequest request = bedrockCoachClient.buildConverseRequest("Help", HINT, List.of(), board());
+
+        List<SystemContentBlock> system = request.system();
+        assertTrue(system.stream().anyMatch(b -> b.text() != null && b.text().equals(BedrockCoachClient.SYSTEM_PROMPT)));
+        assertTrue(system.stream().anyMatch(b -> b.cachePoint() != null));
+    }
+
+    @Test
+    void buildConverseRequest_setsSchemaEnforcedOutputConfig() {
+        ConverseRequest request = bedrockCoachClient.buildConverseRequest("Help", HINT, List.of(), board());
+
+        String schema = request.outputConfig().textFormat().structure().jsonSchema().schema();
+        assertEquals(BedrockCoachClient.OUTPUT_SCHEMA_JSON, schema);
+        assertEquals("json_schema", request.outputConfig().textFormat().typeAsString());
+        assertTrue(schema.contains("responseType"));
+    }
+
+    @Test
+    void buildConverseRequest_includesHistoryAndUserMessageAsMessages() {
+        List<ChatMessage> history = List.of(
+                new ChatMessage("user", "I see digits 1 and 2 in Row 1"),
+                new ChatMessage("assistant", "{\"aiMessage\": \"Good start!\", \"revealHint\": false}"));
+
+        ConverseRequest request = bedrockCoachClient.buildConverseRequest("Tell me more", HINT, history, board());
+
+        assertEquals(3, request.messages().size());
+        assertEquals(ConversationRole.USER, request.messages().get(2).role());
+        assertTrue(request.messages().get(2).content().get(0).text().contains("Tell me more"));
+    }
+
+    @Test
+    void parseConverseResponse_validResponse_returnsParsedAiReply() {
+        ConverseResponse response = converseResponse(
+                "{\"aiMessage\":\"Great question! Let's look at Row 1 together.\",\"revealHint\":false,\"responseType\":\"nudge\"}",
+                4300, 42, 0, 4300);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseConverseResponse(response, HINT);
+
+        assertEquals("Great question! Let's look at Row 1 together.", parsed.reply().aiMessage());
+        assertFalse(parsed.reply().revealHint());
+        assertEquals("nudge", parsed.reply().responseType());
+        assertNull(parsed.fallbackReason());
+    }
+
+    @Test
+    void parseConverseResponse_responseTypeIsNull_onFallback() {
+        // @spec SC-BE-028, SC-BE-029
+        ConverseResponse response = converseResponse("This is not JSON at all", 10, 5, 0, 0);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseConverseResponse(response, HINT);
+
+        assertNull(parsed.reply().responseType());
+    }
+
+    @Test
+    void parseConverseResponse_mapsCacheReadAndWriteTokensFromUsage() {
+        // @spec SC-BE-027 — cacheReadInputTokens/cacheWriteInputTokens surfaced from Converse's usage block
+        ConverseResponse response = converseResponse(
+                "{\"aiMessage\":\"Great!\",\"revealHint\":false}", 42, 10, 4300, 0);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseConverseResponse(response, HINT);
+
+        assertEquals(42, parsed.inputTokens());
+        assertEquals(10, parsed.outputTokens());
+        assertEquals(4300, parsed.cacheReadTokens());
+        assertEquals(0, parsed.cacheWriteTokens());
+    }
+
+    @Test
+    void parseConverseResponse_invalidJson_fallsBackToNudge() {
+        ConverseResponse response = converseResponse("This is not JSON at all", 10, 5, 0, 0);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseConverseResponse(response, HINT);
+
+        assertEquals(HINT.nudge(), parsed.reply().aiMessage());
+        assertNotNull(parsed.fallbackReason());
+        assertEquals("This is not JSON at all", parsed.rawResponseText());
+    }
+
+    @Test
+    void parseConverseResponse_blankAiMessage_fallsBackToNudge() {
+        ConverseResponse response = converseResponse("{\"aiMessage\":\"\",\"revealHint\":false}", 10, 5, 0, 0);
+
+        BedrockCoachClient.ParsedResponse parsed = bedrockCoachClient.parseConverseResponse(response, HINT);
+
+        assertEquals(HINT.nudge(), parsed.reply().aiMessage());
+        assertNotNull(parsed.fallbackReason());
+    }
+
+    @Test
+    void call_apiModeConverse_dispatchesToConverseAndReturnsParsedReply() {
+        // @spec SC-BE-026 — coach.bedrock.api-mode=converse routes through Converse, not InvokeModel
+        ClientProxy.unwrap(bedrockCoachClient).apiMode = "converse";
+        ConverseResponse response = converseResponse(
+                "{\"aiMessage\":\"Good thinking!\",\"revealHint\":false}", 4300, 40, 0, 4300);
+        when(bedrockRuntimeClient.converse(any(ConverseRequest.class))).thenReturn(response);
+
+        BedrockCoachClient.CallResult result = bedrockCoachClient.call("game-1", "I'm stuck", HINT, List.of(), board());
+
+        assertEquals("Good thinking!", result.reply().aiMessage());
+        assertEquals(4340L, result.tokensUsed());
+    }
+
+    @Test
+    void call_apiModeConverse_sdkException_fallsBackToNudge() {
+        // @spec SC-BE-015, SC-BE-017 — fallback behaviour is identical regardless of api-mode
+        ClientProxy.unwrap(bedrockCoachClient).apiMode = "converse";
+        when(bedrockRuntimeClient.converse(any(ConverseRequest.class)))
+                .thenThrow(SdkClientException.builder().message("connection refused").build());
+
+        BedrockCoachClient.AiReply reply = bedrockCoachClient.call("game-1", "Help", HINT, List.of(), board()).reply();
+
+        assertEquals(HINT.nudge(), reply.aiMessage());
+        assertFalse(reply.revealHint());
     }
 
     @Test
@@ -320,7 +513,7 @@ class BedrockCoachClientTest {
     @Test
     void buildResponseLogLine_includesAiMessageOnSuccessPath() throws Exception {
         // @spec SC-BE-008
-        BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great question! Let's look at Row 1.", false);
+        BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great question! Let's look at Row 1.", false, "nudge");
         String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 UUID.randomUUID().toString(), reply, 100, 50, 0, 0, 250L, false, null, null, null);
 
@@ -331,9 +524,33 @@ class BedrockCoachClientTest {
     }
 
     @Test
+    void buildResponseLogLine_includesResponseType_whenPresent() throws Exception {
+        // @spec SC-BE-029
+        BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great question!", false, "focus-hint");
+        String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
+                UUID.randomUUID().toString(), reply, 100, 50, 0, 0, 250L, false, null, null, null);
+
+        JsonNode node = objectMapper.readTree(logLine);
+        assertEquals("focus-hint", node.path("responseType").asText());
+    }
+
+    @Test
+    void buildResponseLogLine_omitsResponseType_onFallback() throws Exception {
+        // @spec SC-BE-029 — fallback never calls Bedrock's structured output, so there is no
+        // model-chosen category to log
+        BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false, null);
+        String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
+                UUID.randomUUID().toString(), fallbackReply, 0, 0, 0, 0, 6000L, true,
+                "SdkClientException", "connection refused", null);
+
+        JsonNode node = objectMapper.readTree(logLine);
+        assertTrue(node.path("responseType").isMissingNode());
+    }
+
+    @Test
     void buildResponseLogLine_includesAiMessageOnFallbackPath() throws Exception {
         // @spec SC-BE-008 — fallback path logs the nudge text actually shown to the player
-        BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false);
+        BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false, null);
         String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 UUID.randomUUID().toString(), fallbackReply, 0, 0, 0, 0, 6000L, true,
                 "SdkClientException", "connection refused", null);
@@ -346,7 +563,7 @@ class BedrockCoachClientTest {
     @Test
     void buildResponseLogLine_includesRawResponseText_whenPresent() throws Exception {
         // @spec SC-BE-023
-        BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false);
+        BedrockCoachClient.AiReply fallbackReply = new BedrockCoachClient.AiReply(HINT.nudge(), false, null);
         String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 UUID.randomUUID().toString(), fallbackReply, 0, 0, 0, 0, 250L, true,
                 "ResponseParseFailure", "parse failure: JsonParseException: Unrecognized token 'I'",
@@ -359,7 +576,7 @@ class BedrockCoachClientTest {
     @Test
     void buildResponseLogLine_omitsRawResponseText_whenNull() throws Exception {
         // @spec SC-BE-023 — no log bloat on a genuine successful reply
-        BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great!", false);
+        BedrockCoachClient.AiReply reply = new BedrockCoachClient.AiReply("Great!", false, "nudge");
         String logLine = bedrockCoachClient.buildResponseLogLine("game-1",
                 UUID.randomUUID().toString(), reply, 100, 50, 0, 0, 250L, false, null, null, null);
 
@@ -373,7 +590,7 @@ class BedrockCoachClientTest {
         String cid = UUID.randomUUID().toString();
         String requestLine = bedrockCoachClient.buildRequestLogLine("game-42", cid, 1000L, "Help", HINT, List.of(), board());
         String responseLine = bedrockCoachClient.buildResponseLogLine(
-                "game-42", cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null, null);
+                "game-42", cid, new BedrockCoachClient.AiReply("ok", false, "nudge"), 1, 1, 0, 0, 10L, false, null, null, null);
 
         assertEquals("game-42", objectMapper.readTree(requestLine).path("pid").asText());
         assertEquals("game-42", objectMapper.readTree(responseLine).path("pid").asText());
@@ -385,7 +602,7 @@ class BedrockCoachClientTest {
         String cid = UUID.randomUUID().toString();
         String requestLine = bedrockCoachClient.buildRequestLogLine("game-1", cid, 1000L, "Help", HINT, List.of(), board());
         String responseLine = bedrockCoachClient.buildResponseLogLine("game-1",
-                cid, new BedrockCoachClient.AiReply("ok", false), 1, 1, 0, 0, 10L, false, null, null, null);
+                cid, new BedrockCoachClient.AiReply("ok", false, "nudge"), 1, 1, 0, 0, 10L, false, null, null, null);
 
         assertEquals(objectMapper.readTree(requestLine).path("cid").asText(),
                      objectMapper.readTree(responseLine).path("cid").asText());
@@ -402,5 +619,21 @@ class BedrockCoachClientTest {
         InvokeModelResponse mockResponse = mock(InvokeModelResponse.class);
         when(mockResponse.body()).thenReturn(SdkBytes.fromUtf8String(responseBody.strip()));
         return mockResponse;
+    }
+
+    private static ConverseResponse converseResponse(String aiJsonText, int inputTokens, int outputTokens,
+            int cacheReadTokens, int cacheWriteTokens) {
+        return ConverseResponse.builder()
+                .output(ConverseOutput.fromMessage(Message.builder()
+                        .role(ConversationRole.ASSISTANT)
+                        .content(ContentBlock.fromText(aiJsonText))
+                        .build()))
+                .usage(TokenUsage.builder()
+                        .inputTokens(inputTokens)
+                        .outputTokens(outputTokens)
+                        .cacheReadInputTokens(cacheReadTokens)
+                        .cacheWriteInputTokens(cacheWriteTokens)
+                        .build())
+                .build();
     }
 }

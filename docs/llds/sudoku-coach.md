@@ -129,16 +129,65 @@ Responsible for:
 1. Building the Bedrock/LangChain4j prompt with the tutor system message (cache-controlled)
 2. Injecting the context block (board + technique)
 3. Appending conversation history (trimmed)
-4. Making a single Bedrock call
-5. Parsing the structured JSON response `{ "aiMessage": "...", "revealHint": true|false }`
+4. Making a single Bedrock call, in either of two API modes (see "API modes" below)
+5. Parsing the structured JSON response `{ "aiMessage": "...", "revealHint": true|false,
+   "responseType": "..." }`, server-enforced by Bedrock structured output rather than prompt
+   wording alone
 6. Falling back to `hint.nudge()` + `revealHint=false` on timeout or parse failure
 7. Logging a structured `COACH_REQUEST`/`COACH_RESPONSE` JSON line per turn, correlated by `cid`
 
+**API modes:**
+`coach.bedrock.api-mode` (`invoke` default, or `converse`) selects which Bedrock Runtime action
+`BedrockCoachClient` calls. Both modes enforce the same output schema (see "Structured output"
+below), so the flag isolates API-surface and caching-mechanism differences from the reliability
+change:
+
+| Mode | Bedrock action | Request shape | Cache mechanism |
+|---|---|---|---|
+| `invoke` (default) | `InvokeModel` | Raw Anthropic Messages body | `cache_control: {type: ephemeral}` on the system block |
+| `converse` | `Converse` | Typed `ConverseRequest` | `CachePointBlock` (`{"type":"default"}`) appended to the system blocks |
+
+**Structured output:**
+Both modes constrain the model's reply to the shared schema `{aiMessage: string, revealHint:
+boolean, responseType: enum}` (`additionalProperties: false`, all three fields `required`) —
+enforced server-side by Bedrock, not prompt wording alone. This is defined once as a constant
+and referenced by both request builders:
+- `invoke` mode: `"output_config": { "format": { "type": "json_schema", "schema": <schema> } }`
+  added to the Anthropic-native request body.
+- `converse` mode: `OutputConfig.textFormat(OutputFormat.type(JSON_SCHEMA)
+  .structure(OutputFormatStructure.jsonSchema(JsonSchemaDefinition.schema(<stringified schema>)
+  .name("coach_reply").description(...))))`.
+
+`responseType` is an enum of `nudge`, `focus-hint`, `reveal-answer`, `gentle-redirect`,
+`off-topic-redirect`, `celebrate-progress`, `clarify-technique` — one per pedagogical scenario
+already covered by the system prompt's rules and few-shot examples. It exists purely for
+logging and automated testing (SC-BE-028): it is never included in the `CoachResponse` returned
+to the frontend, only in the `COACH_RESPONSE` log line (see "Content logging" below). Live-spike
+confirmed the `enum` JSON Schema keyword is supported by Bedrock's structured-output subset on
+both API modes (not just the `anyOf`+`const` pattern used elsewhere for discriminated unions).
+This directly replaces a flaky coach-quality harness assertion that substring-matched
+non-deterministic reply prose (e.g. checking for the literal word "double-check") — the harness
+now asserts on this schema-enforced category instead (`coachResponseType`, see CQ-AST-001).
+
+Reveal coordinates stay authoritative in `HintResponse` — the LLM never re-emits them, only the
+boolean `revealHint`; the frontend derives coordinate-vs-elimination disclosure from
+`solvedCells`/`eliminatedCandidates`. This avoids RULE 3 fabrication risk (the LLM restating a
+coordinate incorrectly) and keeps the schema minimal.
+
+A new schema is compiled server-side on first use (observed: no material latency penalty on a
+cold schema in this account — see Technical Debt) and cached 24h per account thereafter.
+
 **Prompt caching:**
-The system prompt is marked with `cache_control: {type: ephemeral}`. Bedrock caches the KV
-state for a 5-minute TTL, reducing system prompt token cost by ~90% on cache hits. The system
-prompt must be ≥1,024 tokens to be cacheable — include inline few-shot coaching examples to
-reach this threshold if needed.
+Verified against real Bedrock traffic (`eu.anthropic.claude-haiku-4-5-20251001-v1:0`,
+`eu-west-2`): the cache minimum is **4,096 tokens**, not the 1,024/2,048 figures earlier
+documentation assumed — a system prompt of ~3,187 tokens produced `cache_creation_input_tokens:
+0` on both `InvokeModel` and `Converse`; a padded prompt of ~4,321 tokens produced a real cache
+write, and a repeat call within the TTL produced a real cache read of the same size. Bedrock
+caches the KV state for a 5-minute TTL (default) — `converse` mode's `CachePointBlock` supports
+`"ttl":"1h"` as an alternative, at a higher write-cost multiplier; `invoke` mode's `cache_control`
+form only supports the 5-minute TTL. Reducing system prompt token cost by ~90% on cache hits
+only occurs once the prompt clears the threshold — include inline few-shot coaching examples to
+reach it if needed (see "System Prompt" below).
 
 **Raw Bedrock client:**
 `BedrockRuntimeClient` is used directly (not LangChain4j). LangChain4j did not expose
@@ -157,9 +206,12 @@ DTO and is threaded through `SudokuCoachServiceImpl.coach()` into `BedrockCoachC
 — if a client omits it (e.g. the coach is invoked outside a saved game), `pid` is logged as
 null rather than failing the request. Lines are built via `objectMapper.writeValueAsString(...)`
 (the already-injected `ObjectMapper`), never string templating, so freeform fields
-(`userMessage`, `aiMessage`) escape correctly.
+(`userMessage`, `aiMessage`) escape correctly. `COACH_RESPONSE` also includes `responseType`
+(SC-BE-029) when a genuine parse produced one; the key is omitted entirely on the fallback path,
+since fallback never calls Bedrock's structured output and so has no model-chosen category to
+report — matching the existing omit-when-absent convention already used for `rawResponseText`.
 
-Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..022`.
+Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..029`.
 
 ### Constants
 
@@ -229,6 +281,7 @@ coach.monthly-token-limit=${COACH_MONTHLY_TOKEN_LIMIT:100000}
 coach.rate-limit.table-name=${COACH_RATE_LIMIT_TABLE_NAME:SudokuCoachRateLimits}
 coach.rate-limit.per-minute=${COACH_RATE_LIMIT_PER_MINUTE:5}
 %dev.coach.rate-limit.per-minute=1000
+coach.bedrock.api-mode=${COACH_BEDROCK_API_MODE:invoke}
 ```
 
 ---
@@ -286,17 +339,26 @@ public record CoachResponse(
 ## System Prompt (Tutor Persona)
 
 Stored as a constant in `BedrockCoachClient` (or an injected `@ConfigProperty` string).
-Must be ≥1,024 tokens to qualify for prompt caching. The required elements:
+Must be ≥4,096 tokens to qualify for prompt caching (see "Prompt caching" above). The required
+elements:
 
 1. **Persona**: Patient Sudoku tutor. Encouraging, never condescending.
 2. **Constraint**: Do not invent moves. The board state and applicable technique are provided
    as context — refer only to cells and digits explicitly present in that context.
 3. **Pedagogy rule**: Ask questions before giving answers. Guide the player to the insight.
    After 2–3 turns on the same technique without progress, disclose more.
-4. **Output schema**: Return ONLY valid JSON: `{ "aiMessage": "...", "revealHint": true|false }`.
-   `revealHint` is `true` only if the message explicitly states the cell and digit.
-5. **Few-shot examples** (to reach ≥1,024 token threshold and improve output quality):
-   Include 2–3 example coaching exchanges showing good escalation behaviour.
+4. **Output schema — advisory, not sole enforcement**: the prompt still describes the JSON
+   shape and `revealHint`/`responseType` semantics for the model's benefit, but the shape itself
+   is now server-enforced by Bedrock structured output (see "Structured output" above); the
+   prompt no longer needs to be the sole guarantor of well-formed JSON, so the former `OUTPUT
+   FORMAT — MANDATORY` / `FINAL REMINDER` sections are trimmed to a brief mention. `responseType`
+   still needs prompt guidance even though its *shape* is schema-enforced (a fixed enum) — only
+   the prompt teaches the model *which* category fits a given reply, since that's a semantic
+   judgment the schema itself can't constrain.
+5. **Few-shot examples** (to reach ≥4,096 token threshold and improve output quality): the
+   trimmed length is re-padded with additional genuinely useful few-shot coaching examples /
+   pedagogical guidance rather than repeated format warnings, so caching and prompt-trimming
+   don't conflict.
 
 ---
 
@@ -401,7 +463,13 @@ an active hint, but it does override the visual highlight.
 | Decision | Chosen | Alternatives | Rationale |
 |----------|--------|--------------|-----------|
 | Pre-analysis rather than tool loop | Deterministic engine runs first; result injected into prompt | LLM calls tools to analyse board | Eliminates hallucinated moves; one Bedrock call vs. 3–5; fits within 8s Lambda timeout |
-| One Bedrock call per HTTP request | Single `InvokeModel` call | Streaming or multi-step chain | Predictable latency; simpler error handling; Lambda timeout safety |
+| One Bedrock call per HTTP request | Single `InvokeModel` or `Converse` call (per `coach.bedrock.api-mode`) | Streaming or multi-step chain | Predictable latency; simpler error handling; Lambda timeout safety |
+| Structured output enforced by Bedrock schema, not prompt wording alone | `output_config.format` (invoke) / `outputConfig.textFormat` (converse) constrain the reply to `{aiMessage, revealHint, responseType}` server-side | Keep relying solely on prompt instructions (`OUTPUT FORMAT — MANDATORY` wording) | Eliminates the prose-with-no-JSON fallback class entirely rather than reducing its frequency; live-spike-confirmed on both API modes against `eu.anthropic.claude-haiku-4-5-20251001-v1:0` |
+| `responseType` categorical field added to the schema, logged only (not part of `CoachResponse`) | Enum of 7 values mapping 1:1 to the system prompt's existing pedagogical rules/examples; keeps the existing `aiMessage` field name unchanged | Rename `aiMessage`→`message` in lockstep (considered, rejected as unnecessary blast radius for this change); have the frontend also consume `responseType`; use an LLM judge or fuzzier prose-matching in the harness instead | A categorical field the model must choose from a fixed enum is far more reliable to assert on than substring-matching non-deterministic prose (the `wrong-guess-acknowledgment` scenario's `"double-check"` check was flaky for exactly this reason); keeping it log-only avoids touching `CoachResponse`, `CoachResource`, `SudokuCoachServiceImpl`, or any frontend file |
+| `coach.bedrock.api-mode` flag (`invoke` default / `converse`), both modes schema-enforced | Config-driven dispatch in `BedrockCoachClient.call()` | Migrate outright to Converse; keep InvokeModel only | Both modes enforce the same schema so the A/B isolates API + caching differences from the reliability change, not the reliability change itself |
+| Reveal coordinates never re-emitted by the LLM | Schema carries only `revealHint: boolean`; `HintResponse` (already returned in full) stays the sole source of cell/digit coordinates | Have the LLM restate the cell + digit in the schema | Avoids RULE 3 fabrication risk (LLM stating a wrong coordinate); keeps the enforced schema minimal; also unblocks SC-UI-050/051 since the frontend can derive disclosure from `revealHint` + the already-present `HintResponse` fields |
+| `converse` mode caches via `CachePointBlock`, `invoke` mode keeps `cache_control: {type: ephemeral}` | Per-API cache mechanism, both effectively an "ephemeral" 5-minute cache by default | Force both modes onto one cache mechanism | `cache_control` (Anthropic-native) is silently ignored by Converse; `cachePoint` is Converse-specific. Each API's own mechanism is used rather than fighting the SDK |
+| `COACH_BEDROCK_API_MODE` Lambda env var defaults to `converse` on `rc-*` workspaces, `invoke` elsewhere (`infra/main.tf` `local.coach_bedrock_api_mode = local.is_rc ? "converse" : "invoke"`) | Keyed on `is_rc` specifically (not `!is_default`, unlike `ai_coach_enabled`/`VITE_AI_COACH`) | Mirror `ai_coach_enabled`'s `!is_default` condition exactly | RC is where new coach behaviour is A/B-tested before considering it for production. `!is_default` and `is_rc` are equivalent today (only `default`/`rc-*` workspaces exist), but this flag's intent is specifically "validate on RC" — keying on `is_rc` avoids a future non-RC workspace type silently inheriting an unvalidated api-mode. No IAM change needed — AWS's Converse API reuses the `bedrock:InvokeModel` permission the Lambda role already has |
 | Frontend owns conversation history | Client sends last N turns each request | DynamoDB per-session storage | Stateless backend; no schema change; no extra DynamoDB read per request |
 | Fallback to nudge text | `hint.nudge()` returned on Bedrock failure | Return 5xx on failure | Coaching endpoint always returns something useful; Bedrock unavailability doesn't break the game |
 | Log full conversation content (userMessage, aiMessage, board, candidates) | INFO-level structured JSON, same CloudWatch log group as other Lambda logs, existing 30-day retention | Metadata-only logs; separate log store; log to a third-party sink | Personal project with a small, known, non-anonymous allowlisted user set — content logging is needed to review coaching quality and isn't a privacy risk under this threat model (see `docs/arrows/security-standards.md` Logging Policy); revisit if the app ever opens to anonymous users |
@@ -422,9 +490,25 @@ an active hint, but it does override the visual highlight.
   only primes the HTTP layer (`GET /health`), not the Bedrock SDK client. A second call on the
   same (now-warm) execution environment completed in ~1.8–2.0s. Observed running
   `scripts/github/coach-smoke-test.sh` against a brand-new RC workspace's first-ever deploy.
-- **System prompt caching threshold**: Claude Haiku models require ≥2,048 tokens (not 1,024)
-  for prompt caching. The current `SYSTEM_PROMPT` exceeds this. Monitor cache hit metrics in
-  CloudWatch logs (`cacheReadTokens` / `cacheWriteTokens` in COACH_RESPONSE log events).
+- **System prompt caching threshold — resolved**: live-spike-confirmed against real Bedrock
+  traffic that the actual minimum is **4,096 tokens**, not the 2,048/1,024 figures previously
+  documented here. The pre-fix `SYSTEM_PROMPT` (~3,187 tokens) was *below* this threshold,
+  which is why production showed `cacheRead=0 cacheWrite=0` across the entire coach-quality
+  baseline (`ui/tests/coach-quality/reports/haiku-4-5-baseline/summary.txt`). Fixed by trimming
+  the now-redundant `OUTPUT FORMAT`/`FINAL REMINDER` prose (superseded by server-enforced
+  structured output) and re-padding above 4,096 tokens with genuinely useful few-shot content.
+  Monitor cache hit metrics in CloudWatch logs (`cacheReadTokens`/`cacheWriteTokens` in
+  `COACH_RESPONSE` log events) to confirm in production.
+- **Caching economics depend on turns-per-conversation**: a single-turn interaction costs
+  *more* with caching enabled (pays the write premium, gets no read) than without; break-even
+  is ~2 turns within the 5-minute TTL. `tokensUsed` (charged against the 100k/month budget,
+  SC-RL-002) is `inputTokens + outputTokens` only — cached-prefix tokens live in the separate
+  `cacheRead`/`cacheWrite` fields and are *not* added to `tokensUsed`, so enabling caching
+  silently shrinks the budget-tracked figure (players effectively get more coach turns per
+  month for the same 100k-token cap). Kept token-based (not cost-weighted) for now — simpler,
+  under-reflects the write premium, but the absolute spend is sub-cent/call regardless. Measure
+  real turn distribution via the coach-quality harness before choosing 5m vs. 1h TTL or
+  revisiting this budget-accounting choice.
 - **`revealHint` frontend handling**: The frontend does not yet act on `revealHint` — it
   displays the AI message but never conditionally shows/hides hint fields. Specs SC-UI-050
   and SC-UI-051 remain unimplemented.

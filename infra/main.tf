@@ -32,6 +32,14 @@ locals {
   # To enable on production: change to `true` (or remove the condition).
   ai_coach_enabled = !local.is_default
 
+  # Bedrock API mode for the AI coach: RC workspaces default to `converse` to A/B-test
+  # structured output + CachePointBlock caching against production's `invoke` mode
+  # (docs/planning/bedrock-coach-structured-output-plan.md). Both modes enforce the same
+  # output schema, so this only isolates API-surface/caching differences, not reliability.
+  # Keyed off is_rc (not !is_default) so a future non-RC workspace type doesn't silently
+  # inherit an unvalidated api-mode.
+  coach_bedrock_api_mode = local.is_rc ? "converse" : "invoke"
+
   # Cognito references — rc workspaces share a single pool; others own theirs
   cognito_user_pool_id        = local.is_rc ? data.aws_cognito_user_pools.rc_shared[0].ids[0] : aws_cognito_user_pool.main[0].id
   cognito_domain              = local.is_rc ? "sudoku-auth-rc" : "sudoku-auth${local.suffix}"

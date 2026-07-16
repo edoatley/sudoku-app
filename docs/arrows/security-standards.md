@@ -113,7 +113,7 @@ logged. For the exact field-by-field schema of every structured log line (`COACH
 |----------|-----------|----------------|
 | Auth events | userId (Cognito `sub`), timestamp, HTTP status | JWT token, email, Cognito session |
 | Game events | gameId, difficulty, outcome, score | currentGrid, solutionGrid contents |
-| Coach events (metadata) | cid, modelId, technique, token counts, latency, fallback flag | — |
+| Coach events (metadata) | cid, modelId, technique, token counts, latency, fallback flag, responseType (schema-enforced enum category) | — |
 | Coach events (content) | userMessage, aiMessage, board grid, candidatesGrid | — (these are user-generated but not sensitive for this app's threat model — see note below) |
 | Puzzle-play events | pid (gameId), userId, cell coordinates, placed digit, move correctness, hint technique/rank | — (gameplay actions; non-sensitive under this threat model) |
 | API errors | HTTP status, error code, correlation ID | Exception stack traces in 5xx response body (fine in logs, never in response) |

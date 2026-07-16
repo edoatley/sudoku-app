@@ -85,7 +85,7 @@ The system is divided into 8 components by domain concept:
 | **Image Recognition**              | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring                 | `image_recognition/handler.py`                      |
 | **Cloud Platform**                 | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM                         | `infra/*.tf`                                        |
 | **League Table**                   | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard`      | `backend/.../leaderboard/`                          |
-| **AI Coach**                       | Conversational coaching via Amazon Bedrock; one InvokeModel call per player message; deterministic pre-analysis (hint engine) provides context; fallback to nudge text on failure | `backend/.../coach/`, `backend/.../coach/bedrock/BedrockCoachClient.java` |
+| **AI Coach**                       | Conversational coaching via Amazon Bedrock; one InvokeModel or Converse call per player message (`coach.bedrock.api-mode`), schema-enforced JSON reply; deterministic pre-analysis (hint engine) provides context; fallback to nudge text on failure | `backend/.../coach/`, `backend/.../coach/bedrock/BedrockCoachClient.java` |
 | **React Frontend**                 | Browser SPA: game UI, full-screen navigation, hint UX, coach chat panel, state hooks, API client, localStorage persistence | `ui/src/`                                           |
 
 ## Dependency Order
@@ -229,8 +229,10 @@ User sends a message to the AI coach
                                 system: [SYSTEM_PROMPT w/ cache_control: ephemeral]
                                 messages: history + contextBlock (board + technique + nudge)
                             → BedrockRuntimeClient.invokeModel(modelId, 6 s timeout)
-                            → parse {aiMessage, revealHint} from response JSON
-                            → on any exception → fallback AiReply(hint.nudge(), false)
+                            → parse {aiMessage, revealHint, responseType} from response JSON
+                              (schema-enforced; responseType is logging/testing-only, never
+                              returned to the frontend)
+                            → on any exception → fallback AiReply(hint.nudge(), false, null)
                         → return CoachResponse(aiMessage, hint, revealHint)
     → Frontend appends AI message to chat history
     → setHighlightCells(response.hint?.highlightCells ?? [])

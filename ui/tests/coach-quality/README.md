@@ -106,7 +106,8 @@ written either way.
 |---|---|---|
 | `boardValid` | `expected: boolean` | Reads the board back via `GET /games/{id}` and checks for row/column/box duplicates. Requires a prior `sync`. |
 | `coachFallback` | `expected: boolean` | The most recent `ask`'s correlated `COACH_RESPONSE` log line's `fallback` field. |
-| `coachLogContains` | `text: string` | Substring check against the most recent `ask`'s full request+response log pair (JSON-stringified). |
+| `coachLogContains` | `text: string` | Substring check against the most recent `ask`'s full request+response log pair (JSON-stringified). Avoid using this to check the *content* of a non-deterministic reply (prose varies run to run) — prefer `coachResponseType` for that; it's better suited to structural checks (e.g. a technique name appears in the request). |
+| `coachResponseType` | `expected: string` | The most recent `ask`'s correlated `COACH_RESPONSE` log line's `responseType` field — the schema-enforced category (`nudge`\|`focus-hint`\|`reveal-answer`\|`gentle-redirect`\|`off-topic-redirect`\|`celebrate-progress`\|`clarify-technique`) Bedrock's structured output constrains every reply to. Prefer this over `coachLogContains` for asserting on pedagogical intent, since the same intent can be phrased many different ways in prose. |
 | `hintTechnique` | `expected: string` | Substring check against the most recent `hint`'s `techniqueName`. |
 | `hintFound` | `expected: 'found'\|'solved'\|'no-strategy'` | The most recent `hint`'s status. |
 | `hintMatchesCoachTechnique` | *(none)* | Cross-checks two independently-obtained pieces of live state against each other: the hint engine's own technique choice vs. the technique the most recent coach call's context notes were built from, for the same board. No static `expected` — it compares live state to live state. |
