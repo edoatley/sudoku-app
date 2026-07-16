@@ -188,6 +188,9 @@ and `scripts/local/coach-quality-test.sh` never starts the `ui` container.
   outcome — see the README for the report contents.
 - `fallback` — read from the backend's structured log, since `CoachResponse` never returns
   this field to the caller (see `backend/.../coach/web/CoachResponse.java`).
+- `responseType` (CQ-AST-001) — the schema-enforced pedagogical-intent category (SC-BE-028),
+  also read from the structured log rather than `CoachResponse`, used to assert on a reply's
+  intent (e.g. "was this a gentle redirect?") without substring-matching non-deterministic prose.
 - The hint engine's chosen technique cross-checked against the technique the coach's own
   request context was built from, for the same board.
 - Board validity read back via `GET /games/{id}`, not just what was sent.

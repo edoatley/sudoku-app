@@ -21,6 +21,14 @@ is the primary deliverable.
   current scenario's start time, rather than re-reading the backend container's entire log
   history on every poll.
 
+## Assertions
+
+- [x] **CQ-AST-001**: The system shall provide a `coachResponseType` assertion kind that checks
+  the most recent `ask`'s correlated `COACH_RESPONSE` log line's `responseType` field (the
+  schema-enforced category from SC-BE-028) against an expected value, so scenarios can assert
+  on the pedagogical intent of a non-deterministic coach reply without substring-matching its
+  prose text.
+
 ## Report integrity
 
 - [x] **CQ-RPT-001**: When the final game-state fetch fails after a scenario's actions

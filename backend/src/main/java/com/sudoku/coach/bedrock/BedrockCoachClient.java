@@ -40,7 +40,7 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 
 // @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-010, SC-BE-011, SC-BE-012,
 // SC-BE-013, SC-BE-014, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022,
-// SC-BE-023, SC-BE-025, SC-BE-026, SC-BE-027
+// SC-BE-023, SC-BE-025, SC-BE-026, SC-BE-027, SC-BE-028, SC-BE-029
 
 @ApplicationScoped
 public class BedrockCoachClient {
@@ -148,16 +148,34 @@ public class BedrockCoachClient {
             OUTPUT FORMAT
             ════════════════════════════════════════════════════════════════════════════════════
 
-            Your reply is returned as structured JSON with two fields, "aiMessage" and
-            "revealHint" — the JSON shape itself is enforced automatically, so you do not need
-            to worry about syntax, code fences, or extra surrounding text. What you DO control is
-            the meaning of each field:
+            Your reply is returned as structured JSON with three fields, "aiMessage",
+            "revealHint", and "responseType" — the JSON shape itself is enforced automatically,
+            so you do not need to worry about syntax, code fences, or extra surrounding text.
+            What you DO control is the meaning of each field:
               — "aiMessage": your entire coaching response, in your own words.
               — "revealHint": set to true ONLY when your aiMessage explicitly names BOTH the
                 exact cell coordinates (row AND column) AND the exact digit to place there. For
                 techniques where the REVEAL note only describes an elimination (no single cell
                 and digit), quoting it in full does not by itself justify revealHint: true —
                 only a concrete cell + digit statement in your aiMessage does.
+              — "responseType": categorizes which of the following best describes this reply —
+                used for logging and automated testing only, never shown to the player, so pick
+                the closest match rather than agonising over edge cases:
+                  • "nudge" — a vague pointer or question, no technique name or specific cells
+                    (NUDGE tier).
+                  • "focus-hint" — names the technique and/or specific cell(s)/unit, without the
+                    final digit or elimination (FOCUS tier).
+                  • "reveal-answer" — draws on the REVEAL note to disclose more directly (REVEAL
+                    tier). Independent of revealHint above — a REVEAL-tier elimination reply is
+                    still "reveal-answer" even when it doesn't name a single cell + digit.
+                  • "gentle-redirect" — the player suggested an incorrect cell or digit; redirect
+                    kindly without stating they are wrong (RULE 4).
+                  • "off-topic-redirect" — the player's message was unrelated to the puzzle
+                    (RULE 5).
+                  • "celebrate-progress" — acknowledging a move the player just made before
+                    continuing coaching on the current technique.
+                  • "clarify-technique" — the player asked what a technique means or how it
+                    works, rather than asking for help with the current board.
 
             ════════════════════════════════════════════════════════════════════════════════════
             FEW-SHOT COACHING EXAMPLES
@@ -171,7 +189,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): Row 3, Column 4 has had every other digit eliminated.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 3, Column 4 must be 7.
             PLAYER MESSAGE: "I don't know where to start."
-            → {"aiMessage": "Let's look at Row 3 together. Can you count how many different digits are already placed in that row? Once you know what's there, look at what's missing.", "revealHint": false}
+            → {"aiMessage": "Let's look at Row 3 together. Can you count how many different digits are already placed in that row? Once you know what's there, look at what's missing.", "revealHint": false, "responseType": "nudge"}
 
             ── Example B: Player found the row gap, needs column nudge ──────────────────────
 
@@ -181,7 +199,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): Row 3, Column 4 has had every other digit eliminated.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 3, Column 4 must be 7.
             PLAYER MESSAGE: "Row 3 has 1, 2, 4, 5, 6, 8, 9 — so it's missing 3 and 7."
-            → {"aiMessage": "Brilliant! Row 3 is missing 3 and 7. Now look at Column 4 — which digits already appear there? When you combine what Row 3 is missing with what Column 4 already contains, only one digit should remain possible for that cell.", "revealHint": false}
+            → {"aiMessage": "Brilliant! Row 3 is missing 3 and 7. Now look at Column 4 — which digits already appear there? When you combine what Row 3 is missing with what Column 4 already contains, only one digit should remain possible for that cell.", "revealHint": false, "responseType": "focus-hint"}
 
             ── Example C: Player asks directly for the answer, even on turn 1 ────────────────
 
@@ -191,7 +209,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): Row 3, Column 4 has had every other digit eliminated.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 3, Column 4 must be 7.
             PLAYER MESSAGE: "Just tell me the answer, I give up."
-            → {"aiMessage": "Of course! In Row 3, Column 4, the only possible digit is 7 — every other digit already appears in Row 3, Column 4, or the surrounding box. Place 7 there and you'll open up more options nearby!", "revealHint": true}
+            → {"aiMessage": "Of course! In Row 3, Column 4, the only possible digit is 7 — every other digit already appears in Row 3, Column 4, or the surrounding box. Place 7 there and you'll open up more options nearby!", "revealHint": true, "responseType": "reveal-answer"}
             (Note: the suggested level was NUDGE, but an explicit request always jumps straight to REVEAL — the suggestion is a floor, not a ceiling.)
 
             ── Example D: Player asks what a technique means ─────────────────────────────────
@@ -202,7 +220,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): The bottom-left box has digit 4 as a candidate in only one cell.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 8, Column 2 must be 4.
             PLAYER MESSAGE: "What is a hidden single?"
-            → {"aiMessage": "A hidden single is when a digit can only fit in one cell within a row, column, or box — even though that cell appears to have other possibilities too. Try checking every empty cell in the bottom-left box and asking: could a 4 go here? You may find only one cell where it fits.", "revealHint": false}
+            → {"aiMessage": "A hidden single is when a digit can only fit in one cell within a row, column, or box — even though that cell appears to have other possibilities too. Try checking every empty cell in the bottom-left box and asking: could a 4 go here? You may find only one cell where it fits.", "revealHint": false, "responseType": "clarify-technique"}
 
             ── Example E: Player is making real progress on an elimination technique ─────────
 
@@ -212,7 +230,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): Block 3: digit 6 is confined to Row 2.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Digit 6 can be removed from the rest of Row 2 outside block 3.
             PLAYER MESSAGE: "I found that 6 must go somewhere in Row 2 of that box. Now what?"
-            → {"aiMessage": "Excellent! If 6 must stay in Row 2 of that box, then 6 cannot appear anywhere else in Row 2 outside that box. Look at the other empty cells in Row 2 — you can now rule out 6 as a candidate for all of them. Does that unlock anything?", "revealHint": false}
+            → {"aiMessage": "Excellent! If 6 must stay in Row 2 of that box, then 6 cannot appear anywhere else in Row 2 outside that box. Look at the other empty cells in Row 2 — you can now rule out 6 as a candidate for all of them. Does that unlock anything?", "revealHint": false, "responseType": "reveal-answer"}
             (Note: this REVEAL note only describes an elimination, not a single cell + digit — so even quoting it in full would not justify revealHint: true.)
 
             ── Example F: Player asks something unrelated to Sudoku ──────────────────────────
@@ -223,7 +241,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): Row 6, Column 2 has had every other digit eliminated.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 6, Column 2 must be 5.
             PLAYER MESSAGE: "What's the weather like today?"
-            → {"aiMessage": "Ha, I wish I knew! I'm just your Sudoku tutor, so I can't help with the weather. Let's get back to your puzzle instead — take a look at Row 6. What digits do you already see there?", "revealHint": false}
+            → {"aiMessage": "Ha, I wish I knew! I'm just your Sudoku tutor, so I can't help with the weather. Let's get back to your puzzle instead — take a look at Row 6. What digits do you already see there?", "revealHint": false, "responseType": "off-topic-redirect"}
             (Note: per RULE 5, redirect briefly and warmly rather than engaging with the off-topic question.)
 
             ── Example G: Player suggests an incorrect cell or digit ─────────────────────────
@@ -234,7 +252,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): Row 2, Columns 5 and 6 both have candidates {3, 8} only.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Every other cell in Row 2 can have 3 and 8 removed as candidates.
             PLAYER MESSAGE: "Is it Row 2, Column 7 that should be 3?"
-            → {"aiMessage": "Good effort, but have another look at Row 2, Columns 5 and 6 first — what candidates do those two cells share? Once you spot that pair, think about what it means for every other cell in that row.", "revealHint": false}
+            → {"aiMessage": "Good effort, but have another look at Row 2, Columns 5 and 6 first — what candidates do those two cells share? Once you spot that pair, think about what it means for every other cell in that row.", "revealHint": false, "responseType": "gentle-redirect"}
             (Note: per RULE 4, redirect gently toward the missed detail rather than stating the guess is wrong outright.)
 
             ── Example H: Player just placed a digit and is ready for the next step ──────────
@@ -245,7 +263,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): In the top-right box, digits 2 and 9 each only appear as candidates in Row 1, Column 8 and Row 2, Column 9.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Row 1, Column 8 and Row 2, Column 9 can have every candidate except 2 and 9 removed.
             PLAYER MESSAGE: "I just placed that 7 you helped me find — what's next?"
-            → {"aiMessage": "Well done, that's another cell solved! Now let's look at the top-right box. Two digits — 2 and 9 — can only go in two particular cells there, even though those cells currently show other possibilities too. Can you spot which two cells those are?", "revealHint": false}
+            → {"aiMessage": "Well done, that's another cell solved! Now let's look at the top-right box. Two digits — 2 and 9 — can only go in two particular cells there, even though those cells currently show other possibilities too. Can you spot which two cells those are?", "revealHint": false, "responseType": "celebrate-progress"}
             (Note: acknowledging progress briefly before introducing the next technique keeps momentum without dwelling on the previous move.)
 
             ── Example I: Player is confused by a more advanced elimination technique ────────
@@ -256,7 +274,7 @@ public class BedrockCoachClient {
             FOCUS NOTE (more specific — names cell/unit): Digit 4's candidates in Row 2 and Row 7 are both confined to Columns 3 and 6.
             REVEAL NOTE (most specific — use for later turns or an explicit request for the answer): Digit 4 can be removed from every other cell in Columns 3 and 6.
             PLAYER MESSAGE: "I really don't understand this one, it's confusing."
-            → {"aiMessage": "No worries, this is one of the trickier patterns! Picture Rows 2 and 7 — digit 4 can only go in Columns 3 or 6 in both of those rows. Because of that, digit 4 must eventually occupy one of those two columns in each row, which means no other cell in Columns 3 or 6 can be a 4. Take a look at Column 3 first — does removing 4 as a candidate there help anywhere?", "revealHint": false}
+            → {"aiMessage": "No worries, this is one of the trickier patterns! Picture Rows 2 and 7 — digit 4 can only go in Columns 3 or 6 in both of those rows. Because of that, digit 4 must eventually occupy one of those two columns in each row, which means no other cell in Columns 3 or 6 can be a 4. Take a look at Column 3 first — does removing 4 as a candidate there help anywhere?", "revealHint": false, "responseType": "reveal-answer"}
             (Note: on later turns, or when a player expresses confusion rather than simply asking for the answer, a fuller explanation of the underlying logic — not just the REVEAL note's bare fact — is appropriate.)
 
             ════════════════════════════════════════════════════════════════════════════════════
@@ -270,8 +288,12 @@ public class BedrockCoachClient {
     static final String OUTPUT_SCHEMA_JSON = "{\"type\":\"object\",\"properties\":{\"aiMessage\":"
             + "{\"type\":\"string\",\"description\":\"The coach's reply to the player.\"},"
             + "\"revealHint\":{\"type\":\"boolean\",\"description\":\"true only when the reply "
-            + "explicitly gives the answer the deterministic hint would reveal.\"}},"
-            + "\"required\":[\"aiMessage\",\"revealHint\"],\"additionalProperties\":false}";
+            + "explicitly gives the answer the deterministic hint would reveal.\"},"
+            + "\"responseType\":{\"type\":\"string\",\"enum\":[\"nudge\",\"focus-hint\","
+            + "\"reveal-answer\",\"gentle-redirect\",\"off-topic-redirect\",\"celebrate-progress\","
+            + "\"clarify-technique\"],\"description\":\"Categorizes the pedagogical intent of this "
+            + "reply, for logging/testing — never shown to the player.\"}},"
+            + "\"required\":[\"aiMessage\",\"revealHint\",\"responseType\"],\"additionalProperties\":false}";
 
     @ConfigProperty(name = "coach.bedrock.model-id")
     String modelId;
@@ -286,7 +308,11 @@ public class BedrockCoachClient {
     @Inject
     ObjectMapper objectMapper;
 
-    public record AiReply(String aiMessage, boolean revealHint) {}
+    // responseType is null on the fallback path (fallback never calls Bedrock's structured
+    // output, so there is no model-chosen category to report) and non-null on a genuine parse,
+    // constrained to OUTPUT_SCHEMA_JSON's enum. Logging/testing only — never surfaced to the
+    // player (see @spec SC-BE-028).
+    public record AiReply(String aiMessage, boolean revealHint, String responseType) {}
 
     public record CallResult(AiReply reply, long tokensUsed) {}
 
@@ -353,6 +379,7 @@ public class BedrockCoachClient {
 
     // @spec SC-BE-008 — aiMessage logged on every path, including fallback
     // @spec SC-BE-019 — cid correlates this line with its COACH_REQUEST counterpart
+    // @spec SC-BE-029 — responseType included when non-null (fallback path has none to report)
     String buildResponseLogLine(String pid, String cid, AiReply reply, int inputTokens, int outputTokens,
             int cacheReadTokens, int cacheWriteTokens, long latencyMs, boolean fallback,
             String errorType, String errorMsg, String rawResponseText) throws Exception {
@@ -368,6 +395,9 @@ public class BedrockCoachClient {
         root.put("latencyMs", latencyMs);
         root.put("fallback", fallback);
         root.put("aiMessage", reply.aiMessage());
+        if (reply.responseType() != null) {
+            root.put("responseType", reply.responseType());
+        }
         if (errorType != null) {
             root.put("errorType", errorType);
         }
@@ -489,6 +519,7 @@ public class BedrockCoachClient {
     }
 
     // @spec SC-BE-016, SC-BE-021, SC-BE-022 — fallback on JSON parse failure, correctly flagged
+    // @spec SC-BE-028 — parses the schema-enforced responseType field alongside aiMessage/revealHint
     ParsedResponse parseResponse(InvokeModelResponse invokeResponse, HintResponse hint) {
         String text = null;
         try {
@@ -500,12 +531,13 @@ public class BedrockCoachClient {
                 return new ParsedResponse(fallback(hint), 0, 0, 0, 0, "aiMessage blank in parsed Bedrock response", text);
             }
             boolean revealHint = parsed.path("revealHint").asBoolean(false);
+            String responseType = parsed.path("responseType").asText(null);
             JsonNode usage = root.path("usage");
             int inputTokens = usage.path("input_tokens").asInt(0);
             int outputTokens = usage.path("output_tokens").asInt(0);
             int cacheReadTokens = usage.path("cache_read_input_tokens").asInt(0);
             int cacheWriteTokens = usage.path("cache_creation_input_tokens").asInt(0);
-            return new ParsedResponse(new AiReply(aiMessage, revealHint), inputTokens, outputTokens,
+            return new ParsedResponse(new AiReply(aiMessage, revealHint, responseType), inputTokens, outputTokens,
                     cacheReadTokens, cacheWriteTokens, null, null);
         } catch (Exception e) {
             return new ParsedResponse(fallback(hint), 0, 0, 0, 0,
@@ -515,6 +547,7 @@ public class BedrockCoachClient {
 
     // @spec SC-BE-016, SC-BE-021, SC-BE-022 — mirrors parseResponse's fallback semantics for Converse
     // @spec SC-BE-027 — reads cacheReadInputTokens/cacheWriteInputTokens from Converse's usage block
+    // @spec SC-BE-028 — parses the schema-enforced responseType field alongside aiMessage/revealHint
     ParsedResponse parseConverseResponse(ConverseResponse converseResponse, HintResponse hint) {
         String text = null;
         try {
@@ -525,12 +558,13 @@ public class BedrockCoachClient {
                 return new ParsedResponse(fallback(hint), 0, 0, 0, 0, "aiMessage blank in parsed Bedrock response", text);
             }
             boolean revealHint = parsed.path("revealHint").asBoolean(false);
+            String responseType = parsed.path("responseType").asText(null);
             TokenUsage usage = converseResponse.usage();
             int inputTokens = usage.inputTokens() == null ? 0 : usage.inputTokens();
             int outputTokens = usage.outputTokens() == null ? 0 : usage.outputTokens();
             int cacheReadTokens = usage.cacheReadInputTokens() == null ? 0 : usage.cacheReadInputTokens();
             int cacheWriteTokens = usage.cacheWriteInputTokens() == null ? 0 : usage.cacheWriteInputTokens();
-            return new ParsedResponse(new AiReply(aiMessage, revealHint), inputTokens, outputTokens,
+            return new ParsedResponse(new AiReply(aiMessage, revealHint, responseType), inputTokens, outputTokens,
                     cacheReadTokens, cacheWriteTokens, null, null);
         } catch (Exception e) {
             return new ParsedResponse(fallback(hint), 0, 0, 0, 0,
@@ -554,6 +588,6 @@ public class BedrockCoachClient {
 
     // @spec SC-BE-012 — fallback on Bedrock timeout or error
     private AiReply fallback(HintResponse hint) {
-        return new AiReply(hint.nudge(), false);
+        return new AiReply(hint.nudge(), false, null);
     }
 }

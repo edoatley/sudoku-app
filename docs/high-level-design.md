@@ -229,8 +229,10 @@ User sends a message to the AI coach
                                 system: [SYSTEM_PROMPT w/ cache_control: ephemeral]
                                 messages: history + contextBlock (board + technique + nudge)
                             → BedrockRuntimeClient.invokeModel(modelId, 6 s timeout)
-                            → parse {aiMessage, revealHint} from response JSON
-                            → on any exception → fallback AiReply(hint.nudge(), false)
+                            → parse {aiMessage, revealHint, responseType} from response JSON
+                              (schema-enforced; responseType is logging/testing-only, never
+                              returned to the frontend)
+                            → on any exception → fallback AiReply(hint.nudge(), false, null)
                         → return CoachResponse(aiMessage, hint, revealHint)
     → Frontend appends AI message to chat history
     → setHighlightCells(response.hint?.highlightCells ?? [])

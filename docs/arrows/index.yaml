@@ -1,5 +1,5 @@
 version: 1
-updated: 2026-07-15
+updated: 2026-07-16
 
 arrows:
   - id: api-error-handling
@@ -142,8 +142,8 @@ arrows:
     lld: ~
     specs: docs/specs/coach-quality-specs.md
     arrow: docs/arrows/testing-strategy.md
-    spec_count: 6
-    implemented: 6
+    spec_count: 7
+    implemented: 7
     deferred: 0
     gaps: 0
     next: ~
@@ -187,8 +187,8 @@ arrows:
     lld: docs/llds/sudoku-coach.md
     specs: docs/specs/sudoku-coach-specs.md
     arrow: docs/arrows/sudoku-coach.md
-    spec_count: 72
-    implemented: 69
+    spec_count: 74
+    implemented: 71
     deferred: 0
     gaps: 3
     next: SC-UI-013 (Escape closes panel), SC-UI-050/051 (revealHint frontend disclosure); coach-quality harness A/B (invoke vs converse) still outstanding for the structured-output/caching work

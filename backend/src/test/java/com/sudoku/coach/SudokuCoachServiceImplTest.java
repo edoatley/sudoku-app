@@ -61,7 +61,7 @@ class SudokuCoachServiceImplTest {
         when(sudokuService.getHint(any())).thenReturn(new HintResult.Found(HINT));
         when(bedrockCoachClient.call(anyString(), anyString(), any(), anyList(), any(Board.class)))
                 .thenReturn(new BedrockCoachClient.CallResult(
-                        new BedrockCoachClient.AiReply("Let's look at Row 1.", false), 100L));
+                        new BedrockCoachClient.AiReply("Let's look at Row 1.", false, "nudge"), 100L));
 
         coachService.coach(new CoachRequest(PARTIAL_GRID, List.of(), "I'm stuck", "game-1"));
 
@@ -94,7 +94,7 @@ class SudokuCoachServiceImplTest {
         when(sudokuService.getHint(any())).thenReturn(new HintResult.Found(HINT));
         when(bedrockCoachClient.call(anyString(), anyString(), any(), anyList(), any(Board.class)))
                 .thenReturn(new BedrockCoachClient.CallResult(
-                        new BedrockCoachClient.AiReply("ok", false), 100L));
+                        new BedrockCoachClient.AiReply("ok", false, "nudge"), 100L));
 
         coachService.coach(new CoachRequest(PARTIAL_GRID, List.of(), "I'm stuck", "game-1"));
 

@@ -79,13 +79,18 @@ buffering mechanics: `docs/specs/react-frontend-specs.md` — `FE-BE-020..025`.
 | Type | Fields |
 | --- | --- |
 | `COACH_REQUEST` | `cid`, `modelId`, `technique`, `historyLen`, `userMsgLen`, `userMessage`, `board`, `candidatesGrid` |
-| `COACH_RESPONSE` | `cid`, `revealHint`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `latencyMs`, `fallback`, `aiMessage`, `errorType?`, `errorMsg?` |
+| `COACH_RESPONSE` | `cid`, `revealHint`, `responseType?`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `latencyMs`, `fallback`, `aiMessage`, `errorType?`, `errorMsg?` |
 
 `board` is the placed-digit grid (row-major); `candidatesGrid` is the per-cell candidates grid.
 Both are computed once in `SudokuCoachServiceImpl.coach()` and passed through, not recomputed
 in `BedrockCoachClient`. `aiMessage` is logged on **every** path, including `fallback: true` —
 it is the deterministic hint nudge there rather than an actual Bedrock response, but it is
-still what the player saw. `fallback` has two distinct triggers, both of which must set
+still what the player saw. `responseType` is Bedrock's schema-enforced pedagogical-intent
+category (`nudge`/`focus-hint`/`reveal-answer`/`gentle-redirect`/`off-topic-redirect`/
+`celebrate-progress`/`clarify-technique` — see `docs/llds/sudoku-coach.md` "Structured output")
+and, unlike `aiMessage`, is **omitted** on the fallback path rather than logged as a placeholder,
+since fallback never reaches Bedrock's structured output and so has no category to report.
+`fallback` has two distinct triggers, both of which must set
 `fallback: true`: the outer SDK/timeout catch in `call()`, and `parseResponse()` falling back
 *internally* (the Bedrock call succeeded, but the response text was blank or failed to parse
 as the expected JSON schema) — the second case never throws, so `call()` derives the flag from

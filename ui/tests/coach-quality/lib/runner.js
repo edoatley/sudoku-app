@@ -53,6 +53,15 @@ async function evaluateAssertion(action, ctx) {
       const actual = haystack.includes(action.text);
       return { pass: actual, expected: `contains "${action.text}"`, actual };
     }
+    // @spec CQ-AST-001 — asserts the schema-enforced responseType category (SC-BE-028) rather
+    // than substring-matching the non-deterministic reply text, since the same pedagogical
+    // intent (e.g. a gentle redirect) can be phrased many different ways.
+    case 'coachResponseType': {
+      const issue = logPairIssue(ctx.lastCoachStep?.logPair);
+      if (issue) return { pass: false, expected: action.expected, actual: `<${issue}>` };
+      const actual = ctx.lastCoachStep?.logPair?.response?.responseType;
+      return { pass: actual === action.expected, expected: action.expected, actual };
+    }
     case 'hintTechnique': {
       const actual =
         ctx.lastHintResult?.status === 'found' ? ctx.lastHintResult.hint.techniqueName : ctx.lastHintResult?.status;

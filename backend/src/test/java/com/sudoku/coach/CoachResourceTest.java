@@ -54,7 +54,7 @@ class CoachResourceTest {
         // pid (first arg) is null when the request carries no gameId, so it must match nullable
         when(bedrockCoachClient.call(nullable(String.class), anyString(), any(), anyList(), any()))
                 .thenReturn(new BedrockCoachClient.CallResult(
-                        new BedrockCoachClient.AiReply("Let's look at the board together.", false), 1500L));
+                        new BedrockCoachClient.AiReply("Let's look at the board together.", false, "nudge"), 1500L));
         when(playerService.getOrCreateProfile(anyString(), any(), any())).thenReturn(ENABLED_PLAYER);
         when(rateLimiter.tryConsume(anyString())).thenReturn(true);
         doNothing().when(playerRepository).incrementCoachTokens(anyString(), anyLong(), anyString());

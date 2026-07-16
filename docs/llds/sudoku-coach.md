@@ -148,14 +148,25 @@ change:
 
 **Structured output:**
 Both modes constrain the model's reply to the shared schema `{aiMessage: string, revealHint:
-boolean}` (`additionalProperties: false`, both fields `required`) — enforced server-side by
-Bedrock, not prompt wording alone. This is defined once as a constant and referenced by both
-request builders:
+boolean, responseType: enum}` (`additionalProperties: false`, all three fields `required`) —
+enforced server-side by Bedrock, not prompt wording alone. This is defined once as a constant
+and referenced by both request builders:
 - `invoke` mode: `"output_config": { "format": { "type": "json_schema", "schema": <schema> } }`
   added to the Anthropic-native request body.
 - `converse` mode: `OutputConfig.textFormat(OutputFormat.type(JSON_SCHEMA)
   .structure(OutputFormatStructure.jsonSchema(JsonSchemaDefinition.schema(<stringified schema>)
   .name("coach_reply").description(...))))`.
+
+`responseType` is an enum of `nudge`, `focus-hint`, `reveal-answer`, `gentle-redirect`,
+`off-topic-redirect`, `celebrate-progress`, `clarify-technique` — one per pedagogical scenario
+already covered by the system prompt's rules and few-shot examples. It exists purely for
+logging and automated testing (SC-BE-028): it is never included in the `CoachResponse` returned
+to the frontend, only in the `COACH_RESPONSE` log line (see "Content logging" below). Live-spike
+confirmed the `enum` JSON Schema keyword is supported by Bedrock's structured-output subset on
+both API modes (not just the `anyOf`+`const` pattern used elsewhere for discriminated unions).
+This directly replaces a flaky coach-quality harness assertion that substring-matched
+non-deterministic reply prose (e.g. checking for the literal word "double-check") — the harness
+now asserts on this schema-enforced category instead (`coachResponseType`, see CQ-AST-001).
 
 Reveal coordinates stay authoritative in `HintResponse` — the LLM never re-emits them, only the
 boolean `revealHint`; the frontend derives coordinate-vs-elimination disclosure from
@@ -194,9 +205,12 @@ DTO and is threaded through `SudokuCoachServiceImpl.coach()` into `BedrockCoachC
 — if a client omits it (e.g. the coach is invoked outside a saved game), `pid` is logged as
 null rather than failing the request. Lines are built via `objectMapper.writeValueAsString(...)`
 (the already-injected `ObjectMapper`), never string templating, so freeform fields
-(`userMessage`, `aiMessage`) escape correctly.
+(`userMessage`, `aiMessage`) escape correctly. `COACH_RESPONSE` also includes `responseType`
+(SC-BE-029) when a genuine parse produced one; the key is omitted entirely on the fallback path,
+since fallback never calls Bedrock's structured output and so has no model-chosen category to
+report — matching the existing omit-when-absent convention already used for `rawResponseText`.
 
-Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..027`.
+Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..029`.
 
 ### Constants
 
@@ -333,10 +347,13 @@ elements:
 3. **Pedagogy rule**: Ask questions before giving answers. Guide the player to the insight.
    After 2–3 turns on the same technique without progress, disclose more.
 4. **Output schema — advisory, not sole enforcement**: the prompt still describes the JSON
-   shape and `revealHint` semantics for the model's benefit, but the contract itself is now
-   server-enforced by Bedrock structured output (see "Structured output" above); the prompt no
-   longer needs to be the sole guarantor of well-formed JSON, so the former `OUTPUT FORMAT —
-   MANDATORY` / `FINAL REMINDER` sections are trimmed to a brief mention.
+   shape and `revealHint`/`responseType` semantics for the model's benefit, but the shape itself
+   is now server-enforced by Bedrock structured output (see "Structured output" above); the
+   prompt no longer needs to be the sole guarantor of well-formed JSON, so the former `OUTPUT
+   FORMAT — MANDATORY` / `FINAL REMINDER` sections are trimmed to a brief mention. `responseType`
+   still needs prompt guidance even though its *shape* is schema-enforced (a fixed enum) — only
+   the prompt teaches the model *which* category fits a given reply, since that's a semantic
+   judgment the schema itself can't constrain.
 5. **Few-shot examples** (to reach ≥4,096 token threshold and improve output quality): the
    trimmed length is re-padded with additional genuinely useful few-shot coaching examples /
    pedagogical guidance rather than repeated format warnings, so caching and prompt-trimming
@@ -446,7 +463,8 @@ an active hint, but it does override the visual highlight.
 |----------|--------|--------------|-----------|
 | Pre-analysis rather than tool loop | Deterministic engine runs first; result injected into prompt | LLM calls tools to analyse board | Eliminates hallucinated moves; one Bedrock call vs. 3–5; fits within 8s Lambda timeout |
 | One Bedrock call per HTTP request | Single `InvokeModel` or `Converse` call (per `coach.bedrock.api-mode`) | Streaming or multi-step chain | Predictable latency; simpler error handling; Lambda timeout safety |
-| Structured output enforced by Bedrock schema, not prompt wording alone | `output_config.format` (invoke) / `outputConfig.textFormat` (converse) constrain the reply to `{aiMessage, revealHint}` server-side | Keep relying solely on prompt instructions (`OUTPUT FORMAT — MANDATORY` wording) | Eliminates the prose-with-no-JSON fallback class entirely rather than reducing its frequency; live-spike-confirmed on both API modes against `eu.anthropic.claude-haiku-4-5-20251001-v1:0` |
+| Structured output enforced by Bedrock schema, not prompt wording alone | `output_config.format` (invoke) / `outputConfig.textFormat` (converse) constrain the reply to `{aiMessage, revealHint, responseType}` server-side | Keep relying solely on prompt instructions (`OUTPUT FORMAT — MANDATORY` wording) | Eliminates the prose-with-no-JSON fallback class entirely rather than reducing its frequency; live-spike-confirmed on both API modes against `eu.anthropic.claude-haiku-4-5-20251001-v1:0` |
+| `responseType` categorical field added to the schema, logged only (not part of `CoachResponse`) | Enum of 7 values mapping 1:1 to the system prompt's existing pedagogical rules/examples; keeps the existing `aiMessage` field name unchanged | Rename `aiMessage`→`message` in lockstep (considered, rejected as unnecessary blast radius for this change); have the frontend also consume `responseType`; use an LLM judge or fuzzier prose-matching in the harness instead | A categorical field the model must choose from a fixed enum is far more reliable to assert on than substring-matching non-deterministic prose (the `wrong-guess-acknowledgment` scenario's `"double-check"` check was flaky for exactly this reason); keeping it log-only avoids touching `CoachResponse`, `CoachResource`, `SudokuCoachServiceImpl`, or any frontend file |
 | `coach.bedrock.api-mode` flag (`invoke` default / `converse`), both modes schema-enforced | Config-driven dispatch in `BedrockCoachClient.call()` | Migrate outright to Converse; keep InvokeModel only | Both modes enforce the same schema so the A/B isolates API + caching differences from the reliability change, not the reliability change itself |
 | Reveal coordinates never re-emitted by the LLM | Schema carries only `revealHint: boolean`; `HintResponse` (already returned in full) stays the sole source of cell/digit coordinates | Have the LLM restate the cell + digit in the schema | Avoids RULE 3 fabrication risk (LLM stating a wrong coordinate); keeps the enforced schema minimal; also unblocks SC-UI-050/051 since the frontend can derive disclosure from `revealHint` + the already-present `HintResponse` fields |
 | `converse` mode caches via `CachePointBlock`, `invoke` mode keeps `cache_control: {type: ephemeral}` | Per-API cache mechanism, both effectively an "ephemeral" 5-minute cache by default | Force both modes onto one cache mechanism | `cache_control` (Anthropic-native) is silently ignored by Converse; `cachePoint` is Converse-specific. Each API's own mechanism is used rather than fighting the SDK |

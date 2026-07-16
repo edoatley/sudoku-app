@@ -57,7 +57,7 @@ function renderStep(step) {
               : 'real reply';
       return (
         `- **User:** ${action.text}\n` +
-        `  - **AI** (${fbNote}, revealHint=${result.apiResponse?.revealHint ?? 'n/a'}): ${result.apiResponse?.aiMessage ?? '(204 — puzzle solved)'}`
+        `  - **AI** (${fbNote}, revealHint=${result.apiResponse?.revealHint ?? 'n/a'}, responseType=${result.logPair?.response?.responseType ?? 'n/a'}): ${result.apiResponse?.aiMessage ?? '(204 — puzzle solved)'}`
       );
     }
     case 'sync':
