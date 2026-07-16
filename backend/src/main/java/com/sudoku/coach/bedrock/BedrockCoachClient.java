@@ -572,11 +572,12 @@ public class BedrockCoachClient {
         }
     }
 
-    // @spec SC-BE-022 — Claude models occasionally wrap the mandated JSON-only output in markdown
-    // code fences (```json ... ```) or add stray surrounding text despite the system prompt's
-    // explicit instruction not to. Extract the first top-level JSON object rather than assuming
-    // the model's raw text is bare JSON, so a benign formatting deviation doesn't trigger a
-    // fallback that a human would consider a genuine, well-formed reply.
+    // @spec SC-BE-022 — historically guarded against Claude wrapping the mandated JSON-only
+    // output in markdown code fences or stray prose despite the system prompt's instruction not
+    // to. Now that both API modes enforce OUTPUT_SCHEMA_JSON server-side (SC-BE-025), Bedrock
+    // shouldn't produce that kind of wrapping in practice — this is kept as cheap defense-in-depth
+    // against the response text still not being bare JSON (e.g. max_tokens truncating output
+    // mid-object) rather than the primary extraction path it originally was.
     private static String extractJsonObject(String text) {
         int start = text.indexOf('{');
         int end = text.lastIndexOf('}');
