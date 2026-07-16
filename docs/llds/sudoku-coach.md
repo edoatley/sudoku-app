@@ -211,7 +211,26 @@ null rather than failing the request. Lines are built via `objectMapper.writeVal
 since fallback never calls Bedrock's structured output and so has no model-chosen category to
 report — matching the existing omit-when-absent convention already used for `rawResponseText`.
 
-Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..029`.
+**Hint text coordinate conversion (`HintTextFormatter`):**
+The hint engine is 0-indexed internally by design — `docs/specs/hint-engine-specs.md`'s
+`HE-UI-005` states conversion to 1-indexed/named form happens "only at the display layer" and
+must not mutate `HintResponse` itself. The frontend's hint dialog does this via
+`ui/src/utils/hintDisplay.js`'s `formatHintText()`. The Bedrock prompt context is a second
+display layer the frontend-only fix didn't cover: `BedrockCoachClient.buildContextBlock()` was
+injecting `hint.nudge()`/`focus()`/`reveal()` raw, so the LLM received (and could repeat) 0-indexed
+coordinates the player has no way to map onto the 1-indexed board — reported as: coach said "Row
+7, Column 3 must be 1", but that cell is Row 8, Column 4 on the 1-indexed board (the highlighted
+cell was correct; only the coach's stated coordinates were off, since highlighting uses the
+underlying 0-indexed `Coordinate` data directly, unaffected by this bug).
+`HintTextFormatter` (`backend/.../coach/bedrock/HintTextFormatter.java`) ports
+`formatHintText()`'s regex-based conversion to Java — cell coordinates, block references,
+single- and multi-unit row/column references — and `buildContextBlock()` applies it to
+`nudge`/`focus`/`reveal` before they reach the prompt. Kept as a Java port rather than shared
+logic (no practical way to share regex-based text transforms across the Java/JS boundary here);
+`HE-UI-001..004`'s conversion rules are the single source of truth both ports must stay in sync
+with (SC-BE-030 cross-references them rather than restating the rules).
+
+Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..030`.
 
 ### Constants
 
@@ -466,6 +485,7 @@ an active hint, but it does override the visual highlight.
 | One Bedrock call per HTTP request | Single `InvokeModel` or `Converse` call (per `coach.bedrock.api-mode`) | Streaming or multi-step chain | Predictable latency; simpler error handling; Lambda timeout safety |
 | Structured output enforced by Bedrock schema, not prompt wording alone | `output_config.format` (invoke) / `outputConfig.textFormat` (converse) constrain the reply to `{aiMessage, revealHint, responseType}` server-side | Keep relying solely on prompt instructions (`OUTPUT FORMAT — MANDATORY` wording) | Eliminates the prose-with-no-JSON fallback class entirely rather than reducing its frequency; live-spike-confirmed on both API modes against `eu.anthropic.claude-haiku-4-5-20251001-v1:0` |
 | `responseType` categorical field added to the schema, logged only (not part of `CoachResponse`) | Enum of 7 values mapping 1:1 to the system prompt's existing pedagogical rules/examples; keeps the existing `aiMessage` field name unchanged | Rename `aiMessage`→`message` in lockstep (considered, rejected as unnecessary blast radius for this change); have the frontend also consume `responseType`; use an LLM judge or fuzzier prose-matching in the harness instead | A categorical field the model must choose from a fixed enum is far more reliable to assert on than substring-matching non-deterministic prose (the `wrong-guess-acknowledgment` scenario's `"double-check"` check was flaky for exactly this reason); keeping it log-only avoids touching `CoachResponse`, `CoachResource`, `SudokuCoachServiceImpl`, or any frontend file |
+| Convert `nudge`/`focus`/`reveal` to 1-indexed in `buildContextBlock()` via a new `HintTextFormatter`, not by changing the hint strategies themselves | Java port of `hintDisplay.js`'s `formatHintText()`, applied only where the coach builds its prompt context | Make the hint strategies emit 1-indexed text directly (rejected — violates `HE-UI-005`'s "0-indexed internally, convert only at display layer" and would require re-deriving the frontend's now-redundant conversion too); have the frontend post-process the coach's `aiMessage` after the fact (rejected — the LLM has already committed to whatever numbers it read, so fixing the input is the only point that actually prevents wrong numbers reaching the player) | Fixes the reported bug (coach said "Row 7, Column 3" for a cell that is Row 8, Column 4 on the 1-indexed board) at its source — the LLM never sees a 0-indexed coordinate to repeat — without touching the 11 hint strategy files or the already-correct frontend hint dialog |
 | `coach.bedrock.api-mode` flag (`invoke` default / `converse`), both modes schema-enforced | Config-driven dispatch in `BedrockCoachClient.call()` | Migrate outright to Converse; keep InvokeModel only | Both modes enforce the same schema so the A/B isolates API + caching differences from the reliability change, not the reliability change itself |
 | Reveal coordinates never re-emitted by the LLM | Schema carries only `revealHint: boolean`; `HintResponse` (already returned in full) stays the sole source of cell/digit coordinates | Have the LLM restate the cell + digit in the schema | Avoids RULE 3 fabrication risk (LLM stating a wrong coordinate); keeps the enforced schema minimal; also unblocks SC-UI-050/051 since the frontend can derive disclosure from `revealHint` + the already-present `HintResponse` fields |
 | `converse` mode caches via `CachePointBlock`, `invoke` mode keeps `cache_control: {type: ephemeral}` | Per-API cache mechanism, both effectively an "ephemeral" 5-minute cache by default | Force both modes onto one cache mechanism | `cache_control` (Anthropic-native) is silently ignored by Converse; `cachePoint` is Converse-specific. Each API's own mechanism is used rather than fighting the SDK |
@@ -532,6 +552,7 @@ an active hint, but it does override the visual highlight.
   - `backend/.../coach/SudokuCoachServiceImpl.java`
   - `backend/.../coach/bedrock/BedrockCoachClient.java`
   - `backend/.../coach/bedrock/BoardFormatter.java`
+  - `backend/.../coach/bedrock/HintTextFormatter.java` — 0→1-indexed conversion for the prompt context, ports `ui/src/utils/hintDisplay.js`
   - `backend/.../coach/bedrock/CoachRateLimiter.java`
   - `backend/.../puzzle/web/HintResponse.java` — not modified
   - `backend/.../domain/Board.java` — `fromGrid()`, `calculateAllCandidates()`

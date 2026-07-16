@@ -4,12 +4,16 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 
 ## Status
 
-**IN_PROGRESS** — 2026-07-16. 71/74 specs implemented. 3 gaps remain, all pre-existing frontend
+**IN_PROGRESS** — 2026-07-16. 72/75 specs implemented. 3 gaps remain, all pre-existing frontend
 gaps (reveal-hint handling, Escape key close). The Bedrock structured-output + caching-fix work
-(`docs/planning/bedrock-coach-structured-output-plan.md`) is code-complete and test-verified
-(352 backend tests passing), now including a `responseType` categorical field (SC-BE-028/029)
-that replaced a flaky prose-substring assertion in the coach-quality harness (CQ-AST-001);
-harness A/B validation against the coach-quality suite is still outstanding.
+(`docs/planning/bedrock-coach-structured-output-plan.md`) is merged, code-complete and
+test-verified, including a `responseType` categorical field (SC-BE-028/029) that replaced a
+flaky prose-substring assertion in the coach-quality harness (CQ-AST-001); harness A/B
+validation against the coach-quality suite is still outstanding. Separately, `SC-BE-030` fixes
+a reported bug: the coach relayed 0-indexed hint coordinates verbatim (e.g. "Row 7, Column 3"
+for a cell that is Row 8, Column 4 on the 1-indexed board) — `HintTextFormatter` now converts
+`nudge`/`focus`/`reveal` text before it reaches the LLM, mirroring the frontend's existing
+`hintDisplay.js` conversion (375 backend tests passing).
 
 ## References
 
@@ -71,7 +75,7 @@ harness A/B validation against the coach-quality suite is still outstanding.
 | Input Validation (BE) | SC-API-001 to SC-API-004 | 4 | 0 |
 | Deterministic Pre-Analysis (BE) | SC-BE-001 to SC-BE-004 | 4 | 0 |
 | Coordination and Content Logging (BE) | SC-BE-005 to SC-BE-009, SC-BE-019, SC-BE-020 | 7 | 0 |
-| Bedrock Integration (BE) | SC-BE-010 to SC-BE-018, SC-BE-021 to SC-BE-029 | 18 | 0 |
+| Bedrock Integration (BE) | SC-BE-010 to SC-BE-018, SC-BE-021 to SC-BE-030 | 19 | 0 |
 | Coach Response (BE) | SC-API-010 to SC-API-012 | 3 | 0 |
 | Widget Rendering (FE) | SC-UI-001 to SC-UI-004 | 4 | 0 |
 | Panel Open/Close (FE) | SC-UI-010 to SC-UI-014 | 4 | 1 (SC-UI-013) |
@@ -82,7 +86,7 @@ harness A/B validation against the coach-quality suite is still outstanding.
 | Conversation Lifecycle (FE) | SC-UI-060 to SC-UI-064 | 5 | 0 |
 | Rate Limiting & Cost (BE+FE) | SC-RL-001 to SC-RL-010 | 10 | 0 |
 
-**Summary:** 71 of 74 specs implemented; 0 deferred; 3 gaps.
+**Summary:** 72 of 75 specs implemented; 0 deferred; 3 gaps.
 
 ## Open Gaps
 

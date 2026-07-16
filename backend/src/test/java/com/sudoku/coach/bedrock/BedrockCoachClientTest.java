@@ -429,17 +429,38 @@ class BedrockCoachClientTest {
 
         assertTrue(requestJson.contains("CURRENT BOARD STATE"));
         assertTrue(requestJson.contains(HINT.techniqueName()));
-        assertTrue(requestJson.contains(HINT.nudge()));
+        // @spec SC-BE-030 — HINT.nudge() is 0-indexed ("Row 1, Column 3"); the request must carry
+        // the 1-indexed conversion ("Row 2, Column 4"), not the raw fixture text verbatim
+        assertTrue(requestJson.contains("Only one digit can go in Row 2, Column 4."));
     }
 
     @Test
     void buildRequestJson_includesAllThreeHintLevels() throws Exception {
         // @spec SC-BE-003, SC-BE-024 — nudge/focus/reveal all sent, not just nudge
+        // @spec SC-BE-030 — all three carry the 1-indexed conversion of the 0-indexed fixture text
         String requestJson = bedrockCoachClient.buildRequestJson("Help", HINT, List.of(), board());
 
-        assertTrue(requestJson.contains(HINT.nudge()));
-        assertTrue(requestJson.contains(HINT.focus()));
-        assertTrue(requestJson.contains(HINT.reveal()));
+        assertTrue(requestJson.contains("Only one digit can go in Row 2, Column 4."));
+        assertTrue(requestJson.contains("Look at Row 2."));
+        assertTrue(requestJson.contains("Place 4 in Row 2, Column 4."));
+    }
+
+    @Test
+    void buildRequestJson_convertsZeroIndexedHintTextTo1Indexed() throws Exception {
+        // @spec SC-BE-030 — reproduces the reported bug: a hint reveal of "Row 7, Column 3"
+        // (0-indexed, i.e. the 8th row/4th column) must reach the LLM as "Row 8, Column 4" —
+        // otherwise the coach repeats the 0-indexed numbers verbatim to the player, one off
+        // from the cell actually highlighted on the board.
+        HintResponse zeroIndexedHint = new HintResponse(
+                "Naked Single", "naked-single", Difficulty.EASY, 1,
+                "A cell in Row 7 has been reduced to exactly one possible candidate.",
+                "Row 7, Column 3 has had every other digit eliminated.",
+                "Row 7, Column 3 must be 1.", List.of(), List.of(), List.of(), List.of());
+
+        String requestJson = bedrockCoachClient.buildRequestJson("Just tell me", zeroIndexedHint, List.of(), board());
+
+        assertTrue(requestJson.contains("Row 8, Column 4 must be 1."));
+        assertFalse(requestJson.contains("Row 7, Column 3"));
     }
 
     @Test
