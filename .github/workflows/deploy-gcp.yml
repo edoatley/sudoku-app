@@ -1,0 +1,69 @@
+name: Deploy GCP (infra)
+
+# Applies infra/gcp via Terraform, authenticating to GCP with Workload Identity
+# Federation (no long-lived keys). Manually triggered for the phased Strategy-C
+# bring-up. Image build + `firebase deploy` are added later, with the app adapters.
+#
+# Requires repo secrets (from docs/runbooks/gcp-manual-setup.md §3):
+#   GCP_PROJECT_ID, GCP_WIF_PROVIDER, GCP_DEPLOY_SA_EMAIL
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: "Terraform workspace"
+        type: string
+        default: default
+      deploy_cloud_run:
+        description: "Apply Cloud Run services (needs images in Artifact Registry)"
+        type: boolean
+        default: false
+      enable_custom_domain:
+        description: "Attach the Firebase Hosting custom domain (needs DNS delegated)"
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-gcp-${{ github.event.inputs.workspace }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-gcp:
+    name: Terraform apply (infra/gcp)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: infra/gcp
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: hashicorp/setup-terraform@v4
+
+      - name: Terraform init
+        run: terraform init
+
+      - name: Select or create workspace
+        run: terraform workspace select -or-create "${{ inputs.workspace }}"
+
+      - name: Terraform apply
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var "project_id=${PROJECT_ID}" \
+            -var "deploy_cloud_run=${{ inputs.deploy_cloud_run }}" \
+            -var "enable_custom_domain=${{ inputs.enable_custom_domain }}" \
+            -var "run_service_account_email=sudoku-run@${PROJECT_ID}.iam.gserviceaccount.com" \
+            -var "image_recognition_service_account_email=sudoku-image-recognition-run@${PROJECT_ID}.iam.gserviceaccount.com"
