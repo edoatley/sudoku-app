@@ -24,8 +24,8 @@ output "firebase_hosting_default_url" {
 }
 
 output "dns_name_servers" {
-  description = "Cloud DNS name servers for sudoku-gcp.edoatley.co.uk — delegate these from the parent zone (default workspace only)."
-  value       = local.is_default ? google_dns_managed_zone.frontend[0].name_servers : []
+  description = "Cloud DNS name servers for sudoku-gcp.edoatley.co.uk — delegate these from the parent zone (only when enable_custom_domain = true)."
+  value       = local.is_default && var.enable_custom_domain ? google_dns_managed_zone.frontend[0].name_servers : []
 }
 
 output "backend_service_account" {

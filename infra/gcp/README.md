@@ -84,8 +84,9 @@ manually triggered (`workflow_dispatch`). It authenticates via WIF (no long-live
 - `deploy_cloud_run` — apply the Cloud Run services. Off until container images exist in Artifact
   Registry (Strategy C builds them with the app adapters). With it off, an apply stands up
   Firestore + Firebase Hosting + Cloud DNS + budget only.
-- `enable_custom_domain` — attach the Firebase Hosting custom domain. Off until the `sudoku-gcp`
-  Cloud DNS zone is delegated from the parent.
+- `enable_custom_domain` — create the Cloud DNS managed zone **and** attach the Firebase Hosting
+  custom domain. Off by default: the managed zone is the only standing charge (~$0.20/zone/month)
+  and isn't needed until the domain is set up, so the default apply is genuinely $0.
 
 ## Workspaces
 

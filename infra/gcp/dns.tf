@@ -8,7 +8,9 @@
 # ---------------------------------------------------------------------------
 
 resource "google_dns_managed_zone" "frontend" {
-  count       = local.is_default ? 1 : 0
+  # Gated with the custom domain: a managed zone carries a small standing charge
+  # (~$0.20/zone/month) and is only needed once the custom domain is set up.
+  count       = local.is_default && var.enable_custom_domain ? 1 : 0
   name        = "sudoku-gcp"
   dns_name    = "${var.custom_domain}."
   description = "Delegated zone for the Sudoku GCP frontend"
