@@ -16,12 +16,14 @@ lint:
 	ruff format image_recognition/
 	@echo "==> Formatting Terraform..."
 	cd infra/aws && terraform fmt
+	cd infra/gcp && terraform fmt
 
 secure:
 	@echo "==> Scanning codebase for vulnerabilities with Trivy..."
 	trivy fs . --skip-dirs .terraform
 	@echo "==> Analyzing cloud infrastructure configurations with Checkov..."
 	checkov -d infra/aws/ --framework terraform
+	checkov -d infra/gcp/ --framework terraform
 
 check-all: lint secure
 	@echo "==> Running backend validation tests..."

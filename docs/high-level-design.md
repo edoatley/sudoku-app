@@ -9,6 +9,8 @@ A serverless Sudoku application for a small, known set of users. Players can gen
 
 The system is a personal project with production-quality engineering: real authentication, real persistence, real CI/CD — but cost-optimised for low traffic (on-demand DynamoDB, no provisioned concurrency, personal Cognito allowlist).
 
+The platform is deployable to two clouds — AWS (its established home) and GCP — at behavioural parity. The two are independent deployments, not an active-active pair: a given user is served from one cloud at a time, and continuity across a cutover is a one-time data migration, not live replication. Each deployment is cost-optimised for its provider's free tier (AWS `eu-west-2`; GCP `us-central1`).
+
 ## Component Map
 
 The system is divided into 8 components by domain concept:
@@ -73,6 +75,41 @@ The system is divided into 8 components by domain concept:
 └───────────────────────────┘
 ```
 
+## Multi-Cloud Deployment (AWS + GCP)
+
+The topology above is the **AWS** deployment. The platform also targets **GCP** at behavioural parity; the same domain components map onto GCP-native services.
+
+### AWS → GCP service mapping
+
+| Domain role | AWS | GCP |
+| --- | --- | --- |
+| Backend compute | Lambda (Quarkus, SnapStart) | Cloud Run service (container, scale-to-zero) |
+| Image-recognition compute | Lambda (Python container) | Cloud Run service (container) |
+| Edge / auth / throttle | API Gateway HTTP v2 + Cognito JWT authorizer + stage throttle | Cloud Run direct + in-app JWT validation; throttle via max-instances + container concurrency |
+| Persistence | DynamoDB (`SudokuGames` / `SudokuPlayers` / `SudokuLeaderboard` / `SudokuCoachRateLimits`) | Firestore (Native) collections `games` / `players` / `leaderboard` / `coachRateLimits` |
+| Identity | Cognito user pool + Google IdP | Identity Platform + Google IdP |
+| Frontend hosting | Amplify | Firebase Hosting |
+| DNS / TLS | Route53 + ACM | Cloud DNS + Google-managed TLS |
+| Cost guardrail | AWS Budgets + Cost Anomaly | Cloud Billing Budget + Pub/Sub |
+| State backend / image registry | S3 backend + ECR | GCS backend + Artifact Registry |
+| CI identity federation | GitHub OIDC → IAM role | Workload Identity Federation → deploy service account |
+| AI inference | Amazon Bedrock (Claude Haiku) | Bedrock cross-cloud initially; Vertex AI (Gemini) is the GCP-native target |
+
+Region: AWS `eu-west-2` (London); GCP `us-central1` (chosen for free-tier coverage — accepts a residency shift, tolerable under the one-cloud-at-a-time premise).
+
+### GCP boundaries
+
+- **Manual identity/network layer.** On GCP, service accounts, IAM role bindings, Workload Identity Federation, the Identity Platform auth config (Google IdP), and any VPC / private egress are provisioned by hand from a documented runbook (or the bootstrap script), not Terraform. Terraform references the runtime service accounts and the Identity Platform issuer/client by value and provisions only application resources. Cloud Run reaches Firestore over Google's managed public API; private VPC egress is an unbuilt option.
+- **Cross-cloud identity continuity.** The canonical user identity is the **Google OAuth `sub`**, which is stable across both IdPs because both federate the same Google OAuth client. Keying user data on it (rather than the IdP-local subject) is what lets `bob@gmail.com` retain profile, games, and leaderboard across a cutover. The AWS deployment currently keys on the Cognito subject, so adopting this requires a one-time re-key migration.
+- **AI provider.** The GCP backend calls Amazon Bedrock cross-cloud at first (no app-code change; an AWS credential lives in Secret Manager). Migrating AI inference to Vertex AI is the GCP-native end state and is deferred.
+- **Provisioned before functional.** The GCP facet is delivered as infrastructure scaffolding first: Terraform stands up Cloud Run, Firestore, Firebase Hosting, DNS, and a budget on the `sudoku-gcp.edoatley.co.uk` domain. Making the app actually run on GCP additionally needs app-layer adapters — a backend Firestore persistence profile, a frontend Firebase Auth path, and the cross-cloud Bedrock wiring above — each tracked as its own arrow, not part of the infrastructure work.
+
+### Tenets
+
+- Prefer **behavioural parity** across clouds over per-cloud optimisation — a spec holds the same on both clouds unless it explicitly scopes to one.
+- Prefer **manual, least-privilege identity** on GCP over Terraform-managed IAM — the identity layer is a deliberate learning surface kept out of automation.
+- Prefer **free-tier cost** over residency/latency parity when they conflict (drives GCP `us-central1`).
+
 ## Component Responsibilities
 
 | Component                          | What it does                                                                                             | Where it lives                                      |
@@ -83,7 +120,7 @@ The system is divided into 8 components by domain concept:
 | **Game Lifecycle**                 | Game state machine, single-active-game invariant, DynamoDB read/write, import validation                 | `backend/.../game/`                                 |
 | **User Management**                | Player profile lazy-creation, JWT claim extraction, email allowlist, CORS, dev filters                   | `backend/.../player/`, `auth/`, `cors/`, `logging/` |
 | **Image Recognition**              | Photo → 9×9 grid via Bedrock, image preprocessing, two-stage parser, cross-check scoring                 | `image_recognition/handler.py`                      |
-| **Cloud Platform**                 | All AWS infrastructure: Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM                         | `infra/aws/*.tf`                                     |
+| **Cloud Platform**                 | All cloud infrastructure at parity across two providers — AWS (Lambda, API GW, DynamoDB, Cognito, Amplify, Route53, IAM) and GCP (Cloud Run, Firestore, Identity Platform, Firebase Hosting, Cloud DNS) | `infra/aws/*.tf`, `infra/gcp/*.tf`                  |
 | **League Table**                   | Server-side scoring, write-through leaderboard aggregate, player ranking, `GET /api/v1/leaderboard`      | `backend/.../leaderboard/`                          |
 | **AI Coach**                       | Conversational coaching via Amazon Bedrock; one InvokeModel or Converse call per player message (`coach.bedrock.api-mode`), schema-enforced JSON reply; deterministic pre-analysis (hint engine) provides context; fallback to nudge text on failure | `backend/.../coach/`, `backend/.../coach/bedrock/BedrockCoachClient.java` |
 | **React Frontend**                 | Browser SPA: game UI, full-screen navigation, hint UX, coach chat panel, state hooks, API client, localStorage persistence | `ui/src/`                                           |
@@ -308,6 +345,9 @@ Patterns and decisions that only became visible after reading all components tog
 | Candidate caching        | Full recalculation on every hint request               | Acceptable now; worth revisiting if hint latency grows         |
 | Image Recognition models | IAM grants 5 models; code uses 1                       | Cascade infra ready but untested with real multi-model traffic |
 | ECR bootstrap            | Manual prerequisite outside Terraform                  | First-time deploy risk                                         |
+| Cross-cloud identity     | User data keyed on the Cognito subject, not the Google `sub` | Blocks profile/game/leaderboard continuity across an AWS→GCP cutover until a re-key migration lands |
+| AI provider on GCP       | GCP backend calls Bedrock cross-cloud via an AWS credential in Secret Manager | Vertex AI (Gemini) migration deferred                          |
+| Active-active clouds     | No live cross-cloud replication                        | Continuity is cutover-only; active-active would need a shared datastore or dual-write |
 
 ## References
 

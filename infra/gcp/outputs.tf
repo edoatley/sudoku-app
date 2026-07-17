@@ -1,0 +1,34 @@
+output "backend_url" {
+  description = "Backend Cloud Run service URL."
+  value       = google_cloud_run_v2_service.backend.uri
+}
+
+output "image_recognition_url" {
+  description = "Image-recognition Cloud Run service URL."
+  value       = google_cloud_run_v2_service.image_recognition.uri
+}
+
+output "firestore_database" {
+  description = "Firestore database name for this workspace."
+  value       = google_firestore_database.main.name
+}
+
+output "firebase_hosting_site_id" {
+  description = "Firebase Hosting site ID (target for `firebase deploy`)."
+  value       = google_firebase_hosting_site.frontend.site_id
+}
+
+output "firebase_hosting_default_url" {
+  description = "Firebase Hosting default URL."
+  value       = "https://${google_firebase_hosting_site.frontend.site_id}.web.app"
+}
+
+output "dns_name_servers" {
+  description = "Cloud DNS name servers for sudoku-gcp.edoatley.co.uk — delegate these from the parent zone (default workspace only)."
+  value       = local.is_default ? google_dns_managed_zone.frontend[0].name_servers : []
+}
+
+output "backend_service_account" {
+  description = "Backend Cloud Run runtime service account email."
+  value       = var.run_service_account_email
+}

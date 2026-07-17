@@ -42,6 +42,7 @@ jobs:
               - 'backend/**'
             terraform:
               - 'infra/aws/**'
+              - 'infra/gcp/**'
               - '.github/**'
 
   ci-npm:
@@ -132,13 +133,15 @@ jobs:
     timeout-minutes: 5
     needs: detect-changes
     if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.terraform_changed == 'true'
-    defaults:
-      run:
-        working-directory: infra/aws
+    strategy:
+      matrix:
+        directory: [infra/aws, infra/gcp]
     steps:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
       - uses: ./.github/actions/terraform-validate
+        with:
+          working-directory: ${{ matrix.directory }}
 
   integration:
     name: Integration — Native Servers + Playwright

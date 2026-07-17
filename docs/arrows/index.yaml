@@ -80,15 +80,21 @@ arrows:
     next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)
 
   - id: cloud-platform
-    status: OK
+    status: IN_PROGRESS
     lld: docs/llds/cloud-platform.md
     specs: docs/specs/cloud-platform-specs.md
     arrow: docs/arrows/cloud-platform.md
-    spec_count: 25
-    implemented: 25
-    deferred: 0
-    gaps: 0
-    next: ~
+    spec_count: 58
+    implemented: 44
+    deferred: 3
+    gaps: 11
+    next: >-
+      GCP facet is infra scaffolding — infra CP-GCP specs implemented (terraform
+      fmt/validate/checkov-clean, not yet applied to a live GCP project). The 11 gaps
+      (CP-GCP-010,011,012,021,030,032,041,042,043,080,085) plus the deploy-gcp CI job
+      land with the app-adapter arrows (backend Firestore profile, frontend Firebase
+      Auth, cross-cloud Bedrock). Deferred [D] items are 061 (budget hard-cap), 090
+      (Vertex AI), 091 (private VPC).
 
   - id: react-frontend
     status: OK
