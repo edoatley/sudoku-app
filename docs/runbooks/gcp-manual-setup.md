@@ -139,6 +139,10 @@ gcloud storage buckets add-iam-policy-binding "gs://sudoku-tf-state-gcp" \
 
 ## 3. Workload Identity Federation (GitHub → GCP)
 
+> **Now automated:** `scripts/infra/gcp-github-bootstrap.sh` performs this section, the deploy-SA
+> project roles (from §2's *Deploy SA*), and sets the three GitHub secrets — idempotently and with
+> inline explanations of each resource. The commands below are kept for reference / hand-running.
+
 The GCP counterpart to the AWS GitHub OIDC provider + assume-role. Establishes trust so GitHub
 Actions tokens can impersonate the deploy SA — **no long-lived keys**.
 
