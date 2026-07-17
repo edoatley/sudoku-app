@@ -21,11 +21,11 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 - No infrastructure tests exist (no Terratest or equivalent). This is an accepted gap.
 
 ### Code
-- infra/main.tf, infra/terraform.tf, infra/variables.tf, infra/outputs.tf
-- infra/lambda.tf, infra/api_gateway.tf, infra/dynamodb.tf
-- infra/cognito.tf, infra/cognito-rc-shared.tf
-- infra/amplify.tf, infra/domain.tf, infra/iam.tf
-- infra/image_recognition_lambda.tf
+- infra/aws/main.tf, infra/aws/terraform.tf, infra/aws/variables.tf, infra/aws/outputs.tf
+- infra/aws/lambda.tf, infra/aws/api_gateway.tf, infra/aws/dynamodb.tf
+- infra/aws/cognito.tf, infra/aws/cognito-rc-shared.tf
+- infra/aws/amplify.tf, infra/aws/domain.tf, infra/aws/iam.tf
+- infra/aws/image_recognition_lambda.tf
 
 ## Architecture
 
@@ -56,7 +56,7 @@ All AWS infrastructure: Lambda, API Gateway, DynamoDB, Cognito, Amplify, Route53
 
 ## Key Findings
 
-1. **ECR outside Terraform** — The `sudoku-image-recognition` ECR repository is created by `scripts/bootstrap.sh`, not Terraform. A first-time deploy will fail without it. Documented in `infra/README.md` Bootstrap section. (CP-INFRA-012)
+1. **ECR outside Terraform** — The `sudoku-image-recognition` ECR repository is created by `scripts/bootstrap.sh`, not Terraform. A first-time deploy will fail without it. Documented in `infra/aws/README.md` Bootstrap section. (CP-INFRA-012)
 2. **No CloudWatch alarms** — Lambda errors produce log entries but trigger no alert. Silent failures are possible in production. (deferred — separate feature work)
 3. **`ignore_changes` drift** — `ignore_changes` on Cognito callback/logout URLs means `terraform plan` always shows "no changes" for these fields even when live config differs from baseline. Actual config only visible via AWS console or CLI. (API Gateway CORS no longer has this problem — it's fully Terraform-managed as of the infra-review M1 fix, 2026-07-08.)
 4. **`/games/current` routing** — `GET /api/v1/games/current` is an explicit JWT-protected route at API Gateway. JAX-RS also routes `/current` to its own method before `/{gameId}` can match. The string "current" is fully protected at both layers; no backend guard is needed.

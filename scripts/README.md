@@ -244,7 +244,7 @@ bash scripts/infra/delegate-dns.sh [--subdomain <name>] ns1 ns2 ns3 ns4
 Get the nameservers from Terraform:
 
 ```bash
-cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers
+cd infra/aws && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 ```
 
 ---

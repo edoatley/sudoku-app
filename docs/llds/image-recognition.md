@@ -242,8 +242,8 @@ The warmup route (`GET /api/v1/ai/image-to-puzzle/warmup`) returns 200 immediate
 
 - `image_recognition/handler.py`
 - `image_recognition/requirements.txt`
-- `infra/image_recognition_lambda.tf`
-- `infra/api_gateway.tf` (import routes)
+- `infra/aws/image_recognition_lambda.tf`
+- `infra/aws/api_gateway.tf` (import routes)
 - `ui/src/api/sudokuApi.js` (`importPuzzle`, `warmupImageRecognition`)
 - `ui/src/components/ImportModal.jsx`
 - Depends on: Amazon Bedrock (external), PIL/Pillow (Lambda layer/container)

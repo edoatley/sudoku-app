@@ -19,7 +19,7 @@ variable "github_repo" {
 variable "lambda_zip_path" {
   description = "Local path to the Lambda deployment zip produced by the Maven build."
   type        = string
-  default     = "../backend/target/function.zip"
+  default     = "../../backend/target/function.zip"
 }
 
 variable "api_gateway_throttle_burst_limit" {

@@ -56,7 +56,7 @@ A serverless Sudoku app with a Java/Quarkus backend deployed to AWS Lambda, Reac
 
 - `backend/` — Java 25 + Quarkus REST API (Lambda-optimized)
 - `ui/` — React 19 + Vite frontend with MUI (Material UI)
-- `infra/` — Terraform IaC (AWS provider configured, resources TBD)
+- `infra/aws/` — Terraform IaC for AWS (resources TBD)
 - `image_recognition` - Python based AWS lambda
 
 ## Backend (Java/Quarkus)
@@ -108,7 +108,7 @@ Test framework: Vitest + jsdom + React Testing Library (unit/component tests); P
 ## Infrastructure (Terraform)
 
 ```bash
-cd infra
+cd infra/aws
 terraform init
 terraform plan
 terraform apply

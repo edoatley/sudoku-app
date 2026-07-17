@@ -4,7 +4,7 @@
 # Runs a parameterised `terraform plan` for either the main (prod) or rc-*
 # environment. Optionally includes an rc-specific var-file.
 #
-# Must be run from the repo root (not from infra/).
+# Must be run from the repo root (not from infra/aws/).
 # Terraform must already be initialised and the correct workspace selected.
 #
 # Usage:
@@ -53,7 +53,7 @@ if [ -n "${RC_VARS_FILE}" ] && [ "${IS_MAIN}" = "false" ]; then
   TARGETED_ARGS+=("-var-file=${RC_VARS_FILE}")
 fi
 
-cd infra
+cd infra/aws
 
 # Reconcile the standalone log group before the main plan runs. module.lambda's
 # use_existing_cloudwatch_log_group=true does a `data` lookup that fails outright on a

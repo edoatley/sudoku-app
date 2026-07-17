@@ -37,7 +37,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
 
       - name: Terraform init
-        working-directory: infra
+        working-directory: infra/aws
         run: terraform init
 
       - name: Resolve workspace
@@ -51,11 +51,11 @@ jobs:
           echo "workspace=${WORKSPACE}" >> "$GITHUB_OUTPUT"
 
       - name: Select Terraform workspace
-        working-directory: infra
+        working-directory: infra/aws
         run: terraform workspace select "${{ steps.workspace.outputs.workspace }}"
 
       - name: Terraform destroy
-        working-directory: infra
+        working-directory: infra/aws
         run: >-
           terraform destroy
           -auto-approve
@@ -64,7 +64,7 @@ jobs:
           -var "image_recognition_image_uri=000000000000.dkr.ecr.eu-west-2.amazonaws.com/placeholder:latest"
 
       - name: Delete workspace
-        working-directory: infra
+        working-directory: infra/aws
         run: |
           WORKSPACE="${{ steps.workspace.outputs.workspace }}"
           if [ "${WORKSPACE}" != "default" ]; then

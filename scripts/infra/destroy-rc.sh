@@ -39,7 +39,7 @@ echo "    Branch:    ${BRANCH}"
 echo "    Workspace: ${WORKSPACE}"
 echo ""
 
-cd "$(dirname "$0")/../../infra"
+cd "$(dirname "$0")/../../infra/aws"
 
 echo "==> terraform init"
 AWS_PROFILE=sandbox terraform init

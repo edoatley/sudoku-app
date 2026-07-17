@@ -267,7 +267,7 @@ Both hosted zones are managed in the sandbox account by Terraform (`default` wor
 
 1. Get the NS records from Terraform outputs:
    ```bash
-   cd infra
+   cd infra/aws
    AWS_PROFILE=sandbox terraform output subdomain_nameservers       # sudoku.edoatley.co.uk
    AWS_PROFILE=sandbox terraform output sudoku_beta_nameservers     # sudoku-beta.edoatley.co.uk
    ```
@@ -335,7 +335,7 @@ Add the Cognito redirect URI in Google Cloud Console:
 Then initialise Terraform:
 
 ```bash
-cd infra && AWS_PROFILE=sandbox terraform init
+cd infra/aws && AWS_PROFILE=sandbox terraform init
 ```
 
 ---
@@ -406,7 +406,7 @@ Via GitHub Actions — trigger `teardown-rc.yml` and supply the workspace name.
 Locally:
 
 ```bash
-cd infra
+cd infra/aws
 AWS_PROFILE=sandbox terraform workspace select rc-my-feature
 AWS_PROFILE=sandbox terraform destroy \
   -var "github_token=<token>" \

@@ -64,7 +64,7 @@ echo ""
 
 # ── Read Terraform outputs for this workspace ──────────────────────────────────
 echo "==> Reading Terraform outputs from workspace '${WORKSPACE}'..."
-cd "${REPO_ROOT}/infra"
+cd "${REPO_ROOT}/infra/aws"
 if ! AWS_PROFILE=sandbox terraform workspace select "${WORKSPACE}" -no-color > /dev/null 2>&1; then
   echo "    Workspace '${WORKSPACE}' not found — falling back to 'default' (main/prod)" >&2
   WORKSPACE="default"

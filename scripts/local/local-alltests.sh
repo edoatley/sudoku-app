@@ -341,7 +341,7 @@ else
   # fmt + validate use -backend=false and do not require AWS credentials
   t=$(date +%s)
   (
-    cd "${REPO_ROOT}/infra"
+    cd "${REPO_ROOT}/infra/aws"
     terraform fmt -check -recursive
     terraform init -upgrade -backend=false -input=false -no-color
     terraform validate

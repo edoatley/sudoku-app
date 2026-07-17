@@ -20,7 +20,7 @@ runs:
   steps:
     - name: Trigger Amplify build and wait
       shell: bash
-      working-directory: infra
+      working-directory: infra/aws
       env:
         BRANCH: ${{ inputs.branch }}
         FRONTEND_CHANGED: ${{ inputs.frontend-changed }}
