@@ -44,6 +44,7 @@
 - [x] **SC-BE-027**: When `coach.bedrock.api-mode=converse`, the system shall append a `CachePointBlock` to the system content blocks, and the tutor system prompt shall exceed the 4,096-token cache minimum of SC-BE-012, so cache writes and reads are observable via the `Converse` API's `usage` block (`cacheReadInputTokens`/`cacheWriteInputTokens`).
 - [x] **SC-BE-028**: Within the schema of SC-BE-025, the `responseType` field shall be an enum of `nudge`, `focus-hint`, `reveal-answer`, `gentle-redirect`, `off-topic-redirect`, `celebrate-progress`, and `clarify-technique`, categorizing the pedagogical intent of the reply; this field is for logging and automated testing only and is never surfaced in the HTTP response returned to the frontend.
 - [x] **SC-BE-029**: The system shall include `responseType` in the `COACH_RESPONSE` log line when a genuine parse succeeded; on the fallback path (no call to Bedrock's structured output reached a parseable reply), the system shall omit the `responseType` key entirely rather than logging a placeholder value.
+- [x] **SC-BE-030**: Before injecting the deterministic hint's `nudge`, `focus`, or `reveal` text into the Bedrock prompt context, the system shall apply the same 0-indexed-to-1-indexed/named conversion that `HE-UI-001` through `HE-UI-004` define for the frontend's hint dialog (cell coordinates, single and multi-unit row/column references, block names), so the coach never receives or repeats a 0-indexed coordinate the player cannot map onto the 1-indexed board they see.
 
 *(SC-BE-016, SC-BE-021, SC-BE-022, SC-BE-023 are retained as the safety net for Bedrock timeouts, SDK errors, and any residual response-parsing edge case; with SC-BE-025 in place their JSON-drift trigger frequency is expected to drop to ~zero, but the fallback path itself is unchanged.)*
 
@@ -91,10 +92,8 @@
 
 ## Reveal Hint Handling (Frontend)
 
-- [ ] **SC-UI-050**: When `revealHint` is false in a coach response, the system shall not display `hint.reveal`, `hint.solvedCells`, or `hint.eliminatedCandidates` to the player.
-- [ ] **SC-UI-051**: When `revealHint` is true in a coach response, the system shall make all hint fields available for display alongside the AI coaching message.
-
-*(SC-UI-050 and SC-UI-051 are not yet implemented — the frontend receives `revealHint` but does not conditionally show or hide hint fields based on its value.)*
+- [x] **SC-UI-050**: When `revealHint` is false in a coach response, the system shall not write `hint.solvedCells` into the current grid or remove `hint.eliminatedCandidates` from the candidate grid — only `hint.highlightCells` take effect, so the player is never shown a placed digit or struck-out candidate the coach's message didn't actually commit to.
+- [x] **SC-UI-051**: When `revealHint` is true in a coach response, the system shall write `hint.solvedCells` into the current grid (clearing that cell's candidates) and remove `hint.eliminatedCandidates` from the candidate grid, matching the deterministic Hint button's reveal-stage behaviour (`useHintSystem.js`'s `advanceHint()`) — so a coach reveal and a Hint-button reveal leave the board in the same state.
 
 ## Conversation Lifecycle (Frontend)
 

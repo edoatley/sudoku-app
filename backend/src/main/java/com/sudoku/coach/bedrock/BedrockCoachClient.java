@@ -40,7 +40,7 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 
 // @spec SC-BE-005, SC-BE-006, SC-BE-007, SC-BE-008, SC-BE-009, SC-BE-010, SC-BE-011, SC-BE-012,
 // SC-BE-013, SC-BE-014, SC-BE-015, SC-BE-016, SC-BE-018, SC-BE-019, SC-BE-021, SC-BE-022,
-// SC-BE-023, SC-BE-025, SC-BE-026, SC-BE-027, SC-BE-028, SC-BE-029
+// SC-BE-023, SC-BE-025, SC-BE-026, SC-BE-027, SC-BE-028, SC-BE-029, SC-BE-030
 
 @ApplicationScoped
 public class BedrockCoachClient {
@@ -500,15 +500,20 @@ public class BedrockCoachClient {
     // @spec SC-BE-003, SC-BE-024 — all three escalating hint levels, plus a suggested (not
     // enforced) escalation level derived from turn number; the LLM still decides which level
     // to draw on, since only it can detect an explicit request for the answer.
+    // @spec SC-BE-030 — hint.nudge()/focus()/reveal() are 0-indexed internally (HE-UI-005); this
+    // converts them to 1-indexed/named form before they reach the LLM, mirroring hintDisplay.js's
+    // display-layer conversion for the deterministic hint UI. Without this, the model repeats
+    // whatever coordinates it's given verbatim-ish, so 0-indexed notes produce a coach reply with
+    // off-by-one row/column/block references relative to what the player sees on the board.
     private String buildContextBlock(String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
         int turnNumber = history.size() / 2 + 1;
         return "CURRENT BOARD STATE:\n" +
                 BoardFormatter.format(board) +
                 "\n\nAPPLICABLE TECHNIQUE: " + hint.techniqueName() +
                 "\nTURN NUMBER: " + turnNumber + " (suggested escalation level: " + suggestedLevel(turnNumber) + ")" +
-                "\nNUDGE NOTE (vaguest — use for early turns): " + hint.nudge() +
-                "\nFOCUS NOTE (more specific — names cell/unit): " + hint.focus() +
-                "\nREVEAL NOTE (most specific — use for later turns or an explicit request for the answer): " + hint.reveal() +
+                "\nNUDGE NOTE (vaguest — use for early turns): " + HintTextFormatter.format(hint.nudge()) +
+                "\nFOCUS NOTE (more specific — names cell/unit): " + HintTextFormatter.format(hint.focus()) +
+                "\nREVEAL NOTE (most specific — use for later turns or an explicit request for the answer): " + HintTextFormatter.format(hint.reveal()) +
                 "\n\nPLAYER MESSAGE: " + userMessage;
     }
 

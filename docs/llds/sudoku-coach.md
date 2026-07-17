@@ -211,7 +211,26 @@ null rather than failing the request. Lines are built via `objectMapper.writeVal
 since fallback never calls Bedrock's structured output and so has no model-chosen category to
 report — matching the existing omit-when-absent convention already used for `rawResponseText`.
 
-Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..029`.
+**Hint text coordinate conversion (`HintTextFormatter`):**
+The hint engine is 0-indexed internally by design — `docs/specs/hint-engine-specs.md`'s
+`HE-UI-005` states conversion to 1-indexed/named form happens "only at the display layer" and
+must not mutate `HintResponse` itself. The frontend's hint dialog does this via
+`ui/src/utils/hintDisplay.js`'s `formatHintText()`. The Bedrock prompt context is a second
+display layer the frontend-only fix didn't cover: `BedrockCoachClient.buildContextBlock()` was
+injecting `hint.nudge()`/`focus()`/`reveal()` raw, so the LLM received (and could repeat) 0-indexed
+coordinates the player has no way to map onto the 1-indexed board — reported as: coach said "Row
+7, Column 3 must be 1", but that cell is Row 8, Column 4 on the 1-indexed board (the highlighted
+cell was correct; only the coach's stated coordinates were off, since highlighting uses the
+underlying 0-indexed `Coordinate` data directly, unaffected by this bug).
+`HintTextFormatter` (`backend/.../coach/bedrock/HintTextFormatter.java`) ports
+`formatHintText()`'s regex-based conversion to Java — cell coordinates, block references,
+single- and multi-unit row/column references — and `buildContextBlock()` applies it to
+`nudge`/`focus`/`reveal` before they reach the prompt. Kept as a Java port rather than shared
+logic (no practical way to share regex-based text transforms across the Java/JS boundary here);
+`HE-UI-001..004`'s conversion rules are the single source of truth both ports must stay in sync
+with (SC-BE-030 cross-references them rather than restating the rules).
+
+Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..030`.
 
 ### Constants
 
@@ -328,7 +347,7 @@ public record CoachResponse(
 |-------|------|-------|
 | `aiMessage` | `String` | Coaching prose from LLM (or fallback nudge text) |
 | `hint` | `HintResponse` | Full deterministic hint — unchanged existing DTO |
-| `revealHint` | `boolean` | Frontend uses this to control whether to show `hint.reveal`, `solvedCells`, `eliminatedCandidates` |
+| `revealHint` | `boolean` | Frontend gates whether `hint.solvedCells` are written into the current grid and `hint.eliminatedCandidates` removed from the candidate grid (SC-UI-050/051) — `hint.highlightCells` always take effect regardless |
 | `tokensUsedThisMonth` | `long` | Player's cumulative monthly token count *after* this call. The domain layer (`SudokuCoachServiceImpl`) always passes 0; `CoachResource` rebuilds the record with the real total once it has computed the post-increment value, so the frontend can update its counter from the response instead of refetching the player profile (→ SC-RL-010). |
 
 `HintResponse` is returned in full. The frontend decides which fields to show based on
@@ -444,10 +463,27 @@ Key behaviours:
 
 ### Board-Chat Linkage
 
-`CoachWidget` receives `setHighlightCells` as a prop from `App.jsx` (same setter already
-used by `useHintSystem`). When a coach response arrives, `useCoachSession` calls
-`setHighlightCells(response.hint.highlightCells)`. This updates the board immediately —
-the player sees the relevant cells highlighted while the AI message is visible.
+`CoachWidget` receives `setHighlightCells`, `setCurrentGrid`, and `setCandidateGrid` as props
+from `App.jsx` (the same setters `useHintSystem` already owns/uses). When a coach response
+arrives, `useCoachSession` calls `setHighlightCells(response.hint.highlightCells)` — this
+always takes effect and updates the board immediately, the player sees the relevant cells
+highlighted while the AI message is visible.
+
+**Reveal writes to the board (SC-UI-050/051):** when `response.revealHint` is true,
+`useCoachSession` additionally writes `response.hint.solvedCells` into the current grid
+(clearing those cells' candidates) and removes `response.hint.eliminatedCandidates` from the
+candidate grid — mirroring `useHintSystem.js`'s `advanceHint()` reveal-stage logic exactly, so
+a coach reveal and a Hint-button reveal leave the board in the same state. When `revealHint` is
+false, neither of these happens — only the highlight takes effect, and the player still places
+the digit themselves. Before this, the coach could state the answer in its chat message
+("Row 8, Column 4 must be 1") while the board only highlighted the cell, leaving the player to
+type a digit the coach had already told them — reported as a UX inconsistency, since the
+Hint button's own reveal stage does auto-fill.
+
+This mirrors `useHintSystem`'s writes exactly (direct grid/candidate mutation, no `NUMBER`
+event recorded, no undo-history entry, no localStorage persistence, no win-detection check) —
+intentional parity with the existing Hint-button reveal path, not a new bookkeeping gap
+introduced here.
 
 When the coach panel closes, `setHighlightCells([])` is called to clear the coach's
 highlights. If a hint was previously active, the hint's `highlightCells` take effect again
@@ -466,8 +502,10 @@ an active hint, but it does override the visual highlight.
 | One Bedrock call per HTTP request | Single `InvokeModel` or `Converse` call (per `coach.bedrock.api-mode`) | Streaming or multi-step chain | Predictable latency; simpler error handling; Lambda timeout safety |
 | Structured output enforced by Bedrock schema, not prompt wording alone | `output_config.format` (invoke) / `outputConfig.textFormat` (converse) constrain the reply to `{aiMessage, revealHint, responseType}` server-side | Keep relying solely on prompt instructions (`OUTPUT FORMAT — MANDATORY` wording) | Eliminates the prose-with-no-JSON fallback class entirely rather than reducing its frequency; live-spike-confirmed on both API modes against `eu.anthropic.claude-haiku-4-5-20251001-v1:0` |
 | `responseType` categorical field added to the schema, logged only (not part of `CoachResponse`) | Enum of 7 values mapping 1:1 to the system prompt's existing pedagogical rules/examples; keeps the existing `aiMessage` field name unchanged | Rename `aiMessage`→`message` in lockstep (considered, rejected as unnecessary blast radius for this change); have the frontend also consume `responseType`; use an LLM judge or fuzzier prose-matching in the harness instead | A categorical field the model must choose from a fixed enum is far more reliable to assert on than substring-matching non-deterministic prose (the `wrong-guess-acknowledgment` scenario's `"double-check"` check was flaky for exactly this reason); keeping it log-only avoids touching `CoachResponse`, `CoachResource`, `SudokuCoachServiceImpl`, or any frontend file |
+| Convert `nudge`/`focus`/`reveal` to 1-indexed in `buildContextBlock()` via a new `HintTextFormatter`, not by changing the hint strategies themselves | Java port of `hintDisplay.js`'s `formatHintText()`, applied only where the coach builds its prompt context | Make the hint strategies emit 1-indexed text directly (rejected — violates `HE-UI-005`'s "0-indexed internally, convert only at display layer" and would require re-deriving the frontend's now-redundant conversion too); have the frontend post-process the coach's `aiMessage` after the fact (rejected — the LLM has already committed to whatever numbers it read, so fixing the input is the only point that actually prevents wrong numbers reaching the player) | Fixes the reported bug (coach said "Row 7, Column 3" for a cell that is Row 8, Column 4 on the 1-indexed board) at its source — the LLM never sees a 0-indexed coordinate to repeat — without touching the 11 hint strategy files or the already-correct frontend hint dialog |
+| Coach reveal auto-fills the board (`solvedCells`/`eliminatedCandidates` on `revealHint: true`), matching the Hint button | `useCoachSession.js` mirrors `useHintSystem.js`'s `advanceHint()` reveal-stage writes exactly | Keep the coach highlight-only, treating the final "type it yourself" step as an intentional part of guided discovery even after a reveal (considered, rejected) | The player reported confusion at the resulting state — the coach had already stated the answer in words, but the board didn't reflect it, unlike the equivalent Hint-button path. Consistency between the two reveal paths was judged more important than preserving a discovery-step distinction the player didn't perceive as intentional |
 | `coach.bedrock.api-mode` flag (`invoke` default / `converse`), both modes schema-enforced | Config-driven dispatch in `BedrockCoachClient.call()` | Migrate outright to Converse; keep InvokeModel only | Both modes enforce the same schema so the A/B isolates API + caching differences from the reliability change, not the reliability change itself |
-| Reveal coordinates never re-emitted by the LLM | Schema carries only `revealHint: boolean`; `HintResponse` (already returned in full) stays the sole source of cell/digit coordinates | Have the LLM restate the cell + digit in the schema | Avoids RULE 3 fabrication risk (LLM stating a wrong coordinate); keeps the enforced schema minimal; also unblocks SC-UI-050/051 since the frontend can derive disclosure from `revealHint` + the already-present `HintResponse` fields |
+| Reveal coordinates never re-emitted by the LLM | Schema carries only `revealHint: boolean`; `HintResponse` (already returned in full) stays the sole source of cell/digit coordinates | Have the LLM restate the cell + digit in the schema | Avoids RULE 3 fabrication risk (LLM stating a wrong coordinate); keeps the enforced schema minimal; also unblocked SC-UI-050/051, later implemented, since the frontend can derive disclosure from `revealHint` + the already-present `HintResponse` fields |
 | `converse` mode caches via `CachePointBlock`, `invoke` mode keeps `cache_control: {type: ephemeral}` | Per-API cache mechanism, both effectively an "ephemeral" 5-minute cache by default | Force both modes onto one cache mechanism | `cache_control` (Anthropic-native) is silently ignored by Converse; `cachePoint` is Converse-specific. Each API's own mechanism is used rather than fighting the SDK |
 | `COACH_BEDROCK_API_MODE` Lambda env var defaults to `converse` on `rc-*` workspaces, `invoke` elsewhere (`infra/main.tf` `local.coach_bedrock_api_mode = local.is_rc ? "converse" : "invoke"`) | Keyed on `is_rc` specifically (not `!is_default`, unlike `ai_coach_enabled`/`VITE_AI_COACH`) | Mirror `ai_coach_enabled`'s `!is_default` condition exactly | RC is where new coach behaviour is A/B-tested before considering it for production. `!is_default` and `is_rc` are equivalent today (only `default`/`rc-*` workspaces exist), but this flag's intent is specifically "validate on RC" — keying on `is_rc` avoids a future non-RC workspace type silently inheriting an unvalidated api-mode. No IAM change needed — AWS's Converse API reuses the `bedrock:InvokeModel` permission the Lambda role already has |
 | Frontend owns conversation history | Client sends last N turns each request | DynamoDB per-session storage | Stateless backend; no schema change; no extra DynamoDB read per request |
@@ -509,9 +547,6 @@ an active hint, but it does override the visual highlight.
   under-reflects the write premium, but the absolute spend is sub-cent/call regardless. Measure
   real turn distribution via the coach-quality harness before choosing 5m vs. 1h TTL or
   revisiting this budget-accounting choice.
-- **`revealHint` frontend handling**: The frontend does not yet act on `revealHint` — it
-  displays the AI message but never conditionally shows/hides hint fields. Specs SC-UI-050
-  and SC-UI-051 remain unimplemented.
 - **Escape key panel close**: SC-UI-013 (Escape closes panel) is not implemented.
 - **Rate limiter DynamoDB cost**: Each coach call writes to the `SudokuCoachRateLimits` table
   in addition to the main `SudokuPlayers` table. At low volume this is negligible; revisit
@@ -532,6 +567,7 @@ an active hint, but it does override the visual highlight.
   - `backend/.../coach/SudokuCoachServiceImpl.java`
   - `backend/.../coach/bedrock/BedrockCoachClient.java`
   - `backend/.../coach/bedrock/BoardFormatter.java`
+  - `backend/.../coach/bedrock/HintTextFormatter.java` — 0→1-indexed conversion for the prompt context, ports `ui/src/utils/hintDisplay.js`
   - `backend/.../coach/bedrock/CoachRateLimiter.java`
   - `backend/.../puzzle/web/HintResponse.java` — not modified
   - `backend/.../domain/Board.java` — `fromGrid()`, `calculateAllCandidates()`
