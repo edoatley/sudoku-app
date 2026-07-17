@@ -17,8 +17,8 @@ Introduce server-side scoring, a write-through leaderboard aggregate, and a `GET
 | LT-BE-004 | `backend/.../game/GameItem.java` — `score` attribute | [ ] |
 | LT-BE-005 | `backend/.../dto/GameHistoryEntry.java` — `score` field | [ ] |
 | LT-BE-006 | `backend/.../dto/GameState.java` — `score` field | [ ] |
-| LT-INFRA-001 | `infra/dynamodb.tf` — `SudokuLeaderboard` table | [ ] |
-| LT-INFRA-002 | `infra/iam.tf` — Lambda policy for leaderboard table | [ ] |
+| LT-INFRA-001 | `infra/aws/dynamodb.tf` — `SudokuLeaderboard` table | [ ] |
+| LT-INFRA-002 | `infra/aws/iam.tf` — Lambda policy for leaderboard table | [ ] |
 | LT-BE-007 | `backend/.../leaderboard/LeaderboardRepository.java` | [ ] |
 | LT-BE-008 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `ADD totalGames` | [ ] |
 | LT-BE-009 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `ADD totalWins, totalScore, totalElapsedSeconds` | [ ] |
@@ -58,8 +58,8 @@ Introduce server-side scoring, a write-through leaderboard aggregate, and a `GET
 - `backend/.../dto/GameState.java`
 - `backend/.../player/PlayerRepository.java`
 - `backend/.../player/DynamoDbPlayerRepository.java`
-- `infra/dynamodb.tf`
-- `infra/iam.tf`
+- `infra/aws/dynamodb.tf`
+- `infra/aws/iam.tf`
 - `ui/src/api/sudokuApi.js`
 - `ui/src/hooks/usePlayerProfile.js`
 - `ui/src/mocks/cannedData.js`

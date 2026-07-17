@@ -5,11 +5,11 @@
 
 ## Context and Current State
 
-The Cloud Platform component is the AWS infrastructure substrate that provisions, wires, and delivers all runtime services. It contains no domain logic — its job is to make everything else accessible and connected. All infrastructure is managed by Terraform in the `infra/` directory.
+The Cloud Platform component is the AWS infrastructure substrate that provisions, wires, and delivers all runtime services. It contains no domain logic — its job is to make everything else accessible and connected. All infrastructure is managed by Terraform in the `infra/aws/` directory.
 
 The React frontend is a separate component; see `docs/llds/react-frontend.md`. The coupling point between the two is the set of `VITE_*` environment variables that Terraform injects into the Amplify build — documented in both LLDs.
 
-Files: all `infra/*.tf`.
+Files: all `infra/aws/*.tf`.
 
 ## Terraform Workspace Strategy
 
@@ -422,11 +422,11 @@ Reusable workflow called after every deploy. Also dispatchable via `workflow_dis
 
 ## References
 
-- `infra/main.tf`, `infra/terraform.tf`, `infra/variables.tf`, `infra/outputs.tf`
-- `infra/lambda.tf`, `infra/api_gateway.tf`, `infra/dynamodb.tf`
-- `infra/cognito.tf`, `infra/cognito-rc-shared.tf`
-- `infra/amplify.tf`, `infra/domain.tf`, `infra/iam.tf`
-- `infra/image_recognition_lambda.tf`
+- `infra/aws/main.tf`, `infra/aws/terraform.tf`, `infra/aws/variables.tf`, `infra/aws/outputs.tf`
+- `infra/aws/lambda.tf`, `infra/aws/api_gateway.tf`, `infra/aws/dynamodb.tf`
+- `infra/aws/cognito.tf`, `infra/aws/cognito-rc-shared.tf`
+- `infra/aws/amplify.tf`, `infra/aws/domain.tf`, `infra/aws/iam.tf`
+- `infra/aws/image_recognition_lambda.tf`
 - See also: `docs/llds/react-frontend.md` (frontend app delivered by Amplify)
 - Depends on: nothing (provisions all other components)
 - Depended on by: all components (runtime environment)

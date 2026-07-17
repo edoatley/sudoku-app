@@ -47,7 +47,7 @@ services:
       # A single 8-scenario coach-quality suite run burns ~25,000 tokens, so the default
       # exhausts partway through a 4-run session — this raises it well above what even a
       # multi-model, many-repeat coach-quality-repeat.sh session would consume. Local/test
-      # only: this env var is never set in infra/lambda.tf, so production keeps the default.
+      # only: this env var is never set in infra/aws/lambda.tf, so production keeps the default.
       COACH_MONTHLY_TOKEN_LIMIT: "2000000"
       # Bare key (no value): Compose passes this through from the host shell only when
       # set there, and omits it from the container entirely otherwise. A literal ""

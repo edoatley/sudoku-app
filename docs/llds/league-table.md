@@ -13,7 +13,7 @@ This LLD introduced:
 3. A `GET /api/v1/leaderboard` endpoint returning ranked player stats
 4. A `LeaderboardView` full-screen UI component
 
-Files: `backend/.../game/ScoringConstants.java`, `backend/.../game/persistence/GameItem.java`, `backend/.../game/web/GameHistoryEntry.java`, `backend/.../game/web/GameState.java`, `backend/.../leaderboard/` (all new), `backend/.../player/PlayerRepository.java`, `backend/.../player/persistence/DynamoDbPlayerRepository.java`, `backend/.../game/GameServiceImpl.java`, `infra/dynamodb.tf`, `infra/iam.tf`, `ui/src/components/views/LeaderboardView.jsx`, `ui/src/hooks/useLeaderboard.js`, `ui/src/api/sudokuApi.js`.
+Files: `backend/.../game/ScoringConstants.java`, `backend/.../game/persistence/GameItem.java`, `backend/.../game/web/GameHistoryEntry.java`, `backend/.../game/web/GameState.java`, `backend/.../leaderboard/` (all new), `backend/.../player/PlayerRepository.java`, `backend/.../player/persistence/DynamoDbPlayerRepository.java`, `backend/.../game/GameServiceImpl.java`, `infra/aws/dynamodb.tf`, `infra/aws/iam.tf`, `ui/src/components/views/LeaderboardView.jsx`, `ui/src/hooks/useLeaderboard.js`, `ui/src/api/sudokuApi.js`.
 
 ## Scoring Formula
 

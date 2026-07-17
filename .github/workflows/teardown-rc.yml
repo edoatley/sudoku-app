@@ -38,11 +38,11 @@ jobs:
           echo "workspace=${WORKSPACE}" >> "$GITHUB_OUTPUT"
 
       - name: Terraform init
-        working-directory: infra
+        working-directory: infra/aws
         run: terraform init
 
       - name: Select Terraform workspace
-        working-directory: infra
+        working-directory: infra/aws
         run: |
           WORKSPACE="${{ steps.workspace.outputs.workspace }}"
           if ! terraform workspace select "${WORKSPACE}" 2>/dev/null; then
@@ -57,7 +57,7 @@ jobs:
       # depends on and must never be removed by a single branch's teardown.
       - name: Capture branch's Amplify URL (for Cognito cleanup)
         id: branch_urls
-        working-directory: infra
+        working-directory: infra/aws
         continue-on-error: true
         run: |
           DEFAULT_URL=$(terraform output -raw amplify_default_url 2>/dev/null || true)
@@ -69,7 +69,7 @@ jobs:
       # teardown below, so failures here only warn (continue-on-error).
       - name: Remove branch URL from shared rc Cognito client
         if: steps.branch_urls.outputs.default_url != ''
-        working-directory: infra
+        working-directory: infra/aws
         continue-on-error: true
         run: |
           terraform workspace select rc-shared
@@ -83,7 +83,7 @@ jobs:
             --url "${{ steps.branch_urls.outputs.default_url }}/"
 
       - name: Terraform destroy
-        working-directory: infra
+        working-directory: infra/aws
         run: >-
           terraform destroy
           -auto-approve
@@ -97,7 +97,7 @@ jobs:
           -var "image_recognition_image_uri=000000000000.dkr.ecr.eu-west-2.amazonaws.com/placeholder:latest"
 
       - name: Delete Terraform workspace
-        working-directory: infra
+        working-directory: infra/aws
         run: |
           terraform workspace select default
           terraform workspace delete "${{ steps.workspace.outputs.workspace }}"

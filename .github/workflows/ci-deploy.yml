@@ -180,16 +180,16 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
 
       - name: Terraform init
-        working-directory: infra
+        working-directory: infra/aws
         run: terraform init
 
       - name: Select or create Terraform workspace
-        working-directory: infra
+        working-directory: infra/aws
         run: terraform workspace select -or-create "${{ steps.env.outputs.workspace }}"
 
       - name: Write RC-specific Terraform var file
         if: steps.env.outputs.is_main == 'false'
-        working-directory: infra
+        working-directory: infra/aws
         env:
           RC_WEB_CLIENT_ID:   ${{ secrets.RC_COGNITO_WEB_CLIENT_ID }}
           RC_SMOKE_CLIENT_ID: ${{ secrets.RC_COGNITO_SMOKE_CLIENT_ID }}
@@ -220,12 +220,12 @@ jobs:
             $( [ "${{ steps.env.outputs.is_main }}" = "false" ] && echo '--rc-vars-file rc-override.tfvars' )
 
       - name: Terraform apply
-        working-directory: infra
+        working-directory: infra/aws
         run: terraform apply -auto-approve -input=false tfplan
 
       - name: Print Route53 NS records
         if: steps.env.outputs.is_main == 'true'
-        working-directory: infra
+        working-directory: infra/aws
         run: |
           if terraform output -json subdomain_nameservers | jq -e 'length > 0' > /dev/null 2>&1; then
             echo "========================================================"
@@ -238,7 +238,7 @@ jobs:
 
       - name: Capture outputs
         id: outputs
-        working-directory: infra
+        working-directory: infra/aws
         run: |
           echo "api_gateway_url=$(terraform output -raw api_gateway_url)"             >> "$GITHUB_OUTPUT"
           echo "amplify_app_url=$(terraform output -raw amplify_app_url)"             >> "$GITHUB_OUTPUT"
@@ -274,7 +274,7 @@ jobs:
             --frontend-changed "${FRONTEND_CHANGED}"
 
       - name: Print deployment URLs
-        working-directory: infra
+        working-directory: infra/aws
         run: terraform output
 
   smoke-test:

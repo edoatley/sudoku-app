@@ -43,7 +43,7 @@ if [[ -z "${OWNER_APP_ID}" ]]; then
 else
   # Check if the current workspace's app already holds it (re-deploy case).
   # We detect this by checking if there's a terraform state entry for the association.
-  CURRENT_APP_ID=$(cd infra && terraform output -raw amplify_app_id 2>/dev/null || true)
+  CURRENT_APP_ID=$(cd infra/aws && terraform output -raw amplify_app_id 2>/dev/null || true)
 
   if [[ -n "${CURRENT_APP_ID}" && "${OWNER_APP_ID}" == "${CURRENT_APP_ID}" ]]; then
     echo "  Beta domain is already on the current app (${CURRENT_APP_ID}) — no action needed."

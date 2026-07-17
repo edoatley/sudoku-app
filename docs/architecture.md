@@ -1,7 +1,7 @@
 # Solution Architecture — Serverless Sudoku
 
 **Created**: 2026-07-08
-**Source of truth**: `infra/*.tf` as of this date (where `infra/README.md` or `docs/llds/cloud-platform.md` disagree, the code wins — drift is catalogued in `docs/planning/infra-review.md` §L5).
+**Source of truth**: `infra/aws/*.tf` as of this date (where `infra/aws/README.md` or `docs/llds/cloud-platform.md` disagree, the code wins — drift is catalogued in `docs/planning/infra-review.md` §L5).
 **Purpose**: describe every component and every connection precisely enough that this document can be converted directly into an architectural diagram. §2 lists the boxes, §3 lists the arrows, §6 is a ready-made Mermaid rendering.
 
 ## 1. Solution overview

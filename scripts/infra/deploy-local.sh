@@ -49,7 +49,7 @@ echo "    Env label: ${ENV}"
 echo ""
 
 REPO_ROOT="$(dirname "$0")/../.."
-cd "${REPO_ROOT}/infra"
+cd "${REPO_ROOT}/infra/aws"
 
 # ── Locate Lambda zip ──────────────────────────────────────────────────────────
 ACCOUNT_ID=$(AWS_PROFILE=sandbox aws sts get-caller-identity --query Account --output text)
@@ -108,7 +108,7 @@ fi
 # RC_COGNITO_WEB_CLIENT_ID / RC_COGNITO_SMOKE_CLIENT_ID: required for rc-* workspaces.
 # These come from the long-lived rc-shared workspace and rarely change.
 # Get them from:
-#   cd infra && AWS_PROFILE=sandbox terraform workspace select rc-shared
+#   cd infra/aws && AWS_PROFILE=sandbox terraform workspace select rc-shared
 #   AWS_PROFILE=sandbox terraform output rc_shared_cognito_web_client_id
 #   AWS_PROFILE=sandbox terraform output rc_shared_cognito_smoke_client_id
 RC_COGNITO_WEB_CLIENT_ID="${RC_COGNITO_WEB_CLIENT_ID:-}"
@@ -119,7 +119,7 @@ if [ "${WORKSPACE}" != "default" ]; then
   if [ -z "${RC_COGNITO_WEB_CLIENT_ID}" ] || [ -z "${RC_COGNITO_SMOKE_CLIENT_ID}" ]; then
     echo "ERROR: RC_COGNITO_WEB_CLIENT_ID and RC_COGNITO_SMOKE_CLIENT_ID must be set for rc-* workspaces."
     echo "  Get them from:"
-    echo "    cd infra"
+    echo "    cd infra/aws"
     echo "    AWS_PROFILE=sandbox terraform workspace select rc-shared"
     echo "    AWS_PROFILE=sandbox terraform output rc_shared_cognito_web_client_id"
     echo "    AWS_PROFILE=sandbox terraform output rc_shared_cognito_smoke_client_id"

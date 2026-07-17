@@ -18,7 +18,7 @@ repos:
         files: \.tf$
       - id: terraform_validate
         name: Terraform validate
-        entry: bash -c 'cd infra && terraform validate'
+        entry: bash -c 'cd infra/aws && terraform validate'
         language: system
         pass_filenames: false
         files: \.tf$
@@ -52,7 +52,7 @@ repos:
     hooks:
       - id: trivy-config
         name: Trivy IaC/config scan
-        entry: trivy config infra/
+        entry: trivy config infra/aws/
         language: system
         pass_filenames: false
       - id: trivy-fs

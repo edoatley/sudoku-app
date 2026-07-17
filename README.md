@@ -45,7 +45,7 @@ flowchart LR
     imgrec --> bedrock
 ```
 
-See [`infra/README.md`](infra/README.md) for the full deployment-level architecture diagram (DNS, Amplify branches, IAM).
+See [`infra/aws/README.md`](infra/aws/README.md) for the full deployment-level architecture diagram (DNS, Amplify branches, IAM).
 
 ---
 
@@ -80,7 +80,7 @@ sudoku-app/
 │   ├── src/
 │   └── e2e/          # Playwright E2E tests
 ├── image_recognition/  # Python AWS Lambda for puzzle photo scanning
-├── infra/            # Terraform IaC (AWS eu-west-2)                   → infra/README.md
+├── infra/aws/        # Terraform IaC (AWS eu-west-2)                   → infra/aws/README.md
 ├── scripts/          # Local dev, infra, and CI/CD helper scripts      → scripts/README.md
 ├── docs/             # HLD, LLDs, EARS specs, arrows, openapi.yaml, coding standards
 ├── Makefile          # Combined dev workflow
@@ -90,7 +90,7 @@ sudoku-app/
 See the component READMEs for detailed usage:
 - [`backend/README.md`](backend/README.md) — Java/Quarkus API, source structure, build profiles, testing
 - [`ui/README.md`](ui/README.md) — React/Vite frontend, env vars, component structure
-- [`infra/README.md`](infra/README.md) — Terraform resources, multi-env strategy, bootstrap, deploy
+- [`infra/aws/README.md`](infra/aws/README.md) — Terraform resources, multi-env strategy, bootstrap, deploy
 - [`scripts/README.md`](scripts/README.md) — Local dev scripts, CI/CD helpers, secret management
 
 ---
@@ -250,9 +250,9 @@ CI runs all three test suites on every push. Playwright reports are uploaded as 
 
 ## Infrastructure
 
-Terraform configuration lives in `infra/`. Target region: `eu-west-2` (London).
+Terraform configuration lives in `infra/aws/`. Target region: `eu-west-2` (London).
 
-See [`infra/README.md`](infra/README.md) for the full infrastructure reference including architecture diagram, resource details, bootstrap instructions, and local operations.
+See [`infra/aws/README.md`](infra/aws/README.md) for the full infrastructure reference including architecture diagram, resource details, bootstrap instructions, and local operations.
 
 ---
 
@@ -269,7 +269,7 @@ Deployment is automated via GitHub Actions on push to `main` or `rc-*` branches:
 
 A manual **Teardown** workflow is available via GitHub Actions (`workflow_dispatch`) for full `terraform destroy`.
 
-See [`infra/README.md`](infra/README.md) for bootstrap steps required before the first deploy.
+See [`infra/aws/README.md`](infra/aws/README.md) for bootstrap steps required before the first deploy.
 
 ---
 

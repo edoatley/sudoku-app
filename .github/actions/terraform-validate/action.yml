@@ -1,18 +1,18 @@
 name: Terraform Validate
-description: Runs terraform fmt check, init (no backend), and validate in the infra directory
+description: Runs terraform fmt check, init (no backend), and validate in the infra/aws directory
 
 runs:
   using: composite
   steps:
     - name: Terraform format check
       shell: bash
-      working-directory: infra
+      working-directory: infra/aws
       run: terraform fmt -check -recursive
     - name: Terraform init (no backend)
       shell: bash
-      working-directory: infra
+      working-directory: infra/aws
       run: terraform init -backend=false
     - name: Terraform validate
       shell: bash
-      working-directory: infra
+      working-directory: infra/aws
       run: terraform validate

@@ -18,7 +18,7 @@
 #   ./delegate-dns.sh Z0123456789ABCDEF [--subdomain <name>] ns1 ns2 ns3 ns4
 #
 # You can get the nameservers from Terraform (they are the same for all subdomains):
-#   cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers
+#   cd infra/aws && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 
 set -euo pipefail
 
@@ -60,7 +60,7 @@ if [[ $# -ne 4 ]]; then
   echo "  Usage: ./delegate-dns.sh [ZONE_ID] [--subdomain <name>] ns1 ns2 ns3 ns4"
   echo ""
   echo "  Get the nameservers from Terraform:"
-  echo "    cd infra && AWS_PROFILE=sandbox terraform output subdomain_nameservers"
+  echo "    cd infra/aws && AWS_PROFILE=sandbox terraform output subdomain_nameservers"
   exit 1
 fi
 

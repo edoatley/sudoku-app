@@ -41,7 +41,7 @@ jobs:
             maven:
               - 'backend/**'
             terraform:
-              - 'infra/**'
+              - 'infra/aws/**'
               - '.github/**'
 
   ci-npm:
@@ -134,7 +134,7 @@ jobs:
     if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.terraform_changed == 'true'
     defaults:
       run:
-        working-directory: infra
+        working-directory: infra/aws
     steps:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
