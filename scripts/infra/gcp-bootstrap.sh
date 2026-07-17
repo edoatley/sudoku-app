@@ -3,9 +3,10 @@
 # first Terraform apply of infra/gcp.
 #
 # Creates ONLY the one-time, non-identity prerequisites:
-#   1. GCS Terraform state bucket
-#   2. Required GCP API enablement
-#   3. Artifact Registry repositories (backend + image-recognition)
+#   1. Project (created if missing) + billing link
+#   2. GCS Terraform state bucket
+#   3. Required GCP API enablement
+#   4. Artifact Registry repositories (backend + image-recognition)
 #
 # It deliberately does NOT create service accounts, IAM bindings, Workload
 # Identity Federation, or Identity Platform — those are provisioned by hand from
@@ -18,6 +19,12 @@ set -euo pipefail
 REGION="${REGION:-us-central1}"
 STATE_BUCKET="${STATE_BUCKET:-sudoku-tf-state-gcp}"
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
+PROJECT_NAME="${PROJECT_NAME:-Sudoku}"
+
+# Billing account for the project. If empty and billing is missing, the sole open
+# billing account is auto-selected. Linking always requires interactive confirmation
+# (unless AUTO_CONFIRM_BILLING=y), and only when billing is not already enabled.
+BILLING_ACCOUNT="${BILLING_ACCOUNT:-}"
 
 BACKEND_REPO="sudoku-backend"
 IMAGE_RECOGNITION_REPO="sudoku-image-recognition"
@@ -33,8 +40,57 @@ echo "    Region:       ${REGION}"
 echo "    State bucket: gs://${STATE_BUCKET}"
 echo ""
 
-# ── 1. GCS Terraform state bucket ──────────────────────────────────────────────
-echo "==> [1/3] GCS state bucket: gs://${STATE_BUCKET}"
+# ── 1. Project + billing ───────────────────────────────────────────────────────
+echo "==> [1/4] Project + billing: ${PROJECT_ID}"
+
+if gcloud projects describe "${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "    Project already exists — skipping creation."
+else
+  echo "    Project not found — creating (name: ${PROJECT_NAME})."
+  gcloud projects create "${PROJECT_ID}" --name="${PROJECT_NAME}"
+fi
+
+gcloud config set project "${PROJECT_ID}" >/dev/null
+
+# Link billing only when it is not already enabled. An idempotent re-run with
+# billing already linked never prompts; confirmation is required only when the
+# link is missing.
+BILLING_ENABLED="$(gcloud billing projects describe "${PROJECT_ID}" --format='value(billingEnabled)' 2>/dev/null || echo False)"
+if [[ "${BILLING_ENABLED}" == "True" ]]; then
+  echo "    Billing already linked — skipping."
+else
+  if [[ -z "${BILLING_ACCOUNT}" ]]; then
+    BILLING_ACCOUNT="$(gcloud billing accounts list --filter='open=true' --format='value(name)' 2>/dev/null | head -1)"
+  fi
+  if [[ -z "${BILLING_ACCOUNT}" ]]; then
+    echo "ERROR: billing is not linked and no open billing account was found." >&2
+    echo "       Set BILLING_ACCOUNT=<XXXXXX-XXXXXX-XXXXXX> and re-run." >&2
+    exit 1
+  fi
+
+  echo "    Billing is NOT linked. This will enable spend on the project:"
+  echo "        project: ${PROJECT_ID}"
+  echo "        billing: ${BILLING_ACCOUNT}"
+  if [[ "${AUTO_CONFIRM_BILLING:-}" =~ ^[Yy]$ ]]; then
+    REPLY="y"
+  elif [[ -t 0 ]]; then
+    read -r -p "    Link this billing account? [y/N] " REPLY
+  else
+    echo "ERROR: billing link needs confirmation but stdin is not a terminal." >&2
+    echo "       Re-run interactively, or set AUTO_CONFIRM_BILLING=y." >&2
+    exit 1
+  fi
+  if [[ "${REPLY}" =~ ^[Yy]$ ]]; then
+    gcloud billing projects link "${PROJECT_ID}" --billing-account="${BILLING_ACCOUNT}"
+    echo "    Linked."
+  else
+    echo "ERROR: billing link declined — aborting (Cloud Run/Firestore require billing)." >&2
+    exit 1
+  fi
+fi
+
+# ── 2. GCS Terraform state bucket ──────────────────────────────────────────────
+echo "==> [2/4] GCS state bucket: gs://${STATE_BUCKET}"
 
 if gcloud storage buckets describe "gs://${STATE_BUCKET}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
   echo "    Already exists — skipping creation."
@@ -53,7 +109,7 @@ gcloud storage buckets update "gs://${STATE_BUCKET}" --versioning
 echo "    Configured: versioning on, uniform bucket-level access, public access prevented."
 
 # ── 2. Enable required APIs ────────────────────────────────────────────────────
-echo "==> [2/3] Enabling required GCP APIs"
+echo "==> [3/4] Enabling required GCP APIs"
 
 APIS=(
   run.googleapis.com                 # Cloud Run
@@ -77,7 +133,7 @@ echo "    Enabled: ${APIS[*]}"
 # ── 3. Artifact Registry repositories ──────────────────────────────────────────
 # Two Docker repos, shared across all workspaces. Branch-prefixed tags distinguish
 # images (<branch>-<sha>, <branch>-latest), mirroring the AWS ECR convention.
-echo "==> [3/3] Artifact Registry repositories"
+echo "==> [4/4] Artifact Registry repositories"
 
 CLEANUP_POLICY_FILE="$(mktemp)"
 trap 'rm -f "${CLEANUP_POLICY_FILE}"' EXIT
@@ -107,8 +163,7 @@ for REPO in "${BACKEND_REPO}" "${IMAGE_RECOGNITION_REPO}"; do
     gcloud artifacts repositories create "${REPO}" \
       --project "${PROJECT_ID}" --location "${REGION}" \
       --repository-format docker \
-      --description "Sudoku ${REPO} container images" \
-      --cleanup-policy-dry-run=false
+      --description "Sudoku ${REPO} container images"
     gcloud artifacts repositories set-cleanup-policies "${REPO}" \
       --project "${PROJECT_ID}" --location "${REGION}" \
       --policy "${CLEANUP_POLICY_FILE}" --no-dry-run
