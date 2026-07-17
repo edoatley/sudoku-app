@@ -490,8 +490,8 @@ The following are provisioned by hand from `docs/runbooks/gcp-manual-setup.md` (
 
 | Item | What | Why manual |
 | --- | --- | --- |
-| Service accounts | `sudoku-run@`, `sudoku-image-recognition-run@` (runtime), `sudoku-github-deploy@` (CI) | Identity is a deliberate learning surface; least privilege authored by hand |
-| IAM role bindings | `roles/datastore.user` (runtime → Firestore), `roles/run.invoker` (public invoke), `roles/secretmanager.secretAccessor` (Bedrock credential), deploy-SA roles | as above |
+| Service accounts | `sudoku-run@`, `sudoku-image-recognition-run@` (runtime), `sudoku-github-deploy@` (CI) | **Now created by the bootstrap script** (once the pattern was understood); listed here for reference |
+| IAM role bindings | `roles/datastore.user` (runtime → Firestore) **is scripted in bootstrap**; `roles/run.invoker` (public invoke), `roles/secretmanager.secretAccessor` (Bedrock credential), and the deploy-SA project roles remain hand-run | Least privilege authored by hand for the sensitive/broad grants; the narrow runtime Firestore grant is automated |
 | Workload Identity Federation | Pool + OIDC provider for `token.actions.githubusercontent.com`, attribute condition on `repository == edoatley/sudoku-app`, impersonation binding to the deploy SA | GCP-native external-identity trust; the counterpart to the AWS GitHub OIDC provider |
 | Identity Platform | Auth config + Google IdP + smoke-test user | primary learning surface |
 | Networking (optional) | VPC + Serverless VPC Access connector for private Firestore/egress | unbuilt; Cloud Run uses Google's managed public API |
@@ -540,7 +540,7 @@ The GCP facet extends the existing pipeline. Two parts land with the infrastruct
 **Active now (this arrow):**
 
 - **Validate gate:** the `terraform-validate` action is parameterised by `working-directory` and `ci.yml`'s `ci-infra` job runs it as a matrix over `infra/aws` and `infra/gcp`; `ci.yml`'s path filter adds `infra/gcp/**`. This is the acceptance check for the GCP `.tf` (CP-GCP-081).
-- **Bootstrap:** `scripts/infra/gcp-bootstrap.sh` (run once) creates the GCS state bucket, enables the required APIs, and creates two Artifact Registry repos (`sudoku-backend`, `sudoku-image-recognition`) — the same scope as the AWS `bootstrap.sh` minus the identity pieces, which move to the manual runbook.
+- **Bootstrap:** `scripts/infra/gcp-bootstrap.sh` (run once, idempotent) creates the project + billing link (confirmation only when the link is missing), the GCS state bucket, the required API enablement, two Artifact Registry repos (`sudoku-backend`, `sudoku-image-recognition`), and the runtime + deploy service accounts with `roles/datastore.user` on the runtime SAs. The remaining identity work — the deploy SA's broader project roles, public `run.invoker`, Workload Identity Federation, and Identity Platform — stays in the manual runbook.
 
 **Deferred to the app-adapter arrows (with a runnable GCP app):**
 

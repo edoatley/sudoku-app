@@ -36,6 +36,11 @@ gcloud services enable \
 
 ## 1. Service accounts
 
+> **Now automated:** `scripts/infra/gcp-bootstrap.sh` step `[5/5]` creates these three service
+> accounts (and the §2 `roles/datastore.user` binding). The commands below are kept for reference /
+> for running by hand. The broader deploy-SA roles, `run.invoker`, WIF, and Identity Platform below
+> are still manual.
+
 Three service accounts: two runtime SAs (one per Cloud Run service, least privilege) and one deploy
 SA that GitHub Actions impersonates via Workload Identity Federation.
 

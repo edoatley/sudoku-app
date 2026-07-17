@@ -108,7 +108,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 - [ ] **CP-GCP-080**: The system shall authenticate GitHub Actions to GCP via Workload Identity Federation impersonating a deploy service account, with no long-lived service-account keys.
 - [x] **CP-GCP-081**: The system shall validate infra/gcp with terraform fmt, init, and validate in CI when files under infra/gcp/ change.
-- [x] **CP-GCP-082**: The system's bootstrap process shall create the GCS Terraform state bucket, enable the required GCP APIs, and create the sudoku-backend and sudoku-image-recognition Artifact Registry repositories.
+- [x] **CP-GCP-082**: The system's bootstrap process shall create the project and link billing (confirmation required only when the link is missing), create the GCS Terraform state bucket, enable the required GCP APIs, create the sudoku-backend and sudoku-image-recognition Artifact Registry repositories, and create the runtime + deploy service accounts with roles/datastore.user bound to the runtime service accounts.
 - [x] **CP-GCP-083**: The system shall provision GCP service accounts, IAM role bindings, Workload Identity Federation, and Identity Platform outside Terraform; infra/gcp Terraform shall reference them by value only.
 
 ## GCP — AI Inference

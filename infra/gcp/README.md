@@ -52,10 +52,12 @@ Federation, and Identity Platform are provisioned by hand: **`docs/runbooks/gcp-
 ## First-time setup
 
 ```bash
-# 1. One-time prerequisites (state bucket, APIs, Artifact Registry repos)
+# 1. One-time prerequisites: project + billing, state bucket, APIs, Artifact Registry,
+#    service accounts + runtime Firestore IAM (idempotent; prompts for billing only if unlinked)
 PROJECT_ID=<your-project> bash scripts/infra/gcp-bootstrap.sh
 
-# 2. Manual identity/network layer (SAs, IAM, WIF, Identity Platform) — the learning surface
+# 2. Remaining manual identity/network layer — the learning surface:
+#    deploy-SA roles, public run.invoker, WIF, Identity Platform + Google IdP.
 #    Follow docs/runbooks/gcp-manual-setup.md
 
 # 3. Provision

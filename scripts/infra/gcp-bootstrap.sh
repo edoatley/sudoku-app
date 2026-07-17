@@ -2,15 +2,16 @@
 # GCP bootstrap — run once with an authenticated gcloud (Owner/Editor) before the
 # first Terraform apply of infra/gcp.
 #
-# Creates ONLY the one-time, non-identity prerequisites:
+# Creates the one-time prerequisites:
 #   1. Project (created if missing) + billing link
 #   2. GCS Terraform state bucket
 #   3. Required GCP API enablement
 #   4. Artifact Registry repositories (backend + image-recognition)
+#   5. Service accounts + Firestore (datastore.user) IAM for the runtime SAs
 #
-# It deliberately does NOT create service accounts, IAM bindings, Workload
-# Identity Federation, or Identity Platform — those are provisioned by hand from
-# docs/runbooks/gcp-manual-setup.md (the deliberate learning surface).
+# It deliberately does NOT create: the deploy SA's broader project roles, public
+# Cloud Run invoker, Workload Identity Federation, or Identity Platform — those
+# remain hand-run from docs/runbooks/gcp-manual-setup.md (the learning surface).
 #
 # Safe to re-run (idempotent).
 
@@ -41,7 +42,7 @@ echo "    State bucket: gs://${STATE_BUCKET}"
 echo ""
 
 # ── 1. Project + billing ───────────────────────────────────────────────────────
-echo "==> [1/4] Project + billing: ${PROJECT_ID}"
+echo "==> [1/5] Project + billing: ${PROJECT_ID}"
 
 if gcloud projects describe "${PROJECT_ID}" >/dev/null 2>&1; then
   echo "    Project already exists — skipping creation."
@@ -90,7 +91,7 @@ else
 fi
 
 # ── 2. GCS Terraform state bucket ──────────────────────────────────────────────
-echo "==> [2/4] GCS state bucket: gs://${STATE_BUCKET}"
+echo "==> [2/5] GCS state bucket: gs://${STATE_BUCKET}"
 
 if gcloud storage buckets describe "gs://${STATE_BUCKET}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
   echo "    Already exists — skipping creation."
@@ -108,8 +109,8 @@ fi
 gcloud storage buckets update "gs://${STATE_BUCKET}" --versioning
 echo "    Configured: versioning on, uniform bucket-level access, public access prevented."
 
-# ── 2. Enable required APIs ────────────────────────────────────────────────────
-echo "==> [3/4] Enabling required GCP APIs"
+# ── 3. Enable required APIs ────────────────────────────────────────────────────
+echo "==> [3/5] Enabling required GCP APIs"
 
 APIS=(
   run.googleapis.com                 # Cloud Run
@@ -130,10 +131,10 @@ APIS=(
 gcloud services enable "${APIS[@]}" --project "${PROJECT_ID}"
 echo "    Enabled: ${APIS[*]}"
 
-# ── 3. Artifact Registry repositories ──────────────────────────────────────────
+# ── 4. Artifact Registry repositories ──────────────────────────────────────────
 # Two Docker repos, shared across all workspaces. Branch-prefixed tags distinguish
 # images (<branch>-<sha>, <branch>-latest), mirroring the AWS ECR convention.
-echo "==> [4/4] Artifact Registry repositories"
+echo "==> [4/5] Artifact Registry repositories"
 
 CLEANUP_POLICY_FILE="$(mktemp)"
 trap 'rm -f "${CLEANUP_POLICY_FILE}"' EXIT
@@ -171,6 +172,38 @@ for REPO in "${BACKEND_REPO}" "${IMAGE_RECOGNITION_REPO}"; do
   fi
 done
 
+# ── 5. Service accounts + Firestore IAM ────────────────────────────────────────
+# The two Cloud Run runtime SAs, the CI deploy SA, and roles/datastore.user on the
+# runtime SAs. The deploy SA's broader project roles, public run.invoker, Workload
+# Identity Federation, and Identity Platform stay manual — see the runbook.
+echo "==> [5/5] Service accounts + Firestore IAM"
+
+SERVICE_ACCOUNTS=(
+  "sudoku-run:Sudoku backend Cloud Run runtime"
+  "sudoku-image-recognition-run:Sudoku image-recognition Cloud Run runtime"
+  "sudoku-github-deploy:Sudoku GitHub Actions deploy"
+)
+for ENTRY in "${SERVICE_ACCOUNTS[@]}"; do
+  SA_NAME="${ENTRY%%:*}"
+  SA_DISPLAY="${ENTRY#*:}"
+  SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+  if gcloud iam service-accounts describe "${SA_EMAIL}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
+    echo "    SA ${SA_NAME} already exists — skipping."
+  else
+    gcloud iam service-accounts create "${SA_NAME}" \
+      --project "${PROJECT_ID}" --display-name="${SA_DISPLAY}"
+    echo "    Created SA ${SA_NAME}."
+  fi
+done
+
+# roles/datastore.user on the runtime SAs (add-iam-policy-binding is idempotent).
+for SA_NAME in sudoku-run sudoku-image-recognition-run; do
+  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/datastore.user" --condition=None >/dev/null
+  echo "    Bound roles/datastore.user to ${SA_NAME}."
+done
+
 # ── Summary ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "========================================================================"
@@ -178,11 +211,11 @@ echo "  GCP bootstrap complete."
 echo "========================================================================"
 echo ""
 echo "  Next steps:"
-echo "  1. Run the MANUAL identity/network setup — this is the learning surface"
-echo "     and is intentionally NOT automated here:"
+echo "  1. Run the remaining MANUAL identity setup (still the learning surface):"
 echo "       docs/runbooks/gcp-manual-setup.md"
-echo "     It creates: service accounts, IAM role bindings, Workload Identity"
-echo "     Federation (GitHub → GCP), and the Identity Platform + Google IdP config."
+echo "     Still hand-run: the deploy SA's project roles, public Cloud Run invoker,"
+echo "     Workload Identity Federation (GitHub → GCP), and Identity Platform + Google IdP."
+echo "     (Service accounts + runtime Firestore IAM are now created by step [5/5] above.)"
 echo ""
 echo "  2. Add the GitHub Actions secrets produced by that runbook:"
 echo "       GCP_PROJECT_ID       = ${PROJECT_ID}"
