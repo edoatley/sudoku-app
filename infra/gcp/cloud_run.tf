@@ -6,11 +6,20 @@
 # ---------------------------------------------------------------------------
 
 resource "google_cloud_run_v2_service" "backend" {
+  count = var.deploy_cloud_run ? 1 : 0
+
   name     = "sudoku${local.suffix}"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   deletion_protection = local.is_default
+
+  lifecycle {
+    precondition {
+      condition     = var.backend_image != "" && var.run_service_account_email != ""
+      error_message = "deploy_cloud_run = true requires backend_image and run_service_account_email to be set."
+    }
+  }
 
   template {
     service_account                  = var.run_service_account_email

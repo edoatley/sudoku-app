@@ -72,6 +72,21 @@ terraform plan \
 terraform apply
 ```
 
+## Deploy via GitHub Actions (Workload Identity Federation)
+
+The intended deploy path is the **`Deploy GCP (infra)`** workflow (`.github/workflows/deploy-gcp.yml`),
+manually triggered (`workflow_dispatch`). It authenticates via WIF (no long-lived keys) and runs
+`terraform apply` on `infra/gcp`. Requires the secrets `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`,
+`GCP_DEPLOY_SA_EMAIL` (produced by runbook §3).
+
+**Phased rollout flags** (workflow inputs / `-var`s), both default off:
+
+- `deploy_cloud_run` — apply the Cloud Run services. Off until container images exist in Artifact
+  Registry (Strategy C builds them with the app adapters). With it off, an apply stands up
+  Firestore + Firebase Hosting + Cloud DNS + budget only.
+- `enable_custom_domain` — attach the Firebase Hosting custom domain. Off until the `sudoku-gcp`
+  Cloud DNS zone is delegated from the parent.
+
 ## Workspaces
 
 Same model as AWS: `default` = production; non-default workspaces carry a `-<workspace>` suffix and

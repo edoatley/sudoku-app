@@ -23,7 +23,7 @@ resource "google_firebase_hosting_site" "frontend" {
 # added to the Cloud DNS zone in dns.tf / by the runbook.
 resource "google_firebase_hosting_custom_domain" "frontend" {
   provider      = google-beta
-  count         = local.is_default ? 1 : 0
+  count         = local.is_default && var.enable_custom_domain ? 1 : 0
   project       = var.project_id
   site_id       = google_firebase_hosting_site.frontend.site_id
   custom_domain = var.custom_domain

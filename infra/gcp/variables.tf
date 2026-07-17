@@ -17,36 +17,58 @@ variable "custom_domain" {
 
 # ── Container images (built and pushed by CI to Artifact Registry) ──────────────
 
+# ── Phased rollout flags ────────────────────────────────────────────────────────
+# The Cloud Run services need container images that only exist once the app
+# adapters are built (Strategy C), and the custom domain needs the Cloud DNS zone
+# delegated first. Both default off so `terraform apply` stands up the data /
+# hosting / DNS layer cleanly before those prerequisites exist.
+
+variable "deploy_cloud_run" {
+  description = "Apply the Cloud Run services. Requires backend_image + image_recognition_image_uri and the runtime SA emails. Off until container images exist."
+  type        = bool
+  default     = false
+}
+
+variable "enable_custom_domain" {
+  description = "Attach the Firebase Hosting custom domain (sudoku-gcp.edoatley.co.uk). Off until the Cloud DNS zone is delegated from the parent."
+  type        = bool
+  default     = false
+}
+
 variable "backend_image" {
-  description = "Artifact Registry image URI for the Quarkus backend Cloud Run service (e.g. us-central1-docker.pkg.dev/<project>/sudoku-backend/backend:<tag>)."
+  description = "Artifact Registry image URI for the Quarkus backend Cloud Run service (required when deploy_cloud_run = true)."
   type        = string
+  default     = ""
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/.+/.+:.+$", var.backend_image))
-    error_message = "backend_image must be a full Artifact Registry image URI (<region>-docker.pkg.dev/<project>/<repo>/<image>:<tag>)."
+    condition     = var.backend_image == "" || can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/.+/.+:.+$", var.backend_image))
+    error_message = "backend_image must be empty or a full Artifact Registry image URI (<region>-docker.pkg.dev/<project>/<repo>/<image>:<tag>)."
   }
 }
 
 variable "image_recognition_image_uri" {
-  description = "Artifact Registry image URI for the image-recognition Cloud Run service."
+  description = "Artifact Registry image URI for the image-recognition Cloud Run service (required when deploy_cloud_run = true)."
   type        = string
+  default     = ""
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/.+/.+:.+$", var.image_recognition_image_uri))
-    error_message = "image_recognition_image_uri must be a full Artifact Registry image URI (<region>-docker.pkg.dev/<project>/<repo>/<image>:<tag>)."
+    condition     = var.image_recognition_image_uri == "" || can(regex("^[a-z0-9-]+-docker\\.pkg\\.dev/.+/.+:.+$", var.image_recognition_image_uri))
+    error_message = "image_recognition_image_uri must be empty or a full Artifact Registry image URI (<region>-docker.pkg.dev/<project>/<repo>/<image>:<tag>)."
   }
 }
 
-# ── Runtime service accounts (created manually — see docs/runbooks/gcp-manual-setup.md) ──
+# ── Runtime service accounts (created by scripts/infra/gcp-bootstrap.sh) ─────────
 
 variable "run_service_account_email" {
-  description = "Email of the manually-created backend Cloud Run runtime service account."
+  description = "Email of the backend Cloud Run runtime service account (required when deploy_cloud_run = true)."
   type        = string
+  default     = ""
 }
 
 variable "image_recognition_service_account_email" {
-  description = "Email of the manually-created image-recognition Cloud Run runtime service account."
+  description = "Email of the image-recognition Cloud Run runtime service account (required when deploy_cloud_run = true)."
   type        = string
+  default     = ""
 }
 
 # ── Identity Platform (configured manually; consumed here by value) ─────────────
