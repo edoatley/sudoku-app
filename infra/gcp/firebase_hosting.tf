@@ -13,7 +13,10 @@ resource "google_firebase_project" "default" {
 resource "google_firebase_hosting_site" "frontend" {
   provider = google-beta
   project  = var.project_id
-  site_id  = "sudoku${local.suffix}"
+  # Firebase Hosting site IDs are GLOBALLY unique (like project IDs), so a bare
+  # "sudoku" is taken. Derive from the project ID, which is already unique.
+  # (site_id must be <= 30 chars — watch this for long rc-* workspace suffixes.)
+  site_id = "${var.project_id}${local.suffix}"
 
   depends_on = [google_firebase_project.default]
 }
