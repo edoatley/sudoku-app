@@ -122,7 +122,7 @@ for ROLE in \
   roles/billing.costsManager \
   roles/pubsub.admin \
   roles/iam.serviceAccountUser \
-  roles/serviceusage.serviceUsageConsumer ; do
+  roles/serviceusage.serviceUsageAdmin ; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member="serviceAccount:${DEPLOY_SA}" \
     --role="${ROLE}" --condition=None

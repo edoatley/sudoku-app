@@ -118,7 +118,9 @@ echo "    Bound."
 #                                    firebasehosting.admin; narrow to firebase.developAdmin
 #                                    later if you want to tighten.
 #   dns.admin                        create the Cloud DNS managed zone + records
-#   serviceusage.serviceUsageConsumer  use project quota / read enabled services
+#   serviceusage.serviceUsageAdmin   enable APIs on the project — google_firebase_project's
+#                                    AddFirebase call needs serviceusage.services.enable, which
+#                                    the narrower serviceUsageConsumer does NOT grant
 #   run.admin                        create/update Cloud Run (when deploy_cloud_run=true)
 #   iam.serviceAccountUser           set the runtime SA on Cloud Run (actAs)
 # Widen a specific role only if an apply fails on a missing permission — and record
@@ -128,7 +130,7 @@ DEPLOY_ROLES=(
   roles/datastore.owner
   roles/firebase.admin
   roles/dns.admin
-  roles/serviceusage.serviceUsageConsumer
+  roles/serviceusage.serviceUsageAdmin
   roles/run.admin
   roles/iam.serviceAccountUser
 )
