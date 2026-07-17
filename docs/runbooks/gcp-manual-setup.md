@@ -80,7 +80,7 @@ interim Bedrock credential from Secret Manager.
 for SA in "${RUN_SA}" "${IR_SA}"; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member="serviceAccount:${SA}" \
-    --role="roles/datastore.user"
+    --role="roles/datastore.user" --condition=None
 done
 
 # Secret Manager access for the interim cross-cloud Bedrock credential
@@ -110,11 +110,14 @@ Scoped to what CI actually does: build/push images, deploy Cloud Run, manage Fir
 budget, read/write the Terraform state bucket, and act-as the runtime SAs.
 
 ```bash
+# roles/firebase.admin covers both adding Firebase to the project
+# (google_firebase_project) and Hosting; roles/firebasehosting.admin alone cannot
+# create the project resource. --condition=None avoids the interactive condition prompt.
 for ROLE in \
   roles/run.admin \
   roles/artifactregistry.writer \
   roles/datastore.owner \
-  roles/firebasehosting.admin \
+  roles/firebase.admin \
   roles/dns.admin \
   roles/billing.costsManager \
   roles/pubsub.admin \
@@ -122,7 +125,7 @@ for ROLE in \
   roles/serviceusage.serviceUsageConsumer ; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member="serviceAccount:${DEPLOY_SA}" \
-    --role="${ROLE}"
+    --role="${ROLE}" --condition=None
 done
 
 # Terraform state bucket access (bucket-scoped, not project-wide)

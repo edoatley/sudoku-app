@@ -113,8 +113,10 @@ echo "    Bound."
 # The least-privilege set the CI needs to `terraform apply` infra/gcp. Each role
 # maps to a resource the Terraform manages:
 #   datastore.owner                  create/manage the Firestore database + fields
-#   firebase.managementAdmin         create the Firebase project resource + site
-#   firebasehosting.admin            manage Firebase Hosting sites / custom domains
+#   firebase.admin                   add Firebase to the project (google_firebase_project)
+#                                    + manage Hosting incl. the custom domain. Supersedes
+#                                    firebasehosting.admin; narrow to firebase.developAdmin
+#                                    later if you want to tighten.
 #   dns.admin                        create the Cloud DNS managed zone + records
 #   serviceusage.serviceUsageConsumer  use project quota / read enabled services
 #   run.admin                        create/update Cloud Run (when deploy_cloud_run=true)
@@ -124,8 +126,7 @@ echo "    Bound."
 echo "==> [4/5] Deploy-SA project roles"
 DEPLOY_ROLES=(
   roles/datastore.owner
-  roles/firebase.managementAdmin
-  roles/firebasehosting.admin
+  roles/firebase.admin
   roles/dns.admin
   roles/serviceusage.serviceUsageConsumer
   roles/run.admin
