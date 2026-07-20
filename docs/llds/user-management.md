@@ -40,6 +40,53 @@ In **dev/IT/test** profiles, `DevUserFilter` replaces the JWT layer:
               (allowlist empty in dev → passes all requests)
 ```
 
+## Multi-Cloud Authentication & Identity (GCP facet)
+
+The architecture above is the **AWS** deployment. The backend also runs on **GCP** (games + player-profile slice); the edge differs but the in-app path is the same.
+
+### Where the token is verified — in-app only on GCP
+
+On AWS the token is validated twice: the API Gateway JWT authorizer at the edge, then Quarkus OIDC in-app. **GCP has no gateway** — the Cloud Run service is a public endpoint (`roles/run.invoker = allUsers`), so **Quarkus OIDC in-app validation is the sole gate**. Consequence: every non-public resource must carry its `@Authenticated`/role annotation — a missing annotation is an open endpoint on GCP with no edge backstop. This is a **deliberate, accepted** choice (in-app-only is the standard Cloud Run pattern for a public JWT API, and the AWS app already validates in-app regardless), compensated by a **route-coverage test** asserting every non-public route rejects an anonymous request.
+
+### Cloud-parameterized OIDC
+
+A single Quarkus OIDC tenant, configured per deployment by env:
+
+| Setting | AWS (Cognito) | GCP (Identity Platform / Firebase) |
+| --- | --- | --- |
+| issuer / auth-server-url | Cognito pool issuer | `https://securetoken.google.com/<project_id>` |
+| discovery | enabled | **disabled** — Firebase is not OIDC-discoverable |
+| JWKS | from discovery | explicit: `https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com` |
+| audience | web client id | `<project_id>` |
+
+### Canonical userId = Google sub (hardened resolver)
+
+`userId` is the **Google `sub`** — the federated-identity subject, stable across IdPs (HLD *Cloud-Agnostic Persistence & Auth*). `UserIdentityResolver` derives it with a **strict provider allow-list, not a permissive fallback** — any provider it does not recognise is rejected (401), so an unexpected token shape never reaches a repository:
+
+| `firebase.sign_in_provider` | Resolved `userId` |
+| --- | --- |
+| `google.com` | `firebase.identities["google.com"][0]` — the **raw** Google `sub` (matches AWS's future re-key value) |
+| `password` | **`firebase:<uid>`** — namespaced; for the pre-provisioned CI smoke-test user only |
+| anything else (anonymous, phone, unknown) | **reject (401)** |
+
+The two namespaces are disjoint by construction: Google users key on the raw `sub`, the `password` fallback on a `firebase:`-prefixed `uid`, so a `password` token can never resolve onto a Google user's data. This fallback is safe **only in combination with** the Identity Platform hardening (Google + password providers only, **self-signup disabled**, no anonymous — see runbook §4/§5) and the email allowlist below; together they mean the `password` path can only ever be the allowlisted, admin-provisioned test user. This matches the AWS posture — the Cognito smoke-test client is likewise a controlled native user gated by the same allowlist.
+
+On **AWS** the resolver returns `jwt.getSubject()` (the Cognito subject) today; the deferred re-key switches it to the Google `sub` in the Cognito `identities` claim.
+
+**Authorization gate unchanged:** a valid token is authentication only. `AllowedUsersFilter` still requires the token's `email` claim (present + verified for Google sign-in; set for the provisioned password user) to be on `app.allowed.emails` — identically on both clouds. Email / display-name extraction (`email`, `name`) is unchanged, so `PlayerResource` claim extraction works on both clouds.
+
+### CORS
+
+With no gateway on GCP, **CORS is handled entirely in-app** (`CorsFilter`, driven by `CORS_ALLOWED_ORIGINS`). The Firebase Hosting origin (`https://sudoku-app-eo.web.app`, later the custom domain) calls the Cloud Run origin cross-origin, so it must be in the allowed list. Because in-app validation is the sole gate, preflight `OPTIONS` (which carries no `Authorization` header) must be answered by `CorsFilter` **before** `@Authenticated` runs — otherwise every cross-origin preflight would 401. This ordering is required, not incidental.
+
+### Player persistence
+
+The profile persists through the existing `PlayerRepository` port. GCP adds `FirestorePlayerRepository` — a `players` collection keyed on the Google-`sub` `userId` — selected at build time (`sudoku.persistence=firestore`). Lazy-creation and PATCH-update behaviour are unchanged; only the adapter differs.
+
+### Deferred: admin authorization on GCP
+
+Identity Platform has no group concept, so the `administrators`-group check (see *Admin Authorization*) has no GCP equivalent yet. `/admin/*` is **not** in this slice, so it is deferred; when admin lands on GCP it moves to a custom claim (Firebase Admin SDK) or a configured email allowlist.
+
 ## Player Profile
 
 ### Lazy Creation Pattern
@@ -101,7 +148,7 @@ Table: `SudokuPlayers{suffix}` (name injected via `sudoku.dynamodb.players-table
 
 | Attribute | DynamoDB Type | Key Role | Notes |
 | --- | --- | --- | --- |
-| `userId` | String | Partition Key | Cognito `sub` claim |
+| `userId` | String | Partition Key | Canonical user id — Cognito `sub` on AWS today (→ Google `sub` after the deferred re-key); the Google `sub` on GCP's Firestore `players` collection. See *Multi-Cloud Authentication & Identity* |
 | `email` | String | — | From Cognito JWT; read-only after creation |
 | `displayName` | String | — | From Cognito JWT name claim; updatable via PATCH |
 | `avatarKey` | String | — | Client-defined icon name; empty string stored as null; updatable via PATCH |

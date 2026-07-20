@@ -202,8 +202,17 @@ consumes only the resulting issuer/audience.
      used for the AWS Cognito federation) or create a new OAuth client. Add the Identity Platform
      handler to that client's **Authorized redirect URIs** in the Google Cloud Console → *APIs &
      Services → Credentials*.
-3. Enable **Email/Password** as a provider **only** to support the CI smoke-test user (section 5).
-   The app UI still offers Google only.
+3. **Enable only the Google and Email/Password providers** — leave **Anonymous** (and every
+   other provider) disabled. Email/Password exists solely for the CI smoke-test user (§5); the app
+   UI offers Google only.
+4. **Disable public sign-up.** Console → Identity Platform → *Settings* → *Security* / *User
+   actions* → turn off **"Enable create (sign-up)"** for email/password. Now the `password`
+   provider can only *sign in* pre-provisioned users — nobody can `createUserWithEmailAndPassword`.
+   This is the primary control that makes the backend's `password` fallback safe. Defence-in-depth
+   (all enforced regardless): the resolver accepts `password` only via a strict provider allow-list
+   and namespaces it as `firebase:<uid>` (disjoint from Google `sub`s), and `AllowedUsersFilter`
+   still requires the email to be on `app.allowed.emails`. See
+   `docs/llds/user-management.md` — *Canonical userId = Google sub (hardened resolver)*.
 
 The backend validates tokens against:
 
@@ -219,17 +228,23 @@ These are the values Terraform passes to Cloud Run as `identity_platform_issuer`
 ## 5. CI smoke-test user (Identity Platform)
 
 Cognito's `USER_PASSWORD_AUTH` has no direct equivalent; CI signs in via the Identity Platform REST
-API. Create a dedicated test user (never used for real logins):
+API. Because public sign-up is disabled (§4.4), the test user must be created **server-side by an
+admin** — this is the only way a `password` account can exist:
 
 ```bash
-# Create an email/password user via the Admin API (or Console → Identity Platform → Users → Add user)
-# Then CI obtains an ID token with:
+# Create the test user server-side (admin) — Console → Identity Platform → Users → Add user,
+# or the Admin SDK / accounts:signUp with an admin credential. Its email MUST be on
+# app.allowed.emails (the authorization gate), and it is never used for real logins.
+#
+# CI then obtains an ID token by SIGNING IN (not signing up):
 curl -s "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=<WEB_API_KEY>" \
   -H 'Content-Type: application/json' \
   -d '{"email":"<smoke-user>","password":"<smoke-pass>","returnSecureToken":true}'
 ```
 
-Store `<WEB_API_KEY>`, `<smoke-user>`, `<smoke-pass>` as GitHub secrets for the GCP smoke test.
+The resulting token's `firebase.sign_in_provider` is `password`, so the backend resolves its
+`userId` to `firebase:<uid>` (namespaced away from Google users). Store `<WEB_API_KEY>`,
+`<smoke-user>`, `<smoke-pass>` as GitHub secrets for the GCP smoke test.
 
 ---
 
