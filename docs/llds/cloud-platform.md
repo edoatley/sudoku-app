@@ -535,18 +535,22 @@ provider "google" {
 
 ## GCP CI/CD
 
-The GCP facet extends the existing pipeline. Two parts land with the infrastructure-scaffolding arrow; the rest lands with the app-adapter arrows (this facet is provisioning-only, per *Scope of the GCP facet*):
+The GCP facet extends the existing pipeline in tiers.
 
-**Active now (this arrow):**
+**Live (infrastructure-scaffolding arrow):**
 
-- **Validate gate:** the `terraform-validate` action is parameterised by `working-directory` and `ci.yml`'s `ci-infra` job runs it as a matrix over `infra/aws` and `infra/gcp`; `ci.yml`'s path filter adds `infra/gcp/**`. This is the acceptance check for the GCP `.tf` (CP-GCP-081).
-- **Bootstrap:** `scripts/infra/gcp-bootstrap.sh` (run once, idempotent) creates the project + billing link (confirmation only when the link is missing), the GCS state bucket, the required API enablement, two Artifact Registry repos (`sudoku-backend`, `sudoku-image-recognition`), and the runtime + deploy service accounts with `roles/datastore.user` on the runtime SAs. The remaining identity work — the deploy SA's broader project roles, public `run.invoker`, Workload Identity Federation, and Identity Platform — stays in the manual runbook.
+- **Validate gate:** the `terraform-validate` action is parameterised by `working-directory` and `ci.yml`'s `ci-infra` job runs it as a matrix over `infra/aws` and `infra/gcp`; `ci.yml`'s path filter adds `infra/gcp/**` (CP-GCP-081).
+- **Bootstrap:** `scripts/infra/gcp-bootstrap.sh` (project + billing, GCS state bucket, API enablement, two Artifact Registry repos, runtime + deploy SAs with `roles/datastore.user`) and `scripts/infra/gcp-github-bootstrap.sh` (Workload Identity Federation pool/provider, deploy-SA project roles, the three GitHub secrets).
+- **Apply-only deploy:** the **`deploy-gcp` workflow** (`.github/workflows/deploy-gcp.yml`, `workflow_dispatch`) authenticates via WIF (`GCP_WIF_PROVIDER` impersonating `GCP_DEPLOY_SA_EMAIL`, no keys — the counterpart to `configure-aws-oidc`) and runs `terraform apply` on `infra/gcp`. Phased flags `deploy_cloud_run` / `enable_custom_domain` (default off) let it stand up Firestore + Firebase Hosting + Cloud DNS before the app container and DNS delegation exist. Because `workflow_dispatch` requires the workflow on the default branch, `deploy-gcp.yml` is also on `main` (dispatch-only, inert); runs target the working branch via `--ref`.
 
-**Deferred to the app-adapter arrows (with a runnable GCP app):**
+**Games-slice arrow (in progress):**
 
-- **Deploy:** a `deploy-gcp` job authenticating via `google-github-actions/auth` + Workload Identity Federation (`GCP_WIF_PROVIDER` impersonating `GCP_DEPLOY_SA_EMAIL`, no long-lived keys — the counterpart to `configure-aws-oidc`), building the backend + image-recognition containers to Artifact Registry, planning/applying `infra/gcp`, then running `firebase deploy` for `ui/dist` after apply. Deferred because there is no runnable GCP app to deploy until the backend Firestore profile and frontend Firebase Auth adapters exist, and a non-functional deploy pipeline would be speculative.
-- **Smoke-test auth:** Identity Platform has no Cognito `USER_PASSWORD_AUTH`; the future GCP smoke test obtains a token via the Identity Platform REST endpoint (`identitytoolkit … :signInWithPassword`) using a manually-created test user (documented in the runbook).
-- **New secrets (when deploy lands):** `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA_EMAIL` (the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are reused for the Identity Platform Google provider).
+- **Backend container build:** the Quarkus backend is containerised (Quarkus Jib container-image extension) with the build property `sudoku.persistence=firestore` (build-time adapter selection) and pushed to Artifact Registry `sudoku-backend`. The `deploy-gcp` run then flips **`deploy_cloud_run=true`** so Terraform creates the Cloud Run service pointing at that image. Cloud Run env carries the Firebase issuer/audience (in-app JWT validation) and the Firestore collection config.
+- **Smoke-test auth:** Identity Platform has no Cognito `USER_PASSWORD_AUTH`; the GCP smoke test obtains a token via the Identity Platform REST endpoint (`identitytoolkit … :signInWithPassword`) using the admin-provisioned test user (runbook §5).
+
+**Still deferred:** `firebase deploy` of `ui/dist` (needs the frontend Firebase Auth path), and the image-recognition container + AI-provider wiring.
+
+**Secrets:** `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA_EMAIL` (set by `gcp-github-bootstrap.sh`); the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are reused for the Identity Platform Google provider.
 
 ## GCP Design Decisions
 

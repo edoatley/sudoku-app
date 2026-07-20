@@ -61,3 +61,16 @@
 - [x] **UM-BE-050**: Where sudoku.api.logging.enabled is true, the system shall log the HTTP method, path, and request body for every incoming request.
 - [x] **UM-BE-051**: Where sudoku.api.logging.enabled is true, the system shall log the HTTP method, path, status code, and response body for every outgoing response.
 - [x] **UM-BE-052**: After reading the request body for logging, the system shall reset the input stream so the downstream handler can read the body again.
+
+## Multi-Cloud Auth & Identity (GCP)
+
+Authentication and identity behaviours on GCP. Active gaps until the games-slice arrow's code phase implements them. (Existing `## Authentication` specs describe the AWS/Cognito path — validated at the API Gateway authorizer; these govern the GCP/Firebase path — validated in-app.)
+
+- [ ] **UM-GCP-001**: On GCP the system shall validate the caller's JWT in-app (there is no edge authorizer) and reject any request to a non-public route that lacks a valid token.
+- [ ] **UM-GCP-002**: On GCP the system shall validate tokens against the Identity Platform issuer https://securetoken.google.com/<project_id> and audience <project_id> using an explicitly configured JWKS, with OIDC discovery disabled.
+- [ ] **UM-GCP-003**: The system shall derive the canonical userId by a strict provider allow-list: for firebase.sign_in_provider = google.com, the Google sub from firebase.identities["google.com"]; for password, the value firebase:<uid>; for any other provider, the system shall reject the request (401).
+- [ ] **UM-GCP-004**: The system shall namespace password-provider identities as firebase:<uid>, disjoint from the raw Google sub, so a password token can never resolve onto a Google user's data.
+- [ ] **UM-GCP-005**: On GCP the system shall apply the email allowlist identically to AWS, requiring the token's email claim to be on app.allowed.emails regardless of sign-in provider.
+- [ ] **UM-GCP-006**: On GCP the system shall answer CORS preflight OPTIONS requests before authentication, so a cross-origin preflight (which carries no Authorization header) is not rejected.
+- [ ] **UM-GCP-007**: Where the build property sudoku.persistence=firestore, the system shall persist player profiles in a Firestore players collection keyed by the canonical userId, with lazy-creation and PATCH-update behaviour unchanged.
+- [D] **UM-GCP-008**: The system shall enforce administrator authorization on GCP via a custom claim or configured allowlist. (Deferred — /admin/* is not part of the games + player-profile slice; Identity Platform has no group concept.)

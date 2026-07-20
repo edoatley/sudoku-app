@@ -145,6 +145,58 @@ Two mutation methods on `GameItem`:
 
 **`applyUpdate(GameUpdateRequest request, String now)`** — overwrites `currentGrid`, `candidates`, `timeSpentSeconds`, optionally `hintsUsed`; sets `status=SOLVED` + `endedAt=now` if `isComplete=true`, otherwise keeps `IN_PROGRESS`
 
+## Firestore Persistence (GCP facet)
+
+`FirestoreGameRepository implements GameRepository` is the GCP adapter, selected at build time
+(`@IfBuildProperty(name = "sudoku.persistence", stringValue = "firestore")`; `DynamoDbGameRepository`
+is the `@DefaultBean`). It uses the Google Cloud Firestore client, running as the Cloud Run runtime
+service account (`roles/datastore.user`). The `GameRepository` contract and all callers are unchanged.
+
+### Document layout
+
+Top-level collection `games`, one document per game, **document id = `<userId>__<gameId>`**.
+
+Using the composite `userId__gameId` id — rather than the bare `gameId` — preserves the AWS
+IDOR-safety property structurally: a `get` requires the caller's `userId` in the path, so one user
+can never fetch another's game even knowing the `gameId` (mirrors DynamoDB's composite-key `GetItem`).
+`userId` and `gameId` are also stored as fields for querying. **Grids remain JSON strings** —
+Firestore prohibits nested arrays (an array can't contain an array), so a 9×9 grid can't be a native
+nested array; JSON strings match `GameItem` and reuse the same serialization. A `FirestoreGameDocument`
+POJO maps `GameState ↔ document`, analogous to `GameItem`.
+
+### Access patterns
+
+| Operation | Firestore API | Query |
+| --- | --- | --- |
+| Save new game | `document("<userId>__<gameId>").set(doc)` | — |
+| Load game by id | `document("<userId>__<gameId>").get()` | — (userId in the doc path = IDOR guard) |
+| Find in-progress game | `collection("games").where(userId==).where(status=="IN_PROGRESS").limit(1)` | composite index `(userId, status)` |
+| Game history | `where(userId==).where(status in ["SOLVED","ABANDONED"]).orderBy(endedAt desc)` | composite index `(userId, status, endedAt)` |
+| Update / abandon | fetch-mutate-`set` (in a transaction — see below) | — |
+
+Unlike the DynamoDB adapter (which queries all of a user's games and filters `IN_PROGRESS`
+client-side), Firestore filters `status` **server-side**, so the two composite indexes above are
+required. They are declared as `google_firestore_index` resources in `infra/gcp/firestore.tf`,
+created **with the database (not gated on `deploy_cloud_run`)** so the index build finishes before
+the app serves queries — a new composite index takes minutes to build, and a query issued before it
+is ready fails `FAILED_PRECONDITION`.
+
+### Single-active-game invariant
+
+The invariant (`abandonAnyInProgressGame` before persisting a new game) is enforced in a **Firestore
+transaction**: read the current `IN_PROGRESS` game, mark it `ABANDONED`, and write the new game
+atomically. This is a deliberate *improvement* over the AWS adapter, whose read-then-write sequence
+is non-atomic (acceptable there because a single client serialises a player's requests); the
+Firestore transaction removes the race entirely at no extra cost.
+
+### Decisions & Alternatives
+
+| Decision | Chosen | Alternative | Rationale |
+| --- | --- | --- | --- |
+| Collection shape | Top-level `games`, composite `userId__gameId` id | Subcollection `players/{userId}/games/{gameId}` | Keeps the game adapter independent of the player adapter and mirrors the table-per-entity model; the composite id still gives per-user isolation + IDOR safety |
+| Grid storage | JSON strings | Native Firestore structures | Firestore can't nest arrays; JSON reuses `GameItem` serialization and keeps the DTO mapping identical |
+| Single-active-game | Firestore transaction | Non-atomic read-then-write (AWS parity) | Transaction is free here and closes the invariant's race window |
+
 ## GameStatus Enum
 
 | Value | String | Meaning |

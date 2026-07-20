@@ -50,3 +50,15 @@
 - [x] **GL-DATA-002**: The system shall serialize all grid fields (originalGrid, solutionGrid, currentGrid, candidates) as JSON strings in DynamoDB.
 - [x] **GL-DATA-003**: The system shall store all timestamps as ISO-8601 UTC strings.
 - [x] **GL-DATA-004**: While a game is in progress, the system shall store endedAt as null.
+
+## Firestore Persistence (GCP)
+
+Behaviours of the `FirestoreGameRepository` adapter on GCP. Active gaps until the games-slice arrow's code phase implements them.
+
+- [ ] **GL-GCP-001**: Where the build property sudoku.persistence=firestore, the system shall use the Firestore game repository adapter; otherwise it shall use the DynamoDB adapter (the default).
+- [ ] **GL-GCP-002**: The system shall store each game as a document in the games collection keyed by <userId>__<gameId>, so a game can only be retrieved with its owner's userId.
+- [ ] **GL-GCP-003**: The system shall serialize all grid fields as JSON strings in Firestore documents (Firestore cannot store nested arrays).
+- [ ] **GL-GCP-004**: The system shall find a player's in-progress game with a Firestore query filtering userId and status = IN_PROGRESS server-side, backed by a composite index on (userId, status).
+- [ ] **GL-GCP-005**: The system shall return game history with a Firestore query filtering userId and status in {SOLVED, ABANDONED}, ordered by endedAt descending, backed by a composite index on (userId, status, endedAt).
+- [ ] **GL-GCP-006**: The system shall enforce the single-active-game invariant in a Firestore transaction that atomically abandons any in-progress game and writes the new game.
+- [ ] **GL-GCP-007**: The system shall provision the required Firestore composite indexes together with the database (not gated on deploy_cloud_run) so the indexes finish building before the application serves queries.
