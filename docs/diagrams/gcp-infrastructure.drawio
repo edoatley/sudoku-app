@@ -1,0 +1,120 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="gcp-infra" name="GCP Infrastructure">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageWidth="1500" pageHeight="920" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Sudoku on GCP — project sudoku-app-eo · region us-central1 (as deployed 2026-07-18)" style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1000" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============ CI / CD + Trust column ============ -->
+        <mxCell id="cicd" value="CI/CD &amp; Trust" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#616161;verticalAlign=top;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="300" height="600" as="geometry" />
+        </mxCell>
+        <mxCell id="gh_repo" value="GitHub&#10;edoatley/sudoku-app" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F6F8FA;strokeColor=#24292E;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="100" width="240" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="gh_wf" value="GitHub Actions&#10;deploy-gcp.yml (workflow_dispatch)&#10;auth@v3 · terraform apply" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F6F8FA;strokeColor=#24292E;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="195" width="240" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="wif" value="Workload Identity Federation&#10;github-pool / github-provider&#10;repo-restricted · no keys" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF7E0;strokeColor=#F9AB00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="300" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy_sa" value="SA: sudoku-github-deploy&#10;impersonated via WIF&#10;run/firebase/datastore/dns admin" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF7E0;strokeColor=#F9AB00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="410" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="tf" value="Terraform (infra/gcp)&#10;state → GCS backend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#673AB7;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="520" width="240" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="gh_repo" target="gh_wf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="OIDC token" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;" edge="1" parent="1" source="gh_wf" target="wif">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="impersonate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;" edge="1" parent="1" source="wif" target="deploy_sa">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="runs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;" edge="1" parent="1" source="deploy_sa" target="tf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============ GCP project container ============ -->
+        <mxCell id="project" value="GCP project: sudoku-app-eo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#4285F4;verticalAlign=top;fontStyle=1;fontSize=13;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="70" width="1060" height="600" as="geometry" />
+        </mxCell>
+
+        <!-- Deployed group label -->
+        <mxCell id="dep_lbl" value="Deployed (live · ~$0 idle)" style="text;html=1;fontSize=12;fontStyle=1;align=left;fontColor=#1A73E8;" vertex="1" parent="1">
+          <mxGeometry x="420" y="90" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Row 1: data / hosting -->
+        <mxCell id="firestore" value="Firestore (default)&#10;Native · us-central1&#10;PITR · delete-protection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="120" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="hosting" value="Firebase Hosting&#10;site: sudoku-app-eo&#10;sudoku-app-eo.web.app" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="120" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="fbproject" value="Firebase project&#10;(enabled on project)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="940" y="120" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="gcs" value="GCS bucket&#10;sudoku-tf-state-gcp&#10;versioned · UBLA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="120" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Row 2: runtime service accounts (directly under Firestore) -->
+        <mxCell id="sa_run" value="SA: sudoku-run&#10;backend runtime · datastore.user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF7E0;strokeColor=#F9AB00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="250" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="sa_ir" value="SA: sudoku-image-recognition-run&#10;IR runtime · datastore.user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF7E0;strokeColor=#F9AB00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="250" width="240" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="sa_fb" value="SA: firebase-adminsdk-fbsvc&#10;auto-created by Firebase" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF7E0;strokeColor=#F9AB00;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="960" y="250" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Row 3: artifact registry -->
+        <mxCell id="ar_be" value="Artifact Registry&#10;sudoku-backend (empty)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="360" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_ir" value="Artifact Registry&#10;sudoku-image-recognition (empty)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="360" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Gated group -->
+        <mxCell id="gated_lbl" value="Gated — not yet deployed (phased flags off)" style="text;html=1;fontSize=12;fontStyle=1;align=left;fontColor=#9E9E9E;" vertex="1" parent="1">
+          <mxGeometry x="420" y="450" width="360" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="run_be" value="Cloud Run: sudoku (backend)&#10;deploy_cloud_run = false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="480" width="220" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="run_ir" value="Cloud Run: image-recognition&#10;deploy_cloud_run = false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="480" width="240" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="dns" value="Cloud DNS zone + custom domain&#10;sudoku-gcp.edoatley.co.uk&#10;enable_custom_domain = false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="960" y="480" width="240" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="idp" value="Identity Platform + Google IdP&#10;(manual · not Terraform)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="480" width="200" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="Solid blue = deployed data/hosting · Amber = identity/SA · Dashed grey = gated/planned or manual" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=#FFFDE7;strokeColor=#E0E0E0;" vertex="1" parent="1">
+          <mxGeometry x="420" y="590" width="760" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============ cross edges ============ -->
+        <mxCell id="e5" value="terraform apply" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=11;strokeColor=#673AB7;" edge="1" parent="1" source="tf" target="project">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="datastore.user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;labelBackgroundColor=#ffffff;fontSize=10;strokeColor=#F9AB00;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="sa_run" target="firestore">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
