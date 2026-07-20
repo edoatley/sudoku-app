@@ -2,6 +2,7 @@ package com.sudoku.leaderboard.persistence;
 
 import com.sudoku.leaderboard.LeaderboardRepository;
 import jakarta.annotation.PostConstruct;
+import io.quarkus.arc.properties.UnlessBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -19,6 +20,7 @@ import java.util.Map;
 
 // @spec LT-BE-007, LT-BE-008, LT-BE-009, LT-BE-010, LT-BE-011, LT-BE-012, LT-BE-013
 @ApplicationScoped
+@UnlessBuildProperty(name = "sudoku.persistence", stringValue = "firestore", enableIfMissing = true)
 public class DynamoDbLeaderboardRepository implements LeaderboardRepository {
 
     @Inject
