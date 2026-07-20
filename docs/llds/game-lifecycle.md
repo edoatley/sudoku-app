@@ -161,8 +161,10 @@ IDOR-safety property structurally: a `get` requires the caller's `userId` in the
 can never fetch another's game even knowing the `gameId` (mirrors DynamoDB's composite-key `GetItem`).
 `userId` and `gameId` are also stored as fields for querying. **Grids remain JSON strings** —
 Firestore prohibits nested arrays (an array can't contain an array), so a 9×9 grid can't be a native
-nested array; JSON strings match `GameItem` and reuse the same serialization. A `FirestoreGameDocument`
-POJO maps `GameState ↔ document`, analogous to `GameItem`.
+nested array; JSON strings match `GameItem`. The adapter **reuses `GameItem` directly** as the
+document model: Firestore's POJO mapper serialises its getters/setters and ignores the (inert)
+`@DynamoDbBean` annotations, so grid JSON (de)serialization and the `applyUpdate`/`markAbandoned`
+mutations are shared with the AWS adapter with no duplication (no separate document class).
 
 ### Access patterns
 
@@ -185,11 +187,13 @@ composite index takes minutes to build, and a query issued before it is ready fa
 
 ### Single-active-game invariant
 
-The invariant (`abandonAnyInProgressGame` before persisting a new game) is enforced in a **Firestore
-transaction**: read the current `IN_PROGRESS` game, mark it `ABANDONED`, and write the new game
-atomically. This is a deliberate *improvement* over the AWS adapter, whose read-then-write sequence
-is non-atomic (acceptable there because a single client serialises a player's requests); the
-Firestore transaction removes the race entirely at no extra cost.
+The invariant (`abandonAnyInProgressGame` before persisting a new game) is orchestrated by
+`GameServiceImpl` (`findInProgress → abandonGame → save`) — *shared* game-lifecycle code, not the
+repository. To keep the slice contained (the Firestore adapter mirrors the DynamoDB port contract
+exactly, and `GameServiceImpl` is unchanged), this stays **non-atomic on GCP, matching AWS**
+(acceptable because a single client serialises a player's requests). Wrapping abandon+save in a
+Firestore transaction is a deferred hardening — it would require an interface/service change — see
+`GL-GCP-006` (`[D]`).
 
 ### Decisions & Alternatives
 
@@ -197,7 +201,8 @@ Firestore transaction removes the race entirely at no extra cost.
 | --- | --- | --- | --- |
 | Collection shape | Top-level `games`, composite `userId__gameId` id | Subcollection `players/{userId}/games/{gameId}` | Keeps the game adapter independent of the player adapter and mirrors the table-per-entity model; the composite id still gives per-user isolation + IDOR safety |
 | Grid storage | JSON strings | Native Firestore structures | Firestore can't nest arrays; JSON reuses `GameItem` serialization and keeps the DTO mapping identical |
-| Single-active-game | Firestore transaction | Non-atomic read-then-write (AWS parity) | Transaction is free here and closes the invariant's race window |
+| Single-active-game | Non-atomic (AWS parity) | Firestore transaction | Keeps the slice contained — the adapter matches the DynamoDB port contract and `GameServiceImpl` is unchanged; the transaction is deferred (`GL-GCP-006` `[D]`) |
+| Document model | Reuse `GameItem` | Separate `FirestoreGameDocument` | Firestore's POJO mapper serialises `GameItem` (DynamoDB annotations inert); shares grid JSON + mutations, zero duplication |
 
 ## GameStatus Enum
 
