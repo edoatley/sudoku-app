@@ -170,16 +170,18 @@ POJO maps `GameState ↔ document`, analogous to `GameItem`.
 | --- | --- | --- |
 | Save new game | `document("<userId>__<gameId>").set(doc)` | — |
 | Load game by id | `document("<userId>__<gameId>").get()` | — (userId in the doc path = IDOR guard) |
-| Find in-progress game | `collection("games").where(userId==).where(status=="IN_PROGRESS").limit(1)` | composite index `(userId, status)` |
+| Find in-progress game | `collection("games").where(userId==).where(status=="IN_PROGRESS").limit(1)` | served by the `(userId, status, endedAt)` index (key-prefix match) |
 | Game history | `where(userId==).where(status in ["SOLVED","ABANDONED"]).orderBy(endedAt desc)` | composite index `(userId, status, endedAt)` |
 | Update / abandon | fetch-mutate-`set` (in a transaction — see below) | — |
 
 Unlike the DynamoDB adapter (which queries all of a user's games and filters `IN_PROGRESS`
-client-side), Firestore filters `status` **server-side**, so the two composite indexes above are
-required. They are declared as `google_firestore_index` resources in `infra/gcp/firestore.tf`,
-created **with the database (not gated on `deploy_cloud_run`)** so the index build finishes before
-the app serves queries — a new composite index takes minutes to build, and a query issued before it
-is ready fails `FAILED_PRECONDITION`.
+client-side), Firestore filters `status` **server-side**. A **single** composite index on
+`(userId, status, endedAt)` covers both queries — it serves the history query directly and
+`findInProgress` as a key-prefix match — so only one index is declared. It is a
+`google_firestore_index` resource in `infra/gcp/firestore.tf`, created **with the database (not
+gated on `deploy_cloud_run`)** so the index build finishes before the app serves queries — a new
+composite index takes minutes to build, and a query issued before it is ready fails
+`FAILED_PRECONDITION`.
 
 ### Single-active-game invariant
 

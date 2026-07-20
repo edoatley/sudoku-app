@@ -73,7 +73,11 @@ The two namespaces are disjoint by construction: Google users key on the raw `su
 
 On **AWS** the resolver returns `jwt.getSubject()` (the Cognito subject) today; the deferred re-key switches it to the Google `sub` in the Cognito `identities` claim.
 
-**Authorization gate unchanged:** a valid token is authentication only. `AllowedUsersFilter` still requires the token's `email` claim (present + verified for Google sign-in; set for the provisioned password user) to be on `app.allowed.emails` — identically on both clouds. Email / display-name extraction (`email`, `name`) is unchanged, so `PlayerResource` claim extraction works on both clouds.
+**Account-linking is not supported.** Resolution keys on `firebase.sign_in_provider` for the *current* sign-in, so each account must use exactly one provider — Google for real users, `password` for the test user. A single account linking both providers (which would yield two `userId`s for one human) is out of scope and not enabled in Identity Platform.
+
+**Dev/test — mock token, no resolver carve-out.** In dev/it/test (OIDC disabled), `DevUserFilter` injects a **Firebase-shaped mock `JsonWebToken`** — a fixed `google.com` identity for `local-dev-user` — so `UserIdentityResolver` runs its real logic unchanged (the strict allow-list is never bypassed). Backend tests generate `google.com`, `password`, and unknown-provider tokens with a JWT builder (`io.smallrye.jwt.build.Jwt`) to cover every resolver branch, including the reject path.
+
+**Authorization gate.** A valid token is authentication only. `AllowedUsersFilter` requires the token's `email` claim to be on `app.allowed.emails` **and `email_verified = true`** — Google tokens are always verified; the provisioned `password` test user is marked verified via the Admin API. This closes the gap where an unverified, attacker-chosen email string could match the allowlist. Email / display-name extraction (`email`, `name`) is otherwise unchanged, so `PlayerResource` claim extraction works on both clouds.
 
 ### CORS
 

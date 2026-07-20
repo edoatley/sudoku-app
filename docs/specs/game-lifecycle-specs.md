@@ -58,7 +58,7 @@ Behaviours of the `FirestoreGameRepository` adapter on GCP. Active gaps until th
 - [ ] **GL-GCP-001**: Where the build property sudoku.persistence=firestore, the system shall use the Firestore game repository adapter; otherwise it shall use the DynamoDB adapter (the default).
 - [ ] **GL-GCP-002**: The system shall store each game as a document in the games collection keyed by <userId>__<gameId>, so a game can only be retrieved with its owner's userId.
 - [ ] **GL-GCP-003**: The system shall serialize all grid fields as JSON strings in Firestore documents (Firestore cannot store nested arrays).
-- [ ] **GL-GCP-004**: The system shall find a player's in-progress game with a Firestore query filtering userId and status = IN_PROGRESS server-side, backed by a composite index on (userId, status).
-- [ ] **GL-GCP-005**: The system shall return game history with a Firestore query filtering userId and status in {SOLVED, ABANDONED}, ordered by endedAt descending, backed by a composite index on (userId, status, endedAt).
+- [ ] **GL-GCP-004**: The system shall find a player's in-progress game with a Firestore query filtering userId and status = IN_PROGRESS server-side, served by the (userId, status, endedAt) composite index as a key-prefix match.
+- [ ] **GL-GCP-005**: The system shall return game history with a Firestore query filtering userId and status in {SOLVED, ABANDONED}, ordered by endedAt descending, backed by the (userId, status, endedAt) composite index.
 - [ ] **GL-GCP-006**: The system shall enforce the single-active-game invariant in a Firestore transaction that atomically abandons any in-progress game and writes the new game.
-- [ ] **GL-GCP-007**: The system shall provision the required Firestore composite indexes together with the database (not gated on deploy_cloud_run) so the indexes finish building before the application serves queries.
+- [ ] **GL-GCP-007**: The system shall provision the required Firestore composite index (userId, status, endedAt) together with the database (not gated on deploy_cloud_run) so it finishes building before the application serves queries.
