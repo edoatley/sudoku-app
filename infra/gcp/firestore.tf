@@ -32,3 +32,29 @@ resource "google_firestore_field" "coach_rate_limit_ttl" {
 
   ttl_config {}
 }
+
+# Composite index on games (userId, status, endedAt) serving both game-lookup
+# queries the app issues, so they never hit an unindexed-query error at runtime:
+#   - findInProgress: userId == ? AND status == IN_PROGRESS   (uses the (userId, status) prefix)
+#   - findHistory:    userId == ? AND status IN (SOLVED, ABANDONED) ORDER BY endedAt DESC
+# Provisioned with the database (not gated on deploy_cloud_run) so it finishes
+# building before Cloud Run serves its first query.
+# @spec GL-GCP-007
+resource "google_firestore_index" "games_user_status_ended_at" {
+  project    = var.project_id
+  database   = google_firestore_database.main.name
+  collection = "games"
+
+  fields {
+    field_path = "userId"
+    order      = "ASCENDING"
+  }
+  fields {
+    field_path = "status"
+    order      = "ASCENDING"
+  }
+  fields {
+    field_path = "endedAt"
+    order      = "DESCENDING"
+  }
+}
