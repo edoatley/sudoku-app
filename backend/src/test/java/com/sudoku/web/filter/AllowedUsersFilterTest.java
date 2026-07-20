@@ -38,10 +38,16 @@ class AllowedUsersFilterTest {
         identityField.set(filter, identity);
     }
 
-    /** Stub identity with a JWT principal returning the given email from getClaim. */
+    /** Stub identity with a JWT principal returning the given (verified) email from getClaim. */
     private void stubJwtEmail(String email) {
+        stubJwtEmail(email, true);
+    }
+
+    /** Stub identity with a JWT principal returning the given email and email_verified flag. */
+    private void stubJwtEmail(String email, boolean emailVerified) {
         JwtPrincipal jwt = mock(JwtPrincipal.class);
         when(jwt.getClaim("email")).thenReturn(email);
+        when(jwt.getClaim("email_verified")).thenReturn(emailVerified);
         when(identity.getPrincipal()).thenReturn(jwt);
     }
 
@@ -63,10 +69,25 @@ class AllowedUsersFilterTest {
         // Principal is not a JsonWebToken — falls back to getAttribute
         when(identity.getPrincipal()).thenReturn(mock(Principal.class));
         when(identity.getAttribute("email")).thenReturn("edoatley@gmail.com");
+        when(identity.getAttribute("email_verified")).thenReturn(true);
 
         filter.filter(ctx);
 
         verify(ctx, never()).abortWith(any());
+    }
+
+    // @spec UM-GCP-005
+    @Test
+    void allowedButUnverifiedEmail_returns403() throws Exception {
+        setAllowedEmails("edoatley@gmail.com,hanoatley@gmail.com");
+        when(identity.isAnonymous()).thenReturn(false);
+        stubJwtEmail("edoatley@gmail.com", false);
+
+        filter.filter(ctx);
+
+        ArgumentCaptor<Response> captor = ArgumentCaptor.forClass(Response.class);
+        verify(ctx).abortWith(captor.capture());
+        assertEquals(403, captor.getValue().getStatus());
     }
 
     @Test

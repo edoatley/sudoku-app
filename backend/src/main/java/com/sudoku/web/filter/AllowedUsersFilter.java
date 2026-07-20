@@ -56,8 +56,11 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
 
         String email = getEmail();
 
-        // If the email claim is missing or not in the allowlist, reject the request.
-        if (email == null || !allowedEmails.contains(email)) {
+        // If the email claim is missing, unverified, or not in the allowlist, reject the request.
+        // Requiring email_verified closes the gap where an unverified, attacker-chosen email string
+        // could match the allowlist — matters most on GCP where in-app validation is the sole gate.
+        // @spec UM-GCP-005
+        if (email == null || !allowedEmails.contains(email) || !isEmailVerified()) {
             ctx.abortWith(
                 Response.status(Response.Status.FORBIDDEN)
                     .type(MediaType.APPLICATION_JSON)
@@ -87,5 +90,28 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
         }
 
         return email;
+    }
+
+    /**
+     * Reads the {@code email_verified} claim from the JWT (or identity attributes).
+     * Both Cognito ID tokens and Firebase tokens emit it as a boolean; a Google-federated
+     * login is always verified, and the provisioned password test user is marked verified.
+     *
+     * @return true only if the claim is present and truthy
+     */
+    private boolean isEmailVerified() {
+        Object verified = null;
+
+        if (identity.getPrincipal() instanceof JsonWebToken jwt) {
+            verified = jwt.getClaim("email_verified");
+        }
+        if (verified == null) {
+            verified = identity.getAttribute("email_verified");
+        }
+
+        if (verified instanceof Boolean b) {
+            return b;
+        }
+        return "true".equalsIgnoreCase(String.valueOf(verified));
     }
 }
