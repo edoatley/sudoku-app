@@ -144,12 +144,13 @@ else
   fi
 
   t=$(date +%s)
+  rc=0
   (
     cd "${IR_DIR}"
     source "${VENV}/bin/activate"
     python -m pytest --cov --cov-report=term-missing -m "not real_images and not e2e"
-  )
-  record "$SUITE" $? $t
+  ) || rc=$?
+  record "$SUITE" "$rc" $t
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -164,8 +165,9 @@ elif [[ "${HAS_NODE}" == "false" ]]; then
   skip "$SUITE" "node not found"
 else
   t=$(date +%s)
-  (cd "${REPO_ROOT}/ui" && npm run lint)
-  record "$SUITE" $? $t
+  rc=0
+  (cd "${REPO_ROOT}/ui" && npm run lint) || rc=$?
+  record "$SUITE" "$rc" $t
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -180,8 +182,9 @@ elif [[ "${HAS_NODE}" == "false" ]]; then
   skip "$SUITE" "node not found"
 else
   t=$(date +%s)
-  (cd "${REPO_ROOT}/ui" && npm audit --audit-level=high)
-  record "$SUITE" $? $t
+  rc=0
+  (cd "${REPO_ROOT}/ui" && npm audit --audit-level=high) || rc=$?
+  record "$SUITE" "$rc" $t
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -196,8 +199,9 @@ elif [[ "${HAS_NODE}" == "false" ]]; then
   skip "$SUITE" "node not found"
 else
   t=$(date +%s)
-  (cd "${REPO_ROOT}/ui" && CI=true npm run test:e2e)
-  record "$SUITE" $? $t
+  rc=0
+  (cd "${REPO_ROOT}/ui" && CI=true npm run test:e2e) || rc=$?
+  record "$SUITE" "$rc" $t
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -261,14 +265,14 @@ else
     --region us-east-1
 
   t=$(date +%s)
+  BACKEND_RC=0
   (
     cd "${REPO_ROOT}/backend"
     export AWS_ACCESS_KEY_ID=test
     export AWS_SECRET_ACCESS_KEY=test
     export AWS_DEFAULT_REGION=us-east-1
     ./mvnw verify -DskipITs=false
-  )
-  BACKEND_RC=$?
+  ) || BACKEND_RC=$?
 
   # Tear down DynamoDB Local immediately
   docker rm -f "${DYNAMO_CONTAINER}" &>/dev/null || true
@@ -303,13 +307,11 @@ t=$(date +%s)
   # otherwise the '--wait' flag above handles the synchronization.
   echo "Services are up and healthy."
 
-  (cd "${REPO_ROOT}/ui" && CI=true npx playwright test --config playwright.integration.config.js)
-  INT_RC=$?
+  (cd "${REPO_ROOT}/ui" && CI=true npx playwright test --config playwright.integration.config.js) || INT_RC=$?
 
   if [[ $INT_RC -eq 0 ]]; then
     echo "Running hint demo tests (VITE_DEV_TOOLS=true stack)..."
-    (cd "${REPO_ROOT}/ui" && CI=true npm run test:hint-demos)
-    INT_RC=$?
+    (cd "${REPO_ROOT}/ui" && CI=true npm run test:hint-demos) || INT_RC=$?
   fi
 
   echo "Tearing down services..."
@@ -340,13 +342,14 @@ elif [[ "${HAS_TERRAFORM}" == "false" ]]; then
 else
   # fmt + validate use -backend=false and do not require AWS credentials
   t=$(date +%s)
+  rc=0
   (
     cd "${REPO_ROOT}/infra/aws"
     terraform fmt -check -recursive
     terraform init -upgrade -backend=false -input=false -no-color
     terraform validate
-  )
-  record "$SUITE" $? $t
+  ) || rc=$?
+  record "$SUITE" "$rc" $t
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
