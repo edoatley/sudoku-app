@@ -4,8 +4,8 @@ output "backend_url" {
 }
 
 output "image_recognition_url" {
-  description = "Image-recognition Cloud Run service URL (null until deploy_cloud_run = true)."
-  value       = var.deploy_cloud_run ? google_cloud_run_v2_service.image_recognition[0].uri : null
+  description = "Image-recognition Cloud Run service URL (null until deploy_image_recognition = true)."
+  value       = var.deploy_image_recognition ? google_cloud_run_v2_service.image_recognition[0].uri : null
 }
 
 output "firestore_database" {

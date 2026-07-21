@@ -24,7 +24,13 @@ variable "custom_domain" {
 # hosting / DNS layer cleanly before those prerequisites exist.
 
 variable "deploy_cloud_run" {
-  description = "Apply the Cloud Run services. Requires backend_image + image_recognition_image_uri and the runtime SA emails. Off until container images exist."
+  description = "Apply the backend Cloud Run service. Requires backend_image + run_service_account_email. Off until the container image exists."
+  type        = bool
+  default     = false
+}
+
+variable "deploy_image_recognition" {
+  description = "Apply the image-recognition Cloud Run service (out of the games+player slice). Requires image_recognition_image_uri + its runtime SA email. Independent of deploy_cloud_run."
   type        = bool
   default     = false
 }
@@ -47,7 +53,7 @@ variable "backend_image" {
 }
 
 variable "image_recognition_image_uri" {
-  description = "Artifact Registry image URI for the image-recognition Cloud Run service (required when deploy_cloud_run = true)."
+  description = "Artifact Registry image URI for the image-recognition Cloud Run service (required when deploy_image_recognition = true)."
   type        = string
   default     = ""
 
@@ -66,7 +72,7 @@ variable "run_service_account_email" {
 }
 
 variable "image_recognition_service_account_email" {
-  description = "Email of the image-recognition Cloud Run runtime service account (required when deploy_cloud_run = true)."
+  description = "Email of the image-recognition Cloud Run runtime service account (required when deploy_image_recognition = true)."
   type        = string
   default     = ""
 }

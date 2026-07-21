@@ -180,13 +180,19 @@ gcloud iam workload-identity-pools providers describe github-provider \
   --format='value(name)'
 ```
 
-Add three GitHub Actions secrets:
+Add these GitHub Actions secrets:
 
 | Secret | Value |
 | --- | --- |
 | `GCP_PROJECT_ID` | `${PROJECT_ID}` |
 | `GCP_WIF_PROVIDER` | the provider resource name from 3d |
 | `GCP_DEPLOY_SA_EMAIL` | `${DEPLOY_SA}` |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API key (public client id) — from the Identity Platform / Firebase console (§4). Only needed for the `deploy_frontend` job. |
+
+The first three are set automatically by `gcp-github-bootstrap.sh`; add `VITE_FIREBASE_API_KEY`
+by hand once §4 is done. The frontend also uses `VITE_FIREBASE_AUTH_DOMAIN`
+(`${PROJECT_ID}.firebaseapp.com`) and `VITE_FIREBASE_PROJECT_ID` (`${PROJECT_ID}`), which the
+deploy workflow derives from `GCP_PROJECT_ID` — no extra secrets required.
 
 ---
 

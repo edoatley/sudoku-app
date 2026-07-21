@@ -123,6 +123,8 @@ echo "    Bound."
 #                                    the narrower serviceUsageConsumer does NOT grant
 #   run.admin                        create/update Cloud Run (when deploy_cloud_run=true)
 #   iam.serviceAccountUser           set the runtime SA on Cloud Run (actAs)
+#   artifactregistry.writer          push the backend container image to the
+#                                    bootstrap-created Artifact Registry repo
 # Widen a specific role only if an apply fails on a missing permission — and record
 # why (that reconciliation is the point of keeping this least-privilege).
 echo "==> [4/5] Deploy-SA project roles"
@@ -133,6 +135,7 @@ DEPLOY_ROLES=(
   roles/serviceusage.serviceUsageAdmin
   roles/run.admin
   roles/iam.serviceAccountUser
+  roles/artifactregistry.writer
 )
 for ROLE in "${DEPLOY_ROLES[@]}"; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" \

@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------
 
 resource "google_cloud_run_v2_service" "image_recognition" {
-  count = var.deploy_cloud_run ? 1 : 0
+  count = var.deploy_image_recognition ? 1 : 0
 
   name     = "sudoku-image-recognition${local.suffix}"
   location = var.region
@@ -16,7 +16,7 @@ resource "google_cloud_run_v2_service" "image_recognition" {
   lifecycle {
     precondition {
       condition     = var.image_recognition_image_uri != "" && var.image_recognition_service_account_email != ""
-      error_message = "deploy_cloud_run = true requires image_recognition_image_uri and image_recognition_service_account_email to be set."
+      error_message = "deploy_image_recognition = true requires image_recognition_image_uri and image_recognition_service_account_email to be set."
     }
   }
 

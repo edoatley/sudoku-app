@@ -1,11 +1,17 @@
-name: Deploy GCP (infra)
+name: Deploy GCP
 
-# Applies infra/gcp via Terraform, authenticating to GCP with Workload Identity
-# Federation (no long-lived keys). Manually triggered for the phased Strategy-C
-# bring-up. Image build + `firebase deploy` are added later, with the app adapters.
+# Phased Strategy-C bring-up, manually triggered. Authenticates to GCP with Workload
+# Identity Federation (no long-lived keys) and, depending on the inputs:
+#   1. builds + pushes the unified HTTP backend image to Artifact Registry,
+#   2. applies infra/gcp via Terraform (Cloud Run wired to that image),
+#   3. builds the Firebase-provider frontend and deploys it to Firebase Hosting.
 #
-# Requires repo secrets (from docs/runbooks/gcp-manual-setup.md §3):
+# The backend Cloud Run service (deploy_cloud_run) is the games+player slice; the
+# image-recognition service is gated separately (deploy_image_recognition, default off).
+#
+# Requires repo secrets (docs/runbooks/gcp-manual-setup.md §3):
 #   GCP_PROJECT_ID, GCP_WIF_PROVIDER, GCP_DEPLOY_SA_EMAIL
+#   VITE_FIREBASE_API_KEY   — Firebase Web API key (public client id), for deploy_frontend
 
 on:
   workflow_dispatch:
@@ -15,13 +21,21 @@ on:
         type: string
         default: default
       deploy_cloud_run:
-        description: "Apply Cloud Run services (needs images in Artifact Registry)"
+        description: "Build/push the backend image and apply the backend Cloud Run service"
+        type: boolean
+        default: false
+      deploy_frontend:
+        description: "Build and deploy the frontend to Firebase Hosting (needs the backend deployed)"
         type: boolean
         default: false
       enable_custom_domain:
         description: "Attach the Firebase Hosting custom domain (needs DNS delegated)"
         type: boolean
         default: false
+
+env:
+  GCP_REGION: us-central1
+  AR_REPO: sudoku-backend
 
 permissions:
   id-token: write
@@ -32,13 +46,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy-gcp:
+  build-image:
+    name: Build & push backend image
+    if: ${{ inputs.deploy_cloud_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - uses: ./.github/actions/setup-java
+
+      # Default build = HTTP fast-jar (no -Paws-lambda). This is what the LWA image serves.
+      - name: Build backend HTTP fast-jar
+        working-directory: backend
+        run: ./mvnw -B -ntp package -DskipTests
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - id: push
+        name: Build & push image
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          TAG="${GITHUB_REF_NAME//\//-}-${GITHUB_SHA::7}"
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/backend:${TAG}"
+          docker build -f backend/src/main/docker/Dockerfile.jvm-lwa -t "$IMAGE" backend
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+  terraform:
     name: Terraform apply (infra/gcp)
+    needs: [build-image]
+    # Run even when build-image is skipped (deploy_cloud_run=false); only skip if it failed.
+    if: ${{ always() && !cancelled() && needs.build-image.result != 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
       run:
         working-directory: infra/gcp
+    outputs:
+      backend_url: ${{ steps.tf_out.outputs.backend_url }}
+      firebase_site: ${{ steps.tf_out.outputs.firebase_site }}
     steps:
       - uses: actions/checkout@v7
 
@@ -60,10 +120,54 @@ jobs:
       - name: Terraform apply
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BACKEND_IMAGE: ${{ needs.build-image.outputs.image }}
         run: |
           terraform apply -auto-approve -input=false \
             -var "project_id=${PROJECT_ID}" \
+            -var "region=${GCP_REGION}" \
             -var "deploy_cloud_run=${{ inputs.deploy_cloud_run }}" \
             -var "enable_custom_domain=${{ inputs.enable_custom_domain }}" \
+            -var "backend_image=${BACKEND_IMAGE}" \
             -var "run_service_account_email=sudoku-run@${PROJECT_ID}.iam.gserviceaccount.com" \
             -var "image_recognition_service_account_email=sudoku-image-recognition-run@${PROJECT_ID}.iam.gserviceaccount.com"
+
+      - id: tf_out
+        name: Capture outputs
+        run: |
+          echo "backend_url=$(terraform output -raw backend_url 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
+          echo "firebase_site=$(terraform output -raw firebase_hosting_site_id)" >> "$GITHUB_OUTPUT"
+
+  deploy-frontend:
+    name: Build & deploy frontend (Firebase Hosting)
+    needs: [terraform]
+    if: ${{ inputs.deploy_frontend }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Build frontend (Firebase provider)
+        working-directory: ui
+        env:
+          VITE_AUTH_PROVIDER: firebase
+          VITE_API_URL: ${{ needs.terraform.outputs.backend_url }}/api/v1
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.GCP_PROJECT_ID }}.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: npm run build
+
+      # WIF ADC (GOOGLE_APPLICATION_CREDENTIALS from the auth step) authorises the deploy;
+      # firebase.admin on the deploy SA covers Hosting. Deploys to the project's default
+      # Hosting site (default workspace); non-default workspaces need a Hosting target.
+      - name: Deploy to Firebase Hosting
+        working-directory: ui
+        run: npx --yes firebase-tools@13 deploy --only hosting --project "${{ secrets.GCP_PROJECT_ID }}" --non-interactive
