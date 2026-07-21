@@ -9,6 +9,7 @@ import {
   CANNED_COACH_RESPONSE,
 } from '../mocks/cannedData.js';
 import { gridFromWire, gridToWire, candidatesFromWire, candidatesToWire } from '../utils/gridAdapters.js';
+import { getIdToken, getEmail, getAdminGroups as sessionAdminGroups } from '../auth/session.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
@@ -26,16 +27,8 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getIdToken() {
-  const { fetchAuthSession } = await import('aws-amplify/auth');
-  const session = await fetchAuthSession();
-  return session.tokens?.idToken?.toString();
-}
-
 export async function getEmailFromSession() {
-  const { fetchAuthSession } = await import('aws-amplify/auth');
-  const session = await fetchAuthSession();
-  return session.tokens?.idToken?.payload?.email ?? null;
+  return getEmail();
 }
 
 async function apiFetch(label, url, options = {}, authenticated = false, nullStatuses = []) {
@@ -328,10 +321,7 @@ export async function getAdminData(entity) {
 }
 
 export async function getAdminGroups() {
-  const { fetchAuthSession } = await import('aws-amplify/auth');
-  const session = await fetchAuthSession();
-  const groups = session.tokens?.idToken?.payload?.['cognito:groups'];
-  return Array.isArray(groups) ? groups : [];
+  return sessionAdminGroups();
 }
 
 export async function isAdmin() {
