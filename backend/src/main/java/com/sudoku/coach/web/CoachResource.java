@@ -1,5 +1,6 @@
 package com.sudoku.coach.web;
 
+import com.sudoku.auth.UserIdentityResolver;
 import com.sudoku.coach.bedrock.CoachRateLimiter;
 import com.sudoku.coach.SudokuCoachService;
 import io.quarkus.security.Authenticated;
@@ -11,10 +12,8 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.YearMonth;
@@ -47,18 +46,21 @@ public class CoachResource {
     @Inject
     CoachRateLimiter rateLimiter;
 
+    @Inject
+    UserIdentityResolver userIdentityResolver;
+
     @ConfigProperty(name = "coach.monthly-token-limit")
     long monthlyTokenLimit;
 
     @POST
-    public Response coach(@Context SecurityContext securityContext, CoachRequest request) {
+    public Response coach(CoachRequest request) {
         // @spec SC-API-003 — board shape/digit validation delegated to Board.fromGrid()
         //                     via InvalidGridExceptionMapper → 400
         if (request == null || request.userMessage() == null || request.userMessage().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         PlayerProfile player = playerService.getOrCreateProfile(userId, null, null);
 
         // @spec SC-RL-001 — coach disabled check

@@ -1,5 +1,6 @@
 package com.sudoku.player.web;
 
+import com.sudoku.auth.UserIdentityResolver;
 import com.sudoku.player.PlayerService;
 import io.quarkus.security.identity.SecurityIdentity;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -17,26 +18,33 @@ import static org.mockito.Mockito.*;
 // @spec UM-BE-001, UM-BE-002, UM-API-001, UM-API-002, UM-DATA-001, UM-DATA-002, UM-DATA-003
 class PlayerResourceTest {
 
+    private static final String USER_ID = "user-sub-123";
+
     // A Principal that also implements JsonWebToken so we can test the cast path.
     interface JwtPrincipal extends Principal, JsonWebToken {}
 
     private PlayerResource resource;
     private SecurityIdentity identity;
     private PlayerService playerService;
+    private UserIdentityResolver userIdentityResolver;
 
     @BeforeEach
     void setUp() throws Exception {
         resource = new PlayerResource();
         identity = mock(SecurityIdentity.class);
         playerService = mock(PlayerService.class);
+        userIdentityResolver = mock(UserIdentityResolver.class);
+        when(userIdentityResolver.resolveUserId()).thenReturn(USER_ID);
 
-        Field identityField = PlayerResource.class.getDeclaredField("identity");
-        identityField.setAccessible(true);
-        identityField.set(resource, identity);
+        inject("identity", identity);
+        inject("playerService", playerService);
+        inject("userIdentityResolver", userIdentityResolver);
+    }
 
-        Field serviceField = PlayerResource.class.getDeclaredField("playerService");
-        serviceField.setAccessible(true);
-        serviceField.set(resource, playerService);
+    private void inject(String field, Object value) throws Exception {
+        Field f = PlayerResource.class.getDeclaredField(field);
+        f.setAccessible(true);
+        f.set(resource, value);
     }
 
     /** Stub a JWT principal returning the given email and name claims. */
@@ -44,22 +52,18 @@ class PlayerResourceTest {
         JwtPrincipal jwt = mock(JwtPrincipal.class);
         when(jwt.getClaim("email")).thenReturn(email);
         when(jwt.getClaim("name")).thenReturn(name);
-        when(jwt.getName()).thenReturn("user-sub-123");
+        when(jwt.getName()).thenReturn(USER_ID);
         when(identity.getPrincipal()).thenReturn(jwt);
         return jwt;
     }
 
     @Test
-    void getMe_extractsEmailAndDisplayName_fromJwtClaims() throws Exception {
+    void getMe_extractsEmailAndDisplayName_fromJwtClaims() {
         stubJwtPrincipal("user@example.com", "Alice Smith");
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-123", "user@example.com", "Alice Smith", null, "now", "now", Boolean.TRUE, 0L, null));
+                .thenReturn(new PlayerProfile(USER_ID, "user@example.com", "Alice Smith", null, "now", "now", Boolean.TRUE, 0L, null));
 
-        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
-        when(sc.getUserPrincipal()).thenReturn(mock(Principal.class));
-        when(sc.getUserPrincipal().getName()).thenReturn("user-sub-123");
-
-        resource.getMe(sc);
+        resource.getMe();
 
         ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
@@ -69,20 +73,16 @@ class PlayerResourceTest {
     }
 
     @Test
-    void getMe_fallsBackToGetAttribute_whenPrincipalIsNotJwt() throws Exception {
+    void getMe_fallsBackToGetAttribute_whenPrincipalIsNotJwt() {
         // Principal does not implement JsonWebToken
         Principal plainPrincipal = mock(Principal.class);
-        when(plainPrincipal.getName()).thenReturn("user-sub-456");
         when(identity.getPrincipal()).thenReturn(plainPrincipal);
         when(identity.getAttribute("email")).thenReturn("fallback@example.com");
         when(identity.getAttribute("name")).thenReturn("Bob Jones");
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-456", "fallback@example.com", "Bob Jones", null, "now", "now", Boolean.TRUE, 0L, null));
+                .thenReturn(new PlayerProfile(USER_ID, "fallback@example.com", "Bob Jones", null, "now", "now", Boolean.TRUE, 0L, null));
 
-        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
-        when(sc.getUserPrincipal()).thenReturn(plainPrincipal);
-
-        resource.getMe(sc);
+        resource.getMe();
 
         ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
@@ -92,35 +92,28 @@ class PlayerResourceTest {
     }
 
     @Test
-    void getMe_passesNulls_whenClaimsAbsent() throws Exception {
+    void getMe_passesNulls_whenClaimsAbsent() {
         stubJwtPrincipal(null, null);
         when(identity.getAttribute("email")).thenReturn(null);
         when(identity.getAttribute("name")).thenReturn(null);
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-123", "", "", null, "now", "now", Boolean.TRUE, 0L, null));
+                .thenReturn(new PlayerProfile(USER_ID, "", "", null, "now", "now", Boolean.TRUE, 0L, null));
 
-        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
-        when(sc.getUserPrincipal()).thenReturn(mock(Principal.class));
-        when(sc.getUserPrincipal().getName()).thenReturn("user-sub-123");
-
-        resource.getMe(sc);
+        resource.getMe();
 
         verify(playerService).getOrCreateProfile(any(), isNull(), isNull());
     }
 
     @Test
-    void getMe_prefersJwtClaim_overGetAttribute() throws Exception {
+    void getMe_prefersJwtClaim_overGetAttribute() {
         // Both sources available — JWT claim should win
-        JwtPrincipal jwt = stubJwtPrincipal("jwt@example.com", "JWT Name");
+        stubJwtPrincipal("jwt@example.com", "JWT Name");
         when(identity.getAttribute("email")).thenReturn("attr@example.com");
         when(identity.getAttribute("name")).thenReturn("Attr Name");
         when(playerService.getOrCreateProfile(any(), any(), any()))
-                .thenReturn(new PlayerProfile("user-sub-123", "jwt@example.com", "JWT Name", null, "now", "now", Boolean.TRUE, 0L, null));
+                .thenReturn(new PlayerProfile(USER_ID, "jwt@example.com", "JWT Name", null, "now", "now", Boolean.TRUE, 0L, null));
 
-        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
-        when(sc.getUserPrincipal()).thenReturn(jwt);
-
-        resource.getMe(sc);
+        resource.getMe();
 
         ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
         verify(playerService).getOrCreateProfile(any(), emailCaptor.capture(), any());
@@ -129,33 +122,25 @@ class PlayerResourceTest {
 
     // @spec UM-API-002, UM-BE-003
     @Test
-    void updateMe_delegatesToService_andReturnsUpdatedProfile() throws Exception {
-        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
-        var principal = mock(java.security.Principal.class);
-        when(sc.getUserPrincipal()).thenReturn(principal);
-        when(principal.getName()).thenReturn("user-sub-123");
-
+    void updateMe_delegatesToService_andReturnsUpdatedProfile() {
         PlayerUpdateRequest request = new PlayerUpdateRequest("New Name", "Surfing", null);
-        PlayerProfile expected = new PlayerProfile("user-sub-123", "u@e.com", "New Name", "Surfing", "t1", "t2", Boolean.TRUE, 0L, null);
-        when(playerService.updateProfile("user-sub-123", request)).thenReturn(expected);
+        PlayerProfile expected = new PlayerProfile(USER_ID, "u@e.com", "New Name", "Surfing", "t1", "t2", Boolean.TRUE, 0L, null);
+        when(playerService.updateProfile(USER_ID, request)).thenReturn(expected);
 
-        PlayerProfile result = resource.updateMe(sc, request);
+        PlayerProfile result = resource.updateMe(request);
 
         assertEquals(expected, result);
-        verify(playerService).updateProfile("user-sub-123", request);
+        verify(playerService).updateProfile(USER_ID, request);
     }
 
     // @spec UM-API-002, UM-DATA-003
     @Test
-    void getMe_newProfile_hasNullAvatarKey() throws Exception {
+    void getMe_newProfile_hasNullAvatarKey() {
         stubJwtPrincipal("user@example.com", "Alice");
-        PlayerProfile freshProfile = new PlayerProfile("user-sub-123", "user@example.com", "Alice", null, "now", "now", Boolean.TRUE, 0L, null);
+        PlayerProfile freshProfile = new PlayerProfile(USER_ID, "user@example.com", "Alice", null, "now", "now", Boolean.TRUE, 0L, null);
         when(playerService.getOrCreateProfile(any(), any(), any())).thenReturn(freshProfile);
 
-        var sc = mock(jakarta.ws.rs.core.SecurityContext.class);
-        when(sc.getUserPrincipal()).thenReturn(mock(java.security.Principal.class));
-
-        PlayerProfile result = resource.getMe(sc);
+        PlayerProfile result = resource.getMe();
 
         assertNull(result.avatarKey());
     }

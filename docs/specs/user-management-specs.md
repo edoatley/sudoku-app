@@ -46,9 +46,9 @@
 
 ## Developer & Test Isolation
 
-- [x] **UM-BE-030**: Where the dev, it, or test build profile is active and no Authorization header is present, the system shall inject a mock SecurityContext with userId "local-dev-user".
-- [x] **UM-BE-031**: Where the dev, it, or test build profile is active and an Authorization header is present, the system shall use the real JWT authentication flow.
-- [x] **UM-BE-032**: The DevUserFilter shall be compiled out of the production build artifact entirely.
+- [x] **UM-BE-030**: Where the dev, it, or test build profile is active and the request is anonymous, the system shall augment it with a Firebase-shaped mock SecurityIdentity resolving to userId "local-dev-user".
+- [x] **UM-BE-031**: Where the dev, it, or test build profile is active and sudoku.dev.mock-identity.enabled is false, the system shall leave requests anonymous so protected routes reject them.
+- [x] **UM-BE-032**: The DevIdentityAugmentor and its mock token shall be compiled out of the production build artifact entirely.
 
 ## CORS
 
@@ -68,10 +68,10 @@ Authentication and identity behaviours on GCP. Active gaps until the games-slice
 
 - [ ] **UM-GCP-001**: On GCP the system shall validate the caller's JWT in-app (there is no edge authorizer) and reject any request to a non-public route that lacks a valid token.
 - [ ] **UM-GCP-002**: On GCP the system shall validate tokens against the Identity Platform issuer https://securetoken.google.com/<project_id> and audience <project_id> using an explicitly configured JWKS, with OIDC discovery disabled.
-- [ ] **UM-GCP-003**: The system shall derive the canonical userId by a strict provider allow-list: for firebase.sign_in_provider = google.com, the Google sub from firebase.identities["google.com"]; for password, the value firebase:<uid>; for any other provider, the system shall reject the request (401).
-- [ ] **UM-GCP-004**: The system shall namespace password-provider identities as firebase:<uid>, disjoint from the raw Google sub, so a password token can never resolve onto a Google user's data.
+- [x] **UM-GCP-003**: The system shall derive the canonical userId by a strict provider allow-list: for firebase.sign_in_provider = google.com, the Google sub from firebase.identities["google.com"]; for password, the value firebase:<uid>; for any other provider, the system shall reject the request (401).
+- [x] **UM-GCP-004**: The system shall namespace password-provider identities as firebase:<uid>, disjoint from the raw Google sub, so a password token can never resolve onto a Google user's data.
 - [x] **UM-GCP-005**: On GCP the system shall apply the email allowlist identically to AWS, requiring the token's email claim to be on app.allowed.emails AND email_verified to be true, regardless of sign-in provider.
 - [ ] **UM-GCP-006**: On GCP the system shall answer CORS preflight OPTIONS requests before authentication, so a cross-origin preflight (which carries no Authorization header) is not rejected.
 - [x] **UM-GCP-007**: Where the build property sudoku.persistence=firestore, the system shall persist player profiles in a Firestore players collection keyed by the canonical userId, with lazy-creation and PATCH-update behaviour unchanged.
 - [D] **UM-GCP-008**: The system shall enforce administrator authorization on GCP via a custom claim or configured allowlist. (Deferred — /admin/* is not part of the games + player-profile slice; Identity Platform has no group concept.)
-- [ ] **UM-GCP-009**: In dev/it/test profiles the system shall inject a Firebase-shaped mock JWT (a google.com identity for local-dev-user) so that UserIdentityResolver runs its production logic unchanged, without a dev-only bypass of the provider allow-list.
+- [x] **UM-GCP-009**: In dev/it/test profiles the system shall inject a Firebase-shaped mock JWT (a google.com identity for local-dev-user) so that UserIdentityResolver runs its production logic unchanged, without a dev-only bypass of the provider allow-list.

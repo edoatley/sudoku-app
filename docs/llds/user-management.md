@@ -29,11 +29,12 @@ Authentication is handled at two layers:
               (extracts userId/email from SecurityContext / JsonWebToken)
 ```
 
-In **dev/IT/test** profiles, `DevUserFilter` replaces the JWT layer:
+In **dev/IT/test** profiles, `DevIdentityAugmentor` replaces the JWT layer:
 
 ```text
-              DevUserFilter (ContainerRequestFilter, @IfBuildProfile dev/it/test)
-              (if no Authorization header → inject mock SecurityContext with userId="local-dev-user")
+              DevIdentityAugmentor (SecurityIdentityAugmentor, @IfBuildProfile dev/it/test)
+              (anonymous request → inject a Firebase-shaped mock JWT resolving to userId="local-dev-user";
+               disabled by sudoku.dev.mock-identity.enabled=false)
                        │
                        ▼
               AllowedUsersFilter
@@ -228,14 +229,14 @@ filter(request):
 
 ## Cross-Cutting Request Filters
 
-### DevUserFilter (`@IfBuildProfile(anyOf = {"dev", "it", "test"})`)
+### DevIdentityAugmentor (`@IfBuildProfile(anyOf = {"dev", "it", "test"})`)
 
-Compiled out of production builds entirely. When active:
+Compiled out of production builds entirely. Replaces the former `DevUserFilter` (which set only the JAX-RS `SecurityContext`) with a `SecurityIdentityAugmentor` that populates the Quarkus `SecurityIdentity`, so `UserIdentityResolver` and the request filters run their production logic. When active:
 
-- If `Authorization` header is **absent** → injects a mock `SecurityContext` with `userId = "local-dev-user"`
-- If `Authorization` header is **present** → does nothing (allows real JWT flow)
+- An **anonymous** request (OIDC is disabled in these profiles) → augmented with a Firebase-shaped mock `JsonWebToken` (a `google.com` identity for `local-dev-user`, carrying the `administrators` group so the local `/admin` data browser works) that resolves to `userId = "local-dev-user"`
+- Set `sudoku.dev.mock-identity.enabled=false` → requests stay anonymous (used by the route-coverage test to prove protected routes reject anonymous callers)
 
-This means all dev endpoints work without a Cognito token unless a real token is explicitly provided.
+This means all dev endpoints work without a real token unless the mock is explicitly disabled.
 
 ### CorsFilter
 

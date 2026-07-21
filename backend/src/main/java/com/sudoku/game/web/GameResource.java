@@ -1,5 +1,6 @@
 package com.sudoku.game.web;
 
+import com.sudoku.auth.UserIdentityResolver;
 import com.sudoku.game.GameService;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
@@ -12,11 +13,9 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Optional;
-import jakarta.ws.rs.core.SecurityContext;
 
 import java.util.Map;
 
@@ -38,12 +37,12 @@ public class GameResource {
     @Inject
     GameService gameService;
 
-    @Context
-    SecurityContext securityContext;
+    @Inject
+    UserIdentityResolver userIdentityResolver;
 
     @POST
     public Response createGame(Map<String, String> body) {
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         String difficulty = body.getOrDefault("difficulty", "medium");
         GameState gameState = gameService.createGame(userId, difficulty);
         return Response.status(Response.Status.CREATED).entity(gameState).build();
@@ -52,7 +51,7 @@ public class GameResource {
     @POST
     @Path("/from-image")
     public Response createGameFromExistingGrid(CreateGameFromGridRequest body) {
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         GameState gameState = gameService.createGameFromExistingGrid(userId, body.originalGrid());
         return Response.status(Response.Status.CREATED).entity(gameState).build();
     }
@@ -60,7 +59,7 @@ public class GameResource {
     @GET
     @Path("/current")
     public Response getCurrentGame() {
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         Optional<GameState> game = gameService.findInProgress(userId);
         return game.map(g -> Response.ok(g).build())
                    .orElse(Response.noContent().build());
@@ -69,14 +68,14 @@ public class GameResource {
     @GET
     @Path("/{gameId}")
     public GameState loadGame(@PathParam("gameId") String gameId) {
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         return gameService.loadGame(userId, gameId);
     }
 
     @PATCH
     @Path("/{gameId}")
     public Response updateGame(@PathParam("gameId") String gameId, GameUpdateRequest request) {
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         gameService.updateGame(userId, gameId, request);
         return Response.ok().build();
     }
@@ -86,7 +85,7 @@ public class GameResource {
     @Path("/history")
     public GameHistoryResponse getGameHistory(
             @QueryParam("limit") @DefaultValue("20") int limit) {
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         return gameService.getGameHistory(userId, Math.min(limit, 100)); // @spec GH-BE-003
     }
 }
