@@ -1,6 +1,7 @@
 package com.sudoku.game.web;
 
 import com.sudoku.game.GameService;
+import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -24,10 +25,12 @@ import java.util.Map;
  *
  * <p>Authenticated callers can create new games, resume an in-progress game, load any
  * saved game by ID, update game progress, and import puzzles captured via the
- * image-recognition pipeline. User identity is sourced from the JWT principal injected
- * by {@code DevUserFilter} in development or by API Gateway in production.
+ * image-recognition pipeline. User identity is sourced from the validated JWT (Cognito on
+ * AWS, Identity Platform on GCP), or the mock identity injected by {@code DevIdentityAugmentor}
+ * in dev/it/test.
  */
 @Path("/games")
+@Authenticated
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class GameResource {

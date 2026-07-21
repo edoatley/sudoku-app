@@ -2,6 +2,7 @@ package com.sudoku.coach.web;
 
 import com.sudoku.coach.bedrock.CoachRateLimiter;
 import com.sudoku.coach.SudokuCoachService;
+import io.quarkus.security.Authenticated;
 import com.sudoku.player.web.PlayerProfile;
 import com.sudoku.player.PlayerRepository;
 import com.sudoku.player.PlayerService;
@@ -25,10 +26,11 @@ import java.util.Map;
 /**
  * REST entry point for the AI coaching endpoint.
  *
- * <p>Requires a valid Cognito JWT, enforced by API Gateway before Lambda invocation.
+ * <p>Requires a valid JWT (validated in-app; also enforced by API Gateway on AWS).
  * Enforces per-user guardrails: coach toggle, monthly token budget, and per-minute rate limit.
  */
 @Path("/ai/coach")
+@Authenticated
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class CoachResource {

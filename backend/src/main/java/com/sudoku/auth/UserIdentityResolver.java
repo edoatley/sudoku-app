@@ -28,8 +28,8 @@ import java.util.Map;
  *       the Cognito {@code identities} claim.</li>
  * </ul>
  *
- * <p>In dev/it/test, {@code DevUserFilter} injects a Firebase-shaped mock JWT, so this resolver runs
- * its production logic unchanged — there is no dev-only bypass of the allow-list.
+ * <p>In dev/it/test, {@code DevIdentityAugmentor} injects a Firebase-shaped mock JWT, so this
+ * resolver runs its production logic unchanged — there is no dev-only bypass of the allow-list.
  *
  * @spec UM-GCP-003, UM-GCP-004
  */

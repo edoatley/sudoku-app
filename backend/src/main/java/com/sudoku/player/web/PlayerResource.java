@@ -1,6 +1,7 @@
 package com.sudoku.player.web;
 
 import com.sudoku.player.PlayerService;
+import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -22,6 +23,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
  * real Cognito identity without a separate registration step.
  */
 @Path("/players")
+@Authenticated
 @Produces(MediaType.APPLICATION_JSON)
 public class PlayerResource {
 

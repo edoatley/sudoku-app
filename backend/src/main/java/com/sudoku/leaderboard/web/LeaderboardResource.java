@@ -1,6 +1,7 @@
 package com.sudoku.leaderboard.web;
 
 import com.sudoku.leaderboard.LeaderboardService;
+import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -9,6 +10,7 @@ import jakarta.ws.rs.core.MediaType;
 
 // @spec LT-API-001, LT-API-002
 @Path("/leaderboard")
+@Authenticated
 @Produces(MediaType.APPLICATION_JSON)
 public class LeaderboardResource {
 
