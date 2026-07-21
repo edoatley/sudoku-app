@@ -1,0 +1,38 @@
+####
+# Unified HTTP container image for the Quarkus backend, used on BOTH clouds:
+#   - Google Cloud Run: runs the app as a plain HTTP server on :8080.
+#   - AWS Lambda (container): the AWS Lambda Web Adapter extension (baked in below) bridges the
+#     Lambda Runtime API to the same HTTP server, so no code or handler change is needed.
+# The adapter is a Lambda "extension"; outside a Lambda execution environment (e.g. on Cloud Run)
+# it is never invoked and stays completely inert.
+#
+# Build the app first (HTTP fast-jar — the DEFAULT build, no -Paws-lambda):
+#   ./mvnw package -DskipTests
+# Then build the image:
+#   docker build -f src/main/docker/Dockerfile.jvm-lwa -t sudoku-backend .
+# Run locally (HTTP only):
+#   docker run -i --rm -p 8080:8080 sudoku-backend
+###
+FROM registry.access.redhat.com/ubi9/openjdk-25-runtime
+
+ENV LANGUAGE='en_US:en'
+
+# AWS Lambda Web Adapter — inert unless running inside AWS Lambda. Pinned to a released tag.
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+# Matches the Quarkus HTTP port. Only consulted inside Lambda; ignored on Cloud Run.
+# NOTE: when the AWS zip→container Lambda migration lands, add quarkus-smallrye-health and set
+# AWS_LWA_READINESS_CHECK_PATH to /api/v1/q/health/ready for a proper readiness gate.
+ENV AWS_LWA_PORT="8080"
+
+# Four distinct layers so library layers can be re-used across application-only changes.
+COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185 target/quarkus-app/*.jar /deployments/
+COPY --chown=185 target/quarkus-app/app/ /deployments/app/
+COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
+
+EXPOSE 8080
+USER 185
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]

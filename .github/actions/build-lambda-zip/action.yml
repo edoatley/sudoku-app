@@ -7,7 +7,7 @@ runs:
     - name: Build Lambda zip
       shell: bash
       working-directory: backend
-      run: ./mvnw package -DskipTests
+      run: ./mvnw package -DskipTests -Paws-lambda
     - name: Normalize zip timestamps (reproducible build)
       shell: bash
       working-directory: backend/target

@@ -1,0 +1,9 @@
+.git
+.mvn
+*.log
+mvnw
+mvnw.cmd
+README.md
+# Exclude build output EXCEPT the packaged fast-jar this image copies in.
+target/*
+!target/quarkus-app
