@@ -20,7 +20,4 @@ locals {
 
   # Bedrock API mode for the AI coach — mirrors the AWS facet (rc A/B-tests converse).
   coach_bedrock_api_mode = local.is_rc ? "converse" : "invoke"
-
-  # AI coach feature flag — disabled on the default (production) workspace until proven.
-  ai_coach_enabled = !local.is_default
 }

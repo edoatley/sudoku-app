@@ -46,49 +46,37 @@ resource "google_cloud_run_v2_service" "backend" {
         cpu_idle = true
       }
 
+      # Activate the %gcp config profile (Firestore persistence + in-app Firebase JWT
+      # validation + native CORS) with %prod as parent (email allow-list). See the
+      # backend's application.properties %gcp/%prod blocks.
+      env {
+        name  = "QUARKUS_PROFILE"
+        value = "gcp"
+      }
+      env {
+        name  = "QUARKUS_CONFIG_PROFILE_PARENT"
+        value = "prod"
+      }
+      # %gcp OIDC issuer/client-id/audience all interpolate ${GCP_PROJECT_ID}. The Firebase
+      # project id equals the GCP project id.
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+      # Firestore client project (Cloud Run ADC also resolves this; set explicitly to be safe).
+      env {
+        name  = "QUARKUS_GOOGLE_CLOUD_PROJECT_ID"
+        value = var.project_id
+      }
+      # Consumed by %gcp.quarkus.http.cors.origins (native CORS; the custom filter is disabled).
       env {
         name  = "CORS_ALLOWED_ORIGINS"
         value = local.cors_allowed_origins
       }
-      env {
-        name  = "FIRESTORE_PROJECT_ID"
-        value = var.project_id
-      }
-      env {
-        name  = "FIRESTORE_DATABASE"
-        value = google_firestore_database.main.name
-      }
-      env {
-        name  = "GAMES_COLLECTION"
-        value = "games"
-      }
-      env {
-        name  = "PLAYERS_COLLECTION"
-        value = "players"
-      }
-      env {
-        name  = "LEADERBOARD_COLLECTION"
-        value = "leaderboard"
-      }
-      env {
-        name  = "COACH_RATE_LIMIT_COLLECTION"
-        value = "coachRateLimits"
-      }
+      # coach.bedrock.api-mode — coach is out of the GCP slice but the key is real; harmless.
       env {
         name  = "COACH_BEDROCK_API_MODE"
         value = local.coach_bedrock_api_mode
-      }
-      env {
-        name  = "OIDC_ISSUER_URL"
-        value = var.identity_platform_issuer
-      }
-      env {
-        name  = "OIDC_AUDIENCE"
-        value = var.identity_platform_audience
-      }
-      env {
-        name  = "AI_COACH_ENABLED"
-        value = local.ai_coach_enabled ? "true" : "false"
       }
     }
   }

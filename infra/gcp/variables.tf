@@ -71,19 +71,9 @@ variable "image_recognition_service_account_email" {
   default     = ""
 }
 
-# ── Identity Platform (configured manually; consumed here by value) ─────────────
-
-variable "identity_platform_issuer" {
-  description = "Identity Platform JWT issuer the backend validates (https://securetoken.google.com/<project_id>)."
-  type        = string
-  default     = ""
-}
-
-variable "identity_platform_audience" {
-  description = "Identity Platform JWT audience the backend validates (the GCP project id)."
-  type        = string
-  default     = ""
-}
+# Identity Platform issuer/audience are derived by the backend from GCP_PROJECT_ID
+# (https://securetoken.google.com/<project_id> and audience = <project_id>), so no
+# separate variables are needed here.
 
 # ── Cloud Run throttle / cost guards ────────────────────────────────────────────
 
