@@ -147,10 +147,14 @@ Two mutation methods on `GameItem`:
 
 ## Firestore Persistence (GCP facet)
 
-`FirestoreGameRepository implements GameRepository` is the GCP adapter, selected at build time
-(`@IfBuildProperty(name = "sudoku.persistence", stringValue = "firestore")`; `DynamoDbGameRepository`
-is the `@DefaultBean`). It uses the Google Cloud Firestore client, running as the Cloud Run runtime
-service account (`roles/datastore.user`). The `GameRepository` contract and all callers are unchanged.
+`FirestoreGameRepository implements GameRepository` is the GCP adapter, selected at **runtime** by
+the `sudoku.persistence` config property. Both adapters are `@Typed` to their concrete class and
+annotated `@LookupIfProperty` / `@LookupUnlessProperty`; a `GameRepositoryProducer` resolves the one
+matching adapter via `Instance<>` and produces the single `GameRepository` bean, so only the active
+cloud's client ever initializes. This lets one container image serve either cloud (the `%gcp`
+Quarkus profile sets `sudoku.persistence=firestore`). It uses the Google Cloud Firestore client,
+running as the Cloud Run runtime service account (`roles/datastore.user`). The `GameRepository`
+contract and all callers are unchanged.
 
 ### Document layout
 

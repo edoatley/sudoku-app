@@ -55,7 +55,7 @@
 
 Behaviours of the `FirestoreGameRepository` adapter on GCP. Active gaps until the games-slice arrow's code phase implements them.
 
-- [x] **GL-GCP-001**: Where the build property sudoku.persistence=firestore, the system shall use the Firestore game repository adapter; otherwise it shall use the DynamoDB adapter (the default).
+- [x] **GL-GCP-001**: Where the configuration property sudoku.persistence=firestore (resolved at runtime via a CDI producer), the system shall use the Firestore game repository adapter; otherwise it shall use the DynamoDB adapter (the default).
 - [x] **GL-GCP-002**: The system shall store each game as a document in the games collection keyed by <userId>__<gameId>, so a game can only be retrieved with its owner's userId.
 - [x] **GL-GCP-003**: The system shall serialize all grid fields as JSON strings in Firestore documents (Firestore cannot store nested arrays).
 - [x] **GL-GCP-004**: The system shall find a player's in-progress game with a Firestore query filtering userId and status = IN_PROGRESS server-side, served by the (userId, status, endedAt) composite index as a key-prefix match.

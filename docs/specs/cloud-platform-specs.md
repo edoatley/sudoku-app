@@ -53,7 +53,7 @@
 
 Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All are active gaps (`[ ]`) until the GCP facet is implemented; genuinely deferred items are marked `[D]`.
 
-**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI). Specs that describe backend or frontend *runtime* behaviour — in-app JWT validation (CP-GCP-011), in-app CORS (CP-GCP-012), Firestore document I/O against the provisioned collections (the read/write side of CP-GCP-021), the frontend's consumption of injected auth config (CP-GCP-042), and cross-cloud Bedrock calls (CP-GCP-085) — are satisfied by the owning segments' **separate future arrows** (backend Firestore profile, frontend Firebase Auth, Bedrock wiring), not by this infra arrow. They remain `[ ]` here until those land. The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
+**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The remaining `[ ]` items are the **out-of-slice parity gaps** tracked in `docs/todo/gcp-aws-parity.md`: Firestore I/O for leaderboard + coach-rate-limit (the rest of CP-GCP-021), the full VITE_* injection set (CP-GCP-042/043), the CI test user (CP-GCP-032), and cross-cloud Bedrock (CP-GCP-085). The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
 
 ## GCP — Compute (Cloud Run)
 
@@ -64,9 +64,9 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 ## GCP — Edge & Authentication
 
-- [ ] **CP-GCP-010**: The system shall expose the Cloud Run services directly without an API gateway and validate Identity Platform JWTs within the backend application.
-- [ ] **CP-GCP-011**: The system shall validate backend JWTs against the Identity Platform issuer (https://securetoken.google.com/{project_id}) and audience ({project_id}), using explicit key/issuer/audience configuration rather than OIDC discovery.
-- [ ] **CP-GCP-012**: The system shall apply CORS allowed origins within the backend application (CORS_ALLOWED_ORIGINS), restricted to the static custom domain(s) and localhost for the workspace type.
+- [x] **CP-GCP-010**: The system shall expose the Cloud Run services directly without an API gateway and validate Identity Platform JWTs within the backend application.
+- [x] **CP-GCP-011**: The system shall validate backend JWTs against the Identity Platform issuer (https://securetoken.google.com/{project_id}) and audience ({project_id}), using explicit key/issuer/audience configuration rather than OIDC discovery.
+- [x] **CP-GCP-012**: The system shall apply CORS allowed origins within the backend application (CORS_ALLOWED_ORIGINS), restricted to the static custom domain(s) and localhost for the workspace type.
 - [x] **CP-GCP-013**: The system shall bound backend request load on GCP via Cloud Run maximum-instance and container-concurrency caps in place of an API-Gateway request-rate throttle.
 
 ## GCP — Firestore
@@ -86,7 +86,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 ## GCP — Firebase Hosting & Frontend Delivery
 
 - [x] **CP-GCP-040**: The system shall host the frontend on a Firebase Hosting site (sudoku{suffix}) with a single-page-app rewrite of all paths to /index.html.
-- [ ] **CP-GCP-041**: The system shall deploy the frontend to Firebase Hosting via CI after terraform apply, not on push, so build-time VITE_* values reflect the applied infrastructure.
+- [x] **CP-GCP-041**: The system shall deploy the frontend to Firebase Hosting via CI after terraform apply, not on push, so build-time VITE_* values reflect the applied infrastructure.
 - [ ] **CP-GCP-042**: The system shall inject VITE_API_URL (backend Cloud Run URL + /api/v1), the Identity Platform equivalents of the VITE_COGNITO_* values, VITE_MOCK_API, VITE_DEV_TOOLS, and VITE_AI_COACH into the frontend build.
 - [ ] **CP-GCP-043**: The system shall set VITE_DEV_TOOLS=false in the default workspace and VITE_DEV_TOOLS=true in all other workspaces.
 
@@ -106,7 +106,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 ## GCP — CI/CD, Bootstrap & Identity Federation
 
-- [ ] **CP-GCP-080**: The system shall authenticate GitHub Actions to GCP via Workload Identity Federation impersonating a deploy service account, with no long-lived service-account keys.
+- [x] **CP-GCP-080**: The system shall authenticate GitHub Actions to GCP via Workload Identity Federation impersonating a deploy service account, with no long-lived service-account keys.
 - [x] **CP-GCP-081**: The system shall validate infra/gcp with terraform fmt, init, and validate in CI when files under infra/gcp/ change.
 - [x] **CP-GCP-082**: The system's bootstrap process shall create the project and link billing (confirmation required only when the link is missing), create the GCS Terraform state bucket, enable the required GCP APIs, create the sudoku-backend and sudoku-image-recognition Artifact Registry repositories, and create the runtime + deploy service accounts with roles/datastore.user bound to the runtime service accounts.
 - [x] **CP-GCP-083**: The system shall provision GCP service accounts, IAM role bindings, Workload Identity Federation, and Identity Platform outside Terraform; infra/gcp Terraform shall reference them by value only.
