@@ -31,6 +31,12 @@ import java.util.Map;
  * <p>Allowed origins are driven by the {@code sudoku.cors.allowed-origins} config property so that
  * local development, staging, and production environments can each whitelist only their own
  * frontend URL without code changes.
+ *
+ * <p>On GCP the in-app JWT gate is the sole authorizer, so a cross-origin preflight {@code OPTIONS}
+ * (which carries no {@code Authorization} header) must be answered <b>before</b> authentication or it
+ * would be rejected. There, {@code sudoku.cors.filter.enabled=false} disables this JAX-RS filter and
+ * Quarkus' native HTTP CORS ({@code quarkus.http.cors}) handles CORS at the HTTP layer ahead of the
+ * security check. Disabling this filter avoids emitting duplicate {@code Access-Control-*} headers.
  */
 @Provider
 public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilter {
@@ -44,6 +50,10 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
     @ConfigProperty(name = "sudoku.cors.allowed-origins")
     List<String> allowedOrigins;
 
+    // Disabled on GCP, where Quarkus native HTTP CORS handles preflight before the auth gate.
+    @ConfigProperty(name = "sudoku.cors.filter.enabled", defaultValue = "true")
+    boolean filterEnabled;
+
     /**
      * Handles HTTP {@code OPTIONS} preflight requests by returning a {@code 200 OK} response with
      * the required CORS headers if the request's {@code Origin} is in the allowlist.
@@ -56,6 +66,9 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
      */
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
+        if (!filterEnabled) {
+            return;
+        }
         if ("OPTIONS".equalsIgnoreCase(requestContext.getMethod())) {
             String origin = requestContext.getHeaderString("Origin");
             if (isAllowed(origin)) {
@@ -79,6 +92,9 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
      */
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) {
+        if (!filterEnabled) {
+            return;
+        }
         String origin = requestContext.getHeaderString("Origin");
         if (isAllowed(origin)) {
             responseContext.getHeaders().putSingle(ACCESS_CONTROL_ALLOW_ORIGIN, origin);
