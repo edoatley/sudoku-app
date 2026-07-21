@@ -9,10 +9,10 @@ import java.util.Map;
  * ({@code sudoku.persistence=firestore}) and the Firestore Dev Services emulator running.
  *
  * <p>Unlike {@code FirestoreEmulatorProfile} (which only starts the emulator and reflectively
- * injects the adapter under test), this profile flips the build-time property so
- * {@code @IfBuildProperty}/{@code @UnlessBuildProperty} selection resolves the real GCP bean graph:
- * Firestore game/player adapters + no-op leaderboard, with the DynamoDB adapters compiled out. It
- * exists to prove the whole CDI container boots on the firestore backend.
+ * injects the adapter under test), this profile sets the runtime property so the persistence
+ * producers resolve the real GCP bean graph: Firestore game/player adapters + no-op leaderboard,
+ * with the DynamoDB adapters left unresolvable. It exists to prove the whole CDI container boots on
+ * the firestore backend.
  */
 public class FirestorePersistenceProfile implements QuarkusTestProfile {
 

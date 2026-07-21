@@ -12,8 +12,9 @@ import com.sudoku.game.GameStatus;
 import com.sudoku.game.web.GameHistoryEntry;
 import com.sudoku.game.web.GameState;
 import com.sudoku.game.web.GameUpdateRequest;
-import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 
 import java.time.Instant;
@@ -40,7 +41,8 @@ import java.util.concurrent.ExecutionException;
  * @spec GL-GCP-001, GL-GCP-002, GL-GCP-003, GL-GCP-004, GL-GCP-005
  */
 @ApplicationScoped
-@IfBuildProperty(name = "sudoku.persistence", stringValue = "firestore")
+@Typed(FirestoreGameRepository.class)
+@LookupIfProperty(name = "sudoku.persistence", stringValue = "firestore")
 public class FirestoreGameRepository implements GameRepository {
 
     static final String COLLECTION = "games";

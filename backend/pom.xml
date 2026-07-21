@@ -217,34 +217,6 @@
     </build>
 
     <profiles>
-        <!--
-            GCP (Cloud Run) build. Selects the Firestore persistence backend at build time so
-            @IfBuildProperty/@UnlessBuildProperty resolve the Firestore game/player adapters + no-op
-            leaderboard and compile out the DynamoDB adapters. The default build (no profile) stays
-            on DynamoDB for the AWS Lambda artifact — hence "two-pass": `./mvnw package` (AWS) and
-            `./mvnw package -Pgcp` (GCP). Used by the Cloud Run container image build (unit 5).
-        -->
-        <profile>
-            <id>gcp</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>${quarkus.platform.group-id}</groupId>
-                        <artifactId>quarkus-maven-plugin</artifactId>
-                        <configuration>
-                            <!--
-                                Arbitrary (non-quarkus.*) build properties are not bridged from Maven
-                                <properties>, so feed sudoku.persistence to the augmentation JVM as a
-                                system property, which Quarkus reads as a build-time config source.
-                            -->
-                            <systemProperties>
-                                <sudoku.persistence>firestore</sudoku.persistence>
-                            </systemProperties>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
         <profile>
             <id>native</id>
             <activation>

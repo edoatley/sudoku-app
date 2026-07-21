@@ -6,8 +6,9 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.sudoku.player.PlayerRepository;
 import com.sudoku.player.web.PlayerProfile;
-import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 
 import java.util.List;
@@ -25,7 +26,8 @@ import java.util.concurrent.ExecutionException;
  * @spec UM-GCP-007
  */
 @ApplicationScoped
-@IfBuildProperty(name = "sudoku.persistence", stringValue = "firestore")
+@Typed(FirestorePlayerRepository.class)
+@LookupIfProperty(name = "sudoku.persistence", stringValue = "firestore")
 public class FirestorePlayerRepository implements PlayerRepository {
 
     static final String COLLECTION = "players";

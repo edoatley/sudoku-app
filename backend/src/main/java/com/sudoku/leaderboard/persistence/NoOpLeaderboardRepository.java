@@ -1,8 +1,9 @@
 package com.sudoku.leaderboard.persistence;
 
 import com.sudoku.leaderboard.LeaderboardRepository;
-import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 
 import java.util.List;
 
@@ -15,7 +16,8 @@ import java.util.List;
  * Firestore leaderboard adapter is a later arrow.
  */
 @ApplicationScoped
-@IfBuildProperty(name = "sudoku.persistence", stringValue = "firestore")
+@Typed(NoOpLeaderboardRepository.class)
+@LookupIfProperty(name = "sudoku.persistence", stringValue = "firestore")
 public class NoOpLeaderboardRepository implements LeaderboardRepository {
 
     @Override
