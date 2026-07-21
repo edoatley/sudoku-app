@@ -79,7 +79,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 ## GCP — Identity Platform
 
-- [ ] **CP-GCP-030**: The system shall authenticate end users via Identity Platform with Google as the sole sign-in provider, with no native username/password sign-up offered in the app.
+- [x] **CP-GCP-030**: The system shall authenticate end users via Identity Platform with Google as the sole sign-in provider, with no native username/password sign-up offered in the app.
 - [x] **CP-GCP-031**: The system shall provision the Identity Platform configuration and Google provider outside Terraform, with Terraform consuming the resulting issuer and audience by configuration.
 - [ ] **CP-GCP-032**: The system shall provide a manually-created Identity Platform test user that CI authenticates via the Identity Platform signInWithPassword REST endpoint.
 
