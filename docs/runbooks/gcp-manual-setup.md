@@ -295,10 +295,29 @@ This adds a small ongoing connector cost and is intentionally left unbuilt (CP-G
 
 ---
 
+## 8. RC environments on GCP (`rcg-*` branches)
+
+Pushing a branch named `rcg-*` triggers `deploy-gcp.yml` to build+push the backend image and
+`terraform apply` a **per-branch workspace** (name derived by
+`scripts/github/gcp-workspace-name.sh`, length-capped so the Firebase site_id stays ≤ 30 chars).
+This is the GCP analogue of the AWS `rc-*` flow; AWS is untouched.
+
+- **Backend + infra** deploy automatically on every push.
+- **Frontend** deploys only when the repo **variable** `GCP_DEPLOY_FRONTEND` is set to `true`
+  (Settings → Secrets and variables → Actions → Variables). It needs the `VITE_FIREBASE_API_KEY`
+  secret and Identity Platform (§4) in place first; leave it unset to deploy backend-only.
+- **Public invocation:** each new workspace's Cloud Run service needs the `allUsers` invoker
+  binding (§2 *public invocation*) before it is reachable — the app still enforces auth in-app.
+- **Teardown:** deleting the `rcg-*` branch triggers `teardown-gcp.yml`, which
+  `terraform destroy`s that workspace and deletes it. Shared Artifact Registry repos and
+  service accounts are left intact. `delete`-triggered workflows only run from the default
+  branch, so **teardown is active only once `deploy-gcp.yml`/`teardown-gcp.yml` are on `main`.**
+
 ## Ordering summary
 
 1. `scripts/infra/gcp-bootstrap.sh` (state bucket, APIs, Artifact Registry)
-2. This runbook §1–§4 (SAs, IAM, WIF, Identity Platform) — **before** the first apply
-3. `cd infra/gcp && terraform init && terraform apply`
-4. This runbook §2 *public invocation* binding (needs the services to exist first)
-5. §5–§6 as the smoke tests / AI features are wired up
+2. `scripts/infra/gcp-github-bootstrap.sh` (deploy-SA roles incl. `artifactregistry.writer`, WIF, secrets)
+3. This runbook §1–§4 (SAs, IAM, WIF, Identity Platform) — **before** the first apply
+4. `cd infra/gcp && terraform init && terraform apply` (or push an `rcg-*` branch — §8)
+5. This runbook §2 *public invocation* binding (needs the services to exist first)
+6. §5–§6 as the smoke tests / AI features are wired up

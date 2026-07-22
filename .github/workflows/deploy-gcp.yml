@@ -1,10 +1,17 @@
 name: Deploy GCP
 
-# Phased Strategy-C bring-up, manually triggered. Authenticates to GCP with Workload
-# Identity Federation (no long-lived keys) and, depending on the inputs:
+# Authenticates to GCP with Workload Identity Federation (no long-lived keys) and:
 #   1. builds + pushes the unified HTTP backend image to Artifact Registry,
 #   2. applies infra/gcp via Terraform (Cloud Run wired to that image),
 #   3. builds the Firebase-provider frontend and deploys it to Firebase Hosting.
+#
+# Two triggers:
+#   - push to an rcg-* branch  → full auto-deploy to a per-branch Terraform workspace
+#     (workspace name derived by scripts/github/gcp-workspace-name.sh). The frontend is
+#     deployed only when the repo variable GCP_DEPLOY_FRONTEND == 'true' (needs the
+#     VITE_FIREBASE_API_KEY secret + Identity Platform setup); the backend always deploys.
+#     Teardown of an rcg-* environment is handled by teardown-gcp.yml on branch delete.
+#   - workflow_dispatch → manual, phased bring-up with explicit inputs (e.g. workspace=default).
 #
 # The backend Cloud Run service (deploy_cloud_run) is the games+player slice; the
 # image-recognition service is gated separately (deploy_image_recognition, default off).
@@ -14,6 +21,9 @@ name: Deploy GCP
 #   VITE_FIREBASE_API_KEY   — Firebase Web API key (public client id), for deploy_frontend
 
 on:
+  push:
+    branches:
+      - "rcg-*"
   workflow_dispatch:
     inputs:
       workspace:
@@ -42,13 +52,49 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-gcp-${{ github.event.inputs.workspace }}
+  # One deploy per target environment: dispatch → its workspace; push → the branch.
+  group: deploy-gcp-${{ github.event.inputs.workspace || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
+  # Resolve the effective settings for both triggers into a single source of truth.
+  config:
+    name: Resolve deploy config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      workspace: ${{ steps.resolve.outputs.workspace }}
+      deploy_cloud_run: ${{ steps.resolve.outputs.deploy_cloud_run }}
+      deploy_frontend: ${{ steps.resolve.outputs.deploy_frontend }}
+      enable_custom_domain: ${{ steps.resolve.outputs.enable_custom_domain }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: resolve
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            WS="$(bash scripts/github/gcp-workspace-name.sh "${GITHUB_REF_NAME}")"
+            {
+              echo "workspace=${WS}"
+              echo "deploy_cloud_run=true"
+              echo "deploy_frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
+              echo "enable_custom_domain=false"
+            } >> "$GITHUB_OUTPUT"
+            echo "rcg-* push → workspace '${WS}', backend deploy, frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
+          else
+            {
+              echo "workspace=${{ inputs.workspace }}"
+              echo "deploy_cloud_run=${{ inputs.deploy_cloud_run }}"
+              echo "deploy_frontend=${{ inputs.deploy_frontend }}"
+              echo "enable_custom_domain=${{ inputs.enable_custom_domain }}"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
   build-image:
     name: Build & push backend image
-    if: ${{ inputs.deploy_cloud_run }}
+    needs: [config]
+    if: ${{ needs.config.outputs.deploy_cloud_run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Output only the (non-secret) image tag — the full URI embeds GCP_PROJECT_ID, and GitHub
@@ -90,9 +136,10 @@ jobs:
 
   terraform:
     name: Terraform apply (infra/gcp)
-    needs: [build-image]
-    # Run even when build-image is skipped (deploy_cloud_run=false); only skip if it failed.
-    if: ${{ always() && !cancelled() && needs.build-image.result != 'failure' }}
+    needs: [config, build-image]
+    # Run even when build-image is skipped (deploy_cloud_run=false); only skip if config failed
+    # or the build failed.
+    if: ${{ always() && !cancelled() && needs.config.result == 'success' && needs.build-image.result != 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -117,7 +164,7 @@ jobs:
         run: terraform init
 
       - name: Select or create workspace
-        run: terraform workspace select -or-create "${{ inputs.workspace }}"
+        run: terraform workspace select -or-create "${{ needs.config.outputs.workspace }}"
 
       - name: Terraform apply
         env:
@@ -130,8 +177,8 @@ jobs:
           terraform apply -auto-approve -input=false \
             -var "project_id=${PROJECT_ID}" \
             -var "region=${GCP_REGION}" \
-            -var "deploy_cloud_run=${{ inputs.deploy_cloud_run }}" \
-            -var "enable_custom_domain=${{ inputs.enable_custom_domain }}" \
+            -var "deploy_cloud_run=${{ needs.config.outputs.deploy_cloud_run }}" \
+            -var "enable_custom_domain=${{ needs.config.outputs.enable_custom_domain }}" \
             -var "backend_image=${BACKEND_IMAGE}" \
             -var "run_service_account_email=sudoku-run@${PROJECT_ID}.iam.gserviceaccount.com" \
             -var "image_recognition_service_account_email=sudoku-image-recognition-run@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -144,8 +191,8 @@ jobs:
 
   deploy-frontend:
     name: Build & deploy frontend (Firebase Hosting)
-    needs: [terraform]
-    if: ${{ inputs.deploy_frontend }}
+    needs: [config, terraform]
+    if: ${{ always() && !cancelled() && needs.terraform.result == 'success' && needs.config.outputs.deploy_frontend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
