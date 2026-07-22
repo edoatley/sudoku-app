@@ -51,8 +51,10 @@ jobs:
     if: ${{ inputs.deploy_cloud_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Output only the (non-secret) image tag — the full URI embeds GCP_PROJECT_ID, and GitHub
+    # scrubs secret-containing values when they cross a job boundary via needs.*.outputs.
     outputs:
-      image: ${{ steps.push.outputs.image }}
+      tag: ${{ steps.push.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
 
@@ -84,7 +86,7 @@ jobs:
           IMAGE="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/backend:${TAG}"
           docker build -f backend/src/main/docker/Dockerfile.jvm-lwa -t "$IMAGE" backend
           docker push "$IMAGE"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
   terraform:
     name: Terraform apply (infra/gcp)
@@ -120,8 +122,11 @@ jobs:
       - name: Terraform apply
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          BACKEND_IMAGE: ${{ needs.build-image.outputs.image }}
+          IMAGE_TAG: ${{ needs.build-image.outputs.tag }}
         run: |
+          # Reassemble the image URI here (project id is a secret, kept in-job). Empty when the
+          # build-image job was skipped (deploy_cloud_run=false), which the precondition allows.
+          BACKEND_IMAGE="${IMAGE_TAG:+${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/backend:${IMAGE_TAG}}"
           terraform apply -auto-approve -input=false \
             -var "project_id=${PROJECT_ID}" \
             -var "region=${GCP_REGION}" \
