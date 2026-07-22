@@ -1,7 +1,9 @@
 package com.sudoku.coach.web;
 
+import com.sudoku.auth.UserIdentityResolver;
 import com.sudoku.coach.bedrock.CoachRateLimiter;
 import com.sudoku.coach.SudokuCoachService;
+import io.quarkus.security.Authenticated;
 import com.sudoku.player.web.PlayerProfile;
 import com.sudoku.player.PlayerRepository;
 import com.sudoku.player.PlayerService;
@@ -10,10 +12,8 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.YearMonth;
@@ -25,10 +25,11 @@ import java.util.Map;
 /**
  * REST entry point for the AI coaching endpoint.
  *
- * <p>Requires a valid Cognito JWT, enforced by API Gateway before Lambda invocation.
+ * <p>Requires a valid JWT (validated in-app; also enforced by API Gateway on AWS).
  * Enforces per-user guardrails: coach toggle, monthly token budget, and per-minute rate limit.
  */
 @Path("/ai/coach")
+@Authenticated
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class CoachResource {
@@ -45,18 +46,21 @@ public class CoachResource {
     @Inject
     CoachRateLimiter rateLimiter;
 
+    @Inject
+    UserIdentityResolver userIdentityResolver;
+
     @ConfigProperty(name = "coach.monthly-token-limit")
     long monthlyTokenLimit;
 
     @POST
-    public Response coach(@Context SecurityContext securityContext, CoachRequest request) {
+    public Response coach(CoachRequest request) {
         // @spec SC-API-003 — board shape/digit validation delegated to Board.fromGrid()
         //                     via InvalidGridExceptionMapper → 400
         if (request == null || request.userMessage() == null || request.userMessage().isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        String userId = securityContext.getUserPrincipal().getName();
+        String userId = userIdentityResolver.resolveUserId();
         PlayerProfile player = playerService.getOrCreateProfile(userId, null, null);
 
         // @spec SC-RL-001 — coach disabled check

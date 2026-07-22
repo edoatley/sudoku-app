@@ -2,7 +2,9 @@ package com.sudoku.leaderboard.persistence;
 
 import com.sudoku.leaderboard.LeaderboardRepository;
 import jakarta.annotation.PostConstruct;
+import io.quarkus.arc.lookup.LookupUnlessProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -19,6 +21,8 @@ import java.util.Map;
 
 // @spec LT-BE-007, LT-BE-008, LT-BE-009, LT-BE-010, LT-BE-011, LT-BE-012, LT-BE-013
 @ApplicationScoped
+@Typed(DynamoDbLeaderboardRepository.class)
+@LookupUnlessProperty(name = "sudoku.persistence", stringValue = "firestore", lookupIfMissing = true)
 public class DynamoDbLeaderboardRepository implements LeaderboardRepository {
 
     @Inject

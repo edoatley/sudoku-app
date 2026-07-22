@@ -6,8 +6,10 @@ import com.sudoku.game.GameRepository;
 import com.sudoku.game.web.GameHistoryEntry;
 import com.sudoku.game.web.GameState;
 import com.sudoku.game.web.GameUpdateRequest;
+import io.quarkus.arc.lookup.LookupUnlessProperty;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -34,6 +36,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * which transitions an IN_PROGRESS game to ABANDONED when the player starts a new one.
  */
 @ApplicationScoped
+@Typed(DynamoDbGameRepository.class)
+@LookupUnlessProperty(name = "sudoku.persistence", stringValue = "firestore", lookupIfMissing = true)
 public class DynamoDbGameRepository implements GameRepository {
 
     @Inject

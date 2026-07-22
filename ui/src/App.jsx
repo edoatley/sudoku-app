@@ -28,17 +28,20 @@ import TutorialModal from './components/TutorialModal.jsx';
 import AppView from './components/views/AppView.jsx';
 import CoachWidget from './components/coach/CoachWidget.jsx';
 import { isAdmin } from './api/sudokuApi.js';
+import { AUTH_PROVIDER } from './auth/session.js';
+import FirebaseAuthGate from './auth/FirebaseAuthGate.jsx';
 
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const DEV_TOOLS = import.meta.env.VITE_DEV_TOOLS === 'true';
 const AI_COACH = import.meta.env.VITE_AI_COACH === 'true';
 
-// Only import Authenticator when auth is enabled to avoid loading Amplify in mock mode
+// Only import Amplify's Authenticator for the Cognito build with auth enabled — never in mock mode
+// or the Firebase (GCP) build, so the AWS SDK is not bundled there.
 let Authenticator = null;
 let AmplifyThemeProvider = null;
 let amplifyTheme = null;
-if (!MOCK_API && !SKIP_AUTH) {
+if (!MOCK_API && !SKIP_AUTH && AUTH_PROVIDER === 'cognito') {
   const amplifyUi = await import('@aws-amplify/ui-react');
   await import('@aws-amplify/ui-react/styles.css');
   Authenticator = amplifyUi.Authenticator;
@@ -464,9 +467,23 @@ function LoginLayout() {
   );
 }
 
+function FirebaseLoginLayout() {
+  const muiTheme = createTheme({ palette: { mode: 'light' } });
+  return (
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      <FirebaseAuthGate>{({ user, signOut }) => <SudokuApp user={user} signOut={signOut} />}</FirebaseAuthGate>
+    </ThemeProvider>
+  );
+}
+
 function App() {
   if (MOCK_API || SKIP_AUTH) {
     return <SudokuApp user={null} signOut={null} />;
+  }
+
+  if (AUTH_PROVIDER === 'firebase') {
+    return <FirebaseLoginLayout />;
   }
 
   return <LoginLayout />;

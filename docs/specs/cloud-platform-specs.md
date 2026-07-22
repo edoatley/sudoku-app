@@ -44,5 +44,78 @@
 
 ## Workspace Isolation
 
-- [x] **CP-INFRA-060**: The system shall append -{workspace} to all resource names in non-default workspaces to prevent naming collisions.
+- [x] **CP-INFRA-060**: The system shall append -{workspace} to all resource names in non-default workspaces to prevent naming collisions. (Cloud-general: honoured by both the AWS and GCP facets.)
 - [x] **CP-INFRA-061**: The system shall share the Lambda zip S3 bucket across all workspaces, with each workspace uploading to its own key prefix.
+
+---
+
+# GCP Facet
+
+Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All are active gaps (`[ ]`) until the GCP facet is implemented; genuinely deferred items are marked `[D]`.
+
+**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The remaining `[ ]` items are the **out-of-slice parity gaps** tracked in `docs/todo/gcp-aws-parity.md`: Firestore I/O for leaderboard + coach-rate-limit (the rest of CP-GCP-021), the full VITE_* injection set (CP-GCP-042/043), the CI test user (CP-GCP-032), and cross-cloud Bedrock (CP-GCP-085). The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
+
+## GCP — Compute (Cloud Run)
+
+- [x] **CP-GCP-001**: The system shall deploy the Quarkus backend as a Cloud Run service (sudoku{suffix}) from an Artifact Registry container image, with a minimum instance count of zero.
+- [x] **CP-GCP-002**: The system shall deploy the image-recognition service as a Cloud Run service (sudoku-image-recognition{suffix}) from an Artifact Registry container image, with a minimum instance count of zero.
+- [x] **CP-GCP-003**: The system shall run each Cloud Run service as a runtime service account supplied by configuration, not the project default compute service account.
+- [x] **CP-GCP-004**: The system shall cap the maximum instance count and container concurrency of both Cloud Run services to bound concurrent execution and spend.
+
+## GCP — Edge & Authentication
+
+- [x] **CP-GCP-010**: The system shall expose the Cloud Run services directly without an API gateway and validate Identity Platform JWTs within the backend application.
+- [x] **CP-GCP-011**: The system shall validate backend JWTs against the Identity Platform issuer (https://securetoken.google.com/{project_id}) and audience ({project_id}), using explicit key/issuer/audience configuration rather than OIDC discovery.
+- [x] **CP-GCP-012**: The system shall apply CORS allowed origins within the backend application (CORS_ALLOWED_ORIGINS), restricted to the static custom domain(s) and localhost for the workspace type.
+- [x] **CP-GCP-013**: The system shall bound backend request load on GCP via Cloud Run maximum-instance and container-concurrency caps in place of an API-Gateway request-rate throttle.
+
+## GCP — Firestore
+
+- [x] **CP-GCP-020**: The system shall provision a Firestore database in Native mode per workspace — the (default) database in the default workspace and a named sudoku{suffix} database otherwise.
+- [ ] **CP-GCP-021**: The system shall store game, player, leaderboard, and coach-rate-limit data in Firestore collections games, players, leaderboard, and coachRateLimits respectively.
+- [x] **CP-GCP-022**: The system shall apply a TTL policy on the coachRateLimits collection keyed on the expiresAt field.
+- [x] **CP-GCP-023**: The system shall enable Firestore point-in-time recovery and delete protection on the default-workspace database only.
+- [x] **CP-GCP-024**: The system shall locate Firestore in us-central1.
+
+## GCP — Identity Platform
+
+- [x] **CP-GCP-030**: The system shall authenticate end users via Identity Platform with Google as the sole sign-in provider, with no native username/password sign-up offered in the app.
+- [x] **CP-GCP-031**: The system shall provision the Identity Platform configuration and Google provider outside Terraform, with Terraform consuming the resulting issuer and audience by configuration.
+- [ ] **CP-GCP-032**: The system shall provide a manually-created Identity Platform test user that CI authenticates via the Identity Platform signInWithPassword REST endpoint.
+
+## GCP — Firebase Hosting & Frontend Delivery
+
+- [x] **CP-GCP-040**: The system shall host the frontend on a Firebase Hosting site (sudoku{suffix}) with a single-page-app rewrite of all paths to /index.html.
+- [x] **CP-GCP-041**: The system shall deploy the frontend to Firebase Hosting via CI after terraform apply, not on push, so build-time VITE_* values reflect the applied infrastructure.
+- [ ] **CP-GCP-042**: The system shall inject VITE_API_URL (backend Cloud Run URL + /api/v1), the Identity Platform equivalents of the VITE_COGNITO_* values, VITE_MOCK_API, VITE_DEV_TOOLS, and VITE_AI_COACH into the frontend build.
+- [ ] **CP-GCP-043**: The system shall set VITE_DEV_TOOLS=false in the default workspace and VITE_DEV_TOOLS=true in all other workspaces.
+
+## GCP — DNS & TLS
+
+- [x] **CP-GCP-050**: The system shall provision a Cloud DNS managed zone for sudoku-gcp.edoatley.co.uk once in the default workspace and point the custom domain at Firebase Hosting.
+- [x] **CP-GCP-051**: The system shall serve the frontend over Google-managed TLS certificates, with no manual certificate provisioning.
+
+## GCP — Cost Guardrail
+
+- [x] **CP-GCP-060**: The system shall provision a monthly Cloud Billing budget that publishes threshold alerts to a Pub/Sub topic.
+- [D] **CP-GCP-061**: The system shall automatically enforce the billing cap (e.g. disabling billing or scaling services to zero) when the budget is exceeded. (Deferred — GCP budgets cannot attach a deny action; requires a Pub/Sub-triggered Cloud Function.)
+
+## GCP — Labels
+
+- [x] **CP-GCP-070**: The system shall apply the labels project=sudoku, managed_by=terraform, and environment (prod in the default workspace, else the sanitized workspace name) to GCP resources, using lowercase label values.
+
+## GCP — CI/CD, Bootstrap & Identity Federation
+
+- [x] **CP-GCP-080**: The system shall authenticate GitHub Actions to GCP via Workload Identity Federation impersonating a deploy service account, with no long-lived service-account keys.
+- [x] **CP-GCP-081**: The system shall validate infra/gcp with terraform fmt, init, and validate in CI when files under infra/gcp/ change.
+- [x] **CP-GCP-082**: The system's bootstrap process shall create the project and link billing (confirmation required only when the link is missing), create the GCS Terraform state bucket, enable the required GCP APIs, create the sudoku-backend and sudoku-image-recognition Artifact Registry repositories, and create the runtime + deploy service accounts with roles/datastore.user bound to the runtime service accounts.
+- [x] **CP-GCP-083**: The system shall provision GCP service accounts, IAM role bindings, Workload Identity Federation, and Identity Platform outside Terraform; infra/gcp Terraform shall reference them by value only.
+
+## GCP — AI Inference
+
+- [ ] **CP-GCP-085**: Where AI features (coach, image recognition) are enabled on GCP, the system shall invoke AWS Bedrock cross-cloud using credentials sourced from Secret Manager.
+- [D] **CP-GCP-090**: The system shall perform AI inference via Vertex AI (Gemini), replacing cross-cloud Bedrock. (Deferred — GCP-native end state; requires backend code change.)
+
+## GCP — Networking
+
+- [D] **CP-GCP-091**: The system shall route Cloud Run egress to Firestore over a private VPC connector. (Deferred — Cloud Run uses Google's managed public API in the interim.)

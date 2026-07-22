@@ -29,16 +29,68 @@ Authentication is handled at two layers:
               (extracts userId/email from SecurityContext / JsonWebToken)
 ```
 
-In **dev/IT/test** profiles, `DevUserFilter` replaces the JWT layer:
+In **dev/IT/test** profiles, `DevIdentityAugmentor` replaces the JWT layer:
 
 ```text
-              DevUserFilter (ContainerRequestFilter, @IfBuildProfile dev/it/test)
-              (if no Authorization header → inject mock SecurityContext with userId="local-dev-user")
+              DevIdentityAugmentor (SecurityIdentityAugmentor, @IfBuildProfile dev/it/test)
+              (anonymous request → inject a Firebase-shaped mock JWT resolving to userId="local-dev-user";
+               disabled by sudoku.dev.mock-identity.enabled=false)
                        │
                        ▼
               AllowedUsersFilter
               (allowlist empty in dev → passes all requests)
 ```
+
+## Multi-Cloud Authentication & Identity (GCP facet)
+
+The architecture above is the **AWS** deployment. The backend also runs on **GCP** (games + player-profile slice); the edge differs but the in-app path is the same.
+
+### Where the token is verified — in-app only on GCP
+
+On AWS the token is validated twice: the API Gateway JWT authorizer at the edge, then Quarkus OIDC in-app. **GCP has no gateway** — the Cloud Run service is a public endpoint (`roles/run.invoker = allUsers`), so **Quarkus OIDC in-app validation is the sole gate**. Consequence: every non-public resource must carry its `@Authenticated`/role annotation — a missing annotation is an open endpoint on GCP with no edge backstop. This is a **deliberate, accepted** choice (in-app-only is the standard Cloud Run pattern for a public JWT API, and the AWS app already validates in-app regardless), compensated by a **route-coverage test** asserting every non-public route rejects an anonymous request.
+
+### Cloud-parameterized OIDC
+
+A single Quarkus OIDC tenant, configured per deployment by env:
+
+| Setting | AWS (Cognito) | GCP (Identity Platform / Firebase) |
+| --- | --- | --- |
+| issuer / auth-server-url | Cognito pool issuer | `https://securetoken.google.com/<project_id>` |
+| discovery | enabled | **disabled** — Firebase is not OIDC-discoverable |
+| JWKS | from discovery | explicit: `https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com` |
+| audience | web client id | `<project_id>` |
+
+### Canonical userId = Google sub (hardened resolver)
+
+`userId` is the **Google `sub`** — the federated-identity subject, stable across IdPs (HLD *Cloud-Agnostic Persistence & Auth*). `UserIdentityResolver` derives it with a **strict provider allow-list, not a permissive fallback** — any provider it does not recognise is rejected (401), so an unexpected token shape never reaches a repository:
+
+| `firebase.sign_in_provider` | Resolved `userId` |
+| --- | --- |
+| `google.com` | `firebase.identities["google.com"][0]` — the **raw** Google `sub` (matches AWS's future re-key value) |
+| `password` | **`firebase:<uid>`** — namespaced; for the pre-provisioned CI smoke-test user only |
+| anything else (anonymous, phone, unknown) | **reject (401)** |
+
+The two namespaces are disjoint by construction: Google users key on the raw `sub`, the `password` fallback on a `firebase:`-prefixed `uid`, so a `password` token can never resolve onto a Google user's data. This fallback is safe **only in combination with** the Identity Platform hardening (Google + password providers only, **self-signup disabled**, no anonymous — see runbook §4/§5) and the email allowlist below; together they mean the `password` path can only ever be the allowlisted, admin-provisioned test user. This matches the AWS posture — the Cognito smoke-test client is likewise a controlled native user gated by the same allowlist.
+
+On **AWS** the resolver returns `jwt.getSubject()` (the Cognito subject) today; the deferred re-key switches it to the Google `sub` in the Cognito `identities` claim.
+
+**Account-linking is not supported.** Resolution keys on `firebase.sign_in_provider` for the *current* sign-in, so each account must use exactly one provider — Google for real users, `password` for the test user. A single account linking both providers (which would yield two `userId`s for one human) is out of scope and not enabled in Identity Platform.
+
+**Dev/test — mock token, no resolver carve-out.** In dev/it/test (OIDC disabled), `DevUserFilter` injects a **Firebase-shaped mock `JsonWebToken`** — a fixed `google.com` identity for `local-dev-user` — so `UserIdentityResolver` runs its real logic unchanged (the strict allow-list is never bypassed). Backend tests generate `google.com`, `password`, and unknown-provider tokens with a JWT builder (`io.smallrye.jwt.build.Jwt`) to cover every resolver branch, including the reject path.
+
+**Authorization gate.** A valid token is authentication only. `AllowedUsersFilter` requires the token's `email` claim to be on `app.allowed.emails` **and `email_verified = true`** — Google tokens are always verified; the provisioned `password` test user is marked verified via the Admin API. This closes the gap where an unverified, attacker-chosen email string could match the allowlist. Email / display-name extraction (`email`, `name`) is otherwise unchanged, so `PlayerResource` claim extraction works on both clouds.
+
+### CORS
+
+With no gateway on GCP, **CORS is handled entirely in-app** (`CorsFilter`, driven by `CORS_ALLOWED_ORIGINS`). The Firebase Hosting origin (`https://sudoku-app-eo.web.app`, later the custom domain) calls the Cloud Run origin cross-origin, so it must be in the allowed list. Because in-app validation is the sole gate, preflight `OPTIONS` (which carries no `Authorization` header) must be answered by `CorsFilter` **before** `@Authenticated` runs — otherwise every cross-origin preflight would 401. This ordering is required, not incidental.
+
+### Player persistence
+
+The profile persists through the existing `PlayerRepository` port. GCP adds `FirestorePlayerRepository` — a `players` collection keyed on the Google-`sub` `userId` — selected at build time (`sudoku.persistence=firestore`). Lazy-creation and PATCH-update behaviour are unchanged; only the adapter differs.
+
+### Deferred: admin authorization on GCP
+
+Identity Platform has no group concept, so the `administrators`-group check (see *Admin Authorization*) has no GCP equivalent yet. `/admin/*` is **not** in this slice, so it is deferred; when admin lands on GCP it moves to a custom claim (Firebase Admin SDK) or a configured email allowlist.
 
 ## Player Profile
 
@@ -101,7 +153,7 @@ Table: `SudokuPlayers{suffix}` (name injected via `sudoku.dynamodb.players-table
 
 | Attribute | DynamoDB Type | Key Role | Notes |
 | --- | --- | --- | --- |
-| `userId` | String | Partition Key | Cognito `sub` claim |
+| `userId` | String | Partition Key | Canonical user id — Cognito `sub` on AWS today (→ Google `sub` after the deferred re-key); the Google `sub` on GCP's Firestore `players` collection. See *Multi-Cloud Authentication & Identity* |
 | `email` | String | — | From Cognito JWT; read-only after creation |
 | `displayName` | String | — | From Cognito JWT name claim; updatable via PATCH |
 | `avatarKey` | String | — | Client-defined icon name; empty string stored as null; updatable via PATCH |
@@ -177,14 +229,14 @@ filter(request):
 
 ## Cross-Cutting Request Filters
 
-### DevUserFilter (`@IfBuildProfile(anyOf = {"dev", "it", "test"})`)
+### DevIdentityAugmentor (`@IfBuildProfile(anyOf = {"dev", "it", "test"})`)
 
-Compiled out of production builds entirely. When active:
+Compiled out of production builds entirely. Replaces the former `DevUserFilter` (which set only the JAX-RS `SecurityContext`) with a `SecurityIdentityAugmentor` that populates the Quarkus `SecurityIdentity`, so `UserIdentityResolver` and the request filters run their production logic. When active:
 
-- If `Authorization` header is **absent** → injects a mock `SecurityContext` with `userId = "local-dev-user"`
-- If `Authorization` header is **present** → does nothing (allows real JWT flow)
+- An **anonymous** request (OIDC is disabled in these profiles) → augmented with a Firebase-shaped mock `JsonWebToken` (a `google.com` identity for `local-dev-user`, carrying the `administrators` group so the local `/admin` data browser works) that resolves to `userId = "local-dev-user"`
+- Set `sudoku.dev.mock-identity.enabled=false` → requests stay anonymous (used by the route-coverage test to prove protected routes reject anonymous callers)
 
-This means all dev endpoints work without a Cognito token unless a real token is explicitly provided.
+This means all dev endpoints work without a real token unless the mock is explicitly disabled.
 
 ### CorsFilter
 

@@ -1,6 +1,8 @@
 package com.sudoku.player.web;
 
+import com.sudoku.auth.UserIdentityResolver;
 import com.sudoku.player.PlayerService;
+import io.quarkus.security.Authenticated;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -8,9 +10,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 /**
@@ -22,6 +22,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
  * real Cognito identity without a separate registration step.
  */
 @Path("/players")
+@Authenticated
 @Produces(MediaType.APPLICATION_JSON)
 public class PlayerResource {
 
@@ -31,10 +32,13 @@ public class PlayerResource {
     @Inject
     SecurityIdentity identity;
 
+    @Inject
+    UserIdentityResolver userIdentityResolver;
+
     @GET
     @Path("/me")
-    public PlayerProfile getMe(@Context SecurityContext sc) {
-        String userId      = sc.getUserPrincipal().getName();
+    public PlayerProfile getMe() {
+        String userId      = userIdentityResolver.resolveUserId();
         String email       = getClaimAsString("email");
         String displayName = getClaimAsString("name");
         return playerService.getOrCreateProfile(userId, email, displayName);
@@ -44,8 +48,8 @@ public class PlayerResource {
     @PATCH
     @Path("/me")
     @Consumes(MediaType.APPLICATION_JSON)
-    public PlayerProfile updateMe(@Context SecurityContext sc, PlayerUpdateRequest request) {
-        String userId = sc.getUserPrincipal().getName();
+    public PlayerProfile updateMe(PlayerUpdateRequest request) {
+        String userId = userIdentityResolver.resolveUserId();
         return playerService.updateProfile(userId, request);
     }
 

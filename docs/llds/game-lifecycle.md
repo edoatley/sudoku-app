@@ -145,6 +145,69 @@ Two mutation methods on `GameItem`:
 
 **`applyUpdate(GameUpdateRequest request, String now)`** — overwrites `currentGrid`, `candidates`, `timeSpentSeconds`, optionally `hintsUsed`; sets `status=SOLVED` + `endedAt=now` if `isComplete=true`, otherwise keeps `IN_PROGRESS`
 
+## Firestore Persistence (GCP facet)
+
+`FirestoreGameRepository implements GameRepository` is the GCP adapter, selected at **runtime** by
+the `sudoku.persistence` config property. Both adapters are `@Typed` to their concrete class and
+annotated `@LookupIfProperty` / `@LookupUnlessProperty`; a `GameRepositoryProducer` resolves the one
+matching adapter via `Instance<>` and produces the single `GameRepository` bean, so only the active
+cloud's client ever initializes. This lets one container image serve either cloud (the `%gcp`
+Quarkus profile sets `sudoku.persistence=firestore`). It uses the Google Cloud Firestore client,
+running as the Cloud Run runtime service account (`roles/datastore.user`). The `GameRepository`
+contract and all callers are unchanged.
+
+### Document layout
+
+Top-level collection `games`, one document per game, **document id = `<userId>__<gameId>`**.
+
+Using the composite `userId__gameId` id — rather than the bare `gameId` — preserves the AWS
+IDOR-safety property structurally: a `get` requires the caller's `userId` in the path, so one user
+can never fetch another's game even knowing the `gameId` (mirrors DynamoDB's composite-key `GetItem`).
+`userId` and `gameId` are also stored as fields for querying. **Grids remain JSON strings** —
+Firestore prohibits nested arrays (an array can't contain an array), so a 9×9 grid can't be a native
+nested array; JSON strings match `GameItem`. The adapter **reuses `GameItem` directly** as the
+document model: Firestore's POJO mapper serialises its getters/setters and ignores the (inert)
+`@DynamoDbBean` annotations, so grid JSON (de)serialization and the `applyUpdate`/`markAbandoned`
+mutations are shared with the AWS adapter with no duplication (no separate document class).
+
+### Access patterns
+
+| Operation | Firestore API | Query |
+| --- | --- | --- |
+| Save new game | `document("<userId>__<gameId>").set(doc)` | — |
+| Load game by id | `document("<userId>__<gameId>").get()` | — (userId in the doc path = IDOR guard) |
+| Find in-progress game | `collection("games").where(userId==).where(status=="IN_PROGRESS").limit(1)` | served by the `(userId, status, endedAt)` index (key-prefix match) |
+| Game history | `where(userId==).where(status in ["SOLVED","ABANDONED"]).orderBy(endedAt desc)` | composite index `(userId, status, endedAt)` |
+| Update / abandon | fetch-mutate-`set` (in a transaction — see below) | — |
+
+Unlike the DynamoDB adapter (which queries all of a user's games and filters `IN_PROGRESS`
+client-side), Firestore filters `status` **server-side**. A **single** composite index on
+`(userId, status, endedAt)` covers both queries — it serves the history query directly and
+`findInProgress` as a key-prefix match — so only one index is declared. It is a
+`google_firestore_index` resource in `infra/gcp/firestore.tf`, created **with the database (not
+gated on `deploy_cloud_run`)** so the index build finishes before the app serves queries — a new
+composite index takes minutes to build, and a query issued before it is ready fails
+`FAILED_PRECONDITION`.
+
+### Single-active-game invariant
+
+The invariant (`abandonAnyInProgressGame` before persisting a new game) is orchestrated by
+`GameServiceImpl` (`findInProgress → abandonGame → save`) — *shared* game-lifecycle code, not the
+repository. To keep the slice contained (the Firestore adapter mirrors the DynamoDB port contract
+exactly, and `GameServiceImpl` is unchanged), this stays **non-atomic on GCP, matching AWS**
+(acceptable because a single client serialises a player's requests). Wrapping abandon+save in a
+Firestore transaction is a deferred hardening — it would require an interface/service change — see
+`GL-GCP-006` (`[D]`).
+
+### Decisions & Alternatives
+
+| Decision | Chosen | Alternative | Rationale |
+| --- | --- | --- | --- |
+| Collection shape | Top-level `games`, composite `userId__gameId` id | Subcollection `players/{userId}/games/{gameId}` | Keeps the game adapter independent of the player adapter and mirrors the table-per-entity model; the composite id still gives per-user isolation + IDOR safety |
+| Grid storage | JSON strings | Native Firestore structures | Firestore can't nest arrays; JSON reuses `GameItem` serialization and keeps the DTO mapping identical |
+| Single-active-game | Non-atomic (AWS parity) | Firestore transaction | Keeps the slice contained — the adapter matches the DynamoDB port contract and `GameServiceImpl` is unchanged; the transaction is deferred (`GL-GCP-006` `[D]`) |
+| Document model | Reuse `GameItem` | Separate `FirestoreGameDocument` | Firestore's POJO mapper serialises `GameItem` (DynamoDB annotations inert); shares grid JSON + mutations, zero duplication |
+
 ## GameStatus Enum
 
 | Value | String | Meaning |

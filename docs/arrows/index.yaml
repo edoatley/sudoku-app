@@ -80,15 +80,22 @@ arrows:
     next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)
 
   - id: cloud-platform
-    status: OK
+    status: IN_PROGRESS
     lld: docs/llds/cloud-platform.md
     specs: docs/specs/cloud-platform-specs.md
     arrow: docs/arrows/cloud-platform.md
-    spec_count: 25
-    implemented: 25
-    deferred: 0
-    gaps: 0
-    next: ~
+    spec_count: 58
+    implemented: 50
+    deferred: 3
+    gaps: 5
+    next: >-
+      GCP games+player-profile slice landed: unified HTTP+LWA image, runtime
+      Firestore/DynamoDB selection, in-app JWT + CORS, and the deploy-gcp CI pipeline
+      (image build/push + Firebase Hosting). Closed CP-GCP-010,011,012,041,080. The 5
+      remaining gaps (CP-GCP-021 leaderboard/coach Firestore I/O, 032 CI test user, 042/043
+      full VITE_* injection, 085 cross-cloud Bedrock) are out-of-slice AWS↔GCP parity work
+      tracked in docs/todo/gcp-aws-parity.md. Deferred [D] items are 061 (budget hard-cap),
+      090 (Vertex AI), 091 (private VPC).
 
   - id: react-frontend
     status: OK

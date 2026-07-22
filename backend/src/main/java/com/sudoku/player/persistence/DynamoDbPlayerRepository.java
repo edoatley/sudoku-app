@@ -3,7 +3,9 @@ package com.sudoku.player.persistence;
 import com.sudoku.player.web.PlayerProfile;
 import com.sudoku.player.PlayerRepository;
 import jakarta.annotation.PostConstruct;
+import io.quarkus.arc.lookup.LookupUnlessProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -27,6 +29,8 @@ import java.util.Optional;
  * rather than at registration time, so no separate sign-up flow is required.
  */
 @ApplicationScoped
+@Typed(DynamoDbPlayerRepository.class)
+@LookupUnlessProperty(name = "sudoku.persistence", stringValue = "firestore", lookupIfMissing = true)
 public class DynamoDbPlayerRepository implements PlayerRepository {
 
     @Inject

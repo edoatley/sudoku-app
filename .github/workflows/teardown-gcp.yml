@@ -1,0 +1,110 @@
+name: Teardown GCP RC Environment
+
+# Destroys the per-branch GCP Terraform workspace when an rcg-* branch is deleted — the GCP
+# counterpart of teardown-rc.yml. The shared Artifact Registry repos and bootstrap-managed
+# service accounts are NOT touched (they live outside this Terraform state).
+#
+# NOTE: `delete` events only run the workflow version on the default branch, so this must be
+# merged to main to be active.
+
+on:
+  delete:
+    # Fires for both branch and tag deletions; filtered to rcg-* branches below.
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: "Terraform workspace to destroy (must not be 'default')"
+        type: string
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  teardown:
+    name: Terraform Destroy (rcg-* / manual)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # On delete: only rcg-* branches. On workflow_dispatch: any (guarded below).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.ref_type == 'branch' && startsWith(github.event.ref, 'rcg-'))
+    defaults:
+      run:
+        working-directory: infra/gcp
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+
+      - uses: hashicorp/setup-terraform@v4
+
+      - name: Resolve workspace
+        id: workspace
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            WS="${{ inputs.workspace }}"
+            echo "Manual teardown → workspace '${WS}'"
+          else
+            WS="$(bash "${GITHUB_WORKSPACE}/scripts/github/gcp-workspace-name.sh" "${{ github.event.ref }}")"
+            echo "Branch '${{ github.event.ref }}' → workspace '${WS}'"
+          fi
+          # Safety: never destroy production / an empty workspace.
+          if [ -z "${WS}" ] || [ "${WS}" = "default" ]; then
+            echo "ERROR: refusing to destroy workspace '${WS}'."
+            exit 1
+          fi
+          echo "workspace=${WS}" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform init
+        run: terraform init
+
+      - name: Select workspace (skip destroy if absent)
+        id: select
+        run: |
+          WS="${{ steps.workspace.outputs.workspace }}"
+          if terraform workspace select "${WS}" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Workspace '${WS}' does not exist — nothing to destroy."
+          fi
+
+      # deploy_cloud_run=true + a placeholder image URI satisfies the Cloud Run precondition so the
+      # in-state service can be destroyed; the placeholder is never pulled (the resource is removed).
+      # image-recognition stays default-off, so its precondition is not evaluated.
+      - name: Terraform destroy
+        if: steps.select.outputs.exists == 'true'
+        run: |
+          terraform destroy -auto-approve -input=false \
+            -var "project_id=${PROJECT_ID}" \
+            -var "region=us-central1" \
+            -var "deploy_cloud_run=true" \
+            -var "backend_image=us-central1-docker.pkg.dev/${PROJECT_ID}/sudoku-backend/backend:teardown" \
+            -var "run_service_account_email=sudoku-run@${PROJECT_ID}.iam.gserviceaccount.com" \
+            -var "image_recognition_service_account_email=sudoku-image-recognition-run@${PROJECT_ID}.iam.gserviceaccount.com"
+
+      - name: Delete Terraform workspace
+        if: steps.select.outputs.exists == 'true'
+        run: |
+          terraform workspace select default
+          terraform workspace delete "${{ steps.workspace.outputs.workspace }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### GCP RC environment torn down"
+            echo ""
+            echo "Branch: \`${{ github.event.ref }}\`"
+            echo "Workspace: \`${{ steps.workspace.outputs.workspace }}\`"
+            echo "Existed: \`${{ steps.select.outputs.exists }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
