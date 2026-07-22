@@ -309,9 +309,11 @@ This is the GCP analogue of the AWS `rc-*` flow; AWS is untouched.
 - **Public invocation:** each new workspace's Cloud Run service needs the `allUsers` invoker
   binding (§2 *public invocation*) before it is reachable — the app still enforces auth in-app.
 - **Teardown:** deleting the `rcg-*` branch triggers `teardown-gcp.yml`, which
-  `terraform destroy`s that workspace and deletes it. Shared Artifact Registry repos and
-  service accounts are left intact. `delete`-triggered workflows only run from the default
-  branch, so **teardown is active only once `deploy-gcp.yml`/`teardown-gcp.yml` are on `main`.**
+  `terraform destroy`s that workspace and deletes it (or run it via **workflow_dispatch** with an
+  explicit `workspace` input to tear down any non-`default` workspace manually). Shared Artifact
+  Registry repos and service accounts are left intact. `delete`- and `workflow_dispatch`-triggered
+  workflows only run from the default branch, so **teardown is active only once
+  `deploy-gcp.yml`/`teardown-gcp.yml` are on `main`.**
 
 ## Ordering summary
 

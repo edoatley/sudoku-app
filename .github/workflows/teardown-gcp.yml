@@ -10,6 +10,12 @@ name: Teardown GCP RC Environment
 on:
   delete:
     # Fires for both branch and tag deletions; filtered to rcg-* branches below.
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: "Terraform workspace to destroy (must not be 'default')"
+        type: string
+        required: true
 
 permissions:
   id-token: write
@@ -17,11 +23,13 @@ permissions:
 
 jobs:
   teardown:
-    name: Terraform Destroy (rcg-* only)
+    name: Terraform Destroy (rcg-* / manual)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # github.event.ref is the deleted ref name; ref_type is "branch" or "tag".
-    if: github.event.ref_type == 'branch' && startsWith(github.event.ref, 'rcg-')
+    # On delete: only rcg-* branches. On workflow_dispatch: any (guarded below).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.ref_type == 'branch' && startsWith(github.event.ref, 'rcg-'))
     defaults:
       run:
         working-directory: infra/gcp
@@ -39,11 +47,16 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v4
 
-      - name: Resolve workspace from deleted branch name
+      - name: Resolve workspace
         id: workspace
         run: |
-          WS="$(bash "${GITHUB_WORKSPACE}/scripts/github/gcp-workspace-name.sh" "${{ github.event.ref }}")"
-          echo "Branch '${{ github.event.ref }}' → workspace '${WS}'"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            WS="${{ inputs.workspace }}"
+            echo "Manual teardown → workspace '${WS}'"
+          else
+            WS="$(bash "${GITHUB_WORKSPACE}/scripts/github/gcp-workspace-name.sh" "${{ github.event.ref }}")"
+            echo "Branch '${{ github.event.ref }}' → workspace '${WS}'"
+          fi
           # Safety: never destroy production / an empty workspace.
           if [ -z "${WS}" ] || [ "${WS}" = "default" ]; then
             echo "ERROR: refusing to destroy workspace '${WS}'."
