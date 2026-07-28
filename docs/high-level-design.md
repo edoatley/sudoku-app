@@ -31,7 +31,7 @@ The system is divided into 8 components by domain concept:
                 ▼                               ▼
 ┌───────────────────────────┐     ┌─────────────────────────────┐
 │     Java Lambda           │     │   Image Recognition Lambda  │
-│     (Quarkus, SnapStart)  │     │   (Python 3.14, Bedrock)    │
+│     (Quarkus, container)  │     │   (Python 3.14, Bedrock)    │
 │                           │     │                             │
 │  ┌─────────────────────┐  │     │  • Preprocess image         │
 │  │  User Management    │  │     │  • Claude Haiku OCR         │
@@ -83,7 +83,7 @@ The topology above is the **AWS** deployment. The platform also targets **GCP** 
 
 | Domain role | AWS | GCP |
 | --- | --- | --- |
-| Backend compute | Lambda (Quarkus, SnapStart) | Cloud Run service (container, scale-to-zero) |
+| Backend compute | Lambda (Quarkus, container image) | Cloud Run service (container, scale-to-zero) — same image |
 | Image-recognition compute | Lambda (Python container) | Cloud Run service (container) |
 | Edge / auth / throttle | API Gateway HTTP v2 + Cognito JWT authorizer + stage throttle | Cloud Run direct + in-app JWT validation; throttle via max-instances + container concurrency |
 | Persistence | DynamoDB (`SudokuGames` / `SudokuPlayers` / `SudokuLeaderboard` / `SudokuCoachRateLimits`) | Firestore (Native) collections `games` / `players` / `leaderboard` / `coachRateLimits` |

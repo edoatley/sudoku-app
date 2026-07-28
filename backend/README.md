@@ -1,6 +1,6 @@
 # Backend — Java / Quarkus
 
-Java 25 REST API built with Quarkus, deployed as an AWS Lambda function behind API Gateway HTTP v2.
+Java 25 REST API built with Quarkus, deployed as an AWS Lambda container function (behind API Gateway HTTP v2) and, on GCP, a Cloud Run service — both from the same image.
 
 ---
 
@@ -9,7 +9,7 @@ Java 25 REST API built with Quarkus, deployed as an AWS Lambda function behind A
 | | |
 |---|---|
 | Language | Java 25 |
-| Framework | Quarkus 3.36.1 (`quarkus-amazon-lambda-rest`) |
+| Framework | Quarkus 3.36.1 (HTTP fast-jar, containerised via `Dockerfile.jvm-lwa`) |
 | Auth | `quarkus-oidc` — JWT validation via Cognito OIDC discovery |
 | Database | AWS DynamoDB (`quarkus-amazon-dynamodb-enhanced`) |
 | Test | JUnit 5, Mockito, RestAssured, LocalStack (integration tests) |
@@ -173,18 +173,16 @@ Pure unit tests using JUnit 5 and Mockito for domain logic and service classes, 
 ./mvnw verify -DskipITs=false
 ```
 
-Uses `@QuarkusIntegrationTest` to test the packaged Lambda zip against LocalStack. CI handles LocalStack setup automatically via `.github/actions/create-localstack-dynamodb/`.
+Uses `@QuarkusIntegrationTest` to test the packaged fast-jar against LocalStack. CI handles LocalStack setup automatically via `.github/actions/create-localstack-dynamodb/`.
 
 ---
 
 ## Building
 
 ```bash
-# JVM jar (used for Lambda deployment)
+# HTTP fast-jar (the only build — used for both Cloud Run and the AWS Lambda container image)
 ./mvnw package
 
-# Lambda deployment zip (produced by quarkus-amazon-lambda-rest)
-# Output: target/function.zip
 ./mvnw package -DskipTests
 
 # Native executable (requires GraalVM — optional, reduces cold starts)
@@ -194,7 +192,7 @@ Uses `@QuarkusIntegrationTest` to test the packaged Lambda zip against LocalStac
 ./mvnw package -Dnative -Dquarkus.native.container-build=true
 ```
 
-The CI deploy workflow builds `target/function.zip` and uploads it to S3 for Terraform to reference.
+The CI deploy workflow builds the fast-jar, containerises it with `src/main/docker/Dockerfile.jvm-lwa` (the AWS Lambda Web Adapter bridges the Lambda Runtime API to the same HTTP server), and pushes the image to ECR for Terraform to reference.
 
 ---
 

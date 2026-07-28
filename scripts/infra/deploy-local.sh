@@ -51,31 +51,6 @@ echo ""
 REPO_ROOT="$(dirname "$0")/../.."
 cd "${REPO_ROOT}/infra/aws"
 
-# ── Locate Lambda zip ──────────────────────────────────────────────────────────
-ACCOUNT_ID=$(AWS_PROFILE=sandbox aws sts get-caller-identity --query Account --output text)
-BUCKET="sudoku-lambda-zip-${ACCOUNT_ID}"
-ZIP_PATH="${REPO_ROOT}/backend/target/function.zip"
-
-if [ ! -f "${ZIP_PATH}" ]; then
-  echo "==> No local zip found — trying s3://${BUCKET}/${WORKSPACE}/function.zip"
-  mkdir -p "${REPO_ROOT}/backend/target"
-  if AWS_PROFILE=sandbox aws s3 ls "s3://${BUCKET}/${WORKSPACE}/function.zip" > /dev/null 2>&1; then
-    AWS_PROFILE=sandbox aws s3 cp "s3://${BUCKET}/${WORKSPACE}/function.zip" "${ZIP_PATH}"
-    echo "    Downloaded from S3."
-  else
-    echo "    Not found in S3 — building from source (this may take a minute)..."
-    (cd "${REPO_ROOT}/backend" && ./mvnw package -DskipTests -q)
-    if [ ! -f "${ZIP_PATH}" ]; then
-      echo "ERROR: Maven build did not produce ${ZIP_PATH}"
-      exit 1
-    fi
-    echo "    Built successfully."
-  fi
-else
-  echo "==> Using local zip: ${ZIP_PATH}"
-fi
-echo ""
-
 # ── Terraform ─────────────────────────────────────────────────────────────────
 echo "==> terraform init"
 AWS_PROFILE=sandbox terraform init
@@ -91,8 +66,10 @@ fi
 
 echo ""
 echo "==> terraform plan"
-# IMAGE_RECOGNITION_IMAGE_URI: if not set, look up the currently deployed image URI
-# from the Lambda function so we don't need a stale value in .env.local.
+# IMAGE_RECOGNITION_IMAGE_URI / BACKEND_IMAGE_URI: if not set, look up the currently deployed
+# image URI from each Lambda function so we don't need a stale value in .env.local. To deploy a
+# freshly built backend image instead, build & push it first (see Dockerfile.jvm-lwa header) and
+# set BACKEND_IMAGE_URI explicitly.
 if [ -z "${IMAGE_RECOGNITION_IMAGE_URI:-}" ]; then
   FUNC_NAME="sudoku-image-recognition$([ "${WORKSPACE}" = "default" ] && echo "" || echo "-${WORKSPACE}")"
   IMAGE_RECOGNITION_IMAGE_URI=$(AWS_PROFILE=sandbox aws lambda get-function \
@@ -102,6 +79,18 @@ if [ -z "${IMAGE_RECOGNITION_IMAGE_URI:-}" ]; then
     echo "    Using current deployed image: ${IMAGE_RECOGNITION_IMAGE_URI}"
   else
     echo "    No deployed image found — image recognition Lambda will not be updated."
+  fi
+fi
+
+if [ -z "${BACKEND_IMAGE_URI:-}" ]; then
+  FUNC_NAME="sudoku$([ "${WORKSPACE}" = "default" ] && echo "" || echo "-${WORKSPACE}")"
+  BACKEND_IMAGE_URI=$(AWS_PROFILE=sandbox aws lambda get-function \
+    --function-name "${FUNC_NAME}" \
+    --query 'Code.ImageUri' --output text 2>/dev/null || echo "")
+  if [ -n "${BACKEND_IMAGE_URI}" ]; then
+    echo "    Using current deployed backend image: ${BACKEND_IMAGE_URI}"
+  else
+    echo "    No deployed backend image found — set BACKEND_IMAGE_URI to deploy one."
   fi
 fi
 
@@ -139,7 +128,7 @@ fi
 AWS_PROFILE=sandbox terraform apply -auto-approve -input=false \
   -target=aws_cloudwatch_log_group.lambda \
   -var "github_token=${AMPLIFY_GITHUB_TOKEN}" \
-  -var "lambda_zip_path=${ZIP_PATH}" \
+  -var "backend_image_uri=${BACKEND_IMAGE_URI}" \
   -var "google_client_id=${GOOGLE_CLIENT_ID}" \
   -var "google_client_secret=${GOOGLE_CLIENT_SECRET}" \
   -var "smoke_test_user_email=${SMOKE_TEST_USER_EMAIL}" \
@@ -150,7 +139,7 @@ AWS_PROFILE=sandbox terraform apply -auto-approve -input=false \
 AWS_PROFILE=sandbox terraform plan -out=tfplan \
   -input=false \
   -var "github_token=${AMPLIFY_GITHUB_TOKEN}" \
-  -var "lambda_zip_path=${ZIP_PATH}" \
+  -var "backend_image_uri=${BACKEND_IMAGE_URI}" \
   -var "google_client_id=${GOOGLE_CLIENT_ID}" \
   -var "google_client_secret=${GOOGLE_CLIENT_SECRET}" \
   -var "smoke_test_user_email=${SMOKE_TEST_USER_EMAIL}" \

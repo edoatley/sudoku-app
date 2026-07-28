@@ -115,7 +115,7 @@ jobs:
 
       - uses: ./.github/actions/setup-java
 
-      # Default build = HTTP fast-jar (no -Paws-lambda). This is what the LWA image serves.
+      # Default (only) build = HTTP fast-jar. This is what the LWA image serves on both clouds.
       - name: Build backend HTTP fast-jar
         working-directory: backend
         run: ./mvnw -B -ntp package -DskipTests

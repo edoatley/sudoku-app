@@ -91,3 +91,8 @@ output "image_recognition_ecr_repository_url" {
   description = "ECR repository URL for the image recognition container image."
   value       = data.aws_ecr_repository.image_recognition.repository_url
 }
+
+output "backend_ecr_repository_url" {
+  description = "ECR repository URL for the backend Lambda container image."
+  value       = data.aws_ecr_repository.sudoku_backend.repository_url
+}

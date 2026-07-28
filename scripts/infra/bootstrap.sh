@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bootstrap script — run once with valid AWS credentials before first Terraform apply.
 # Creates: S3 state bucket, GitHub OIDC provider, GitHub Actions deploy role,
-#          ECR repository for the image recognition Lambda.
+#          ECR repositories for the backend and image recognition Lambdas.
 # Safe to re-run (idempotent).
 
 set -euo pipefail
@@ -348,38 +348,38 @@ aws iam put-role-policy \
 
 echo "    Inline policy updated."
 
-# ── 4. ECR repository for image recognition Lambda ─────────────────────────────
-# Single shared repo for all environments. Branch-prefixed tags distinguish images:
+# ── 4. ECR repositories for backend + image recognition Lambdas ────────────────
+# Single shared repo per Lambda, for all environments. Branch-prefixed tags
+# distinguish images:
 #   main-sha-<sha>, main-latest
 #   <branch>-sha-<sha>, <branch>-latest
-echo "==> [4/4] ECR repository: sudoku-image-recognition"
+echo "==> [4/4] ECR repositories: sudoku-backend, sudoku-image-recognition"
 
-ECR_REPO_NAME="sudoku-image-recognition"
+for ECR_REPO_NAME in sudoku-backend sudoku-image-recognition; do
+  if aws ecr describe-repositories --repository-names "${ECR_REPO_NAME}" --region "${REGION}" 2>/dev/null; then
+    echo "    ${ECR_REPO_NAME}: already exists — skipping creation."
+  else
+    aws ecr create-repository \
+      --repository-name "${ECR_REPO_NAME}" \
+      --region "${REGION}" \
+      --image-scanning-configuration scanOnPush=true \
+      --image-tag-mutability MUTABLE
+    echo "    ${ECR_REPO_NAME}: created."
+  fi
 
-if aws ecr describe-repositories --repository-names "${ECR_REPO_NAME}" --region "${REGION}" 2>/dev/null; then
-  echo "    Already exists — skipping creation."
-else
-  aws ecr create-repository \
+  aws ecr put-lifecycle-policy \
     --repository-name "${ECR_REPO_NAME}" \
     --region "${REGION}" \
-    --image-scanning-configuration scanOnPush=true \
-    --image-tag-mutability MUTABLE
-  echo "    Created."
-fi
-
-aws ecr put-lifecycle-policy \
-  --repository-name "${ECR_REPO_NAME}" \
-  --region "${REGION}" \
-  --lifecycle-policy-text '{
-    "rules": [{
-      "rulePriority": 1,
-      "description": "Keep only the 10 most recent images across all branches",
-      "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 10},
-      "action": {"type": "expire"}
-    }]
-  }'
-
-echo "    Lifecycle policy applied (keep 10 most recent images)."
+    --lifecycle-policy-text '{
+      "rules": [{
+        "rulePriority": 1,
+        "description": "Keep only the 10 most recent images across all branches",
+        "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 10},
+        "action": {"type": "expire"}
+      }]
+    }'
+  echo "    ${ECR_REPO_NAME}: lifecycle policy applied (keep 10 most recent images)."
+done
 
 # ── Summary ─────────────────────────────────────────────────────────────────────
 echo ""

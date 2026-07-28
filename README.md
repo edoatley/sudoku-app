@@ -62,10 +62,10 @@ See [`infra/aws/README.md`](infra/aws/README.md) for the full deployment-level a
 | Layer      | Technology                                                         |
 |------------|--------------------------------------------------------------------|
 | Frontend   | React 19, Vite 8, MUI v9, aws-amplify v6                          |
-| Backend    | Java 25, Quarkus 3.36.1, quarkus-amazon-lambda-rest, quarkus-oidc |
+| Backend    | Java 25, Quarkus 3.36.1, quarkus-oidc                              |
 | Auth       | Amazon Cognito User Pool (Google social login via OAuth 2.0)       |
 | Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, `SudokuCoachRateLimits`) |
-| Hosting    | AWS Amplify (frontend), AWS Lambda (backend)                       |
+| Hosting    | AWS Amplify (frontend), AWS Lambda container (backend)             |
 | IaC        | Terraform (AWS provider, eu-west-2)                                |
 
 ---
@@ -260,7 +260,7 @@ See [`infra/aws/README.md`](infra/aws/README.md) for the full infrastructure ref
 
 Deployment is automated via GitHub Actions on push to `main` or `rc-*` branches:
 
-1. Maven builds `backend/target/function.zip`
+1. Maven builds the backend HTTP fast-jar, which is containerised (`Dockerfile.jvm-lwa`) and pushed to ECR
 2. Terraform authenticates via OIDC and runs `init → plan → apply`
 3. A post-apply step tightens API Gateway CORS to the exact Amplify URL
 4. A post-apply step pins Cognito callback URLs to the exact Amplify URL

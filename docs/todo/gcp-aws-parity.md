@@ -29,20 +29,26 @@ build variants; `sudoku.persistence` (and equivalent AI/coach selectors) choose 
 | AI Coach                                 | Bedrock + DynamoDB rate-limit | —                               | gap — item D |
 | Admin data browser                       | DynamoDB (not behind adapter) | —                               | gap — item C |
 | Image recognition                        | Python Lambda                 | Cloud Run defined, not deployed | gap — item E |
-| Backend runtime artifact                 | zip Lambda (java25)           | container (HTTP+LWA)            | gap — item A |
+| Backend runtime artifact                 | container Lambda (`Dockerfile.jvm-lwa`) | container (HTTP+LWA)  | **parity**   |
 
 ## Sequenced work items
 
-### A. AWS zip → container Lambda (single-artifact completion) — **do first**
-Migrate the AWS backend Lambda from the `function.zip` (java25 runtime + `QuarkusStreamHandler`)
+### A. AWS zip → container Lambda (single-artifact completion) — **done**
+Migrated the AWS backend Lambda from the `function.zip` (java25 runtime + `QuarkusStreamHandler`)
 to the **same `Dockerfile.jvm-lwa` image** run as a container Lambda; the Lambda Web Adapter
-bridges the Runtime API to the HTTP server. After this both clouds run the identical artifact and
-the `aws-lambda` Maven profile can be retired.
-- Add `quarkus-smallrye-health`; set `AWS_LWA_READINESS_CHECK_PATH=/api/v1/q/health/ready` in the
-  Dockerfile (noted there as a TODO).
-- `infra/aws/lambda.tf`: switch `package_type` to `Image`, point at the ECR image; drop the zip
-  build path from `build-lambda-zip` / `ci-deploy.yml`.
-- Verify cold-start + p50 latency are acceptable vs the zip.
+bridges the Runtime API to the HTTP server. Both clouds now run the identical artifact and the
+`aws-lambda` Maven profile has been retired.
+- Added `quarkus-smallrye-health`; `AWS_LWA_READINESS_CHECK_PATH=/api/v1/q/health/ready` set in the
+  Dockerfile as the LWA readiness gate.
+- `infra/aws/lambda.tf`: `package_type = "Image"`, pointed at the `sudoku-backend` ECR image
+  (repo created by `scripts/infra/bootstrap.sh`, same pattern as `sudoku-image-recognition`); the
+  `function.zip` / S3 zip-bucket path is gone from `ci-deploy.yml`, `deploy-local.sh`, and the
+  teardown workflows.
+- **Trade-off accepted:** AWS Lambda SnapStart does not support container-image package types, so
+  `snap_start` was removed. Cold-start behaviour vs. the zip+SnapStart baseline has **not been
+  measured against a live AWS deployment** (no AWS credentials in this environment) — verify p50/
+  cold-start latency is acceptable on the next real deploy, and re-open this item if it regresses
+  materially (e.g. by widening the Lambda timeout or revisiting SnapStart-eligible options).
 
 ### B. Leaderboard on Firestore
 Real `FirestoreLeaderboardRepository` (replace `NoOpLeaderboardRepository`) behind the existing

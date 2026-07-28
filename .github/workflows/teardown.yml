@@ -60,7 +60,7 @@ jobs:
           terraform destroy
           -auto-approve
           -var "github_token=${{ secrets.AMPLIFY_GITHUB_TOKEN }}"
-          -var "lambda_zip_path=/dev/null"
+          -var "backend_image_uri=000000000000.dkr.ecr.eu-west-2.amazonaws.com/placeholder:latest"
           -var "image_recognition_image_uri=000000000000.dkr.ecr.eu-west-2.amazonaws.com/placeholder:latest"
 
       - name: Delete workspace

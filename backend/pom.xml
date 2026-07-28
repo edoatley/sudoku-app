@@ -70,6 +70,10 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-oidc</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
 <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>url-connection-client</artifactId>
@@ -213,22 +217,6 @@
     </build>
 
     <profiles>
-        <!--
-            AWS Lambda (zip) build. Adds quarkus-amazon-lambda-rest, which packages the app as a
-            Lambda handler (target/function.zip) instead of an HTTP server. The default build (no
-            profile) produces the HTTP fast-jar used by the Cloud Run / Lambda Web Adapter container
-            image — a single artifact whose transport differs only by this profile. Build with
-            `./mvnw package -Paws-lambda`.
-        -->
-        <profile>
-            <id>aws-lambda</id>
-            <dependencies>
-                <dependency>
-                    <groupId>io.quarkus</groupId>
-                    <artifactId>quarkus-amazon-lambda-rest</artifactId>
-                </dependency>
-            </dependencies>
-        </profile>
         <profile>
             <id>native</id>
             <activation>
