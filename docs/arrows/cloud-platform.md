@@ -41,7 +41,7 @@ Cloud infrastructure across two facets: **AWS** (`infra/aws/` — Lambda, API Ga
 
 **Key Components:**
 1. API Gateway HTTP v2 — single API routing to two Lambdas; JWT authorizer; throttling
-2. Java Lambda — SnapStart, "live" alias, S3 ZIP deployment
+2. Java Lambda — container image (`Dockerfile.jvm-lwa`, same artifact as GCP Cloud Run), "live" alias, ECR deployment
 3. Image Recognition Lambda — container image, 60s timeout
 4. DynamoDB — four tables (Games, Players, Leaderboard, CoachRateLimits), PAY_PER_REQUEST, PITR + deletion protection on Games/Players/Leaderboard in production only
 5. Cognito — social-only (Google OAuth) on the public web client; shared RC pool; smoke-test user for CI authenticates via a separate, secret-bearing smoke-test app client (not the web client)

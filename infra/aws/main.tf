@@ -25,8 +25,6 @@ locals {
     [for model in local.bedrock_models : "arn:aws:bedrock:*::foundation-model/${replace(model, "/^(eu|us|ap)\\./", "")}"]
   )
 
-  lambda_zip_bucket_id = local.is_default ? aws_s3_bucket.lambda_zip[0].id : data.aws_s3_bucket.lambda_zip_shared[0].id
-
   # Feature flag: AI coach (Bedrock-powered chat). Disabled on the default/production
   # workspace until the feature has been sufficiently tested on rc-* branches.
   # To enable on production: change to `true` (or remove the condition).

@@ -16,7 +16,7 @@
 # Environment variables (all passed via TF_VAR_* by caller):
 #   TF_VAR_github_token, TF_VAR_google_client_id, TF_VAR_google_client_secret,
 #   TF_VAR_smoke_test_user_email, TF_VAR_smoke_test_user_password,
-#   TF_VAR_image_recognition_image_uri, TF_VAR_git_branch
+#   TF_VAR_image_recognition_image_uri, TF_VAR_backend_image_uri, TF_VAR_git_branch
 
 set -euo pipefail
 

@@ -6,7 +6,7 @@
 # The adapter is a Lambda "extension"; outside a Lambda execution environment (e.g. on Cloud Run)
 # it is never invoked and stays completely inert.
 #
-# Build the app first (HTTP fast-jar — the DEFAULT build, no -Paws-lambda):
+# Build the app first (HTTP fast-jar — the only build; no separate Lambda-zip profile):
 #   ./mvnw package -DskipTests
 # Then build the image:
 #   docker build -f src/main/docker/Dockerfile.jvm-lwa -t sudoku-backend .
@@ -20,9 +20,10 @@ ENV LANGUAGE='en_US:en'
 # AWS Lambda Web Adapter — inert unless running inside AWS Lambda. Pinned to a released tag.
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 # Matches the Quarkus HTTP port. Only consulted inside Lambda; ignored on Cloud Run.
-# NOTE: when the AWS zip→container Lambda migration lands, add quarkus-smallrye-health and set
-# AWS_LWA_READINESS_CHECK_PATH to /api/v1/q/health/ready for a proper readiness gate.
 ENV AWS_LWA_PORT="8080"
+# Readiness gate: the adapter waits for this to return 200 before routing Lambda invocations
+# to the app. Only consulted inside Lambda; ignored on Cloud Run.
+ENV AWS_LWA_READINESS_CHECK_PATH="/api/v1/q/health/ready"
 
 # Four distinct layers so library layers can be re-used across application-only changes.
 COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/

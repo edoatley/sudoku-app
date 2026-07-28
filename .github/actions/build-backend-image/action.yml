@@ -1,0 +1,41 @@
+name: Build Backend Image
+description: Builds the Quarkus HTTP fast-jar and the unified Dockerfile.jvm-lwa image, then pushes it to ECR
+
+inputs:
+  registry:
+    description: ECR registry hostname (from aws-actions/amazon-ecr-login)
+    required: true
+
+outputs:
+  image_uri:
+    description: Full URI of the pushed image (branch + sha tag)
+    value: ${{ steps.push.outputs.image_uri }}
+
+runs:
+  using: composite
+  steps:
+    # Default build = HTTP fast-jar. This is what the LWA image serves on both clouds.
+    - name: Build backend HTTP fast-jar
+      shell: bash
+      working-directory: backend
+      run: ./mvnw -B -ntp package -DskipTests
+
+    - name: Build & push backend image
+      id: push
+      shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        REPO: sudoku-backend
+        SHA: ${{ github.sha }}
+      run: |
+        BRANCH="${GITHUB_REF#refs/heads/}"
+        if [ "${BRANCH}" = "main" ]; then
+          TAG_PREFIX="main"
+        else
+          TAG_PREFIX=$(echo "${BRANCH}" | tr '/' '-' | tr '.' '-' | cut -c1-32)
+        fi
+        IMAGE_URI="${REGISTRY}/${REPO}:${TAG_PREFIX}-sha-${SHA}"
+        docker build -f backend/src/main/docker/Dockerfile.jvm-lwa -t "${IMAGE_URI}" -t "${REGISTRY}/${REPO}:${TAG_PREFIX}-latest" backend
+        docker push "${IMAGE_URI}"
+        docker push "${REGISTRY}/${REPO}:${TAG_PREFIX}-latest"
+        echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
