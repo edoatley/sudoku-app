@@ -80,7 +80,7 @@ cd backend
 ./mvnw package
 ```
 
-Key dependencies: `quarkus-amazon-lambda-rest`, `quarkus-rest-jackson`, `quarkus-arc`.
+Key dependencies: `quarkus-rest-jackson`, `quarkus-arc`, `quarkus-smallrye-health`.
 
 ## Frontend (React/Vite)
 
@@ -165,7 +165,7 @@ The script runs: image recognition (pytest), frontend lint, npm audit, E2E (Play
 
 ## Architecture Notes
 
-- Backend uses `quarkus-amazon-lambda-rest` to expose REST endpoints directly via API Gateway → Lambda (no server process)
+- Backend builds as a single HTTP fast-jar, containerised via `Dockerfile.jvm-lwa`; on AWS the Lambda Web Adapter bridges API Gateway → Lambda (container) to that HTTP server, on GCP it runs unmodified on Cloud Run
 - Native compilation with GraalVM is supported via the `native` Maven profile for cold-start optimization
 - Integration tests (`*IT.java`) are skipped by default; enable with `-DskipITs=false`
 - Frontend uses plain JSX (no TypeScript); ESLint uses flat config format (ESLint 9+)

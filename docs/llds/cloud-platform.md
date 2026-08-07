@@ -40,15 +40,14 @@ suffix     = local.is_default ? "" : "-${terraform.workspace}"
 
 | Property | Value |
 | --- | --- |
-| Runtime | Java 25 |
-| Handler | `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest` |
+| Runtime | Container image (`Dockerfile.jvm-lwa` — Java 25 HTTP fast-jar + AWS Lambda Web Adapter) |
 | Memory | 512 MB |
 | Timeout | 8 seconds |
 | Architecture | x86_64 |
-| SnapStart | Enabled (published versions) |
-| Deployment | S3 ZIP (`sudoku-lambda-zip-{account_id}/{workspace}/function.zip`) |
+| SnapStart | Not used — unsupported for container-image Lambda functions |
+| Deployment | ECR (`sudoku-backend:{branch}-{sha}`) |
 
-SnapStart pre-initializes the JVM snapshot on publish, eliminating Java cold starts. The Lambda is published on every deploy; the `live` alias always points to the latest published version. API Gateway invokes the alias, not the function directly.
+This is the same image Cloud Run runs on GCP; the Lambda Web Adapter extension bridges the Runtime API to the same HTTP server, inert outside a Lambda execution environment. The Lambda is published on every deploy; the `live` alias always points to the latest published version. API Gateway invokes the alias, not the function directly.
 
 **Image Recognition Lambda (`sudoku-image-recognition{suffix}`):**
 
@@ -124,15 +123,10 @@ If a workspace is torn down and recreated, step 2 must be re-run — the added c
 
 All four tables use `PAY_PER_REQUEST` (on-demand) billing. AWS-managed encryption (no CMK).
 
-**S3 (Lambda artifacts):**
-
-- Bucket: `sudoku-lambda-zip-{account_id}` (owned by default workspace, referenced by others)
-- 30-day object expiration, no versioning, all public access blocked
-- Non-default workspaces reference this bucket via data source; each workspace uploads to its own key prefix
-
 **ECR:**
 
-- Repository `sudoku-image-recognition` created by `scripts/bootstrap.sh` (outside Terraform)
+- Repositories `sudoku-backend` and `sudoku-image-recognition`, both created by
+  `scripts/infra/bootstrap.sh` (outside Terraform)
 - Shared across all workspaces; referenced by Terraform via data source
 - Tag convention: `{branch}-{sha}`, `{branch}-latest`
 
@@ -290,7 +284,7 @@ provider "aws" {
     configure-aws-oidc/         # Assumes IAM role via OIDC
     setup-node/                 # Node 22 + npm ci [+ Playwright]
     setup-java/                 # Java 25 (Temurin) + Maven cache
-    build-lambda-zip/           # Quarkus package + reproducible zip
+    build-backend-image/        # Quarkus fast-jar + Dockerfile.jvm-lwa build/push to ECR
     create-localstack-dynamodb/ # Creates DynamoDB tables in LocalStack
     terraform-validate/         # fmt check, init, validate
     integration-tests/          # Native quarkus:dev + npm dev + Playwright
@@ -334,7 +328,9 @@ gate-backend ──┘    ├── build-backend (if backend changed)
 
 1. **CI gate** — `gate-ui` (lint + unit) and `gate-backend` (Maven + LocalStack) run in parallel
 2. **Detect changes** — `dorny/paths-filter` determines if backend or image recognition files changed
-3. **Build backend** (if backend changed) — Quarkus Lambda zip; uploaded as 1-day artifact
+3. **Build backend** (if backend changed) — Quarkus HTTP fast-jar, `Dockerfile.jvm-lwa` build + ECR
+   push with `{branch}-{sha}` tag; if unchanged, the deploy job reuses the currently-deployed image
+   (falling back to a fresh build if none is found, e.g. a brand-new workspace)
 4. **Build image recognition** — Docker build + ECR push with `{branch}-{sha}` tag
 5. **Terraform deploy** (two phases):
    - Phase 1: all resources except domain association (avoids 40-min ACM cert wait on every deploy)
@@ -343,7 +339,7 @@ gate-backend ──┘    ├── build-backend (if backend changed)
    - `scripts/github/terraform-plan.sh` handles both phases with RC var-file injection
    - `scripts/github/amplify-post-deploy.sh` tightens CORS/Cognito, triggers Amplify build
 6. **Smoke tests** — API probes + Playwright against live Amplify URL
-7. **Notify** — step summary with re-run instructions; deletes lambda-zip artifact
+7. **Notify** — step summary with re-run instructions
 
 ### Terraform Workspace Mapping
 
@@ -545,10 +541,10 @@ The GCP facet extends the existing pipeline in tiers.
 
 **Games-slice arrow (landed):**
 
-- **Unified backend image:** the Quarkus backend builds as a plain HTTP fast-jar (the default Maven build; `quarkus-amazon-lambda-rest` moved to the `aws-lambda` profile) and is containerised via hand-written `Dockerfile.jvm-lwa` with the AWS Lambda Web Adapter baked in — one image runs on Cloud Run (HTTP) and, later, AWS Lambda (container). Persistence is selected at **runtime** by the `sudoku.persistence` property (CDI producer over `@LookupIfProperty` adapters); the `%gcp` profile (`QUARKUS_PROFILE=gcp`, parent `prod`) flips it to Firestore and carries the Firebase issuer/audience (in-app JWT validation) plus `CORS_ALLOWED_ORIGINS`. `deploy_cloud_run=true` then has Terraform create the Cloud Run service pointing at the pushed image.
+- **Unified backend image:** the Quarkus backend builds as a plain HTTP fast-jar (the only Maven build — the `aws-lambda` profile that used to produce `quarkus-amazon-lambda-rest`'s zip has been retired) and is containerised via hand-written `Dockerfile.jvm-lwa` with the AWS Lambda Web Adapter baked in — the identical image runs on Cloud Run (HTTP) and AWS Lambda (container, via `AWS_LWA_READINESS_CHECK_PATH`). Persistence is selected at **runtime** by the `sudoku.persistence` property (CDI producer over `@LookupIfProperty` adapters); the `%gcp` profile (`QUARKUS_PROFILE=gcp`, parent `prod`) flips it to Firestore and carries the Firebase issuer/audience (in-app JWT validation) plus `CORS_ALLOWED_ORIGINS`. `deploy_cloud_run=true` then has Terraform create the Cloud Run service pointing at the pushed image.
 - **Smoke-test auth:** Identity Platform has no Cognito `USER_PASSWORD_AUTH`; the GCP smoke test obtains a token via the Identity Platform REST endpoint (`identitytoolkit … :signInWithPassword`) using the admin-provisioned test user (runbook §5).
 
-**Out-of-slice parity (see `docs/todo/gcp-aws-parity.md`):** the AWS zip→container Lambda migration, leaderboard + coach-rate-limit Firestore I/O, admin-data Firestore adapter, AI coach on GCP (cross-cloud Bedrock or Vertex), and the image-recognition Cloud Run service (defined behind `deploy_image_recognition`, not yet built/deployed).
+**Out-of-slice parity (see `docs/todo/gcp-aws-parity.md`):** leaderboard + coach-rate-limit Firestore I/O, admin-data Firestore adapter, AI coach on GCP (cross-cloud Bedrock or Vertex), and the image-recognition Cloud Run service (defined behind `deploy_image_recognition`, not yet built/deployed).
 
 **Secrets:** `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA_EMAIL` (set by `gcp-github-bootstrap.sh`); the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are reused for the Identity Platform Google provider.
 
@@ -572,7 +568,7 @@ The GCP facet extends the existing pipeline in tiers.
 | API Gateway CORS fully Terraform-managed | Static custom-domain origins set directly in `api_gateway.tf` | Post-apply tighten step (former design) | Avoids the Amplify-URL-unknown-at-apply-time cycle by simply not supporting the raw `*.amplifyapp.com` origin |
 | Cognito callback URLs two-step | Baseline URL list + post-apply add | Terraform-only | Amplify branch URL unknown at apply time; circular dependency resolved by post-apply script |
 | Amplify auto-build disabled | CI triggers `amplify start-job` manually | Amplify webhook auto-build | `VITE_*` vars baked at build time; auto-build uses stale values |
-| SnapStart for Java Lambda | Enabled on published versions | Provisioned Concurrency | SnapStart is free; Provisioned Concurrency costs per-second even when idle |
+| Java Lambda package type | Container image (parity with GCP Cloud Run) | Zip + SnapStart | Single artifact across both clouds outweighs SnapStart's cold-start benefit, which container images can't use anyway (AWS doesn't support SnapStart for container-image Lambdas) |
 | RC Cognito pool sharing | Single `sudoku-rc` pool via `rc-shared` workspace | Per-branch Cognito pool | Google OAuth requires fixed redirect URIs; one pool = one set of URIs |
 | Pay-per-request DynamoDB | `BILLING_MODE = "PAY_PER_REQUEST"` | Provisioned throughput | Personal project; bursty/low traffic; cheaper at this scale |
 | Lambda `live` alias | API GW targets alias, not function directly | Direct function invocation | Alias enables zero-downtime version promotion and rollback without API GW changes |

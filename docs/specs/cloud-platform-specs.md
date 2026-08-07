@@ -12,7 +12,7 @@
 
 ## Lambda
 
-- [x] **CP-INFRA-010**: The system shall deploy the Java Lambda with SnapStart enabled on published versions to minimise cold-start latency.
+- [x] **CP-INFRA-010**: The system shall deploy the Java Lambda as a container image (the same `Dockerfile.jvm-lwa` image used by Cloud Run) so both clouds run an identical artifact. SnapStart is not used — AWS does not support it for container-image Lambda functions.
 - [x] **CP-INFRA-011**: The system shall route API Gateway traffic to the Java Lambda via a "live" alias pointing to the latest published version.
 - [x] **CP-INFRA-012**: The system shall deploy the Image Recognition Lambda as a container image to support native Python dependencies.
 

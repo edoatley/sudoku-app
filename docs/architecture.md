@@ -6,7 +6,7 @@
 
 ## 1. Solution overview
 
-A serverless Sudoku web application in AWS **eu-west-2** (sandbox account). A React SPA hosted on **AWS Amplify** talks to an **API Gateway HTTP API (v2)** fronting two Lambdas — a Java/Quarkus game API (zip, SnapStart) and a Python image-recognition service (container image, Bedrock vision) — backed by four **DynamoDB** tables. Authentication is **Cognito** with Google as the only identity provider. DNS is delegated from a parent AWS account. Everything is Terraform-managed except a small bootstrap set (state bucket, GitHub OIDC role, ECR repository). Terraform **workspaces** provide environment isolation: `default` = production, `rc-*` = per-branch release candidates, `rc-shared` = Cognito pool shared by all RC environments.
+A serverless Sudoku web application in AWS **eu-west-2** (sandbox account). A React SPA hosted on **AWS Amplify** talks to an **API Gateway HTTP API (v2)** fronting two Lambdas — a Java/Quarkus game API and a Python image-recognition service, both deployed as container images (Bedrock vision on the latter) — backed by four **DynamoDB** tables. Authentication is **Cognito** with Google as the only identity provider. DNS is delegated from a parent AWS account. Everything is Terraform-managed except a small bootstrap set (state bucket, GitHub OIDC role, ECR repositories). Terraform **workspaces** provide environment isolation: `default` = production, `rc-*` = per-branch release candidates, `rc-shared` = Cognito pool shared by all RC environments.
 
 ## 2. Component inventory
 
@@ -71,7 +71,7 @@ Routes (each row = one arrow API GW → Lambda):
 
 | Component | Terraform | Key configuration | Environment behaviour |
 | --- | --- | --- | --- |
-| Java Lambda `sudoku{suffix}` | `lambda.tf` (module `terraform-aws-modules/lambda ~> 8.8`) | Runtime `java25`, Quarkus stream handler, 512 MB, 8 s, x86_64, **SnapStart**, published versions + `live` alias (API GW invokes the alias); deployed from local zip `backend/target/function.zip` | Per workspace |
+| Java Lambda `sudoku{suffix}` | `lambda.tf` (module `terraform-aws-modules/lambda ~> 8.8`) | Container image (`Dockerfile.jvm-lwa`, same artifact as GCP Cloud Run), 512 MB, 8 s, x86_64, published versions + `live` alias (API GW invokes the alias); no SnapStart (unsupported for container-image Lambdas); deployed from ECR `sudoku-backend:{branch}-{sha}` | Per workspace |
 | Image recognition Lambda `sudoku-image-recognition{suffix}` | `image_recognition_lambda.tf` (same module) | Container image (Python + Pillow) from ECR, 512 MB, 60 s timeout (Bedrock inference ~20 s + container cold start); no alias/versions | Per workspace |
 
 Java Lambda environment: `CORS_ALLOWED_ORIGINS`, `DYNAMODB_TABLE_NAME`, `PLAYERS_TABLE_NAME`, `COACH_RATE_LIMIT_TABLE_NAME`, `COGNITO_ISSUER_URL`, `COGNITO_CLIENT_ID`.
@@ -85,8 +85,8 @@ Image Lambda environment: `AWS_REGION_NAME`, `BEDROCK_MODELS` (from `local.bedro
 | DynamoDB `SudokuPlayers{suffix}` | `dynamodb.tf` | PK `userId`; player profile incl. AI-coach toggle + monthly token counter | PITR on default only |
 | DynamoDB `SudokuLeaderboard{suffix}` | `dynamodb.tf` | PK `userId` | PITR on default only |
 | DynamoDB `SudokuCoachRateLimits{suffix}` | `dynamodb.tf` | PK `userId`, SK `window` (UTC minute); TTL `expiresAt` | Ephemeral counters, PITR off |
-| S3 `sudoku-lambda-zip-{account_id}` | `lambda.tf` | Zip staging/fallback; public access blocked; 30-day expiry lifecycle | Owned by `default`; other workspaces reference via data source, write to `{workspace}/function.zip` |
-| ECR `sudoku-image-recognition` | data source only | Tags `{branch}-{sha}`, `{branch}-latest` | Created by `scripts/bootstrap.sh` (outside Terraform); shared by all workspaces |
+| ECR `sudoku-backend` | data source only | Tags `{branch}-{sha}`, `{branch}-latest` | Created by `scripts/infra/bootstrap.sh` (outside Terraform); shared by all workspaces |
+| ECR `sudoku-image-recognition` | data source only | Tags `{branch}-{sha}`, `{branch}-latest` | Created by `scripts/infra/bootstrap.sh` (outside Terraform); shared by all workspaces |
 | S3 `sudoku-tf-state` | backend config | Terraform state, encrypted, native S3 locking | Bootstrap-created; one key per workspace |
 
 ### 2.7 AI
@@ -153,7 +153,7 @@ Deployment plane:
 | D1 | GitHub Actions → AWS STS | OIDC federation, assumes `sudoku-github-actions-deploy` |
 | D2 | GitHub Actions → S3 `sudoku-tf-state` | Terraform state (per-workspace key, S3-native locking) |
 | D3 | GitHub Actions → all managed resources | `terraform apply` (two-phase: domain association second, to dodge the ACM wait) |
-| D4 | GitHub Actions → S3 zip bucket | Upload `{workspace}/function.zip` (module deploys from the local file; S3 copy is the redeploy fallback) |
+| D4 | GitHub Actions → ECR | Docker push `sudoku-backend:{branch}-{sha}` |
 | D5 | GitHub Actions → ECR | Docker push `sudoku-image-recognition:{branch}-{sha}` |
 | D6 | GitHub Actions → Cognito | Post-apply: tighten web-client callback/logout URLs to the exact Amplify URL (`ignore_changes` keeps Terraform from reverting) |
 | D7 | GitHub Actions → Amplify | `start-job` build trigger (auto-build disabled by design) |
@@ -168,7 +168,6 @@ Deployment plane:
 | Frontend URL | `sudoku.edoatley.co.uk` (+`www`) | `sudoku-beta.edoatley.co.uk` (last RC to deploy wins) | — |
 | Cognito | owns pool `sudoku` | reads shared pool `sudoku-rc` | owns pool `sudoku-rc` |
 | Route53 zones | owns both | reads zone IDs via remote state | — |
-| S3 zip bucket | owns it | data-source reference, own key prefix | — |
 | API GW / Lambdas / DynamoDB / IAM | own set | own isolated set | none |
 | PITR / log retention / Amplify stage | on / 7d / PRODUCTION | off / 3d / DEVELOPMENT | — |
 | AI coach routes | disabled (feature flag) | enabled | — |
@@ -180,7 +179,7 @@ A non-default, non-`rc-*` workspace (feature env) gets its own Cognito pool and 
 
 **Page load + login**: Browser resolves `sudoku.edoatley.co.uk` (R1) → loads SPA from Amplify (R2) → redirects to Cognito Hosted UI (R3) → Google authenticates (R4) → auth code exchanged for JWT (ID/access/refresh) in the browser.
 
-**Game API call** (e.g. `PATCH /api/v1/games/{id}`): Browser sends JSON + Bearer ID token to API Gateway (R5) → gateway CORS + throttle + JWT validation (R6) → route → Java Lambda `live` alias (R7, SnapStart keeps cold starts low) → reads/writes `SudokuGames` (R9) → JSON response.
+**Game API call** (e.g. `PATCH /api/v1/games/{id}`): Browser sends JSON + Bearer ID token to API Gateway (R5) → gateway CORS + throttle + JWT validation (R6) → route → Java Lambda `live` alias (R7, container image via the Lambda Web Adapter) → reads/writes `SudokuGames` (R9) → JSON response.
 
 **Image-to-puzzle scan**: SPA may first hit the public warmup route (R8) to wake the container → `POST /api/v1/ai/image-to-puzzle` with the photo (R5, JWT) → image Lambda pre-processes with Pillow and calls Claude Haiku on Bedrock (R11) → returns the extracted 9×9 grid → SPA creates the game via `POST /api/v1/games/from-image`.
 
@@ -216,14 +215,13 @@ flowchart TB
         end
 
         subgraph Compute
-            JLAM[Java Lambda sudoku<br/>Quarkus, SnapStart, live alias]
+            JLAM[Java Lambda sudoku<br/>Quarkus container, live alias]
             ILAM[Image recognition Lambda<br/>Python container]
         end
 
         subgraph Data["Data & artifacts"]
             DDB[(DynamoDB ×4<br/>Games, Players,<br/>Leaderboard, CoachRateLimits)]
-            S3Z[(S3 lambda-zip bucket)]
-            ECR[(ECR image repo)]
+            ECR[(ECR image repos<br/>sudoku-backend,<br/>sudoku-image-recognition)]
             S3S[(S3 terraform state)]
         end
 
@@ -253,10 +251,11 @@ flowchart TB
     DENY -.->|denies Bedrock| JLAM
 
     GH -->|D1-D3 OIDC + terraform| S3S
-    GH -->|D4 zip| S3Z
+    GH -->|D4 image| ECR
     GH -->|D5 image| ECR
     GH -->|D6 tighten callbacks| COG
     GH -->|D7 build trigger| AMP
     AMP -.->|D8 pull source| GH
+    ECR -.->|image source| JLAM
     ECR -.->|image source| ILAM
 ```

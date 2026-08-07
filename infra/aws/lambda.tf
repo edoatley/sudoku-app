@@ -1,58 +1,10 @@
-resource "aws_s3_bucket" "lambda_zip" {
-  count  = local.is_default ? 1 : 0
-  bucket = "sudoku-lambda-zip-${local.account_id}"
-
-  # checkov:skip=CKV_AWS_18: Access logging not needed for a Lambda deployment artefact bucket
-  # checkov:skip=CKV_AWS_21: Versioning intentionally disabled — lifecycle rule expires objects after 30 days
-  # checkov:skip=CKV_AWS_144: Cross-region replication adds ongoing cost; unnecessary for a deployment artefact bucket
-  # checkov:skip=CKV_AWS_145: KMS CMK encryption costs ~$1/month; SSE-S3 (default) is sufficient for deployment artefacts
-  # checkov:skip=CKV2_AWS_62: Event notifications have no use case for a deployment artefact bucket
-}
-
-data "aws_s3_bucket" "lambda_zip_shared" {
-  count  = local.is_default ? 0 : 1
-  bucket = "sudoku-lambda-zip-${local.account_id}"
-}
-
-resource "aws_s3_bucket_public_access_block" "lambda_zip" {
-  count  = local.is_default ? 1 : 0
-  bucket = aws_s3_bucket.lambda_zip[0].id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "lambda_zip" {
-  count  = local.is_default ? 1 : 0
-  bucket = aws_s3_bucket.lambda_zip[0].id
-
-  rule {
-    id     = "expire-old-zips"
-    status = "Enabled"
-
-    filter {}
-
-    expiration {
-      days = 30
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
-  }
-}
-
-# Not consumed by module.lambda below — it deploys from local_existing_package
-# (the local jar), not this object. Uploaded purely so deploy-local.sh can
-# download it as a fallback when no local jar is present. etag forces
-# re-upload detection but plays no role in Lambda versioning.
-resource "aws_s3_object" "lambda_zip" {
-  bucket = local.lambda_zip_bucket_id
-  key    = "${terraform.workspace}/function.zip"
-  source = var.lambda_zip_path
-  etag   = filemd5(var.lambda_zip_path)
+# ── ECR repository ────────────────────────────────────────────────────────────
+# A single shared repository is used for all environments (main + RC branches).
+# Branch-prefixed tags distinguish images: <branch>-<sha> and <branch>-latest.
+# The repository is managed by scripts/infra/bootstrap.sh, not Terraform, so it is
+# never accidentally destroyed during terraform destroy of an RC workspace.
+data "aws_ecr_repository" "sudoku_backend" {
+  name = "sudoku-backend"
 }
 
 module "lambda" {
@@ -60,26 +12,22 @@ module "lambda" {
   version = "~> 8.8"
 
   function_name = "sudoku${local.suffix}"
-  description   = "Sudoku game API (Quarkus/Java)"
+  description   = "Sudoku game API (Quarkus/Java, container)"
 
   # Use existing IAM role — avoids a destroy+create cycle for a role rename
   create_role = false
   lambda_role = aws_iam_role.lambda_exec.arn
 
-  # CI downloads the built JAR to backend/target/function.zip before running Terraform.
-  # local_existing_package causes the module to compute source_code_hash = filebase64sha256(path),
-  # so Terraform detects code changes and publishes a new Lambda version on every JAR change.
-  create_package         = false
-  local_existing_package = var.lambda_zip_path
+  package_type   = "Image"
+  image_uri      = var.backend_image_uri
+  create_package = false
 
-  runtime       = "java25"
-  handler       = "io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest"
   architectures = ["x86_64"]
   memory_size   = 512
   timeout       = 8
   publish       = true
 
-  snap_start   = true
+  # SnapStart is not supported for container-image Lambda functions.
   tracing_mode = "PassThrough"
 
   # reserved_concurrent_executions not set — account limit is 10 total, reserving any would

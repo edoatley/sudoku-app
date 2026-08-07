@@ -16,10 +16,15 @@ variable "github_repo" {
   default     = "sudoku-app"
 }
 
-variable "lambda_zip_path" {
-  description = "Local path to the Lambda deployment zip produced by the Maven build."
+variable "backend_image_uri" {
+  description = "ECR image URI for the backend Lambda (e.g. 123456789.dkr.ecr.eu-west-2.amazonaws.com/sudoku-backend:latest)."
   type        = string
-  default     = "../../backend/target/function.zip"
+  default     = ""
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/.+:.+$", var.backend_image_uri))
+    error_message = "backend_image_uri must be a full ECR image URI (e.g. <account>.dkr.ecr.<region>.amazonaws.com/sudoku-backend:<tag>). Build and push one first (see the backend CI build job or scripts/infra/bootstrap.sh), or pass -var \"backend_image_uri=...\" explicitly."
+  }
 }
 
 variable "api_gateway_throttle_burst_limit" {

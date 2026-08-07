@@ -67,7 +67,7 @@ The `/puzzles/generate` endpoint is the most compute-intensive public route and 
 | Java (Quarkus) | 8 seconds |
 | Image Recognition (Python) | 60 seconds |
 
-Puzzle generation is near-instant; the Java timeout is set to 8s to allow for SnapStart resume overhead while still failing fast on hangs.
+Puzzle generation is near-instant; the Java timeout is set to 8s to allow for container cold-start overhead while still failing fast on hangs.
 
 ---
 

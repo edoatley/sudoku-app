@@ -69,21 +69,31 @@ jobs:
               - 'ui/**'
 
   build-backend:
-    name: Build Backend
+    name: Build & Push Backend Image
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [gate-ui, gate-backend, changes]
     if: needs.changes.outputs.backend == 'true'
+    outputs:
+      image_uri: ${{ steps.build.outputs.image_uri }}
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/build-lambda-zip
-      - name: Upload Lambda zip artifact
-        uses: actions/upload-artifact@v7
+
+      - uses: ./.github/actions/configure-aws-oidc
         with:
-          name: lambda-zip
-          path: backend/target/function.zip
-          retention-days: 1
+          role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - uses: ./.github/actions/setup-java
+
+      - name: Log in to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push backend image
+        id: build
+        uses: ./.github/actions/build-backend-image
+        with:
+          registry: ${{ steps.ecr-login.outputs.registry }}
 
   build-image-recognition:
     name: Build Image Recognition Lambda
@@ -148,34 +158,47 @@ jobs:
         with:
           role-arn: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
 
-      - name: Download freshly built Lambda zip
-        if: needs.changes.outputs.backend == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: lambda-zip
-          path: backend/target/
-
-      - name: Download current Lambda zip from S3 (no backend changes)
-        id: s3-download
+      - name: Resolve backend image URI (no backend changes — reuse currently deployed image)
+        id: current-image
         if: needs.changes.outputs.backend != 'true'
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          BUCKET="sudoku-lambda-zip-${ACCOUNT_ID}"
           WORKSPACE="${{ steps.env.outputs.workspace }}"
-          mkdir -p backend/target
-          if aws s3 ls "s3://${BUCKET}/${WORKSPACE}/function.zip" > /dev/null 2>&1; then
-            echo "Downloading current zip from s3://${BUCKET}/${WORKSPACE}/function.zip"
-            aws s3 cp "s3://${BUCKET}/${WORKSPACE}/function.zip" backend/target/function.zip
+          FUNC_NAME="sudoku$([ "${WORKSPACE}" = "default" ] && echo "" || echo "-${WORKSPACE}")"
+          URI=$(aws lambda get-function --function-name "${FUNC_NAME}" --query 'Code.ImageUri' --output text 2>/dev/null || echo "")
+          if [ -n "${URI}" ] && [ "${URI}" != "None" ]; then
+            echo "Reusing currently deployed image: ${URI}"
+            echo "image_uri=${URI}" >> "$GITHUB_OUTPUT"
           else
+            echo "No deployed image found — will build fresh."
             echo "needs_build=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: ./.github/actions/setup-java
-        if: steps.s3-download.outputs.needs_build == 'true'
+        if: steps.current-image.outputs.needs_build == 'true'
 
-      - name: Build Lambda zip (S3 fallback — no prior deployment found)
-        if: steps.s3-download.outputs.needs_build == 'true'
-        uses: ./.github/actions/build-lambda-zip
+      - name: Log in to ECR (fallback build)
+        id: ecr-login-fallback
+        if: steps.current-image.outputs.needs_build == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push backend image (fallback — no prior deployment found)
+        id: fallback-build
+        if: steps.current-image.outputs.needs_build == 'true'
+        uses: ./.github/actions/build-backend-image
+        with:
+          registry: ${{ steps.ecr-login-fallback.outputs.registry }}
+
+      - name: Resolve final backend image URI
+        id: backend-image
+        run: |
+          if [ -n "${{ steps.fallback-build.outputs.image_uri }}" ]; then
+            URI="${{ steps.fallback-build.outputs.image_uri }}"
+          elif [ -n "${{ steps.current-image.outputs.image_uri }}" ]; then
+            URI="${{ steps.current-image.outputs.image_uri }}"
+          else
+            URI="${{ needs.build-backend.outputs.image_uri }}"
+          fi
+          echo "image_uri=${URI}" >> "$GITHUB_OUTPUT"
 
       - uses: hashicorp/setup-terraform@v4
 
@@ -211,6 +234,7 @@ jobs:
           TF_VAR_smoke_test_user_email:    ${{ secrets.SMOKE_TEST_USER_EMAIL }}
           TF_VAR_smoke_test_user_password: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
           TF_VAR_image_recognition_image_uri: ${{ needs.build-image-recognition.outputs.image_uri }}
+          TF_VAR_backend_image_uri:         ${{ steps.backend-image.outputs.image_uri }}
           TF_VAR_git_branch:               ${{ steps.env.outputs.amplify_branch }}
           TF_VAR_budget_alert_email:       ${{ secrets.BUDGET_ALERT_EMAIL }}
         run: |
@@ -347,11 +371,3 @@ jobs:
             echo "### Smoke tests failed ❌ (status: ${SMOKE_STATUS})" >> "$GITHUB_STEP_SUMMARY"
             echo "Check the smoke-test job logs for details." >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      - name: Delete lambda-zip artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
-            --jq '.artifacts[] | select(.name == "lambda-zip") | .id' \
-            | xargs -I{} gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/{}

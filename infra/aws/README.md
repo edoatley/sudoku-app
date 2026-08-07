@@ -22,7 +22,7 @@ flowchart LR
     APIGW -->|JWT authorizer| COG
     APIGW -->|proxy| LAM[Lambda]
     APIGW --> CWL[CloudWatch Logs]
-    LAM --> S3Z[S3 zip bucket]
+    LAM --> ECRB[ECR sudoku-backend]
     LAM --> DDB[(DynamoDB)]
     LAM --> ROLE[IAM Role]
     ROLE --> POL[DynamoDB Policies]
@@ -54,7 +54,7 @@ Both `sudoku.edoatley.co.uk` and `sudoku-beta.edoatley.co.uk` Route53 zones live
 | `api_gateway.tf` | HTTP API v2, JWT authorizer, routes, stage, CloudWatch log group |
 | `cognito.tf` | User Pool, Google IdP, hosted UI domain, app clients |
 | `cognito-rc-shared.tf` | Shared Cognito pool for all `rc-*` workspaces (applied in `rc-shared` workspace only) |
-| `lambda.tf` | S3 zip bucket, Lambda function, alias |
+| `lambda.tf` | ECR data source, Lambda function (container image), alias |
 | `iam.tf` | Lambda execution roles and DynamoDB policies |
 | `dynamodb.tf` | `SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, and `SudokuCoachRateLimits` tables |
 | `image_recognition_lambda.tf` | Image recognition Lambda (Bedrock-backed, container image) |
@@ -97,10 +97,10 @@ RC workspaces read the beta zone ID from the default workspace's remote state (`
 
 ### Lambda
 
-- Runtime: `java25`, handler: `io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest`
+- Runtime: container image (`Dockerfile.jvm-lwa` — Java 25 HTTP fast-jar + AWS Lambda Web Adapter); the same image GCP Cloud Run runs
 - Architecture: `x86_64`, memory: 512 MB, timeout: 8 s
-- SnapStart: enabled on published versions (reduces cold starts)
-- Deployment: zip uploaded to S3 (`sudoku-lambda-zip-{account_id}`)
+- SnapStart: not used — AWS does not support it for container-image Lambda functions
+- Deployment: image pushed to ECR (`sudoku-backend`)
 - Alias `live` always points to the current published version
 
 ### DynamoDB
@@ -248,14 +248,9 @@ Terraform workspaces give each `rc-*` branch its own isolated AWS stack. The `de
 | `rc-shared` | `env:/rc-shared/sudoku/terraform.tfstate` |
 | `rc-my-feature` | `env:/rc-my-feature/sudoku/terraform.tfstate` |
 
-### S3 Zip Bucket Sharing
+### ECR Repository Sharing
 
-The Lambda zip bucket (`sudoku-lambda-zip-{account_id}`) is owned by the `default` workspace. All `rc-*` workspaces reference it via a `data "aws_s3_bucket"` source and write to their own prefixed key:
-
-| Workspace | S3 key |
-|-----------|--------|
-| `default` | `default/function.zip` |
-| `rc-my-feature` | `rc-my-feature/function.zip` |
+The `sudoku-backend` and `sudoku-image-recognition` ECR repositories are created once (outside Terraform, by `scripts/infra/bootstrap.sh`) and shared by every workspace — all workspaces reference them via a `data "aws_ecr_repository"` source. There is no per-workspace prefix; images are tagged per branch instead (`{branch}-{sha}`, `{branch}-latest`).
 
 ---
 
@@ -311,9 +306,9 @@ This creates (idempotent — safe to re-run):
 | S3 state bucket | `sudoku-tf-state` |
 | GitHub OIDC provider | `token.actions.githubusercontent.com` |
 | GitHub Actions deploy role | `sudoku-github-actions-deploy` (inline policy: `SudokuDeployPolicy`) |
-| ECR repository | `sudoku-image-recognition` |
+| ECR repositories | `sudoku-backend`, `sudoku-image-recognition` |
 
-The deploy role policy covers: S3 (state + zip bucket), Lambda, API Gateway, Amplify, IAM (scoped to Sudoku roles/policies), ECR, Cognito, DynamoDB, CloudWatch Logs, and **Route53** (for the hosted zone and DNS records).
+The deploy role policy covers: S3 (state), Lambda, API Gateway, Amplify, IAM (scoped to Sudoku roles/policies), ECR, Cognito, DynamoDB, CloudWatch Logs, and **Route53** (for the hosted zone and DNS records).
 
 After running, add these GitHub Actions secrets:
 
@@ -353,7 +348,7 @@ cd infra/aws && AWS_PROFILE=sandbox terraform init
 ### Deploy Flow (`ci-deploy.yml`, both `main` and `rc-*`)
 
 ```
-build backend zip
+build & push backend image (ECR)
         │
         ▼
   terraform init
@@ -397,7 +392,7 @@ bash scripts/infra/deploy-local.sh main     # force production workspace
 bash scripts/infra/deploy-local.sh rc-foo   # force rc-foo workspace
 ```
 
-The script handles workspace selection, S3 zip download fallback, two-phase apply, NS record printing, and CORS/Cognito tightening.
+The script handles workspace selection, reusing (or looking up) the currently deployed backend/image-recognition images, two-phase apply, NS record printing, and CORS/Cognito tightening.
 
 ### Tearing Down an rc-* Workspace
 
@@ -412,7 +407,7 @@ AWS_PROFILE=sandbox terraform destroy \
   -var "github_token=<token>" \
   -var "google_client_id=<id>" \
   -var "google_client_secret=<secret>" \
-  -var "lambda_zip_path=/dev/null"
+  -var "backend_image_uri=000000000000.dkr.ecr.eu-west-2.amazonaws.com/placeholder:latest"
 AWS_PROFILE=sandbox terraform workspace select default
 AWS_PROFILE=sandbox terraform workspace delete rc-my-feature
 ```
