@@ -18,10 +18,23 @@
 
 - [ ] **LT-BE-007**: The system shall provide a `LeaderboardRepository` interface with methods `updateOnSolve(userId, difficulty, elapsedSeconds, score, outcome)` and `findAll()`.
 - [ ] **LT-BE-008**: `updateOnSolve` shall always increment `totalGames` by 1 via a DynamoDB `ADD` expression.
-- [ ] **LT-BE-009**: When `outcome` is `SOLVED`, `updateOnSolve` shall increment `totalWins` by 1, `totalScore` by `score`, and `totalElapsedSeconds` by `elapsedSeconds`.
-- [ ] **LT-BE-010**: When `outcome` is `SOLVED` and the elapsed time is lower than the stored best time for that difficulty (or no best time exists), `updateOnSolve` shall update the `best{Difficulty}Seconds` attribute using a conditional DynamoDB expression.
+- [ ] **LT-BE-009**: When `outcome` is `"won"`, `updateOnSolve` shall increment `totalWins` by 1, `totalScore` by `score`, and `totalElapsedSeconds` by `elapsedSeconds`.
+- [ ] **LT-BE-010**: When `outcome` is `"won"` and the elapsed time is lower than the stored best time for that difficulty (or no best time exists), `updateOnSolve` shall update the `best{Difficulty}Seconds` attribute using a conditional DynamoDB expression.
 - [ ] **LT-BE-011**: `updateOnSolve` shall set `updatedAt` to the current UTC timestamp on every call.
 - [ ] **LT-BE-012**: `findAll()` shall return all items in the `SudokuLeaderboard` table via a `Scan`.
+
+## Leaderboard Aggregate — Firestore (GCP)
+
+These specs cover the GCP adapter of the same `LeaderboardRepository` port defined in LT-BE-007. The stored fields and the read-derived `avgScore`/`avgElapsedSeconds` are identical to the DynamoDB table; only the persistence mechanism differs. Traces up to `CP-GCP-021`.
+
+- [ ] **LT-GCP-001**: When `sudoku.persistence` is `firestore`, the system shall select `FirestoreLeaderboardRepository` as the active `LeaderboardRepository` (replacing `NoOpLeaderboardRepository`); otherwise it shall select `DynamoDbLeaderboardRepository`.
+- [ ] **LT-GCP-002**: `FirestoreLeaderboardRepository` shall store one document per player in the `leaderboard` Firestore collection, keyed by `userId`, using `LeaderboardItem` as the document model.
+- [ ] **LT-GCP-003**: `FirestoreLeaderboardRepository.updateOnSolve` shall perform its read-modify-write of the player's document within a single Firestore transaction.
+- [ ] **LT-GCP-004**: When the player's `leaderboard` document does not exist, `updateOnSolve` shall initialise a new `LeaderboardItem` carrying the player's `userId` and zeroed counters before applying updates.
+- [ ] **LT-GCP-005**: `FirestoreLeaderboardRepository.updateOnSolve` shall increment `totalGames` by 1 and set `updatedAt` to the current UTC timestamp on every call.
+- [ ] **LT-GCP-006**: When `outcome` is `"won"`, `FirestoreLeaderboardRepository.updateOnSolve` shall increment `totalWins` by 1, `totalScore` by `score`, and `totalElapsedSeconds` by `elapsedSeconds`.
+- [ ] **LT-GCP-007**: When `outcome` is `"won"`, `FirestoreLeaderboardRepository.updateOnSolve` shall set `best{Difficulty}Seconds` to the lesser of the stored value and `elapsedSeconds` (an absent value counts as no prior best), mapping `easy`/`medium`/`hard`/`imported` to their attributes and any other difficulty to `bestMediumSeconds`.
+- [ ] **LT-GCP-008**: `FirestoreLeaderboardRepository.findAll()` shall return every document in the `leaderboard` collection mapped to `LeaderboardItem`, performing no query filter or ordering (ranking is done in memory, so no composite index is required).
 
 ## Leaderboard Aggregate — Service Trigger
 

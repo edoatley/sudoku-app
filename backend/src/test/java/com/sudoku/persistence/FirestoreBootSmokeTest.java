@@ -3,7 +3,7 @@ package com.sudoku.persistence;
 import com.sudoku.game.GameRepository;
 import com.sudoku.game.persistence.FirestoreGameRepository;
 import com.sudoku.leaderboard.LeaderboardRepository;
-import com.sudoku.leaderboard.persistence.NoOpLeaderboardRepository;
+import com.sudoku.leaderboard.persistence.FirestoreLeaderboardRepository;
 import com.sudoku.player.PlayerRepository;
 import com.sudoku.player.persistence.FirestorePlayerRepository;
 import io.quarkus.arc.ClientProxy;
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
  * ones like the coach rate limiter that inject {@code DynamoDbClient} — failed to wire, this test
  * would fail at container start.
  *
- * @spec GL-GCP-001, UM-GCP-007
+ * @spec GL-GCP-001, UM-GCP-007, LT-GCP-001
  */
 @QuarkusTest
 @TestProfile(FirestorePersistenceProfile.class)
@@ -41,6 +41,6 @@ class FirestoreBootSmokeTest {
     void firestoreAdaptersAreSelected() {
         assertInstanceOf(FirestoreGameRepository.class, ClientProxy.unwrap(gameRepository));
         assertInstanceOf(FirestorePlayerRepository.class, ClientProxy.unwrap(playerRepository));
-        assertInstanceOf(NoOpLeaderboardRepository.class, ClientProxy.unwrap(leaderboardRepository));
+        assertInstanceOf(FirestoreLeaderboardRepository.class, ClientProxy.unwrap(leaderboardRepository));
     }
 }

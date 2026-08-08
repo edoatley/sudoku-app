@@ -25,6 +25,14 @@ Introduce server-side scoring, a write-through leaderboard aggregate, and a `GET
 | LT-BE-010 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — conditional best-time update | [ ] |
 | LT-BE-011 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `updatedAt` | [ ] |
 | LT-BE-012 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `findAll()` Scan | [ ] |
+| LT-GCP-001 | `backend/.../leaderboard/persistence/LeaderboardRepositoryProducer.java` — firestore selection | [x] |
+| LT-GCP-002 | `backend/.../leaderboard/persistence/FirestoreLeaderboardRepository.java` — `leaderboard` collection, `LeaderboardItem` doc model | [x] |
+| LT-GCP-003 | `FirestoreLeaderboardRepository.updateOnSolve` — Firestore transaction (read-modify-write) | [x] |
+| LT-GCP-004 | `FirestoreLeaderboardRepository.newItem` — new-doc init with `userId` + zeroed counters | [x] |
+| LT-GCP-005 | `FirestoreLeaderboardRepository.updateOnSolve` — `totalGames` + `updatedAt` | [x] |
+| LT-GCP-006 | `FirestoreLeaderboardRepository.updateOnSolve` — win counters (`totalWins`/`totalScore`/`totalElapsedSeconds`) | [x] |
+| LT-GCP-007 | `FirestoreLeaderboardRepository.updateBestTime` — min best-time, unknown difficulty → medium | [x] |
+| LT-GCP-008 | `FirestoreLeaderboardRepository.findAll` — collection read (no index) | [x] |
 | LT-BE-013 | `backend/.../game/GameServiceImpl.java` — trigger `updateOnSolve` | [ ] |
 | LT-BE-014 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — join + rank | [ ] |
 | LT-BE-015 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — primary sort avgScore | [ ] |

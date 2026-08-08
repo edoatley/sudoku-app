@@ -5,7 +5,9 @@
 
 ## Context and Current State
 
-The League Table component provides cross-player performance comparison. Scoring is computed server-side when a game is solved and stored in `GameItem`. A write-through `SudokuLeaderboard` DynamoDB table aggregates stats per player. The `GET /api/v1/leaderboard` endpoint returns ranked player stats. A full-screen `LeaderboardView` renders the league table in the frontend.
+The League Table component provides cross-player performance comparison. Scoring is computed server-side when a game is solved and stored in `GameItem`. A write-through leaderboard aggregate stores one item per player. The `GET /api/v1/leaderboard` endpoint returns ranked player stats. A full-screen `LeaderboardView` renders the league table in the frontend.
+
+The aggregate store is a runtime-selected adapter behind the `LeaderboardRepository` port, mirroring the games/player-profile persistence split: `DynamoDbLeaderboardRepository` on AWS (`SudokuLeaderboard` table) and `FirestoreLeaderboardRepository` on GCP (`leaderboard` collection), chosen by the `sudoku.persistence` property via `LeaderboardRepositoryProducer`. The ranking/read logic and REST surface are cloud-agnostic.
 
 This LLD introduced:
 1. Server-side scoring (computed on game solve, stored in `GameItem`)
@@ -54,7 +56,7 @@ New table alongside `SudokuGames` and `SudokuPlayers`. Simple PK-only design (no
 `DynamoDbLeaderboardRepository.updateOnSolve(userId, difficulty, elapsedSeconds, score, outcome)`:
 
 1. Always increments `totalGames` (ADD 1)
-2. If outcome is `SOLVED`:
+2. If `outcome` is `"won"`:
    - Increments `totalWins` (ADD 1)
    - Increments `totalScore` by `score` (ADD score)
    - Increments `totalElapsedSeconds` by `elapsedSeconds` (ADD elapsedSeconds)
@@ -63,7 +65,23 @@ New table alongside `SudokuGames` and `SudokuPlayers`. Simple PK-only design (no
 
 Uses a single `UpdateItem` call with `ADD` expressions. The condition for best-time update uses `attribute_not_exists(best{Difficulty}Seconds) OR best{Difficulty}Seconds > :elapsed`.
 
-`GameServiceImpl` calls `leaderboardRepository.updateOnSolve()` immediately after `gameRepository.update()` when the game transitions to SOLVED or ABANDONED. Both updates share no transaction — the aggregate is eventually consistent (acceptable for a personal app with 4 users).
+`GameServiceImpl` calls `leaderboardRepository.updateOnSolve()` immediately after `gameRepository.update()` when the game transitions to SOLVED or ABANDONED. The game update and the leaderboard update share no cross-store transaction — the aggregate is eventually consistent with the game record (acceptable for a personal app with 4 users). This is independent of how each adapter makes its *own* aggregate update atomic (see below).
+
+## Firestore Aggregate (GCP)
+
+On GCP the same aggregate lives in the `leaderboard` Firestore collection, one document per player keyed by `userId` (the Google-`sub` id) — part of **CP-GCP-021**. `LeaderboardItem` is reused as the document model: Firestore's POJO mapper serialises its getters and the DynamoDB annotations are inert, exactly as `FirestorePlayerRepository` reuses `PlayerItem`. The fields, nullability, and the read-derived `avgScore` / `avgElapsedSeconds` are identical to the DynamoDB table above.
+
+`FirestoreLeaderboardRepository.updateOnSolve(userId, difficulty, elapsedSeconds, score, outcome)` performs the read-modify-write inside a **Firestore transaction** (`firestore.runTransaction`):
+
+1. Read the `leaderboard/{userId}` document (or start from a zero-valued `LeaderboardItem` if absent).
+2. Increment `totalGames` by 1.
+3. If `outcome` is `"won"`: increment `totalWins` by 1, `totalScore` by `score`, `totalElapsedSeconds` by `elapsedSeconds`, and set `best{Difficulty}Seconds = min(existing, elapsedSeconds)` (treating absent as +∞).
+4. Set `updatedAt` to the current UTC timestamp.
+5. Write the document back within the transaction.
+
+Firestore has no single-operation equivalent of DynamoDB's atomic `ADD` + conditional-min, so the counters and best-time must be computed from a prior read; the transaction makes that read-modify-write atomic against concurrent writers to the same document (Firestore retries the transaction body on contention). `findAll()` reads every document in the `leaderboard` collection (≤4) and maps each to a `LeaderboardItem` — the read side `LeaderboardServiceImpl` already ranks in memory, so no Firestore index is required.
+
+`FirestoreLeaderboardRepository` (`@LookupIfProperty(sudoku.persistence=firestore)`) replaces the `NoOpLeaderboardRepository` stub that let the GCP build boot while the leaderboard was out of scope.
 
 ## REST API
 
@@ -114,9 +132,11 @@ Computed in `LeaderboardServiceImpl.getLeaderboard()`:
 ## Backend Package Structure
 
 New package `com.sudoku.leaderboard`:
-- `LeaderboardItem.java` — `@DynamoDbBean`, maps to `SudokuLeaderboard` table
+- `LeaderboardItem.java` — `@DynamoDbBean` (also the Firestore document model), maps to `SudokuLeaderboard` / `leaderboard`
 - `LeaderboardRepository.java` — interface: `updateOnSolve(...)`, `findAll()`
-- `DynamoDbLeaderboardRepository.java` — `@ApplicationScoped` implementation
+- `persistence/LeaderboardRepositoryProducer.java` — selects the adapter at runtime on `sudoku.persistence`
+- `persistence/DynamoDbLeaderboardRepository.java` — AWS implementation (`@LookupUnlessProperty` firestore)
+- `persistence/FirestoreLeaderboardRepository.java` — GCP implementation (`@LookupIfProperty` firestore); replaces `NoOpLeaderboardRepository`
 - `LeaderboardService.java` — interface: `getLeaderboard()`
 - `LeaderboardServiceImpl.java` — `@ApplicationScoped` implementation
 - `LeaderboardResource.java` — `@Path("/api/v1/leaderboard")` JAX-RS resource
@@ -179,13 +199,14 @@ The League Table menu item in `Header.jsx` uses `EmojiEvents` icon (trophy).
 | Scoring location | Backend, on SOLVED | Resolves FE-UI-042b; single source of truth for leaderboard |
 | Aggregate strategy | Write-through on solve | O(1) leaderboard read; avoids scanning grid JSON from SudokuGames |
 | New table vs SudokuPlayers extension | New table | SudokuPlayers has no sort key — adding one requires recreation; new table keeps separation of concerns |
-| Transaction | None (eventual consistency) | Personal app with 4 users; atomic UPDATE + leaderboard eventual consistency is acceptable |
+| Game↔leaderboard consistency | No cross-store transaction | Personal app with 4 users; the leaderboard aggregate being eventually consistent with the game record is acceptable |
+| Firestore aggregate write | Firestore transaction | Firestore has no atomic ADD+min in one op, so the counters/best-time need a read-modify-write; a transaction keeps it race-safe, matching the intent behind DynamoDB's atomic ADD/conditional-min. Rejected: non-atomic get-then-set (as `FirestorePlayerRepository` does for coach tokens) — simpler and near-zero contention here (single active game per user), but it can silently lose a counter increment, and these counters are user-visible, so parity with the DynamoDB adapter's race-safety was preferred |
 | Ranking tie-break | avgScore desc, avgElapsedSeconds asc | Faster player wins on equal average score |
-| `findAll()` implementation | Scan | 4-item table; Scan costs less than BatchGetItem setup overhead at this scale |
+| `findAll()` implementation | Scan (Dynamo) / full collection read (Firestore) | ≤4 items; cheaper than BatchGetItem/index setup, and ranking is done in memory so no query filter/order (hence no Firestore composite index) |
 
 ## References
 
-- Depends on: Game Lifecycle (`GameItem`, `GameServiceImpl`, `GameRepository`), User Management (`PlayerRepository`, `PlayerItem`), Navigation (`LeaderboardView` uses view layout standard), Cloud Platform (DynamoDB table, IAM)
+- Depends on: Game Lifecycle (`GameItem`, `GameServiceImpl`, `GameRepository`), User Management (`PlayerRepository`, `PlayerItem`, and the runtime-selected Firestore adapter pattern — `FirestorePlayerRepository`), Navigation (`LeaderboardView` uses view layout standard), Cloud Platform (DynamoDB table + IAM; `leaderboard` Firestore collection under **CP-GCP-021**; `sudoku.persistence` runtime selection)
 - Depended on by: React Frontend (`LeaderboardView`, `useLeaderboard`)
-- Specs: `docs/specs/league-table-specs.md`
+- Specs: `docs/specs/league-table-specs.md`; Cloud Platform `docs/specs/cloud-platform-specs.md` (**CP-GCP-021**)
 - Arrow: `docs/arrows/league-table.md`

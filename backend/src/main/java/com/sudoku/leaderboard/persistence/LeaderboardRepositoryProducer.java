@@ -8,15 +8,15 @@ import jakarta.inject.Inject;
 
 /**
  * Selects the active {@link LeaderboardRepository} implementation at runtime based on
- * the {@code sudoku.persistence} property. The Firestore-side leaderboard is a no-op
- * (leaderboards are not part of the GCP slice). See {@code GameRepositoryProducer} for
+ * the {@code sudoku.persistence} property: {@link FirestoreLeaderboardRepository} on GCP,
+ * {@link DynamoDbLeaderboardRepository} on AWS. See {@code GameRepositoryProducer} for
  * the {@code @Typed}/{@code Instance} rationale.
  */
 @ApplicationScoped
 public class LeaderboardRepositoryProducer {
 
     @Inject
-    Instance<NoOpLeaderboardRepository> firestore;
+    Instance<FirestoreLeaderboardRepository> firestore;
 
     @Inject
     Instance<DynamoDbLeaderboardRepository> dynamoDb;

@@ -25,7 +25,7 @@ build variants; `sudoku.persistence` (and equivalent AI/coach selectors) choose 
 | Games                                    | DynamoDB                      | Firestore                       | **parity**   |
 | Player profile                           | DynamoDB                      | Firestore                       | **parity**   |
 | Auth (JWT validation, CORS, allow-list)  | Cognito/edge                  | Identity Platform/in-app        | **parity**   |
-| Leaderboard                              | DynamoDB                      | NoOp stub                       | gap — item B |
+| Leaderboard                              | DynamoDB                      | Firestore                       | **parity**   |
 | AI Coach                                 | Bedrock + DynamoDB rate-limit | —                               | gap — item D |
 | Admin data browser                       | DynamoDB (not behind adapter) | —                               | gap — item C |
 | Image recognition                        | Python Lambda                 | Cloud Run defined, not deployed | gap — item E |
@@ -50,10 +50,12 @@ bridges the Runtime API to the HTTP server. Both clouds now run the identical ar
   cold-start latency is acceptable on the next real deploy, and re-open this item if it regresses
   materially (e.g. by widening the Lambda timeout or revisiting SnapStart-eligible options).
 
-### B. Leaderboard on Firestore
-Real `FirestoreLeaderboardRepository` (replace `NoOpLeaderboardRepository`) behind the existing
-`LeaderboardRepositoryProducer`, plus the write path and any composite index. Flips the leaderboard
-half of **CP-GCP-021**. Small, mechanical — good second item.
+### B. Leaderboard on Firestore — **done**
+`FirestoreLeaderboardRepository` (replacing `NoOpLeaderboardRepository`) behind the existing
+`LeaderboardRepositoryProducer` stores the aggregate in the `leaderboard` collection. `updateOnSolve`
+does its read-modify-write in a Firestore transaction; `findAll` reads the collection and ranking
+stays in memory, so no composite index is needed. Flips the leaderboard half of **CP-GCP-021**
+(coach-rate-limit Firestore I/O — item D — is the remaining half). Specs `LT-GCP-001`–`LT-GCP-008`.
 
 ### C. Admin data browser → adapter
 `AdminDataResource` injects `DynamoDbEnhancedClient` directly (the one endpoint that bypasses the
