@@ -1,7 +1,7 @@
 # Integration test image — runs Quarkus in dev mode serving the REST API over HTTP on port 8080
 # (the only build is HTTP; AWS Lambda runs this same HTTP server behind the Lambda Web Adapter).
 # Used by docker-compose.test.yml only; not deployed to production.
-FROM maven:3-eclipse-temurin-25
+FROM maven:3-eclipse-temurin-26
 WORKDIR /build
 
 COPY pom.xml ./
