@@ -6,6 +6,14 @@
 # The adapter is a Lambda "extension"; outside a Lambda execution environment (e.g. on Cloud Run)
 # it is never invoked and stays completely inert.
 #
+# Base image: Amazon Corretto on Amazon Linux 2023 — deliberately the same OS family AWS Lambda's
+# own managed base images use. We originally used the Red Hat UBI openjdk image; it boots fine on
+# Cloud Run and `docker run`, but AWS Lambda's container runtime could not exec ANY binary from it
+# (`Runtime.InvalidEntrypoint: fork/exec <entrypoint>: permission denied` — reproduced with both
+# the run-java.sh wrapper and the java binary as ENTRYPOINT, after ruling out file permissions,
+# architecture, image manifest format, and adapter version). An AL2023 base sidesteps it entirely;
+# verified booting on Lambda (health/ready 200, puzzle generation 200) on an rc-* workspace.
+#
 # Build the app first (HTTP fast-jar — the only build; no separate Lambda-zip profile):
 #   ./mvnw package -DskipTests
 # Then build the image:
@@ -13,12 +21,12 @@
 # Run locally (HTTP only):
 #   docker run -i --rm -p 8080:8080 sudoku-backend
 ###
-FROM registry.access.redhat.com/ubi9/openjdk-25-runtime
+FROM amazoncorretto:25
 
 ENV LANGUAGE='en_US:en'
 
 # AWS Lambda Web Adapter — inert unless running inside AWS Lambda. Pinned to a released tag.
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 /lambda-adapter /opt/extensions/lambda-adapter
 # Matches the Quarkus HTTP port. Only consulted inside Lambda; ignored on Cloud Run.
 ENV AWS_LWA_PORT="8080"
 # Readiness gate: the adapter waits for this to return 200 before routing Lambda invocations
@@ -26,21 +34,17 @@ ENV AWS_LWA_PORT="8080"
 ENV AWS_LWA_READINESS_CHECK_PATH="/api/v1/q/health/ready"
 
 # Four distinct layers so library layers can be re-used across application-only changes.
-COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
-COPY --chown=185 target/quarkus-app/*.jar /deployments/
-COPY --chown=185 target/quarkus-app/app/ /deployments/app/
-COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
+# Files are left root-owned and world-readable (Maven's default 644/755) so Lambda's
+# least-privileged runtime user can read them without a chown.
+COPY target/quarkus-app/lib/ /deployments/lib/
+COPY target/quarkus-app/*.jar /deployments/
+COPY target/quarkus-app/app/ /deployments/app/
+COPY target/quarkus-app/quarkus/ /deployments/quarkus/
 
 EXPOSE 8080
-USER 185
 
-# Exec the JVM directly rather than via the UBI `run-java.sh` wrapper. AWS Lambda's container
-# runtime rejects the shell-script entrypoint with `Runtime.InvalidEntrypoint: ... run-java.sh:
-# permission denied` (it requires an absolute-path, non-script entrypoint), even though the same
-# image boots fine on Cloud Run and `docker run`. Invoking the resolved `java` binary directly is
-# the portable form: identical behaviour on both clouds. The two -D options replicate what
-# JAVA_OPTS_APPEND fed to run-java.sh (bind all interfaces; use the JBoss LogManager Quarkus needs).
-ENTRYPOINT [ "/usr/lib/jvm/java-25-openjdk/bin/java", \
-             "-Dquarkus.http.host=0.0.0.0", \
-             "-Djava.util.logging.manager=org.jboss.logmanager.LogManager", \
-             "-jar", "/deployments/quarkus-run.jar" ]
+# Exec the JVM directly (absolute path via Corretto's JAVA_HOME). `exec` makes java PID 1 so it
+# receives signals. The two -D options bind all interfaces and select the JBoss LogManager Quarkus
+# needs. Identical behaviour on Cloud Run and Lambda.
+ENTRYPOINT [ "/bin/sh", "-c", \
+  "exec \"$JAVA_HOME/bin/java\" -Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -jar /deployments/quarkus-run.jar" ]
