@@ -56,11 +56,17 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
 
         String email = getEmail();
 
-        // If the email claim is missing, unverified, or not in the allowlist, reject the request.
-        // Requiring email_verified closes the gap where an unverified, attacker-chosen email string
-        // could match the allowlist — matters most on GCP where in-app validation is the sole gate.
-        // @spec UM-GCP-005
-        if (email == null || !allowedEmails.contains(email) || !isEmailVerified()) {
+        // Reject if the email claim is missing or not on the allowlist. The email_verified
+        // requirement applies only to Firebase (GCP) tokens: there in-app validation is the sole
+        // gate and Firebase reports email_verified truthfully (true for verified Google logins),
+        // so it closes the gap where an unverified, attacker-chosen email could match the allowlist.
+        // It is NOT enforced for Cognito (AWS) tokens: Cognito sets email_verified=false for every
+        // external-provider (Google-federated) user even though the email came from Google, so
+        // enforcing it would lock out legitimate users — and on AWS the token is additionally gated
+        // by the API Gateway Cognito authorizer and self-signup is disabled, so the email cannot be
+        // attacker-chosen.
+        // @spec UM-BE-020, UM-GCP-005
+        if (email == null || !allowedEmails.contains(email) || (isFirebaseToken() && !isEmailVerified())) {
             ctx.abortWith(
                 Response.status(Response.Status.FORBIDDEN)
                     .type(MediaType.APPLICATION_JSON)
@@ -68,6 +74,15 @@ public class AllowedUsersFilter implements ContainerRequestFilter {
                     .build()
             );
         }
+    }
+
+    /**
+     * True if the caller's token is a Firebase (GCP Identity Platform) token, identified by the
+     * presence of a {@code firebase} claim — the same Cognito-vs-Firebase signal
+     * {@link com.sudoku.auth.UserIdentityResolver} uses. Cognito (AWS) tokens carry no such claim.
+     */
+    private boolean isFirebaseToken() {
+        return identity.getPrincipal() instanceof JsonWebToken jwt && jwt.getClaim("firebase") != null;
     }
 
     /**
