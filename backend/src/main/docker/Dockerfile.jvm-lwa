@@ -43,6 +43,11 @@ COPY target/quarkus-app/quarkus/ /deployments/quarkus/
 
 EXPOSE 8080
 
+# Run as a non-root user. The /deployments files are root-owned but world-readable and the java
+# binary is world-executable, so no chown is needed. On Lambda the USER is moot (Lambda runs the
+# container as its own least-privileged sandbox user); this hardens the Cloud Run path.
+USER 1001
+
 # Exec the JVM directly (absolute path via Corretto's JAVA_HOME). `exec` makes java PID 1 so it
 # receives signals. The two -D options bind all interfaces and select the JBoss LogManager Quarkus
 # needs. Identical behaviour on Cloud Run and Lambda.
