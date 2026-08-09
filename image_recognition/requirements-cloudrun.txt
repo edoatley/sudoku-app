@@ -1,0 +1,5 @@
+# Cloud Run HTTP front (app.py) — the AWS Lambda image uses requirements.txt only.
+-r requirements.txt
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pyjwt[crypto]>=2.9

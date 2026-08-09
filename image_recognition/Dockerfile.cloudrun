@@ -1,0 +1,18 @@
+# HTTP image for Google Cloud Run — runs the recognition logic as a FastAPI server on :8080.
+# The AWS Lambda image (Dockerfile) is unchanged and still uses the Lambda runtime interface;
+# this variant exists because Cloud Run has no Lambda Runtime API. Same handler.py on both.
+FROM python:3.14-slim
+
+WORKDIR /app
+
+COPY requirements.txt requirements-cloudrun.txt ./
+RUN pip install --no-cache-dir -r requirements-cloudrun.txt
+
+COPY handler.py app.py ./
+
+# Non-root for the Cloud Run path (least privilege).
+RUN useradd --uid 1001 --create-home appuser
+USER 1001
+
+EXPOSE 8080
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
