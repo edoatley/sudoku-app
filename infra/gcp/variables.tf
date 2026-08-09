@@ -41,6 +41,24 @@ variable "enable_custom_domain" {
   default     = false
 }
 
+variable "enable_coach" {
+  description = "Wire the AI coach's cross-cloud AWS Bedrock credentials into the backend Cloud Run service (Secret Manager → AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env, grant the run SA secretAccessor). Off until the secrets exist (see runbook §6); keeps backend-only deploys applying cleanly."
+  type        = bool
+  default     = false
+}
+
+variable "bedrock_access_key_secret_id" {
+  description = "Secret Manager secret id holding the cross-cloud AWS access key id for Bedrock (created manually — runbook §6). Used when enable_coach = true."
+  type        = string
+  default     = "bedrock-aws-access-key-id"
+}
+
+variable "bedrock_secret_key_secret_id" {
+  description = "Secret Manager secret id holding the cross-cloud AWS secret access key for Bedrock (created manually — runbook §6). Used when enable_coach = true."
+  type        = string
+  default     = "bedrock-aws-secret-access-key"
+}
+
 variable "backend_image" {
   description = "Artifact Registry image URI for the Quarkus backend Cloud Run service (required when deploy_cloud_run = true)."
   type        = string

@@ -257,19 +257,32 @@ The resulting token's `firebase.sign_in_provider` is `password`, so the backend 
 ## 6. Interim cross-cloud Bedrock credential (path A)
 
 Until AI inference migrates to Vertex AI (deferred), the GCP backend calls AWS Bedrock cross-cloud.
-Store a **least-privilege** AWS access key (Bedrock `InvokeModel` only) in Secret Manager and grant
-the runtime SAs read access:
+Store a **least-privilege** AWS access key (Bedrock `InvokeModel` only) in Secret Manager as **two
+plain secrets** — one per credential part — so Cloud Run can mount each straight into the standard
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (the AWS SDK's default credential chain then
+resolves them with no application code change):
 
 ```bash
-printf '%s' '<aws-access-key-json>' | gcloud secrets create bedrock-aws-credentials \
+printf '%s' '<aws-access-key-id>' | gcloud secrets create bedrock-aws-access-key-id \
   --data-file=- --replication-policy=automatic
+printf '%s' '<aws-secret-access-key>' | gcloud secrets create bedrock-aws-secret-access-key \
+  --data-file=- --replication-policy=automatic
+```
 
-for SA in "${RUN_SA}" "${IR_SA}"; do
-  gcloud secrets add-iam-policy-binding bedrock-aws-credentials \
-    --member="serviceAccount:${SA}" \
+The **backend** run SA's read access is granted by Terraform when `enable_coach = true` (see
+`coach.tf`) — no manual binding needed there. For **image recognition** (gap E, not yet in
+Terraform) grant its runtime SA read access by hand once that service is wired:
+
+```bash
+for SECRET in bedrock-aws-access-key-id bedrock-aws-secret-access-key; do
+  gcloud secrets add-iam-policy-binding "${SECRET}" \
+    --member="serviceAccount:${IR_SA}" \
     --role="roles/secretmanager.secretAccessor"
 done
 ```
+
+Then apply with `-var enable_coach=true` (the two secret ids are overridable via
+`bedrock_access_key_secret_id` / `bedrock_secret_key_secret_id`).
 
 > Security note: this is a long-lived key — the exact thing WIF avoids — and is the main reason the
 > Vertex AI migration (CP-GCP-090) exists. Rotate it, and scope the AWS IAM user to Bedrock only.
