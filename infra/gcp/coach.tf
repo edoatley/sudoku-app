@@ -29,3 +29,23 @@ resource "google_secret_manager_secret_iam_member" "bedrock_secret_key" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.run_service_account_email}"
 }
+
+# The image-recognition service (gap E) calls Bedrock cross-cloud too — grant its runtime SA the
+# same read access when both it and the Bedrock creds are enabled.
+resource "google_secret_manager_secret_iam_member" "image_recognition_bedrock_access_key" {
+  count = var.enable_coach && var.deploy_image_recognition ? 1 : 0
+
+  project   = var.project_id
+  secret_id = var.bedrock_access_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.image_recognition_service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "image_recognition_bedrock_secret_key" {
+  count = var.enable_coach && var.deploy_image_recognition ? 1 : 0
+
+  project   = var.project_id
+  secret_id = var.bedrock_secret_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.image_recognition_service_account_email}"
+}

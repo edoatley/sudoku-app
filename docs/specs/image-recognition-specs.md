@@ -42,3 +42,16 @@
 - [x] **IR-API-010**: On success, the system shall return HTTP 200 with originalGrid (9×9 integer array), validPuzzle (boolean), and modelName (string).
 - [x] **IR-API-011**: If no grid can be extracted or all models fail, the system shall return HTTP 422 with a JSON error body.
 - [x] **IR-API-012**: If an unexpected internal error occurs, the system shall return HTTP 500 with "Internal server error".
+
+## Multi-Cloud Deployment (GCP)
+
+Behaviours of the image-recognition service on GCP, where it runs as its own Cloud Run HTTP service
+(there is no shared API Gateway as on AWS). The recognition logic (`handler.py`) is identical on
+both clouds; a thin FastAPI front (`app.py`) adapts it to HTTP and adds the edge behaviours API
+Gateway provides on AWS. Frontend reaches it via `VITE_IMAGE_RECOGNITION_URL` (see CP-GCP-042).
+
+- [x] **IR-GCP-001**: On GCP the system shall serve image recognition as an HTTP service on port 8080 (POST /ai/image-to-puzzle, GET /ai/image-to-puzzle/warmup), translating each request into the API-Gateway-proxy event shape the recognition handler already consumes.
+- [x] **IR-GCP-002**: On GCP the system shall validate the caller's Firebase (Identity Platform) JWT in-app on POST /ai/image-to-puzzle (RS256 against the securetoken JWKS, issuer https://securetoken.google.com/{project_id}, audience {project_id}, email_verified true), rejecting missing/invalid tokens with 401/403 — the endpoint is Bedrock-backed, so it is never left unauthenticated.
+- [x] **IR-GCP-003**: On GCP the system shall apply CORS in-app from CORS_ALLOWED_ORIGINS (the workspace's Hosting origin and localhost for RC workspaces), answering preflight OPTIONS without invoking recognition.
+- [x] **IR-GCP-004**: The warmup probe (GET /ai/image-to-puzzle/warmup) shall be reachable without a token and shall never invoke Bedrock, so the frontend can warm the service before sign-in.
+- [x] **IR-GCP-005**: On GCP the image-recognition service shall invoke AWS Bedrock cross-cloud using the Secret Manager credentials wired when enable_coach = true (shared with the coach; CP-GCP-085).

@@ -12,6 +12,9 @@ import { gridFromWire, gridToWire, candidatesFromWire, candidatesToWire } from '
 import { getIdToken, getEmail, getAdminGroups as sessionAdminGroups } from '../auth/session.js';
 
 const API_URL = import.meta.env.VITE_API_URL;
+// Image recognition has its own base URL on GCP (a separate Cloud Run service). On AWS it is served
+// under the same API Gateway as the backend, so fall back to API_URL when the var is unset.
+const IMAGE_RECOGNITION_URL = import.meta.env.VITE_IMAGE_RECOGNITION_URL || API_URL;
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const LOG_API = import.meta.env.VITE_LOG_API === 'true';
@@ -257,7 +260,7 @@ export async function importPuzzle(imageFile) {
   const base64 = await fileToBase64(imageFile);
   const data = await apiFetch(
     'importPuzzle',
-    `${API_URL}/ai/image-to-puzzle`,
+    `${IMAGE_RECOGNITION_URL}/ai/image-to-puzzle`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -273,7 +276,7 @@ export async function importPuzzle(imageFile) {
 export async function warmupImageRecognition() {
   if (MOCK_API) return;
   try {
-    await fetch(`${API_URL}/ai/image-to-puzzle/warmup`);
+    await fetch(`${IMAGE_RECOGNITION_URL}/ai/image-to-puzzle/warmup`);
   } catch {
     // silent — warm-up is best-effort
   }

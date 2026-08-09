@@ -114,6 +114,19 @@ resource "google_cloud_run_v2_service" "backend" {
     google_secret_manager_secret_iam_member.bedrock_secret_key,
   ]
 
-  # checkov:skip=CKV_GCP_102: Public API — the app enforces auth in-app via JWT validation; roles/run.invoker for allUsers is granted manually (see runbook)
+  # checkov:skip=CKV_GCP_102: Public API — the app enforces auth in-app via JWT validation; roles/run.invoker for allUsers is granted below for non-default (RC) workspaces, manually for prod (see runbook)
   # checkov:skip=CKV_GCP_119: Binary Authorization not warranted for a single-developer project
+}
+
+# Public network reachability for RC (non-default) workspaces so a browser (local or hosted UI) can
+# reach the backend without a manual grant on every ephemeral deploy; the app still validates the
+# JWT in-app. Prod (default) invoker stays manual (gap G1). @spec CP-GCP-014
+resource "google_cloud_run_v2_service_iam_member" "backend_public" {
+  count = var.deploy_cloud_run && !local.is_default ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.backend[0].name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
