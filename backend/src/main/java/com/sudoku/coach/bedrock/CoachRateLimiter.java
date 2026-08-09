@@ -1,75 +1,30 @@
 package com.sudoku.coach.bedrock;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
-import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
-
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Map;
 
-// @spec SC-RL-003, SC-RL-004
-
-@ApplicationScoped
-public class CoachRateLimiter {
-
-    private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(CoachRateLimiter.class);
-    private static final DateTimeFormatter WINDOW_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
-
-    @Inject
-    DynamoDbClient dynamoDbClient;
-
-    @ConfigProperty(name = "coach.rate-limit.table-name")
-    String tableName;
-
-    @ConfigProperty(name = "coach.rate-limit.per-minute")
-    int perMinuteLimit;
+/**
+ * Per-user, per-minute rate limit for the AI coach endpoint. The active implementation is selected
+ * at runtime by {@code sudoku.persistence} via {@code CoachRateLimiterProducer}:
+ * {@link DynamoDbCoachRateLimiter} on AWS, {@link FirestoreCoachRateLimiter} on GCP.
+ *
+ * @spec SC-RL-003, SC-RL-004, SC-RL-011
+ */
+public interface CoachRateLimiter {
 
     /**
-     * Attempts to consume a rate-limit slot for the given user in the current UTC minute.
-     * Returns true if the call is allowed, false if the per-minute limit has been reached.
-     * Fails open on any DynamoDB error to avoid blocking the user on infrastructure issues.
+     * Attempts to consume a rate-limit slot for the given user in the current UTC minute. Returns
+     * true if the call is allowed, false if the per-minute limit has been reached. Implementations
+     * fail open (return true) on any storage error, so infrastructure issues never block the user.
      */
-    public boolean tryConsume(String userId) {
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-        String window = now.format(WINDOW_FMT);
-        // TTL = 2 minutes after the start of the current minute window
-        long ttl = now.withSecond(0).withNano(0).plusMinutes(2).toEpochSecond();
-
-        try {
-            dynamoDbClient.updateItem(UpdateItemRequest.builder()
-                    .tableName(tableName)
-                    .key(Map.of(
-                            "userId", AttributeValue.fromS(userId),
-                            "window", AttributeValue.fromS(window)
-                    ))
-                    .updateExpression("ADD callCount :one SET expiresAt = if_not_exists(expiresAt, :ttl)")
-                    .conditionExpression("attribute_not_exists(callCount) OR callCount < :limit")
-                    .expressionAttributeValues(Map.of(
-                            ":one", AttributeValue.fromN("1"),
-                            ":ttl", AttributeValue.fromN(String.valueOf(ttl)),
-                            ":limit", AttributeValue.fromN(String.valueOf(perMinuteLimit))
-                    ))
-                    .build());
-            return true;
-        } catch (ConditionalCheckFailedException e) {
-            return false;
-        } catch (Exception e) {
-            LOG.warnf("Rate limit check failed for userId=%s, failing open: %s", userId, e.getMessage());
-            return true;
-        }
-    }
+    boolean tryConsume(String userId);
 
     /**
-     * Returns the number of seconds until the start of the next UTC minute.
+     * Returns the number of seconds until the start of the next UTC minute — cloud-neutral time
+     * arithmetic shared by both adapters.
      */
-    public int secondsUntilNextWindow() {
+    default int secondsUntilNextWindow() {
         ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
         ZonedDateTime nextMinute = now.withSecond(0).withNano(0).plusMinutes(1);
         return (int) (nextMinute.toEpochSecond() - Instant.now().getEpochSecond());

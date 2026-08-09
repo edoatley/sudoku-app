@@ -73,13 +73,46 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "CORS_ALLOWED_ORIGINS"
         value = local.cors_allowed_origins
       }
-      # coach.bedrock.api-mode — coach is out of the GCP slice but the key is real; harmless.
       env {
         name  = "COACH_BEDROCK_API_MODE"
         value = local.coach_bedrock_api_mode
       }
+
+      # Cross-cloud Bedrock credentials for the AI coach (gap D). Mounted as the standard AWS SDK
+      # env vars so BedrockClientProducer's default credential chain resolves them with no code
+      # change; region stays eu-west-2 (its default). Only wired when enable_coach = true so a
+      # backend-only deploy without the secrets still applies. See runbook §6 + CP-GCP-085.
+      dynamic "env" {
+        for_each = var.enable_coach ? [1] : []
+        content {
+          name = "AWS_ACCESS_KEY_ID"
+          value_source {
+            secret_key_ref {
+              secret  = var.bedrock_access_key_secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+      dynamic "env" {
+        for_each = var.enable_coach ? [1] : []
+        content {
+          name = "AWS_SECRET_ACCESS_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = var.bedrock_secret_key_secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
     }
   }
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.bedrock_access_key,
+    google_secret_manager_secret_iam_member.bedrock_secret_key,
+  ]
 
   # checkov:skip=CKV_GCP_102: Public API — the app enforces auth in-app via JWT validation; roles/run.invoker for allUsers is granted manually (see runbook)
   # checkov:skip=CKV_GCP_119: Binary Authorization not warranted for a single-developer project

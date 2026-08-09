@@ -53,7 +53,7 @@
 
 Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All are active gaps (`[ ]`) until the GCP facet is implemented; genuinely deferred items are marked `[D]`.
 
-**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The remaining `[ ]` items are the **out-of-slice parity gaps** tracked in `docs/todo/gcp-aws-parity.md`: Firestore I/O for leaderboard + coach-rate-limit (the rest of CP-GCP-021), the full VITE_* injection set (CP-GCP-042/043), the CI test user (CP-GCP-032), and cross-cloud Bedrock (CP-GCP-085). The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
+**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The remaining `[ ]` items are the **out-of-slice parity gaps** tracked in `docs/todo/gcp-aws-parity.md`: the full VITE_* injection set (CP-GCP-042/043) and the CI test user (CP-GCP-032). Firestore I/O for leaderboard + coach-rate-limit (CP-GCP-021) and cross-cloud Bedrock for the coach (CP-GCP-085) have landed; image recognition on Cloud Run (gap E) is still pending. The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
 
 ## GCP — Compute (Cloud Run)
 
@@ -72,7 +72,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 ## GCP — Firestore
 
 - [x] **CP-GCP-020**: The system shall provision a Firestore database in Native mode per workspace — the (default) database in the default workspace and a named sudoku{suffix} database otherwise.
-- [ ] **CP-GCP-021**: The system shall store game, player, leaderboard, and coach-rate-limit data in Firestore collections games, players, leaderboard, and coachRateLimits respectively.
+- [x] **CP-GCP-021**: The system shall store game, player, leaderboard, and coach-rate-limit data in Firestore collections games, players, leaderboard, and coachRateLimits respectively.
 - [x] **CP-GCP-022**: The system shall apply a TTL policy on the coachRateLimits collection keyed on the expiresAt field.
 - [x] **CP-GCP-023**: The system shall enable Firestore point-in-time recovery and delete protection on the default-workspace database only.
 - [x] **CP-GCP-024**: The system shall locate Firestore in us-central1.
@@ -113,7 +113,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 ## GCP — AI Inference
 
-- [ ] **CP-GCP-085**: Where AI features (coach, image recognition) are enabled on GCP, the system shall invoke AWS Bedrock cross-cloud using credentials sourced from Secret Manager.
+- [x] **CP-GCP-085**: Where AI features (coach, image recognition) are enabled on GCP, the system shall invoke AWS Bedrock cross-cloud using credentials sourced from Secret Manager. (Coach: when `enable_coach = true`, the backend Cloud Run service mounts the manually-created Bedrock access-key secrets as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` and the run SA is granted `secretmanager.secretAccessor`; the SDK's default credential chain resolves them with no code change. Image recognition on Cloud Run remains gap E.)
 - [D] **CP-GCP-090**: The system shall perform AI inference via Vertex AI (Gemini), replacing cross-cloud Bedrock. (Deferred — GCP-native end state; requires backend code change.)
 
 ## GCP — Networking
