@@ -212,13 +212,15 @@ done
 # (Still leaves the one-time "Enable Identity Platform" click + OAuth redirect-URI paste — the
 # script prints those.)
 echo "==> [6/6] Identity Platform sign-in (optional)"
-if [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]]; then
-  PROJECT_ID="${PROJECT_ID}" GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID}" GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET}" \
-    "$(dirname "$0")/gcp-identity-platform-bootstrap.sh" || \
-    echo "    Identity Platform step reported an issue (see above) — re-run it after the one-time enable."
+IDP_SCRIPT="$(dirname "$0")/gcp-identity-platform-bootstrap.sh"
+# The identity script self-loads GOOGLE_CLIENT_ID/SECRET from scripts/.env.local; run it when those
+# creds are available (in the environment or that file).
+if [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]] || [[ -f "$(dirname "$0")/../.env.local" ]]; then
+  PROJECT_ID="${PROJECT_ID}" "${IDP_SCRIPT}" ||
+    echo "    Identity Platform step reported an issue (see above) — re-run: ${IDP_SCRIPT}"
 else
-  echo "    Skipped — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to configure it, or run"
-  echo "    scripts/infra/gcp-identity-platform-bootstrap.sh directly."
+  echo "    Skipped — no OAuth creds. Populate them once with scripts/infra/setup-local-secrets.sh,"
+  echo "    then re-run this bootstrap (or run ${IDP_SCRIPT} directly)."
 fi
 
 # ── Summary ─────────────────────────────────────────────────────────────────────
