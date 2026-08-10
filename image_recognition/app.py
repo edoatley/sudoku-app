@@ -105,11 +105,6 @@ def _to_response(result: dict) -> Response:
     )
 
 
-@app.get("/healthz")
-def healthz() -> dict:
-    return {"status": "ok"}
-
-
 @app.get("/ai/image-to-puzzle/warmup")
 def warmup() -> Response:
     # Unauthenticated by design — best-effort cold-start warm-up; never touches Bedrock.
