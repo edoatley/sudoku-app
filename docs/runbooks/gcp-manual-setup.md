@@ -256,36 +256,31 @@ The resulting token's `firebase.sign_in_provider` is `password`, so the backend 
 
 ## 6. Interim cross-cloud Bedrock credential (path A)
 
-Until AI inference migrates to Vertex AI (deferred), the GCP backend calls AWS Bedrock cross-cloud.
-Store a **least-privilege** AWS access key (Bedrock `InvokeModel` only) in Secret Manager as **two
-plain secrets** — one per credential part — so Cloud Run can mount each straight into the standard
-`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (the AWS SDK's default credential chain then
-resolves them with no application code change):
+Until AI inference migrates to Vertex AI (deferred), the GCP backend and image-recognition services
+call AWS Bedrock cross-cloud using a **least-privilege** AWS access key (Bedrock `InvokeModel` only).
+This spans both clouds (create the AWS IAM user + key, then store the key in GCP Secret Manager and
+grant the runtime SAs read access), so it is handled by a single idempotent script rather than by
+hand or in Terraform:
 
 ```bash
-printf '%s' '<aws-access-key-id>' | gcloud secrets create bedrock-aws-access-key-id \
-  --data-file=- --replication-policy=automatic
-printf '%s' '<aws-secret-access-key>' | gcloud secrets create bedrock-aws-secret-access-key \
-  --data-file=- --replication-policy=automatic
+# Needs BOTH an authenticated aws (IAM-capable) and gcloud (Owner/Editor) session.
+PROJECT_ID=<gcp-project-id> scripts/infra/gcp-aws-iam-bootstrap.sh
 ```
 
-The **backend** run SA's read access is granted by Terraform when `enable_coach = true` (see
-`coach.tf`) — no manual binding needed there. For **image recognition** (gap E, not yet in
-Terraform) grant its runtime SA read access by hand once that service is wired:
+It creates the IAM user `sudoku-bedrock-cross-cloud` (scoped to `bedrock:InvokeModel` on the model
+list), mints an access key, stores it as the two Secret Manager secrets `bedrock-aws-access-key-id`
+and `bedrock-aws-secret-access-key`, and grants `roles/secretmanager.secretAccessor` on both to the
+`sudoku-run`, `sudoku-image-recognition-run`, and `sudoku-github-deploy` service accounts. Rotate
+later with `ROTATE=y PROJECT_ID=<id> scripts/infra/gcp-aws-iam-bootstrap.sh`.
 
-```bash
-for SECRET in bedrock-aws-access-key-id bedrock-aws-secret-access-key; do
-  gcloud secrets add-iam-policy-binding "${SECRET}" \
-    --member="serviceAccount:${IR_SA}" \
-    --role="roles/secretmanager.secretAccessor"
-done
-```
-
-Then apply with `-var enable_coach=true` (the two secret ids are overridable via
+Terraform only *mounts* those secrets as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` on the Cloud
+Run services when `enable_coach = true` (the AWS SDK's default credential chain then resolves them
+with no application code change); it does **not** manage the secrets or their IAM. Then apply with
+`-var enable_coach=true` (rcg-* pushes set this automatically; the two secret ids are overridable via
 `bedrock_access_key_secret_id` / `bedrock_secret_key_secret_id`).
 
 > Security note: this is a long-lived key — the exact thing WIF avoids — and is the main reason the
-> Vertex AI migration (CP-GCP-090) exists. Rotate it, and scope the AWS IAM user to Bedrock only.
+> Vertex AI migration (CP-GCP-090) exists. It is scoped to Bedrock only; rotate it.
 
 ---
 

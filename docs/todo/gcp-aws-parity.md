@@ -73,7 +73,8 @@ Chose **(i) cross-cloud Bedrock** (Vertex AI / **CP-GCP-090** stays deferred). T
   half of **CP-GCP-021**; spec **SC-RL-011**.
 - **Cross-cloud Bedrock creds.** `enable_coach` (default `false`) mounts the manually-created AWS key
   from Secret Manager into the backend Cloud Run service as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`
-  (`coach.tf` grants the run SA `secretAccessor`); the SDK's default chain resolves them, so no coach
+  (`scripts/infra/gcp-aws-iam-bootstrap.sh` creates the secrets + grants the run SA `secretAccessor`);
+  the SDK's default chain resolves them, so no coach
   code changed. Satisfies **CP-GCP-085** for the coach.
 - **Correction to earlier wording:** the Bedrock secret was **not** actually scaffolded in Terraform;
   runbook §6 (now updated) documents creating **two plain secrets** manually. Live end-to-end
