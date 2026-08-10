@@ -109,11 +109,6 @@ resource "google_cloud_run_v2_service" "backend" {
     }
   }
 
-  depends_on = [
-    google_secret_manager_secret_iam_member.bedrock_access_key,
-    google_secret_manager_secret_iam_member.bedrock_secret_key,
-  ]
-
   # checkov:skip=CKV_GCP_102: Public API — the app enforces auth in-app via JWT validation; roles/run.invoker for allUsers is granted below for non-default (RC) workspaces, manually for prod (see runbook)
   # checkov:skip=CKV_GCP_119: Binary Authorization not warranted for a single-developer project
 }

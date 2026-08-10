@@ -96,11 +96,6 @@ resource "google_cloud_run_v2_service" "image_recognition" {
     }
   }
 
-  depends_on = [
-    google_secret_manager_secret_iam_member.image_recognition_bedrock_access_key,
-    google_secret_manager_secret_iam_member.image_recognition_bedrock_secret_key,
-  ]
-
   # checkov:skip=CKV_GCP_102: Public API — auth enforced in-app (Firebase JWT); roles/run.invoker for allUsers granted below for non-default (RC) workspaces only
   # checkov:skip=CKV_GCP_119: Binary Authorization not warranted for a single-developer project
 }
