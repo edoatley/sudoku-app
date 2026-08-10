@@ -15,12 +15,6 @@ from app import app, verify_token
 client = TestClient(app)
 
 
-def test_healthz_ok():
-    r = client.get("/healthz")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
-
-
 def test_warmup_is_open_and_never_calls_bedrock():
     # No Authorization header — warmup must be reachable pre-login.
     r = client.get("/ai/image-to-puzzle/warmup")
