@@ -198,8 +198,17 @@ deploy workflow derives from `GCP_PROJECT_ID` — no extra secrets required.
 
 ## 4. Identity Platform + Google sign-in
 
-The Cognito equivalent: social-only Google login for end users. Provisioned by hand; Terraform
-consumes only the resulting issuer/audience.
+The Cognito equivalent: social-only Google login for end users. Terraform consumes only the
+resulting issuer/audience.
+
+> **Mostly scripted.** `scripts/infra/gcp-identity-platform-bootstrap.sh` (also invoked by
+> `gcp-bootstrap.sh` step [6/6] when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set) enables
+> Email/Password, adds the Google IdP from your OAuth client, and merges the authorized domains via
+> the Identity Toolkit Admin API. Only steps **1** (the one-time "Enable Identity Platform"
+> entitlement) and the **OAuth redirect-URI** paste in step 2 have no reliable API — the script
+> **guides you through both interactively** (it waits and re-polls the API until Enable is detected,
+> then asks you to confirm the redirect URI). The steps below are the full manual walkthrough /
+> reference.
 
 1. Enable Identity Platform: Console → **Identity Platform** → *Enable* (one-time, project-level).
 2. Add the **Google** provider:
