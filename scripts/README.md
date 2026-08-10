@@ -12,8 +12,16 @@ scripts/
 └── logs/        — Ad-hoc log retrieval and analysis tools
 ```
 
-`.env.local` lives in `scripts/` and is sourced automatically by all scripts that need secrets.
-Run `bash scripts/infra/setup-local-secrets.sh` once to create it.
+### The two `.env.local` files (don't confuse them)
+
+| File | Purpose | Contents | Created by |
+|---|---|---|---|
+| `scripts/.env.local` | **Infra/deploy secrets** — sourced automatically by the shell scripts here (deploy, destroy, GCP identity bootstrap). Server-side only. | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AMPLIFY_GITHUB_TOKEN`, `SMOKE_TEST_USER_*` | `setup-local-secrets.sh` |
+| `ui/.env.local` | **Frontend build/runtime** config for Vite (`npm run dev`/`build`). Values are shipped to the browser. | `VITE_*` only (`VITE_API_URL`, `VITE_FIREBASE_*`, `VITE_IMAGE_RECOGNITION_URL`, `VITE_AI_COACH`, …) | by hand |
+
+Run `bash scripts/infra/setup-local-secrets.sh` once to create `scripts/.env.local`. It
+auto-detects `GOOGLE_CLIENT_ID`/`SECRET` from the Terraform state (see the tip under
+`setup-local-secrets.sh` below), so you can usually just press Enter.
 
 ---
 
@@ -138,6 +146,16 @@ Secrets collected:
 > ```bash
 > AWS_PROFILE=sandbox aws s3 cp s3://sudoku-tf-state/sudoku/terraform.tfstate - \
 >   | jq -r '.resources[] | select(.type=="aws_cognito_user") | .instances[].attributes | "\(.username) \(.password)"'
+> ```
+>
+> **Tip:** `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are auto-detected by the script from the same
+> state (the Cognito Google provider stores them there in plaintext; `describe-identity-provider`
+> masks the secret and `gcloud` has no API for OAuth clients, so the state is the CLI source). To
+> read them directly:
+> ```bash
+> AWS_PROFILE=sandbox aws s3 cp s3://sudoku-tf-state/sudoku/terraform.tfstate - \
+>   | jq -r '.resources[] | select(.type=="aws_cognito_identity_provider")
+>            | .instances[].attributes.provider_details | "\(.client_id)\t\(.client_secret)"' | head -1
 > ```
 
 ---
