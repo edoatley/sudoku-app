@@ -53,7 +53,15 @@ command -v gcloud >/dev/null || { echo "ERROR: gcloud CLI not found." >&2; exit 
 command -v python3 >/dev/null || { echo "ERROR: python3 not found." >&2; exit 1; }
 
 TOKEN="$(gcloud auth print-access-token)"
-AUTH=(-H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json")
+# X-Goog-User-Project attributes the call's quota/billing to our project. identitytoolkit requires
+# it when authenticating with user (gcloud) credentials — without it the API 403s with
+# "requires a quota project" against gcloud's shared default project. Needs serviceusage.services.use
+# on the project (Owner/Editor have it).
+AUTH=(
+  -H "Authorization: Bearer ${TOKEN}"
+  -H "Content-Type: application/json"
+  -H "X-Goog-User-Project: ${PROJECT_ID}"
+)
 
 echo "==> Identity Platform bootstrap"
 echo "    Project: ${PROJECT_ID}"
@@ -95,6 +103,10 @@ EOF
     fi
     echo "    Not detected yet (can take a few seconds to propagate). Checking again..."
   done
+elif printf '%s' "${CONFIG}" | grep -q '"error"'; then
+  echo "ERROR reading Identity Platform config:" >&2
+  printf '%s\n' "${CONFIG}" >&2
+  exit 1
 else
   echo "    Already enabled."
 fi
