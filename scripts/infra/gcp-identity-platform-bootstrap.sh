@@ -2,12 +2,13 @@
 # Identity Platform bootstrap (the §4 setup) — configures Google + Email/Password sign-in for the
 # project via the Identity Toolkit Admin API, so end users can log in through the frontend.
 #
-# Run once per project with an authenticated gcloud (Owner/Editor) session and the reused Google
-# OAuth client credentials (the same GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET used for AWS Cognito
-# federation):
+# Run once per project with an authenticated gcloud (Owner/Editor) session. Nothing needs to be
+# passed on the CLI: PROJECT_ID comes from the active gcloud config, and the reused Google OAuth
+# client credentials (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET — the same ones used for AWS Cognito
+# federation) are loaded from scripts/.env.local (written by setup-local-secrets.sh, the same file
+# deploy-local.sh sources). Any value can still be overridden via the environment.
 #
-#   PROJECT_ID=<id> GOOGLE_CLIENT_ID=<id> GOOGLE_CLIENT_SECRET=<secret> \
-#     scripts/infra/gcp-identity-platform-bootstrap.sh
+#   scripts/infra/gcp-identity-platform-bootstrap.sh
 #
 # It is idempotent. It automates everything the Admin API exposes; TWO one-time steps have no
 # reliable API, so the script GUIDES you through them interactively rather than just failing:
@@ -22,6 +23,17 @@
 
 set -euo pipefail
 
+# Load secrets from scripts/.env.local (the file setup-local-secrets.sh writes and deploy-local.sh
+# sources) so they need not be passed on the CLI. Values already in the environment take precedence.
+ENV_FILE="$(dirname "$0")/../.env.local"
+if [[ -f "${ENV_FILE}" ]]; then
+  while IFS='=' read -r _k _v; do
+    [[ "${_k}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue # skip blanks/comments
+    [[ -n "${!_k:-}" ]] && continue                       # don't clobber an env override
+    export "${_k}=${_v}"
+  done <"${ENV_FILE}"
+fi
+
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
 GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}"
@@ -33,7 +45,8 @@ if [[ -z "${PROJECT_ID}" || "${PROJECT_ID}" == "(unset)" ]]; then
   exit 1
 fi
 if [[ -z "${GOOGLE_CLIENT_ID}" || -z "${GOOGLE_CLIENT_SECRET}" ]]; then
-  echo "ERROR: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required (reuse the Cognito OAuth client)." >&2
+  echo "ERROR: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not found in the environment or ${ENV_FILE}." >&2
+  echo "       Populate them once with:  scripts/infra/setup-local-secrets.sh" >&2
   exit 1
 fi
 command -v gcloud >/dev/null || { echo "ERROR: gcloud CLI not found." >&2; exit 1; }
