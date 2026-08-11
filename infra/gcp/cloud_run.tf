@@ -22,8 +22,11 @@ resource "google_cloud_run_v2_service" "backend" {
   }
 
   template {
-    service_account                  = var.run_service_account_email
-    timeout                          = "8s"
+    service_account = var.run_service_account_email
+    # 8s was too tight: a cold JVM container boot (min instances = 0) can exceed it, 504-ing the
+    # first request after idle, and it left no headroom for the AI coach's ~6s Bedrock call. 60s
+    # matches the image-recognition service.
+    timeout                          = "60s"
     max_instance_request_concurrency = var.backend_container_concurrency
 
     scaling {
