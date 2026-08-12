@@ -40,7 +40,12 @@ export async function firebaseGetIdToken() {
   // getIdToken() auto-refreshes an expired token, so the returned token is always current.
   await a.authStateReady();
   const user = a.currentUser;
-  return user ? user.getIdToken() : undefined;
+  // DIAGNOSTIC: shows whether the SDK has a signed-in user after the session is restored.
+  console.info('[AUTH] authStateReady resolved; currentUser =', user ? user.email : 'NULL (no signed-in user)');
+  if (!user) return undefined;
+  const token = await user.getIdToken();
+  console.info('[AUTH] getIdToken -> token length', token?.length ?? 0);
+  return token;
 }
 
 export async function firebaseGetEmail() {
