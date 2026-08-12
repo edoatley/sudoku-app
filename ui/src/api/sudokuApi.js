@@ -44,8 +44,17 @@ async function apiFetch(label, url, options = {}, authenticated = false, nullSta
   const headers = { ...options.headers };
   if (authenticated && !SKIP_AUTH) {
     const token = await getIdToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      // Fail loud: an authenticated call is going out with no token — the cause of a 401.
+      console.error(`[API] ${label} (${url}): NO ID TOKEN — sending request WITHOUT Authorization header`);
+    }
   }
+  // DIAGNOSTIC: confirm per request whether the Authorization header is attached.
+  console.info(
+    `[API] ${label}: method=${options.method ?? 'GET'} authenticated=${authenticated} hasAuthHeader=${!!headers.Authorization}`
+  );
 
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
