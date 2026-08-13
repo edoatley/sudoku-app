@@ -4,6 +4,7 @@ import io.quarkus.security.UnauthorizedException;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.json.JsonString;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.security.Principal;
@@ -63,14 +64,18 @@ public class UserIdentityResolver {
     }
 
     private String resolveFirebase(Map<?, ?> firebase, String uid) {
-        Object provider = firebase.get("sign_in_provider");
+        // The nested `firebase` claim is a JSON object: SmallRye/Quarkus OIDC exposes its values as
+        // jakarta.json.JsonValue (e.g. JsonString), NOT java.lang.String, so comparing them with a
+        // String literal never matches. asString() coerces both real tokens (JsonString) and the
+        // mock/dev tokens (plain String) to a plain string before comparison.
+        String provider = asString(firebase.get("sign_in_provider"));
 
         if ("google.com".equals(provider)) {
             if (firebase.get("identities") instanceof Map<?, ?> identities
                     && identities.get("google.com") instanceof List<?> googleIds
                     && !googleIds.isEmpty()
                     && googleIds.get(0) != null) {
-                return String.valueOf(googleIds.get(0));
+                return asString(googleIds.get(0));
             }
             throw new UnauthorizedException();
         }
@@ -81,5 +86,13 @@ public class UserIdentityResolver {
 
         // Any other sign-in provider (anonymous, phone, unknown) is not accepted.
         throw new UnauthorizedException();
+    }
+
+    /** Unwrap a claim value to a plain string, handling both JSON-P (real OIDC) and String (mocks). */
+    private static String asString(Object value) {
+        if (value instanceof JsonString js) {
+            return js.getString();
+        }
+        return value == null ? null : String.valueOf(value);
     }
 }
