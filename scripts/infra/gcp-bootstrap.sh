@@ -128,6 +128,7 @@ APIS=(
   iamcredentials.googleapis.com      # Workload Identity Federation
   sts.googleapis.com                 # Workload Identity Federation
   cloudresourcemanager.googleapis.com
+  policytroubleshooter.googleapis.com # IAM policy troubleshooter (diagnostics)
 )
 
 gcloud services enable "${APIS[@]}" --project "${PROJECT_ID}"
