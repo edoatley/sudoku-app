@@ -9,7 +9,7 @@
 #   4. Artifact Registry repositories (backend + image-recognition)
 #   5. Service accounts + Firestore (datastore.user) IAM for the runtime SAs
 #   6. Identity Platform sign-in (optional — only when GOOGLE_CLIENT_ID/SECRET are
-#      set; delegates to gcp-identity-platform-bootstrap.sh)
+#      set; delegates to identity-platform-bootstrap.sh)
 #
 # It deliberately does NOT create: the deploy SA's broader project roles, public
 # Cloud Run invoker, or Workload Identity Federation — those remain hand-run from
@@ -213,14 +213,14 @@ done
 # (Still leaves the one-time "Enable Identity Platform" click + OAuth redirect-URI paste — the
 # script prints those.)
 echo "==> [6/6] Identity Platform sign-in (optional)"
-IDP_SCRIPT="$(dirname "$0")/gcp-identity-platform-bootstrap.sh"
+IDP_SCRIPT="$(dirname "$0")/identity-platform-bootstrap.sh"
 # The identity script self-loads GOOGLE_CLIENT_ID/SECRET from scripts/.env.local; run it when those
 # creds are available (in the environment or that file).
-if [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]] || [[ -f "$(dirname "$0")/../.env.local" ]]; then
+if [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]] || [[ -f "$(dirname "$0")/../../.env.local" ]]; then
   PROJECT_ID="${PROJECT_ID}" "${IDP_SCRIPT}" ||
     echo "    Identity Platform step reported an issue (see above) — re-run: ${IDP_SCRIPT}"
 else
-  echo "    Skipped — no OAuth creds. Populate them once with scripts/infra/setup-local-secrets.sh,"
+  echo "    Skipped — no OAuth creds. Populate them once with scripts/infra/shared/setup-local-secrets.sh,"
   echo "    then re-run this bootstrap (or run ${IDP_SCRIPT} directly)."
 fi
 

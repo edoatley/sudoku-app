@@ -4,14 +4,14 @@
 # image-recognition service on GCP with `enable_coach = true`.
 #
 # It spans both clouds, so it is deliberately its own script rather than folded into
-# gcp-bootstrap.sh (GCP-only) or bootstrap.sh (AWS-only):
+# gcp/bootstrap.sh (GCP-only) or aws/bootstrap.sh (AWS-only):
 #   AWS  — create a least-privilege IAM user (bedrock:InvokeModel only) + an access key.
 #   GCP  — store that key as two Secret Manager secrets and grant the Cloud Run runtime service
 #          accounts (and the CI deploy SA) read access at the secret level.
 #
 # Terraform then only *mounts* those secrets as AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env vars
 # on the backend + image-recognition Cloud Run services (coach.tf / cloud_run.tf / image_recognition.tf);
-# it does NOT manage the secret IAM (kept here, mirroring how gcp-bootstrap.sh owns runtime IAM).
+# it does NOT manage the secret IAM (kept here, mirroring how gcp/bootstrap.sh owns runtime IAM).
 #
 # Idempotent. Re-run with ROTATE=y to mint a fresh AWS key and add a new secret version.
 #
@@ -32,7 +32,7 @@ ACCESS_KEY_SECRET="${ACCESS_KEY_SECRET:-bedrock-aws-access-key-id}"
 SECRET_KEY_SECRET="${SECRET_KEY_SECRET:-bedrock-aws-secret-access-key}"
 
 # Runtime SAs that read the secrets at container start, plus the CI deploy SA (harmless read; avoids
-# any deploy-time secret validation surprise). Names match gcp-bootstrap.sh.
+# any deploy-time secret validation surprise). Names match gcp/bootstrap.sh.
 SECRET_READERS=(
   "sudoku-run"
   "sudoku-image-recognition-run"

@@ -23,7 +23,7 @@ variable "backend_image_uri" {
 
   validation {
     condition     = can(regex("^[0-9]+\\.dkr\\.ecr\\.[a-z0-9-]+\\.amazonaws\\.com/.+:.+$", var.backend_image_uri))
-    error_message = "backend_image_uri must be a full ECR image URI (e.g. <account>.dkr.ecr.<region>.amazonaws.com/sudoku-backend:<tag>). Build and push one first (see the backend CI build job or scripts/infra/bootstrap.sh), or pass -var \"backend_image_uri=...\" explicitly."
+    error_message = "backend_image_uri must be a full ECR image URI (e.g. <account>.dkr.ecr.<region>.amazonaws.com/sudoku-backend:<tag>). Build and push one first (see the backend CI build job or scripts/infra/aws/bootstrap.sh), or pass -var \"backend_image_uri=...\" explicitly."
   }
 }
 

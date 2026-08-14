@@ -53,7 +53,7 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 
 ### PR 3 — DNS delegation + records + TLS (mostly runbook, some automation) — *step 3*
 **Goal:** `https://sudoku-gcp.edoatley.co.uk` resolves to Firebase Hosting with a valid managed cert.
-- **NS delegation (scripted, cross-cloud):** run `scripts/infra/gcp-delegate-dns.sh` (added in the
+- **NS delegation (scripted, cross-cloud):** run `scripts/infra/gcp/delegate-dns.sh` (added in the
   bootstrap-completeness branch) — reads the Cloud DNS nameservers via `gcloud` and UPSERTs the `NS`
   record in the `edoatley.co.uk` Route53 parent zone. See runbook §6b.
 - Add the Firebase-required **A/AAAA + TXT verification** records (from PR 1's output) to the
@@ -65,7 +65,7 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 
 ### PR 4 — Identity Platform authorized domains + Google sign-in (runbook §4) — *step 4*
 **Goal:** Google sign-in works on the hosted host.
-- `scripts/infra/gcp-identity-platform-bootstrap.sh` now merges the custom domain
+- `scripts/infra/gcp/identity-platform-bootstrap.sh` now merges the custom domain
   `sudoku-gcp.edoatley.co.uk` into the Identity Platform **authorized domains** (alongside
   `localhost` / `*.web.app` / `*.firebaseapp.com`); re-run it to apply. The OAuth client's redirect
   URI uses the `<project>.firebaseapp.com/__/auth/handler` handler (unchanged by the custom domain).
@@ -75,7 +75,7 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 
 ### PR 5 — Prod invoker + end-to-end smoke (step 1 invoker + step 5)
 **Goal:** the app is reachable and a smoke test proves it serves.
-- **Scripted (runbook §2):** `scripts/infra/gcp-grant-prod-invoker.sh` grants `allUsers`
+- **Scripted (runbook §2):** `scripts/infra/gcp/grant-prod-invoker.sh` grants `allUsers`
   `roles/run.invoker` on the prod `sudoku` + `sudoku-image-recognition` services (idempotent, skips
   any not deployed). Kept out of Terraform by design (gap G1).
 - Add an automated **post-deploy smoke** (G6): mint a token with `scripts/github/gcp-smoke-token.sh`

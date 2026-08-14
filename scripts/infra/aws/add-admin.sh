@@ -18,16 +18,16 @@
 #   other branch     -> "sudoku-<sanitized branch, max 32 chars>" (owned pool)
 #
 # Usage:
-#   AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email>
-#   AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> --pool-name sudoku-rc
-#   AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> --pool-id eu-west-2_AbCdEfGhI
+#   AWS_PROFILE=sandbox bash scripts/infra/aws/add-admin.sh <email>
+#   AWS_PROFILE=sandbox bash scripts/infra/aws/add-admin.sh <email> --pool-name sudoku-rc
+#   AWS_PROFILE=sandbox bash scripts/infra/aws/add-admin.sh <email> --pool-id eu-west-2_AbCdEfGhI
 
 set -euo pipefail
 
 EMAIL="${1:-}"
 if [[ -z "${EMAIL}" ]]; then
   echo "ERROR: email is required."
-  echo "  Usage: AWS_PROFILE=sandbox bash scripts/infra/add-admin.sh <email> [--pool-name <name> | --pool-id <id>]"
+  echo "  Usage: AWS_PROFILE=sandbox bash scripts/infra/aws/add-admin.sh <email> [--pool-name <name> | --pool-id <id>]"
   exit 1
 fi
 shift

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Collects the INFRASTRUCTURE / deploy secrets and writes them to scripts/.env.local.
-# Run once; deploy-local.sh, destroy-rc.sh and gcp-identity-platform-bootstrap.sh source it.
+# Run once; deploy-local.sh, destroy-rc.sh and identity-platform-bootstrap.sh source it.
 #
 # ┌─ Two different .env.local files — don't confuse them ──────────────────────────────────┐
 # │  scripts/.env.local  (THIS file)  — infra/deploy secrets read by the shell scripts:     │
@@ -15,11 +15,11 @@
 # provider stores them) when `aws` + `jq` are available and the state is reachable — just press
 # Enter to accept. Otherwise read them from Google Cloud Console → APIs & Services → Credentials.
 #
-# Usage: bash scripts/infra/setup-local-secrets.sh
+# Usage: bash scripts/infra/shared/setup-local-secrets.sh
 
 set -euo pipefail
 
-ENV_FILE="$(dirname "$0")/../.env.local"
+ENV_FILE="$(dirname "$0")/../../.env.local"
 STATE_BUCKET="${STATE_BUCKET:-sudoku-tf-state}"
 STATE_KEY="${STATE_KEY:-sudoku/terraform.tfstate}"
 

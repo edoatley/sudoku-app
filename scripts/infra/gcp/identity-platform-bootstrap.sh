@@ -8,7 +8,7 @@
 # federation) are loaded from scripts/.env.local (written by setup-local-secrets.sh, the same file
 # deploy-local.sh sources). Any value can still be overridden via the environment.
 #
-#   scripts/infra/gcp-identity-platform-bootstrap.sh
+#   scripts/infra/gcp/identity-platform-bootstrap.sh
 #
 # It is idempotent. It automates everything the Admin API exposes; TWO one-time steps have no
 # reliable API, so the script GUIDES you through them interactively rather than just failing:
@@ -25,7 +25,7 @@ set -euo pipefail
 
 # Load secrets from scripts/.env.local (the file setup-local-secrets.sh writes and deploy-local.sh
 # sources) so they need not be passed on the CLI. Values already in the environment take precedence.
-ENV_FILE="$(dirname "$0")/../.env.local"
+ENV_FILE="$(dirname "$0")/../../.env.local"
 if [[ -f "${ENV_FILE}" ]]; then
   while IFS='=' read -r _k _v; do
     [[ "${_k}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue # skip blanks/comments
@@ -50,7 +50,7 @@ if [[ -z "${PROJECT_ID}" || "${PROJECT_ID}" == "(unset)" ]]; then
 fi
 if [[ -z "${GOOGLE_CLIENT_ID}" || -z "${GOOGLE_CLIENT_SECRET}" ]]; then
   echo "ERROR: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not found in the environment or ${ENV_FILE}." >&2
-  echo "       Populate them once with:  scripts/infra/setup-local-secrets.sh" >&2
+  echo "       Populate them once with:  scripts/infra/shared/setup-local-secrets.sh" >&2
   exit 1
 fi
 command -v gcloud >/dev/null || { echo "ERROR: gcloud CLI not found." >&2; exit 1; }

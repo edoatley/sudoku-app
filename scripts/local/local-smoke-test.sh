@@ -40,7 +40,7 @@ if [[ -f "${ENV_FILE}" ]]; then
   # shellcheck source=/dev/null
   set -o allexport; source "${ENV_FILE}"; set +o allexport
 else
-  echo "Hint: run 'bash scripts/infra/setup-local-secrets.sh' to create .env.local" >&2
+  echo "Hint: run 'bash scripts/infra/shared/setup-local-secrets.sh' to create .env.local" >&2
 fi
 
 : "${SMOKE_TEST_USER_EMAIL:?SMOKE_TEST_USER_EMAIL must be set (run setup-local-secrets.sh)}"

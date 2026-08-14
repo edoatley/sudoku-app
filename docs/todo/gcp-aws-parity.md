@@ -41,7 +41,7 @@ bridges the Runtime API to the HTTP server. Both clouds now run the identical ar
 - Added `quarkus-smallrye-health`; `AWS_LWA_READINESS_CHECK_PATH=/api/v1/q/health/ready` set in the
   Dockerfile as the LWA readiness gate.
 - `infra/aws/lambda.tf`: `package_type = "Image"`, pointed at the `sudoku-backend` ECR image
-  (repo created by `scripts/infra/bootstrap.sh`, same pattern as `sudoku-image-recognition`); the
+  (repo created by `scripts/infra/aws/bootstrap.sh`, same pattern as `sudoku-image-recognition`); the
   `function.zip` / S3 zip-bucket path is gone from `ci-deploy.yml`, `deploy-local.sh`, and the
   teardown workflows.
 - **Trade-off accepted:** AWS Lambda SnapStart does not support container-image package types, so
@@ -73,7 +73,7 @@ Chose **(i) cross-cloud Bedrock** (Vertex AI / **CP-GCP-090** stays deferred). T
   half of **CP-GCP-021**; spec **SC-RL-011**.
 - **Cross-cloud Bedrock creds.** `enable_coach` (default `false`) mounts the manually-created AWS key
   from Secret Manager into the backend Cloud Run service as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`
-  (`scripts/infra/gcp-aws-iam-bootstrap.sh` creates the secrets + grants the run SA `secretAccessor`);
+  (`scripts/infra/gcp/bedrock-cross-cloud.sh` creates the secrets + grants the run SA `secretAccessor`);
   the SDK's default chain resolves them, so no coach
   code changed. Satisfies **CP-GCP-085** for the coach.
 - **Correction to earlier wording:** the Bedrock secret was **not** actually scaffolded in Terraform;
@@ -102,7 +102,7 @@ deploy + secrets).
   (**CP-GCP-042/043**). The workflow now also builds/pushes the Python image and passes
   `deploy_image_recognition` / `enable_coach` (both on for `rcg-*` push).
 - Smoke test against the deployed GCP stack using the Identity Platform test user
-  (**CP-GCP-032** — **done**: `scripts/infra/gcp-create-smoke-user.sh` provisions the password user
+  (**CP-GCP-032** — **done**: `scripts/infra/gcp/create-smoke-user.sh` provisions the password user
   and `scripts/github/gcp-smoke-token.sh` mints an ID token via `signInWithPassword`; used to verify
   `rcg-parity` end-to-end — see `docs/aws-vs-gcp-comparison.md`). Wiring it as an automated CI job
   remains. Smoke-user secrets per runbook §5.

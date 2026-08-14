@@ -10,7 +10,7 @@
 # Bedrock calls are made and no spend is incurred.
 #
 # Usage:
-#   AWS_PROFILE=sandbox bash scripts/infra/test-budget-deny.sh
+#   AWS_PROFILE=sandbox bash scripts/infra/aws/test-budget-deny.sh
 #
 # Prerequisites:
 #   - AWS CLI v2 with a profile that has IAM read/write access

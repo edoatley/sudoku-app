@@ -57,7 +57,7 @@ Player profile lazy-creation and update, JWT-based auth, email allowlist, CORS, 
 - ui/src/hooks/usePlayerProfile.js
 - ui/src/api/sudokuApi.js
 - ui/src/App.jsx
-- scripts/infra/add-admin.sh
+- scripts/infra/aws/add-admin.sh
 - infra/aws/cognito.tf, infra/aws/cognito-rc-shared.tf, infra/aws/api_gateway.tf, infra/aws/iam.tf
 
 ## Architecture

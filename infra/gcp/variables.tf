@@ -81,7 +81,7 @@ variable "image_recognition_image_uri" {
   }
 }
 
-# ── Runtime service accounts (created by scripts/infra/gcp-bootstrap.sh) ─────────
+# ── Runtime service accounts (created by scripts/infra/gcp/bootstrap.sh) ─────────
 
 variable "run_service_account_email" {
   description = "Email of the backend Cloud Run runtime service account (required when deploy_cloud_run = true)."

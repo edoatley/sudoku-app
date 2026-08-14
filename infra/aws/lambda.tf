@@ -1,7 +1,7 @@
 # ── ECR repository ────────────────────────────────────────────────────────────
 # A single shared repository is used for all environments (main + RC branches).
 # Branch-prefixed tags distinguish images: <branch>-<sha> and <branch>-latest.
-# The repository is managed by scripts/infra/bootstrap.sh, not Terraform, so it is
+# The repository is managed by scripts/infra/aws/bootstrap.sh, not Terraform, so it is
 # never accidentally destroyed during terraform destroy of an RC workspace.
 data "aws_ecr_repository" "sudoku_backend" {
   name = "sudoku-backend"

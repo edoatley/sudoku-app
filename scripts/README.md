@@ -19,7 +19,7 @@ scripts/
 | `scripts/.env.local` | **Infra/deploy secrets** — sourced automatically by the shell scripts here (deploy, destroy, GCP identity bootstrap). Server-side only. | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AMPLIFY_GITHUB_TOKEN`, `SMOKE_TEST_USER_*` | `setup-local-secrets.sh` |
 | `ui/.env.local` | **Frontend build/runtime** config for Vite (`npm run dev`/`build`). Values are shipped to the browser. | `VITE_*` only (`VITE_API_URL`, `VITE_FIREBASE_*`, `VITE_IMAGE_RECOGNITION_URL`, `VITE_AI_COACH`, …) | by hand |
 
-Run `bash scripts/infra/setup-local-secrets.sh` once to create `scripts/.env.local`. It
+Run `bash scripts/infra/shared/setup-local-secrets.sh` once to create `scripts/.env.local`. It
 auto-detects `GOOGLE_CLIENT_ID`/`SECRET` from the Terraform state (see the tip under
 `setup-local-secrets.sh` below), so you can usually just press Enter.
 
@@ -120,7 +120,12 @@ Prints truncated `IdToken` and `AccessToken` values on success (first 40 charact
 
 ## scripts/infra/
 
-### setup-local-secrets.sh
+Namespaced by cloud: `aws/`, `gcp/`, and `shared/` (cross-cloud). See
+[`scripts/infra/README.md`](infra/README.md) for the full layout, the per-cloud script tables, and
+the shared conventions. The sections below cover the AWS + shared local-ops scripts; the GCP setup
+scripts are documented in `docs/runbooks/gcp-manual-setup.md`.
+
+### shared/setup-local-secrets.sh
 
 **Run once** to populate `scripts/.env.local` with the secrets needed by the local deploy and
 destroy scripts. Prompts for each value interactively (input is not echoed). Re-running lets
@@ -129,7 +134,7 @@ you update individual values while keeping the rest.
 The generated file is `chmod 600` and git-ignored.
 
 ```bash
-bash scripts/infra/setup-local-secrets.sh
+bash scripts/infra/shared/setup-local-secrets.sh
 ```
 
 Secrets collected:
@@ -160,7 +165,7 @@ Secrets collected:
 
 ---
 
-### bootstrap.sh
+### aws/bootstrap.sh
 
 **Run once** before the first Terraform apply. Creates the AWS prerequisites that Terraform
 itself cannot manage (chicken-and-egg):
@@ -175,12 +180,12 @@ policy in-place, which is how IAM permission changes are applied (e.g. after add
 actions to the policy).
 
 ```bash
-bash scripts/infra/bootstrap.sh
+bash scripts/infra/aws/bootstrap.sh
 ```
 
 ---
 
-### deploy-local.sh
+### aws/deploy-local.sh
 
 Runs a full Terraform plan + apply locally, mirroring the `deploy` job in the CI workflows.
 Skips the Amplify build trigger and smoke tests — infrastructure only.
@@ -193,11 +198,11 @@ Automatically:
 
 ```bash
 # Deploy current git branch (default)
-bash scripts/infra/deploy-local.sh
+bash scripts/infra/aws/deploy-local.sh
 
 # Deploy a specific branch
-bash scripts/infra/deploy-local.sh main
-bash scripts/infra/deploy-local.sh rc-myfeature
+bash scripts/infra/aws/deploy-local.sh main
+bash scripts/infra/aws/deploy-local.sh rc-myfeature
 ```
 
 Secrets are loaded automatically from `scripts/.env.local` if present (run `setup-local-secrets.sh`
@@ -209,14 +214,14 @@ GOOGLE_CLIENT_ID=xxx \
 GOOGLE_CLIENT_SECRET=xxx \
 SMOKE_TEST_USER_EMAIL=xxx \
 SMOKE_TEST_USER_PASSWORD=xxx \
-bash scripts/infra/deploy-local.sh
+bash scripts/infra/aws/deploy-local.sh
 ```
 
 To also update the image recognition Lambda, pass the ECR image URI:
 
 ```bash
 IMAGE_RECOGNITION_IMAGE_URI=123456789.dkr.ecr.eu-west-2.amazonaws.com/sudoku-image-recognition:latest \
-bash scripts/infra/deploy-local.sh
+bash scripts/infra/aws/deploy-local.sh
 ```
 
 If `IMAGE_RECOGNITION_IMAGE_URI` is unset, the image recognition Lambda is not updated
@@ -224,7 +229,7 @@ If `IMAGE_RECOGNITION_IMAGE_URI` is unset, the image recognition Lambda is not u
 
 ---
 
-### destroy-rc.sh
+### aws/destroy-rc.sh
 
 Destroys a named RC Terraform workspace and deletes it. Intended for cleaning up `rc-*`
 branch environments, mirroring the `teardown-rc.yml` workflow.
@@ -233,7 +238,7 @@ Refuses to target the `default` (production) workspace. Exits cleanly if the wor
 does not exist.
 
 ```bash
-bash scripts/infra/destroy-rc.sh rc-myfeature
+bash scripts/infra/aws/destroy-rc.sh rc-myfeature
 ```
 
 Secrets are loaded automatically from `scripts/.env.local` if present (only
@@ -248,7 +253,7 @@ Secrets are loaded automatically from `scripts/.env.local` if present (only
 
 ---
 
-### delegate-dns.sh
+### shared/delegate-dns.sh
 
 Creates an NS delegation record in the `edoatley.co.uk` hosted zone (default AWS account)
 pointing to a subdomain zone managed in the sandbox account. Run **once per subdomain** after
@@ -256,7 +261,7 @@ pointing to a subdomain zone managed in the sandbox account. Run **once per subd
 
 ```bash
 PARENT_ZONE_ID=Z0123456789ABCDEF \
-bash scripts/infra/delegate-dns.sh [--subdomain <name>] ns1 ns2 ns3 ns4
+bash scripts/infra/shared/delegate-dns.sh [--subdomain <name>] ns1 ns2 ns3 ns4
 ```
 
 Get the nameservers from Terraform:
@@ -265,17 +270,17 @@ Get the nameservers from Terraform:
 cd infra/aws && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 ```
 
-For the **GCP** frontend domain, use the wrapper `gcp-delegate-dns.sh` instead — it reads the Cloud
+For the **GCP** frontend domain, use the wrapper `scripts/infra/gcp/delegate-dns.sh` instead — it reads the Cloud
 DNS nameservers itself and calls the above for the Route53 side (see the GCP runbook §6b):
 
 ```bash
 PARENT_ZONE_ID=Z0123456789ABCDEF PROJECT_ID=<gcp-project-id> \
-bash scripts/infra/gcp-delegate-dns.sh
+bash scripts/infra/gcp/delegate-dns.sh
 ```
 
 ---
 
-### test-budget-deny.sh
+### aws/test-budget-deny.sh
 
 Verifies the AWS Budgets hard-cap mechanism end-to-end without incurring any real spend.
 Manually attaches the `SudokuBedrockDeny` IAM policy to `SudokuLambdaExecRole`, confirms
@@ -284,25 +289,25 @@ confirms access is restored. Requires the `default` Terraform workspace to be ap
 `budget_alert_email` set (so the deny policy exists in the account).
 
 ```bash
-AWS_PROFILE=sandbox bash scripts/infra/test-budget-deny.sh
+AWS_PROFILE=sandbox bash scripts/infra/aws/test-budget-deny.sh
 ```
 
 ---
 
-### bedrock_quota_report.sh
+### aws/bedrock-quota-report.sh
 
 Reports AWS Bedrock service quotas and recent CloudWatch usage for the models used by the
 Sudoku image recognition service (Nova Pro and Nova Lite, `eu-west-2`). Useful for diagnosing
 throttling issues or before requesting quota increases.
 
 ```bash
-bash scripts/infra/bedrock_quota_report.sh
+bash scripts/infra/aws/bedrock-quota-report.sh
 
 # Print CLI commands to request a quota increase:
-bash scripts/infra/bedrock_quota_report.sh --request-increase
+bash scripts/infra/aws/bedrock-quota-report.sh --request-increase
 
 # Request increase for a specific quota code:
-bash scripts/infra/bedrock_quota_report.sh --request-increase L-XXXX
+bash scripts/infra/aws/bedrock-quota-report.sh --request-increase L-XXXX
 ```
 
 Prerequisites: `aws` CLI with sandbox profile, `jq`.
@@ -410,7 +415,7 @@ AWS_PROFILE=sandbox bash scripts/github/coach-smoke-test.sh \
 ```
 
 Requires the CI/deploy role to have `logs:FilterLogEvents`/`logs:GetLogEvents` (see
-`scripts/infra/bootstrap.sh`). Tunable via `COACH_LOG_POLL_ATTEMPTS` (default 6) and
+`scripts/infra/aws/bootstrap.sh`). Tunable via `COACH_LOG_POLL_ATTEMPTS` (default 6) and
 `COACH_LOG_POLL_DELAY` (default 5s) if CloudWatch ingestion lag needs more headroom.
 
 Retries the coach call itself on 500/503 (`COACH_HTTP_RETRY_ATTEMPTS`, default 2;

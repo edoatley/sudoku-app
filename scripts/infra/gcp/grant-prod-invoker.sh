@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gcp-grant-prod-invoker.sh — grant public invocation on the PROD (default-workspace) Cloud Run
+# grant-prod-invoker.sh — grant public invocation on the PROD (default-workspace) Cloud Run
 # services.
 #
 # The app enforces auth in-app (Firebase JWT validation), so allUsers roles/run.invoker only lets
@@ -14,7 +14,7 @@
 # Needs an authenticated gcloud session with run.admin (or Owner/Editor) on the project.
 #
 # Usage:
-#   [PROJECT_ID=<id>] [REGION=us-central1] scripts/infra/gcp-grant-prod-invoker.sh
+#   [PROJECT_ID=<id>] [REGION=us-central1] scripts/infra/gcp/grant-prod-invoker.sh
 #
 # @spec CP-GCP-014
 

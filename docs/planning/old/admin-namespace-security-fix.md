@@ -149,7 +149,7 @@ AWS_PROFILE=sandbox aws cognito-idp list-users \
 AWS_PROFILE=sandbox aws cognito-idp admin-add-user-to-group \
   --user-pool-id <POOL_ID> --username <FEDERATED_USERNAME> --group-name administrators
 ```
-Consider adding `scripts/infra/add-admin.sh <email>` wrapping this. Do **not** make the native smoke-test user an admin.
+Consider adding `scripts/infra/aws/add-admin.sh <email>` wrapping this. Do **not** make the native smoke-test user an admin.
 
 **`api_gateway.tf`** — add to `local.base_routes` (mirror `"POST /api/v1/games"`):
 ```hcl

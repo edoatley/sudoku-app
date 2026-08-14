@@ -4,7 +4,7 @@ Cloud infrastructure across two facets: **AWS** (`infra/aws/` — Lambda, API Ga
 
 ## Status
 
-**IN_PROGRESS** - 2026-07-17. GCP facet added as **infrastructure scaffolding** (`infra/gcp/`): Cloud Run, Firestore, Firebase Hosting, Cloud DNS, and a billing budget, plus `scripts/infra/gcp-bootstrap.sh`, the manual runbook `docs/runbooks/gcp-manual-setup.md`, and the CI validate gate. Terraform is `fmt`/`validate`/`checkov`-clean but **not yet applied to a live GCP project** (no project/credentials in this environment — same "no apply/drift audit" caveat as the AWS facet). 18 infra CP-GCP specs implemented; 11 gaps + the `deploy-gcp` CI job land with the app-adapter arrows; 3 deferred. IAM/SA/WIF/Identity Platform are deliberately manual (the ACE-exam learning surface), not Terraform. See the GCP Facet section below.
+**IN_PROGRESS** - 2026-07-17. GCP facet added as **infrastructure scaffolding** (`infra/gcp/`): Cloud Run, Firestore, Firebase Hosting, Cloud DNS, and a billing budget, plus `scripts/infra/gcp/bootstrap.sh`, the manual runbook `docs/runbooks/gcp-manual-setup.md`, and the CI validate gate. Terraform is `fmt`/`validate`/`checkov`-clean but **not yet applied to a live GCP project** (no project/credentials in this environment — same "no apply/drift audit" caveat as the AWS facet). 18 infra CP-GCP specs implemented; 11 gaps + the `deploy-gcp` CI job land with the app-adapter arrows; 3 deferred. IAM/SA/WIF/Identity Platform are deliberately manual (the ACE-exam learning surface), not Terraform. See the GCP Facet section below.
 
 **AWS facet: OK** - 2026-07-09. Admin data-browser JWT routes added (`/admin/data/games`, `/admin/data/players`); `administrators` Cognito group provisioned. All 19 findings from `docs/planning/infra-review.md` (H1-H4, M1-M7, L1-L5) fixed and verified via live CI/Deploy against the `rc-terraform-review` workspace — see that doc for full detail. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists).
 
@@ -31,7 +31,7 @@ Cloud infrastructure across two facets: **AWS** (`infra/aws/` — Lambda, API Ga
 - infra/gcp/terraform.tf, infra/gcp/main.tf, infra/gcp/variables.tf, infra/gcp/outputs.tf
 - infra/gcp/cloud_run.tf, infra/gcp/image_recognition.tf, infra/gcp/firestore.tf
 - infra/gcp/firebase_hosting.tf, infra/gcp/dns.tf, infra/gcp/budgets.tf
-- scripts/infra/gcp-bootstrap.sh
+- scripts/infra/gcp/bootstrap.sh
 - docs/runbooks/gcp-manual-setup.md (manual SA/IAM/WIF/Identity Platform setup)
 - docs/planning/gcp-terraform-infrastructure-plan.md
 
