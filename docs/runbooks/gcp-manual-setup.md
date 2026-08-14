@@ -318,9 +318,21 @@ PARENT_ZONE_ID=<edoatley.co.uk Route53 zone id> PROJECT_ID=<gcp-project-id> \
 ```
 
 It reads the Cloud DNS nameservers (`gcloud`) and UPSERTs the `NS` delegation record in Route53 (via
-the generic `delegate-dns.sh`). The Firebase-required **A/AAAA + TXT** records go *inside* the Cloud
-DNS zone and are managed by Terraform (not this script). Firebase then issues the managed TLS cert
-out of band; verify with `dig NS sudoku-gcp.edoatley.co.uk` and the Firebase console.
+the generic `shared/delegate-dns.sh`).
+
+Then add the Firebase-required **A/AAAA + TXT** records *inside* the Cloud DNS zone. Firebase computes
+these asynchronously (surfaced by the `custom_domain_required_dns_records` Terraform output), so they
+are applied by a script rather than Terraform — `for_each` over a value Firebase hasn't computed yet
+would fail the first apply, and the exact record/TXT format is best verified live:
+
+```bash
+# After the prod apply; re-run if the terraform output was still empty (records populate async):
+PROJECT_ID=<gcp-project-id> scripts/infra/gcp/apply-custom-domain-dns.sh
+```
+
+It reads the terraform output and UPSERTs each A/AAAA/TXT record set into the `sudoku-gcp` zone
+(idempotent). Firebase then issues the managed TLS cert out of band; verify with
+`dig +short sudoku-gcp.edoatley.co.uk` and the Firebase console (custom domain shows "Connected").
 
 ## 7. Optional: private networking (NOT built by default)
 
