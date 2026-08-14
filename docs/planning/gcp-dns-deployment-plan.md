@@ -80,12 +80,16 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
   in the Firebase console; HTTPS serves the SPA.
 - **Depends on:** PR 1 (zone + records output), PR 2 (site has content).
 
-### PR 4 — Identity Platform authorized domains + Google sign-in (runbook §4) — *step 4*
+### PR 4 — Identity Platform authorized domains + Google sign-in (runbook §4) — *step 4* — **no code**
 **Goal:** Google sign-in works on the hosted host.
-- `scripts/infra/gcp/identity-platform-bootstrap.sh` now merges the custom domain
-  `sudoku-gcp.edoatley.co.uk` into the Identity Platform **authorized domains** (alongside
-  `localhost` / `*.web.app` / `*.firebaseapp.com`); re-run it to apply. The OAuth client's redirect
-  URI uses the `<project>.firebaseapp.com/__/auth/handler` handler (unchanged by the custom domain).
+- ✅ **Already covered — operational, not code.** `scripts/infra/gcp/identity-platform-bootstrap.sh`
+  already merges the custom domain into the Identity Platform **authorized domains** (shipped with the
+  bootstrap-completeness work); **re-run it** after the domain is live to apply.
+- ✅ **No OAuth-client change needed.** The app uses `signInWithPopup` (not `signInWithRedirect`, so no
+  Safari third-party-cookie issue), and the handler URI stays
+  `https://<project>.firebaseapp.com/__/auth/handler` regardless of the custom domain — so no extra
+  redirect URI / JS origin. The only per-host requirement is the authorized-domains entry (above).
+  Runbook §4 now states this explicitly to avoid a common setup mistake.
 - **Acceptance:** a real Google login completes on `https://sudoku-gcp.edoatley.co.uk` (no
   `auth/unauthorized-domain`).
 - **Depends on:** PR 3 (host resolves over HTTPS).
