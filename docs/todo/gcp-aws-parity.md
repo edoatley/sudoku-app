@@ -101,8 +101,11 @@ deploy + secrets).
   (per-workspace, off on `default`), `VITE_AI_COACH`, and `VITE_IMAGE_RECOGNITION_URL`
   (**CP-GCP-042/043**). The workflow now also builds/pushes the Python image and passes
   `deploy_image_recognition` / `enable_coach` (both on for `rcg-*` push).
-- CI smoke test against the deployed GCP stack using the Identity Platform test user
-  (**CP-GCP-032**; smoke-user secrets per runbook §5). *(deferred)*
+- Smoke test against the deployed GCP stack using the Identity Platform test user
+  (**CP-GCP-032** — **done**: `scripts/infra/gcp-create-smoke-user.sh` provisions the password user
+  and `scripts/github/gcp-smoke-token.sh` mints an ID token via `signInWithPassword`; used to verify
+  `rcg-parity` end-to-end — see `docs/aws-vs-gcp-comparison.md`). Wiring it as an automated CI job
+  remains. Smoke-user secrets per runbook §5.
 - Budget/cost-guard parity (AWS has `budget-deny`; GCP budget alerts exist, hard-cap is the
   deferred **CP-GCP-061**). *(deferred)*
 - Custom-domain cutover (`sudoku-gcp.edoatley.co.uk`) once DNS is delegated. *(deferred)*

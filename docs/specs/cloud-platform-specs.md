@@ -53,7 +53,7 @@
 
 Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All are active gaps (`[ ]`) until the GCP facet is implemented; genuinely deferred items are marked `[D]`.
 
-**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The remaining `[ ]` item is the CI test user (CP-GCP-032). Firestore I/O for leaderboard + coach-rate-limit (CP-GCP-021), cross-cloud Bedrock (CP-GCP-085), image recognition on Cloud Run (gap E), the full VITE_* injection set (CP-GCP-042/043), and non-default public invoker (CP-GCP-014) have landed. Deployment-target readiness (gap G — hosted-UI Hosting targets, prod invoker, Identity Platform authorized domains, per-env smoke) remains partially open. The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
+**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The Identity Platform test user + `signInWithPassword` token minting (CP-GCP-032) have landed. Firestore I/O for leaderboard + coach-rate-limit (CP-GCP-021), cross-cloud Bedrock (CP-GCP-085), image recognition on Cloud Run (gap E), the full VITE_* injection set (CP-GCP-042/043), and non-default public invoker (CP-GCP-014) have landed. Deployment-target readiness (gap G — hosted-UI Hosting targets, prod invoker, Identity Platform authorized domains, per-env smoke) remains partially open. The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
 
 ## GCP — Compute (Cloud Run)
 
@@ -82,7 +82,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 - [x] **CP-GCP-030**: The system shall authenticate end users via Identity Platform with Google as the sole sign-in provider, with no native username/password sign-up offered in the app.
 - [x] **CP-GCP-031**: The system shall provision the Identity Platform configuration and Google provider outside Terraform, with Terraform consuming the resulting issuer and audience by configuration.
-- [ ] **CP-GCP-032**: The system shall provide a manually-created Identity Platform test user that CI authenticates via the Identity Platform signInWithPassword REST endpoint.
+- [x] **CP-GCP-032**: The system shall provide a manually-created Identity Platform test user that CI authenticates via the Identity Platform signInWithPassword REST endpoint.
 
 ## GCP — Firebase Hosting & Frontend Delivery
 
