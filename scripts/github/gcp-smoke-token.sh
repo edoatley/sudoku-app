@@ -43,7 +43,7 @@ SMOKE_PASSWORD="${2:-${SMOKE_TEST_USER_PASSWORD:-}}"
 [[ -n "${WEB_API_KEY}" ]] || { echo "ERROR: VITE_FIREBASE_API_KEY not found (env or ui/.env.local)." >&2; exit 1; }
 [[ -n "${SMOKE_EMAIL}" && -n "${SMOKE_PASSWORD}" ]] || {
   echo "ERROR: smoke email/password not found (args, env, or scripts/.env.local)." >&2
-  echo "       Populate them with scripts/infra/setup-local-secrets.sh." >&2
+  echo "       Populate them with scripts/infra/shared/setup-local-secrets.sh." >&2
   exit 1
 }
 

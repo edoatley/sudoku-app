@@ -39,7 +39,7 @@ on Cloud Run; default + `%prod` on Lambda) and a handful of env vars — no code
 | Frontend hosting | AWS Amplify | Firebase Hosting (SPA rewrites in `ui/firebase.json`) |
 | Public reachability | API Gateway stage | Cloud Run `allUsers` invoker on non-`default` workspaces (CP-GCP-014); app still enforces auth |
 | Test-token minting | Cognito `USER_PASSWORD_AUTH` (`scripts/local/smoke-token-local.sh`) | Identity Platform `signInWithPassword` (`scripts/github/gcp-smoke-token.sh`) |
-| IaC | `infra/aws/` (Terraform) | `infra/gcp/` (Terraform) + `scripts/infra/gcp-bootstrap.sh` for one-time project/SA/API/IAM setup |
+| IaC | `infra/aws/` (Terraform) | `infra/gcp/` (Terraform) + `scripts/infra/gcp/bootstrap.sh` for one-time project/SA/API/IAM setup |
 | Env isolation | per-env tables | Firestore **named database** per Terraform workspace (`(default)` vs `sudoku<suffix>`) |
 
 ## Where the real differences live
@@ -94,16 +94,16 @@ Both clouds have a REST way to mint a real ID token for a password test user, so
 a browser or copy-paste:
 - **AWS**: Cognito `USER_PASSWORD_AUTH` — `scripts/local/smoke-token-local.sh`.
 - **GCP**: Identity Platform `accounts:signInWithPassword` — `scripts/github/gcp-smoke-token.sh`,
-  with `scripts/infra/gcp-create-smoke-user.sh` provisioning the user (CP-GCP-032). The GCP token
+  with `scripts/infra/gcp/create-smoke-user.sh` provisioning the user (CP-GCP-032). The GCP token
   carries `firebase.sign_in_provider=password`, so `UserIdentityResolver` maps it to `firebase:<uid>`;
   the email must be on `%prod.app.allowed.emails` and `email_verified=true`.
 
 ### 7. IaC & bootstrap
-AWS is pure Terraform. GCP is Terraform **plus** a one-time `scripts/infra/gcp-bootstrap.sh` that owns
+AWS is pure Terraform. GCP is Terraform **plus** a one-time `scripts/infra/gcp/bootstrap.sh` that owns
 what Terraform deliberately doesn't: project creation, API enablement, the runtime service accounts,
 and their `roles/datastore.user` grant (kept out of Terraform on purpose — see the note in
 `infra/gcp/coach.tf`). If you grant a runtime role or enable an API by hand, it belongs in
-`gcp-bootstrap.sh`, not Terraform.
+`scripts/infra/gcp/bootstrap.sh`, not Terraform.
 
 ## The two bugs that blocked GCP
 

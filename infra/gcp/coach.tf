@@ -6,8 +6,8 @@
 # GCP; they reach AWS Bedrock cross-cloud using a least-privilege AWS access key
 # (Bedrock InvokeModel only) stored in Secret Manager. The secrets AND the runtime
 # service accounts' read access to them are provisioned by
-# scripts/infra/gcp-aws-iam-bootstrap.sh (a one-time cross-cloud step, mirroring how
-# gcp-bootstrap.sh owns the runtime SAs' datastore.user IAM) — never in Terraform,
+# scripts/infra/gcp/bedrock-cross-cloud.sh (a one-time cross-cloud step, mirroring how
+# scripts/infra/gcp/bootstrap.sh owns the runtime SAs' datastore.user IAM) — never in Terraform,
 # so the AWS key never enters Terraform state and the deploy SA needs no
 # secret-level IAM-admin. Terraform only *mounts* the secrets as
 # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env vars on the backend (cloud_run.tf)

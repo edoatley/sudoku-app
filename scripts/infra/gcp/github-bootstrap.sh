@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# gcp-github-bootstrap.sh — connect GitHub Actions to GCP via Workload Identity
+# github-bootstrap.sh — connect GitHub Actions to GCP via Workload Identity
 # Federation (WIF) and grant the CI deploy service account the roles it needs to
 # run `terraform apply` on infra/gcp.
 #
-# Run once per project, AFTER scripts/infra/gcp-bootstrap.sh (which creates the
+# Run once per project, AFTER scripts/infra/gcp/bootstrap.sh (which creates the
 # sudoku-github-deploy service account this script wires up). Idempotent — safe to
 # re-run; re-running reconciles the provider config and re-asserts bindings/secrets.
 #
@@ -32,10 +32,10 @@ if [[ -z "${PROJECT_ID}" || "${PROJECT_ID}" == "(unset)" ]]; then
   exit 1
 fi
 
-# The deploy SA is created by gcp-bootstrap.sh — fail loudly if it is missing
+# The deploy SA is created by bootstrap.sh — fail loudly if it is missing
 # rather than silently creating a half-configured identity here.
 if ! gcloud iam service-accounts describe "${DEPLOY_SA}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
-  echo "ERROR: deploy SA ${DEPLOY_SA} not found. Run scripts/infra/gcp-bootstrap.sh first." >&2
+  echo "ERROR: deploy SA ${DEPLOY_SA} not found. Run scripts/infra/gcp/bootstrap.sh first." >&2
   exit 1
 fi
 

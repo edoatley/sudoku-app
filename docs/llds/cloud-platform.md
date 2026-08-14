@@ -126,7 +126,7 @@ All four tables use `PAY_PER_REQUEST` (on-demand) billing. AWS-managed encryptio
 **ECR:**
 
 - Repositories `sudoku-backend` and `sudoku-image-recognition`, both created by
-  `scripts/infra/bootstrap.sh` (outside Terraform)
+  `scripts/infra/aws/bootstrap.sh` (outside Terraform)
 - Shared across all workspaces; referenced by Terraform via data source
 - Tag convention: `{branch}-{sha}`, `{branch}-latest`
 
@@ -138,7 +138,7 @@ All four tables use `PAY_PER_REQUEST` (on-demand) billing. AWS-managed encryptio
 - Admin-created users only (smoke-test user created by Terraform)
 - Auto-verified: email; schema: email (required), name (optional)
 - MFA: off; Cognito domain: `sudoku-auth{suffix}.auth.eu-west-2.amazoncognito.com`
-- `aws_cognito_user_group "administrators"` — members may reach `/admin/*` endpoints (see `docs/llds/user-management.md` — Admin Authorization). Provisioned empty; adding the human admin is a manual one-time step (their federated Google username is unknown until first login) — see `scripts/infra/add-admin.sh`.
+- `aws_cognito_user_group "administrators"` — members may reach `/admin/*` endpoints (see `docs/llds/user-management.md` — Admin Authorization). Provisioned empty; adding the human admin is a manual one-time step (their federated Google username is unknown until first login) — see `scripts/infra/aws/add-admin.sh`.
 
 **RC Shared Pool (`rc-shared` workspace):**
 
@@ -482,7 +482,7 @@ The AWS deployment currently keys user data on the Cognito subject (a Cognito UU
 
 ## GCP Manual Setup (not Terraform-managed)
 
-The following are provisioned by hand from `docs/runbooks/gcp-manual-setup.md` (some optionally by `scripts/infra/gcp-bootstrap.sh`), not by `infra/gcp/*.tf`:
+The following are provisioned by hand from `docs/runbooks/gcp-manual-setup.md` (some optionally by `scripts/infra/gcp/bootstrap.sh`), not by `infra/gcp/*.tf`:
 
 | Item | What | Why manual |
 | --- | --- | --- |
@@ -536,7 +536,7 @@ The GCP facet extends the existing pipeline in tiers.
 **Live (infrastructure-scaffolding arrow):**
 
 - **Validate gate:** the `terraform-validate` action is parameterised by `working-directory` and `ci.yml`'s `ci-infra` job runs it as a matrix over `infra/aws` and `infra/gcp`; `ci.yml`'s path filter adds `infra/gcp/**` (CP-GCP-081).
-- **Bootstrap:** `scripts/infra/gcp-bootstrap.sh` (project + billing, GCS state bucket, API enablement, two Artifact Registry repos, runtime + deploy SAs with `roles/datastore.user`) and `scripts/infra/gcp-github-bootstrap.sh` (Workload Identity Federation pool/provider, deploy-SA project roles, the three GitHub secrets).
+- **Bootstrap:** `scripts/infra/gcp/bootstrap.sh` (project + billing, GCS state bucket, API enablement, two Artifact Registry repos, runtime + deploy SAs with `roles/datastore.user`) and `scripts/infra/gcp/github-bootstrap.sh` (Workload Identity Federation pool/provider, deploy-SA project roles, the three GitHub secrets).
 - **Deploy pipeline:** the **`deploy-gcp` workflow** (`.github/workflows/deploy-gcp.yml`, `workflow_dispatch`) authenticates via WIF (`GCP_WIF_PROVIDER` impersonating `GCP_DEPLOY_SA_EMAIL`, no keys — the counterpart to `configure-aws-oidc`). It runs three jobs: **build-image** (build the HTTP fast-jar, `docker build` `Dockerfile.jvm-lwa`, push to Artifact Registry `sudoku-backend`), **terraform** (`apply` on `infra/gcp`, passing `backend_image`), and **deploy-frontend** (build the Firebase-provider UI, `firebase deploy --only hosting`). Phased flags `deploy_cloud_run` / `deploy_frontend` / `enable_custom_domain` (default off) let it stand up Firestore + Firebase Hosting + Cloud DNS before the app container and DNS delegation exist. Because `workflow_dispatch` requires the workflow on the default branch, `deploy-gcp.yml` is also on `main` (dispatch-only, inert); runs target the working branch via `--ref`.
 
 **Games-slice arrow (landed):**
@@ -546,7 +546,7 @@ The GCP facet extends the existing pipeline in tiers.
 
 **Out-of-slice parity (see `docs/todo/gcp-aws-parity.md`):** leaderboard + coach-rate-limit Firestore I/O, admin-data Firestore adapter, AI coach on GCP (cross-cloud Bedrock or Vertex), and the image-recognition Cloud Run service (defined behind `deploy_image_recognition`, not yet built/deployed).
 
-**Secrets:** `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA_EMAIL` (set by `gcp-github-bootstrap.sh`); the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are reused for the Identity Platform Google provider.
+**Secrets:** `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA_EMAIL` (set by `scripts/infra/gcp/github-bootstrap.sh`); the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are reused for the Identity Platform Google provider.
 
 ## GCP Design Decisions
 
@@ -601,7 +601,7 @@ The GCP facet extends the existing pipeline in tiers.
 
 - AWS facet: `infra/aws/main.tf`, `infra/aws/terraform.tf`, `infra/aws/variables.tf`, `infra/aws/outputs.tf`, `infra/aws/lambda.tf`, `infra/aws/api_gateway.tf`, `infra/aws/dynamodb.tf`, `infra/aws/cognito.tf`, `infra/aws/cognito-rc-shared.tf`, `infra/aws/amplify.tf`, `infra/aws/domain.tf`, `infra/aws/iam.tf`, `infra/aws/image_recognition_lambda.tf`
 - GCP facet: `infra/gcp/terraform.tf`, `infra/gcp/main.tf`, `infra/gcp/variables.tf`, `infra/gcp/outputs.tf`, `infra/gcp/cloud_run.tf`, `infra/gcp/image_recognition.tf`, `infra/gcp/firestore.tf`, `infra/gcp/firebase_hosting.tf`, `infra/gcp/dns.tf`, `infra/gcp/budgets.tf`
-- GCP manual setup runbook: `docs/runbooks/gcp-manual-setup.md`; bootstrap: `scripts/infra/gcp-bootstrap.sh`
+- GCP manual setup runbook: `docs/runbooks/gcp-manual-setup.md`; bootstrap: `scripts/infra/gcp/bootstrap.sh`
 - See also: `docs/llds/react-frontend.md` (frontend app delivered by Amplify on AWS, Firebase Hosting on GCP)
 - Depends on: nothing (provisions all other components)
 - Depended on by: all components (runtime environment)

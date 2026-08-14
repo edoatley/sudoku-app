@@ -85,8 +85,8 @@ Image Lambda environment: `AWS_REGION_NAME`, `BEDROCK_MODELS` (from `local.bedro
 | DynamoDB `SudokuPlayers{suffix}` | `dynamodb.tf` | PK `userId`; player profile incl. AI-coach toggle + monthly token counter | PITR on default only |
 | DynamoDB `SudokuLeaderboard{suffix}` | `dynamodb.tf` | PK `userId` | PITR on default only |
 | DynamoDB `SudokuCoachRateLimits{suffix}` | `dynamodb.tf` | PK `userId`, SK `window` (UTC minute); TTL `expiresAt` | Ephemeral counters, PITR off |
-| ECR `sudoku-backend` | data source only | Tags `{branch}-{sha}`, `{branch}-latest` | Created by `scripts/infra/bootstrap.sh` (outside Terraform); shared by all workspaces |
-| ECR `sudoku-image-recognition` | data source only | Tags `{branch}-{sha}`, `{branch}-latest` | Created by `scripts/infra/bootstrap.sh` (outside Terraform); shared by all workspaces |
+| ECR `sudoku-backend` | data source only | Tags `{branch}-{sha}`, `{branch}-latest` | Created by `scripts/infra/aws/bootstrap.sh` (outside Terraform); shared by all workspaces |
+| ECR `sudoku-image-recognition` | data source only | Tags `{branch}-{sha}`, `{branch}-latest` | Created by `scripts/infra/aws/bootstrap.sh` (outside Terraform); shared by all workspaces |
 | S3 `sudoku-tf-state` | backend config | Terraform state, encrypted, native S3 locking | Bootstrap-created; one key per workspace |
 
 ### 2.7 AI

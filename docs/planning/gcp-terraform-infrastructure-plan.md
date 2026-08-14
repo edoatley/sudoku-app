@@ -44,7 +44,7 @@ gap). Acceptance checks, wired alongside the `.tf`: `terraform fmt -check`, `ter
 
 ## 4. Phased work
 
-1. **Bootstrap** `scripts/infra/gcp-bootstrap.sh` — GCS state bucket, `gcloud services enable`,
+1. **Bootstrap** `scripts/infra/gcp/bootstrap.sh` — GCS state bucket, `gcloud services enable`,
    two Artifact Registry repos. No SA/IAM/WIF/Identity Platform.
 2. **Runbook** `docs/runbooks/gcp-manual-setup.md` — SAs, IAM bindings, WIF pool/provider,
    Identity Platform + Google IdP + test user, optional VPC. The learning surface.

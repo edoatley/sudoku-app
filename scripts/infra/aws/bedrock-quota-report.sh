@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# bedrock_quota_report.sh — Report AWS Bedrock service quotas and CloudWatch usage
+# bedrock-quota-report.sh — Report AWS Bedrock service quotas and CloudWatch usage
 # for the models used by the Sudoku image recognition service (eu-west-2).
 #
 # Usage:
-#   bash bedrock_quota_report.sh
-#   bash bedrock_quota_report.sh --request-increase          # print increase commands for all
-#   bash bedrock_quota_report.sh --request-increase L-XXXX  # print increase command for one quota
+#   bash bedrock-quota-report.sh
+#   bash bedrock-quota-report.sh --request-increase          # print increase commands for all
+#   bash bedrock-quota-report.sh --request-increase L-XXXX  # print increase command for one quota
 #
 # Requires: aws CLI v2, jq
 # AWS profile: sandbox (set via AWS_PROFILE=sandbox)

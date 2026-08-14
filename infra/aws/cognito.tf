@@ -210,7 +210,7 @@ resource "aws_cognito_user_pool_client" "web" {
 # Administrators group — members may reach /admin/* endpoints (data browser).
 # Provisioned empty; the human admin's federated username is unknown until
 # their first login, so group membership is added manually — see
-# scripts/infra/add-admin.sh (same pattern as the DNS delegation step).
+# scripts/infra/aws/add-admin.sh (same pattern as the DNS delegation step).
 # ---------------------------------------------------------------------------
 resource "aws_cognito_user_group" "admin" {
   count        = local.is_rc ? 0 : 1

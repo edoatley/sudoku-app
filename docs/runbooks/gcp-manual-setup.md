@@ -6,7 +6,7 @@ the parts of GCP most worth understanding directly (and the parts most dangerous
 abstract). `infra/gcp/*.tf` references what you create here by value — service-account emails and
 the Identity Platform issuer/audience — and provisions only application resources.
 
-Run this **once per project**, after `scripts/infra/gcp-bootstrap.sh` (which creates the GCS state
+Run this **once per project**, after `scripts/infra/gcp/bootstrap.sh` (which creates the GCS state
 bucket, enables APIs, and creates the Artifact Registry repos) and **before** `terraform apply`.
 
 ## Prerequisites
@@ -36,7 +36,7 @@ gcloud services enable \
 
 ## 1. Service accounts
 
-> **Now automated:** `scripts/infra/gcp-bootstrap.sh` step `[5/5]` creates these three service
+> **Now automated:** `scripts/infra/gcp/bootstrap.sh` step `[5/5]` creates these three service
 > accounts (and the §2 `roles/datastore.user` binding). The commands below are kept for reference /
 > for running by hand. The broader deploy-SA roles, `run.invoker`, WIF, and Identity Platform below
 > are still manual.
@@ -96,7 +96,7 @@ idempotent script **after** the services first exist:
 
 ```bash
 # Prod (default) services — run after the first prod `terraform apply`:
-PROJECT_ID=<gcp-project-id> scripts/infra/gcp-grant-prod-invoker.sh
+PROJECT_ID=<gcp-project-id> scripts/infra/gcp/grant-prod-invoker.sh
 ```
 
 The script grants `allUsers` `roles/run.invoker` on the prod `sudoku` + `sudoku-image-recognition`
@@ -151,7 +151,7 @@ gcloud storage buckets add-iam-policy-binding "gs://sudoku-tf-state-gcp" \
 
 ## 3. Workload Identity Federation (GitHub → GCP)
 
-> **Now automated:** `scripts/infra/gcp-github-bootstrap.sh` performs this section, the deploy-SA
+> **Now automated:** `scripts/infra/gcp/github-bootstrap.sh` performs this section, the deploy-SA
 > project roles (from §2's *Deploy SA*), and sets the three GitHub secrets — idempotently and with
 > inline explanations of each resource. The commands below are kept for reference / hand-running.
 
@@ -198,7 +198,7 @@ Add these GitHub Actions secrets:
 | `GCP_DEPLOY_SA_EMAIL` | `${DEPLOY_SA}` |
 | `VITE_FIREBASE_API_KEY` | Firebase Web API key (public client id) — from the Identity Platform / Firebase console (§4). Only needed for the `deploy_frontend` job. |
 
-The first three are set automatically by `gcp-github-bootstrap.sh`; add `VITE_FIREBASE_API_KEY`
+The first three are set automatically by `scripts/infra/gcp/github-bootstrap.sh`; add `VITE_FIREBASE_API_KEY`
 by hand once §4 is done. The frontend also uses `VITE_FIREBASE_AUTH_DOMAIN`
 (`${PROJECT_ID}.firebaseapp.com`) and `VITE_FIREBASE_PROJECT_ID` (`${PROJECT_ID}`), which the
 deploy workflow derives from `GCP_PROJECT_ID` — no extra secrets required.
@@ -210,8 +210,8 @@ deploy workflow derives from `GCP_PROJECT_ID` — no extra secrets required.
 The Cognito equivalent: social-only Google login for end users. Terraform consumes only the
 resulting issuer/audience.
 
-> **Mostly scripted.** `scripts/infra/gcp-identity-platform-bootstrap.sh` (also invoked by
-> `gcp-bootstrap.sh` step [6/6] when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set) enables
+> **Mostly scripted.** `scripts/infra/gcp/identity-platform-bootstrap.sh` (also invoked by
+> `scripts/infra/gcp/bootstrap.sh` step [6/6] when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set) enables
 > Email/Password, adds the Google IdP from your OAuth client, and merges the authorized domains via
 > the Identity Toolkit Admin API — `localhost`, `<project>.firebaseapp.com`, `<project>.web.app`, and
 > the prod custom domain `${CUSTOM_DOMAIN:-sudoku-gcp.edoatley.co.uk}` (override/skip via
@@ -284,14 +284,14 @@ hand or in Terraform:
 
 ```bash
 # Needs BOTH an authenticated aws (IAM-capable) and gcloud (Owner/Editor) session.
-PROJECT_ID=<gcp-project-id> scripts/infra/gcp-aws-iam-bootstrap.sh
+PROJECT_ID=<gcp-project-id> scripts/infra/gcp/bedrock-cross-cloud.sh
 ```
 
 It creates the IAM user `sudoku-bedrock-cross-cloud` (scoped to `bedrock:InvokeModel` on the model
 list), mints an access key, stores it as the two Secret Manager secrets `bedrock-aws-access-key-id`
 and `bedrock-aws-secret-access-key`, and grants `roles/secretmanager.secretAccessor` on both to the
 `sudoku-run`, `sudoku-image-recognition-run`, and `sudoku-github-deploy` service accounts. Rotate
-later with `ROTATE=y PROJECT_ID=<id> scripts/infra/gcp-aws-iam-bootstrap.sh`.
+later with `ROTATE=y PROJECT_ID=<id> scripts/infra/gcp/bedrock-cross-cloud.sh`.
 
 Terraform only *mounts* those secrets as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` on the Cloud
 Run services when `enable_coach = true` (the AWS SDK's default credential chain then resolves them
@@ -314,7 +314,7 @@ nameservers — a one-time, cross-cloud step (needs both `gcloud` and `aws` sess
 ```bash
 # After the prod apply (workspace=default, enable_custom_domain=true) has created the Cloud DNS zone:
 PARENT_ZONE_ID=<edoatley.co.uk Route53 zone id> PROJECT_ID=<gcp-project-id> \
-  scripts/infra/gcp-delegate-dns.sh
+  scripts/infra/gcp/delegate-dns.sh
 ```
 
 It reads the Cloud DNS nameservers (`gcloud`) and UPSERTs the `NS` delegation record in Route53 (via
@@ -363,11 +363,11 @@ This is the GCP analogue of the AWS `rc-*` flow; AWS is untouched.
 
 ## Ordering summary
 
-1. `scripts/infra/gcp-bootstrap.sh` (state bucket, APIs, Artifact Registry)
-2. `scripts/infra/gcp-github-bootstrap.sh` (deploy-SA roles incl. `artifactregistry.writer`, WIF, secrets)
+1. `scripts/infra/gcp/bootstrap.sh` (state bucket, APIs, Artifact Registry)
+2. `scripts/infra/gcp/github-bootstrap.sh` (deploy-SA roles incl. `artifactregistry.writer`, WIF, secrets)
 3. This runbook §1–§4 (SAs, IAM, WIF, Identity Platform) — **before** the first apply
 4. `cd infra/gcp && terraform init && terraform apply` (or push an `rcg-*` branch — §8)
-5. `scripts/infra/gcp-grant-prod-invoker.sh` — §2 *public invocation* for prod (needs the services first)
+5. `scripts/infra/gcp/grant-prod-invoker.sh` — §2 *public invocation* for prod (needs the services first)
 6. §5–§6 as the smoke tests / AI features are wired up
 7. **Prod custom domain:** apply with `enable_custom_domain=true`, then
-   `scripts/infra/gcp-delegate-dns.sh` (§6b) to delegate `sudoku-gcp.edoatley.co.uk`
+   `scripts/infra/gcp/delegate-dns.sh` (§6b) to delegate `sudoku-gcp.edoatley.co.uk`

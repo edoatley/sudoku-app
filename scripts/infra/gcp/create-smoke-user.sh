@@ -9,13 +9,13 @@
 # password (re)set and emailVerified are applied via the Identity Toolkit Admin API using the
 # gcloud access token.
 #
-# Usage: [SMOKE_EMAIL=edoatley+sudokuapp@icloud.com] scripts/infra/gcp-create-smoke-user.sh
+# Usage: [SMOKE_EMAIL=edoatley+sudokuapp@icloud.com] scripts/infra/gcp/create-smoke-user.sh
 #
 # @spec CP-GCP-032
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
 SMOKE_EMAIL="${SMOKE_EMAIL:-edoatley+sudokuapp@icloud.com}"
 ENV_FILE="${ROOT}/scripts/.env.local"
