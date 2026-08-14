@@ -18,7 +18,7 @@ GET https://7xv70er20f.execute-api.eu-west-2.amazonaws.com/api/v1/dev/data/playe
 → HTTP 200, full SudokuPlayers table (every user's displayName, email, userId)
 ```
 
-`GET /api/v1/dev/data/games` behaves the same. See `docs/planning/infra-review.md` finding **H1** for the confirmed evidence.
+`GET /api/v1/dev/data/games` behaves the same. See `docs/planning/old/infra-review.md` finding **H1** for the confirmed evidence.
 
 **Two failures combine to cause it:**
 
@@ -203,4 +203,4 @@ Update the `CKV_AWS_309` skip comment: `/dev/data` is no longer public; admin da
 - **Do NOT** remove the Games/Players `dynamodb:Scan` IAM grants (see §4.4).
 - **Do NOT** tie hint-demo visibility to admin status — it is compiled out of prod and stays `DEV_TOOLS`-gated.
 - Keep changes surgical (project Rule 3): match `AllowedUsersFilter`'s style; don't refactor adjacent code.
-- The pre-existing unstaged docs on this branch (`docs/architecture.md`, `docs/planning/infra-review.md`) are intentional and should be committed alongside or before this work — do not discard them.
+- The pre-existing unstaged docs on this branch (`docs/architecture.md`, `docs/planning/old/infra-review.md`) are intentional and should be committed alongside or before this work — do not discard them.

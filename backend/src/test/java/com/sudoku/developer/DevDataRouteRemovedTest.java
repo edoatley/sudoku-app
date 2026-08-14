@@ -8,7 +8,7 @@ import static io.restassured.RestAssured.given;
 /**
  * Regression test for the PII leak fixed by this change (see
  * docs/planning/old/admin-namespace-security-fix.md and
- * docs/planning/infra-review.md finding H1): an unauthenticated request used
+ * docs/planning/old/infra-review.md finding H1): an unauthenticated request used
  * to be able to scan and return the entire Games/Players tables via
  * DevDataResource. That class is deleted; these paths must never resolve to
  * anything again.

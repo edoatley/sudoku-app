@@ -4,7 +4,7 @@ Player profile lazy-creation and update, JWT-based auth, email allowlist, CORS, 
 
 ## Status
 
-**OK** - 2026-07-08. Admin authorization (Cognito `administrators` group, `/admin/data/*`) implemented, tested, and verified — closes the unauthenticated `/dev/data/*` PII leak documented in `docs/planning/infra-review.md` finding H1.
+**OK** - 2026-07-08. Admin authorization (Cognito `administrators` group, `/admin/data/*`) implemented, tested, and verified — closes the unauthenticated `/dev/data/*` PII leak documented in `docs/planning/old/infra-review.md` finding H1.
 
 ## References
 

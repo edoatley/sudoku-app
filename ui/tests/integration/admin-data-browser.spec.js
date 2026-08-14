@@ -5,7 +5,7 @@
  * group (docs/planning/admin-namespace-security-fix.md §4.4 — "Do not make the native
  * smoke-test user an admin"). This test asserts that a regular authenticated user never
  * sees the admin Data Browser menu entry — the UI-side guard against the PII exposure
- * this feature fixed (docs/planning/infra-review.md finding H1).
+ * this feature fixed (docs/planning/old/infra-review.md finding H1).
  *
  * Only meaningful against a real Cognito session (SMOKE_ID_TOKEN, CI only) on the "main"
  * environment: rc-* workspaces set VITE_DEV_TOOLS=true, which shows the Data Browser to

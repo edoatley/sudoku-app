@@ -105,7 +105,7 @@ if [ "${ENV_TYPE:-main}" = "rc" ]; then
 fi
 
 # GET /api/v1/dev/data/{games,players} — this is the LITERAL request that proved the PII leak
-# (docs/planning/infra-review.md finding H1: unauthenticated HTTP 200 with the full SudokuPlayers
+# (docs/planning/old/infra-review.md finding H1: unauthenticated HTTP 200 with the full SudokuPlayers
 # table). DevDataResource has been deleted entirely, so it must now 404, not 401 — there is no
 # handler left to authorize against.
 for entity in games players; do
