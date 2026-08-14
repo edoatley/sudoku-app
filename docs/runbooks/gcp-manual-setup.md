@@ -90,8 +90,17 @@ done
 ### Public invocation of the Cloud Run services
 
 The app is a public web API (auth is enforced in-app by JWT validation, not at the platform edge),
-so `allUsers` may invoke the services. Grant this **after** the services exist (post first
-`terraform apply`), or Terraform's plan will show the binding as external drift:
+so `allUsers` may invoke the services. Non-default (`rcg-*`) workspaces get this binding from
+Terraform (CP-GCP-014); **prod (`default`) is deliberately kept out of Terraform** and applied by an
+idempotent script **after** the services first exist:
+
+```bash
+# Prod (default) services — run after the first prod `terraform apply`:
+PROJECT_ID=<gcp-project-id> scripts/infra/gcp-grant-prod-invoker.sh
+```
+
+The script grants `allUsers` `roles/run.invoker` on the prod `sudoku` + `sudoku-image-recognition`
+services (skipping any not deployed). The equivalent by hand:
 
 ```bash
 for SVC in sudoku sudoku-image-recognition; do
@@ -102,7 +111,7 @@ for SVC in sudoku sudoku-image-recognition; do
 done
 ```
 
-> Note: on non-default workspaces the service names carry the `-<workspace>` suffix.
+> Note: on non-default workspaces the service names carry the `-<workspace>` suffix (handled in TF).
 
 ### Deploy SA
 
@@ -204,7 +213,9 @@ resulting issuer/audience.
 > **Mostly scripted.** `scripts/infra/gcp-identity-platform-bootstrap.sh` (also invoked by
 > `gcp-bootstrap.sh` step [6/6] when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are set) enables
 > Email/Password, adds the Google IdP from your OAuth client, and merges the authorized domains via
-> the Identity Toolkit Admin API. Only steps **1** (the one-time "Enable Identity Platform"
+> the Identity Toolkit Admin API — `localhost`, `<project>.firebaseapp.com`, `<project>.web.app`, and
+> the prod custom domain `${CUSTOM_DOMAIN:-sudoku-gcp.edoatley.co.uk}` (override/skip via
+> `CUSTOM_DOMAIN`). Only steps **1** (the one-time "Enable Identity Platform"
 > entitlement) and the **OAuth redirect-URI** paste in step 2 have no reliable API — the script
 > **guides you through both interactively** (it waits and re-polls the API until Enable is detected,
 > then asks you to confirm the redirect URI). The steps below are the full manual walkthrough /
@@ -293,6 +304,24 @@ with no application code change); it does **not** manage the secrets or their IA
 
 ---
 
+## 6b. Custom domain DNS delegation (prod)
+
+The GCP frontend's custom domain `sudoku-gcp.edoatley.co.uk` is served by a Cloud DNS managed zone
+that Terraform creates in the **default** workspace when `enable_custom_domain=true`. The parent zone
+`edoatley.co.uk` lives in **AWS Route53**, so the subdomain must be delegated to the Cloud DNS
+nameservers — a one-time, cross-cloud step (needs both `gcloud` and `aws` sessions + `PARENT_ZONE_ID`):
+
+```bash
+# After the prod apply (workspace=default, enable_custom_domain=true) has created the Cloud DNS zone:
+PARENT_ZONE_ID=<edoatley.co.uk Route53 zone id> PROJECT_ID=<gcp-project-id> \
+  scripts/infra/gcp-delegate-dns.sh
+```
+
+It reads the Cloud DNS nameservers (`gcloud`) and UPSERTs the `NS` delegation record in Route53 (via
+the generic `delegate-dns.sh`). The Firebase-required **A/AAAA + TXT** records go *inside* the Cloud
+DNS zone and are managed by Terraform (not this script). Firebase then issues the managed TLS cert
+out of band; verify with `dig NS sudoku-gcp.edoatley.co.uk` and the Firebase console.
+
 ## 7. Optional: private networking (NOT built by default)
 
 Cloud Run reaches Firestore over Google's managed public API at zero cost, so no VPC is required.
@@ -338,5 +367,7 @@ This is the GCP analogue of the AWS `rc-*` flow; AWS is untouched.
 2. `scripts/infra/gcp-github-bootstrap.sh` (deploy-SA roles incl. `artifactregistry.writer`, WIF, secrets)
 3. This runbook §1–§4 (SAs, IAM, WIF, Identity Platform) — **before** the first apply
 4. `cd infra/gcp && terraform init && terraform apply` (or push an `rcg-*` branch — §8)
-5. This runbook §2 *public invocation* binding (needs the services to exist first)
+5. `scripts/infra/gcp-grant-prod-invoker.sh` — §2 *public invocation* for prod (needs the services first)
 6. §5–§6 as the smoke tests / AI features are wired up
+7. **Prod custom domain:** apply with `enable_custom_domain=true`, then
+   `scripts/infra/gcp-delegate-dns.sh` (§6b) to delegate `sudoku-gcp.edoatley.co.uk`
