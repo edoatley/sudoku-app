@@ -55,6 +55,7 @@ Run in the order documented in `docs/runbooks/gcp-manual-setup.md` (it is the le
 | `create-smoke-user.sh` | Provision the Identity Platform password smoke-test user (CP-GCP-032) | for CI/agent auth |
 | `grant-prod-invoker.sh` | `allUsers` `run.invoker` on the **prod** services (non-default is in Terraform) | after first prod apply |
 | `delegate-dns.sh` | Delegate `sudoku-gcp.edoatley.co.uk` to Cloud DNS (wraps `shared/delegate-dns.sh`) | after prod apply with `enable_custom_domain=true` |
+| `apply-custom-domain-dns.sh` | UPSERT Firebase's required A/AAAA/TXT records (from the terraform output) into the Cloud DNS zone | after delegation, once Firebase has computed them |
 
 ## shared/
 

@@ -70,8 +70,11 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 - **NS delegation (scripted, cross-cloud):** run `scripts/infra/gcp/delegate-dns.sh` (added in the
   bootstrap-completeness branch) — reads the Cloud DNS nameservers via `gcloud` and UPSERTs the `NS`
   record in the `edoatley.co.uk` Route53 parent zone. See runbook §6b.
-- Add the Firebase-required **A/AAAA + TXT verification** records (from PR 1's output) to the
-  `sudoku-gcp` zone — ideally as `google_dns_record_set` resources so they're codified, not manual.
+- **In-zone records (scripted):** `scripts/infra/gcp/apply-custom-domain-dns.sh` reads the
+  `custom_domain_required_dns_records` output (PR 1) and UPSERTs the A/AAAA/TXT record sets into the
+  `sudoku-gcp` zone via `gcloud`. Scripted rather than `google_dns_record_set` because Firebase
+  computes the records asynchronously — `for_each` over that unknown value fails the first apply, and
+  the exact record/TXT-quoting is best verified against live output. Re-run if the output was empty.
 - Firebase issues the managed TLS cert out-of-band (`wait_dns_verification=false`).
 - **Acceptance:** `dig sudoku-gcp.edoatley.co.uk` returns Firebase IPs; the domain shows "Connected"
   in the Firebase console; HTTPS serves the SPA.
