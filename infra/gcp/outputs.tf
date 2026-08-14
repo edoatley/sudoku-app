@@ -28,6 +28,27 @@ output "dns_name_servers" {
   value       = local.is_default && var.enable_custom_domain ? google_dns_managed_zone.frontend[0].name_servers : []
 }
 
+# The A/AAAA/TXT records Firebase requires INSIDE the Cloud DNS zone to point the custom domain at
+# Hosting and prove ownership (distinct from dns_name_servers, which is the parent-zone NS delegation).
+# Firebase computes these asynchronously, so this may be [] on the first apply and populate on a later
+# refresh once verification has started. PR3 codifies these as google_dns_record_set resources; until
+# then they can be added by hand. Flattened to {domain_name,type,rdata,required_action} for easy use.
+output "custom_domain_required_dns_records" {
+  description = "Firebase-required DNS records to add to the Cloud DNS zone for the custom domain (empty until enable_custom_domain = true and Firebase has computed them)."
+  value = local.is_default && var.enable_custom_domain ? flatten([
+    for update in google_firebase_hosting_custom_domain.frontend[0].required_dns_updates : [
+      for d in update.desired : [
+        for r in d.records : {
+          domain_name     = r.domain_name
+          type            = r.type
+          rdata           = r.rdata
+          required_action = r.required_action
+        }
+      ]
+    ]
+  ]) : []
+}
+
 output "backend_service_account" {
   description = "Backend Cloud Run runtime service account email."
   value       = var.run_service_account_email

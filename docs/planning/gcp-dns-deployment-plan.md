@@ -28,15 +28,20 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 ### PR 1 — Provision the custom domain + Cloud DNS zone (IaC) — *step 1/3 infra*
 **Goal:** make `terraform apply` on `default` create the Firebase custom-domain resource and the
 `sudoku-gcp` Cloud DNS managed zone, and surface the DNS records to add.
-- Turn on `enable_custom_domain` for the default workspace — via a `default.tfvars` /
-  `workflow_dispatch` input threaded into `deploy-gcp.yml`, keeping the var `false` elsewhere.
-- Confirm `var.custom_domain = sudoku-gcp.edoatley.co.uk` and that prod CORS
-  (`cors_allowed_origins`) already includes it (it does).
-- Add a terraform output for the `google_firebase_hosting_custom_domain` **required DNS records**
-  (A/AAAA + TXT) so PR 3 has an authoritative source.
-- **Acceptance:** `workflow_dispatch (workspace=default, apply_backend=true)` applies clean; the
-  custom-domain + managed-zone resources exist; the required-records output is populated.
-- **Depends on:** #163 stack merged to `main`.
+- ✅ **Already wired** (from the gaps C–F work): the `enable_custom_domain` `workflow_dispatch` input
+  is threaded into `deploy-gcp.yml`'s `terraform apply` and hard-set `false` for `rcg-*` pushes; the
+  `google_firebase_hosting_custom_domain` + `google_dns_managed_zone.frontend` resources exist,
+  count-gated on `local.is_default && var.enable_custom_domain`; `dns_name_servers` output exists.
+- ✅ `var.custom_domain = sudoku-gcp.edoatley.co.uk`; prod CORS (`cors_allowed_origins`) already
+  includes it.
+- ✅ **This PR:** added the `custom_domain_required_dns_records` output — the flattened A/AAAA/TXT
+  records Firebase requires *inside* the zone (from the resource's computed `required_dns_updates`),
+  the authoritative source PR 3 codifies. (Firebase computes these asynchronously, so the output may
+  be `[]` on the first apply and populate on a later refresh.)
+- **Acceptance:** `terraform validate`/`fmt` clean; on `workflow_dispatch (workspace=default,
+  enable_custom_domain=true)` the custom-domain + managed-zone resources apply and both outputs are
+  present (records may lag until Firebase verifies).
+- **Depends on:** the C–F stack + bootstrap-script work, merged to `main`.
 
 ### PR 2 — Deploy the frontend for `default` (CI) — *step 2*
 **Goal:** publish the built SPA to Firebase Hosting for the default site so the host serves the app
