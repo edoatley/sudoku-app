@@ -265,6 +265,14 @@ Get the nameservers from Terraform:
 cd infra/aws && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 ```
 
+For the **GCP** frontend domain, use the wrapper `gcp-delegate-dns.sh` instead — it reads the Cloud
+DNS nameservers itself and calls the above for the Route53 side (see the GCP runbook §6b):
+
+```bash
+PARENT_ZONE_ID=Z0123456789ABCDEF PROJECT_ID=<gcp-project-id> \
+bash scripts/infra/gcp-delegate-dns.sh
+```
+
 ---
 
 ### test-budget-deny.sh

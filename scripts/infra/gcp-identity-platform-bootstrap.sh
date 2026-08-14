@@ -37,6 +37,10 @@ fi
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
 GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}"
+# Prod custom domain (Firebase Hosting): Google sign-in on the hosted host requires it in the
+# authorized-domains allow-list. Harmless to add before the domain is live (it is just an allow-list
+# entry). Set CUSTOM_DOMAIN="" to skip. Mirrors infra/gcp var custom_domain.
+CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-sudoku-gcp.edoatley.co.uk}"
 
 API="https://identitytoolkit.googleapis.com/admin/v2/projects/${PROJECT_ID}"
 
@@ -114,14 +118,18 @@ fi
 # ── 3. Sign-in config: Email/Password on, merge authorized domains ──────────────
 # Email/Password exists only for the CI smoke-test user (§5); the app UI offers Google only. The
 # authorized-domains list is merged (never shrunk) and includes localhost + the project's Hosting
-# domains so local and *.web.app UIs can complete sign-in.
+# domains (*.web.app / *.firebaseapp.com) and the prod custom domain so local, *.web.app, and the
+# hosted DNS UIs can all complete sign-in.
 echo "==> [3/4] Sign-in config (Email/Password + authorized domains)"
-BODY="$(python3 - "${PROJECT_ID}" "${CONFIG}" <<'PY'
+BODY="$(python3 - "${PROJECT_ID}" "${CONFIG}" "${CUSTOM_DOMAIN}" <<'PY'
 import json, sys
 project = sys.argv[1]
 cfg = json.loads(sys.argv[2])
+custom_domain = sys.argv[3] if len(sys.argv) > 3 else ""
 domains = set(cfg.get("authorizedDomains") or [])
 domains.update(["localhost", f"{project}.firebaseapp.com", f"{project}.web.app"])
+if custom_domain:
+    domains.add(custom_domain)
 out = {
     "signIn": {"email": {"enabled": True, "passwordRequired": True}},
     "authorizedDomains": sorted(domains),
@@ -133,7 +141,7 @@ RESP="$(curl -s -X PATCH "${AUTH[@]}" \
   "${API}/config?updateMask=signIn.email.enabled,signIn.email.passwordRequired,authorizedDomains" \
   -d "${BODY}")"
 printf '%s' "${RESP}" | grep -q '"error"' && { echo "ERROR updating config:" >&2; printf '%s\n' "${RESP}" >&2; exit 1; }
-echo "    Email/Password enabled; authorized domains merged."
+echo "    Email/Password enabled; authorized domains merged${CUSTOM_DOMAIN:+ (incl. ${CUSTOM_DOMAIN})}."
 
 # ── 4. Google IdP provider ──────────────────────────────────────────────────────
 echo "==> [4/4] Google sign-in provider"

@@ -53,8 +53,9 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 
 ### PR 3 — DNS delegation + records + TLS (mostly runbook, some automation) — *step 3*
 **Goal:** `https://sudoku-gcp.edoatley.co.uk` resolves to Firebase Hosting with a valid managed cert.
-- **Manual, one-time (runbook §, DNS):** delegate `sudoku-gcp.edoatley.co.uk` from the parent
-  `edoatley.co.uk` zone via NS records to the `sudoku-gcp` Cloud DNS zone's nameservers.
+- **NS delegation (scripted, cross-cloud):** run `scripts/infra/gcp-delegate-dns.sh` (added in the
+  bootstrap-completeness branch) — reads the Cloud DNS nameservers via `gcloud` and UPSERTs the `NS`
+  record in the `edoatley.co.uk` Route53 parent zone. See runbook §6b.
 - Add the Firebase-required **A/AAAA + TXT verification** records (from PR 1's output) to the
   `sudoku-gcp` zone — ideally as `google_dns_record_set` resources so they're codified, not manual.
 - Firebase issues the managed TLS cert out-of-band (`wait_dns_verification=false`).
@@ -64,18 +65,19 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 
 ### PR 4 — Identity Platform authorized domains + Google sign-in (runbook §4) — *step 4*
 **Goal:** Google sign-in works on the hosted host.
-- Add `sudoku-gcp.edoatley.co.uk` (and any `*.web.app` used) to Identity Platform **authorized
-  domains** and the Google OAuth client's authorized JS origins / redirect URIs.
-- Prefer scripting via `scripts/infra/gcp-identity-platform-bootstrap.sh` (extend to merge the prod
-  host) over pure console clicks; document the manual fallback in runbook §4.
+- `scripts/infra/gcp-identity-platform-bootstrap.sh` now merges the custom domain
+  `sudoku-gcp.edoatley.co.uk` into the Identity Platform **authorized domains** (alongside
+  `localhost` / `*.web.app` / `*.firebaseapp.com`); re-run it to apply. The OAuth client's redirect
+  URI uses the `<project>.firebaseapp.com/__/auth/handler` handler (unchanged by the custom domain).
 - **Acceptance:** a real Google login completes on `https://sudoku-gcp.edoatley.co.uk` (no
   `auth/unauthorized-domain`).
 - **Depends on:** PR 3 (host resolves over HTTPS).
 
 ### PR 5 — Prod invoker + end-to-end smoke (step 1 invoker + step 5)
 **Goal:** the app is reachable and a smoke test proves it serves.
-- **Manual (runbook §2):** grant `allUsers` `roles/run.invoker` on the prod backend (and image-rec)
-  Cloud Run services. Keep prod manual (not Terraform) per current policy; document clearly.
+- **Scripted (runbook §2):** `scripts/infra/gcp-grant-prod-invoker.sh` grants `allUsers`
+  `roles/run.invoker` on the prod `sudoku` + `sudoku-image-recognition` services (idempotent, skips
+  any not deployed). Kept out of Terraform by design (gap G1).
 - Add an automated **post-deploy smoke** (G6): mint a token with `scripts/github/gcp-smoke-token.sh`
   (CP-GCP-032) and assert `GET /players/me` 200 + `POST /games` 201 against the prod backend, wired
   as a `deploy-gcp.yml` step (or a `workflow_dispatch` job) so a deploy isn't "green" until the env
