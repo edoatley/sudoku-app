@@ -99,12 +99,16 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 - **Scripted (runbook §2):** `scripts/infra/gcp/grant-prod-invoker.sh` grants `allUsers`
   `roles/run.invoker` on the prod `sudoku` + `sudoku-image-recognition` services (idempotent, skips
   any not deployed). Kept out of Terraform by design (gap G1).
-- Add an automated **post-deploy smoke** (G6): mint a token with `scripts/github/gcp-smoke-token.sh`
-  (CP-GCP-032) and assert `GET /players/me` 200 + `POST /games` 201 against the prod backend, wired
-  as a `deploy-gcp.yml` step (or a `workflow_dispatch` job) so a deploy isn't "green" until the env
-  actually serves.
+- ✅ **This PR — automated post-deploy smoke** (G6): a `smoke` job in `deploy-gcp.yml` mints a token
+  with `scripts/github/gcp-smoke-token.sh` (CP-GCP-032) and asserts `GET /players/me` 200 +
+  `POST /games` 201 against the deployed backend, so a run isn't "green" until the env serves.
+  Controls: `run_smoke` dispatch input (default true); `rcg-*` pushes opt in via repo var
+  `GCP_RUN_SMOKE=true`. Needs secrets `VITE_FIREBASE_API_KEY`, `SMOKE_TEST_USER_EMAIL`,
+  `SMOKE_TEST_USER_PASSWORD` and the `allUsers` invoker granted (runbook §5).
+- **First prod deploy caveat:** the invoker can't be granted until the service exists, so dispatch the
+  first prod apply with `run_smoke=false`, run `grant-prod-invoker.sh`, then re-dispatch `run_smoke=true`.
 - **Acceptance:** browser flow on the custom domain (Google sign-in → create game → resume) works;
-  the CI smoke step passes.
+  the CI smoke job passes.
 - **Depends on:** PR 2–4.
 
 ## Order & parallelism
