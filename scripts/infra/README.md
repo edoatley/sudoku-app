@@ -67,5 +67,5 @@ Run in the order documented in `docs/runbooks/gcp-manual-setup.md` (it is the le
 ## See also
 
 - `docs/runbooks/gcp-manual-setup.md` — the GCP setup walkthrough + ordering.
-- `docs/planning/gcp-dns-deployment-plan.md` — the prod / DNS-host bring-up plan.
+- `docs/planning/old/gcp-dns-deployment-plan.md` — the prod / DNS-host bring-up plan.
 - `scripts/README.md` — the wider `scripts/` overview (local + github helpers).

@@ -398,6 +398,44 @@ This is the GCP analogue of the AWS `rc-*` flow; AWS is untouched.
   workflows only run from the default branch, so **teardown is active only once
   `deploy-gcp.yml`/`teardown-gcp.yml` are on `main`.**
 
+## 9. Prod bring-up (default workspace) — end to end
+
+The consolidated sequence to stand up **`sudoku-gcp.edoatley.co.uk`** from scratch, pulling the whole
+DNS-deployment plan together. Assumes §1–§4 (bootstrap, WIF, Identity Platform) are done once.
+
+1. **Prerequisites (once):**
+   - `scripts/infra/gcp/bootstrap.sh` → `scripts/infra/gcp/github-bootstrap.sh` → §1–§4.
+   - Coach: `scripts/infra/gcp/bedrock-cross-cloud.sh` (§6).
+   - Smoke: `scripts/infra/gcp/create-smoke-user.sh` (§5) + GitHub secrets
+     `VITE_FIREBASE_API_KEY`, `SMOKE_TEST_USER_EMAIL`, `SMOKE_TEST_USER_PASSWORD`.
+
+2. **First backend + frontend deploy** — *Actions → Deploy GCP → Run workflow*:
+   `workspace=default`, `deploy_cloud_run=true`, `deploy_image_recognition=true`,
+   `enable_coach=true`, `deploy_frontend=true`, `enable_custom_domain=false`,
+   **`run_smoke=false`** (the service doesn't exist yet, so the invoker can't be granted).
+
+3. **Grant public invocation** (the services now exist): `scripts/infra/gcp/grant-prod-invoker.sh`.
+
+4. **Validate the backend serves:** re-run the dispatch with `run_smoke=true` (everything else the
+   same) — the `smoke` job must pass (`GET /players/me` 200, `POST /games` 201). The UI is now live at
+   `https://<project>.web.app` (API calls CORS-fail from there until the custom domain — expected).
+
+5. **Custom domain:**
+   - Re-dispatch with **`enable_custom_domain=true`** (creates the Cloud DNS zone + custom-domain
+     resource).
+   - `PARENT_ZONE_ID=<Route53 zone id> scripts/infra/gcp/delegate-dns.sh` — delegate the subdomain (§6b).
+   - `scripts/infra/gcp/apply-custom-domain-dns.sh` — write Firebase's A/AAAA/TXT into the zone
+     (re-run if the terraform output was still empty — records populate async).
+   - `scripts/infra/gcp/identity-platform-bootstrap.sh` — merge the custom domain into authorized
+     domains (§4; no OAuth-client change needed — see the custom-domain note there).
+
+6. **Verify:** `dig +short sudoku-gcp.edoatley.co.uk` returns Firebase IPs; the Firebase console shows
+   the domain "Connected"; Google sign-in → create game → resume works in a browser on the custom
+   domain; the CI `smoke` job is green.
+
+> Ongoing prod deploys are then a single dispatch (`workspace=default`, `deploy_cloud_run=true`,
+> `run_smoke=true`, others as needed) — the invoker + DNS + domain persist.
+
 ## Ordering summary
 
 1. `scripts/infra/gcp/bootstrap.sh` (state bucket, APIs, Artifact Registry)
