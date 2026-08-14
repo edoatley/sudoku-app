@@ -228,6 +228,12 @@ resulting issuer/audience.
      used for the AWS Cognito federation) or create a new OAuth client. Add the Identity Platform
      handler to that client's **Authorized redirect URIs** in the Google Cloud Console → *APIs &
      Services → Credentials*.
+   - **Custom domain note:** the handler URI is always `https://${PROJECT_ID}.firebaseapp.com/__/auth/handler`
+     — it does **not** change for the prod custom domain, and the app uses `signInWithPopup` (no
+     `signInWithRedirect`), so **no extra OAuth redirect URI / JavaScript origin is needed** for
+     `sudoku-gcp.edoatley.co.uk`. The only per-host requirement is that the domain is in Identity
+     Platform's **authorized domains** — which `scripts/infra/gcp/identity-platform-bootstrap.sh`
+     merges automatically (re-run it after the custom domain is live).
 3. **Enable only the Google and Email/Password providers** — leave **Anonymous** (and every
    other provider) disabled. Email/Password exists solely for the CI smoke-test user (§5); the app
    UI offers Google only.
