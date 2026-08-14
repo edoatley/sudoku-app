@@ -1,5 +1,15 @@
 # AWS ↔ GCP Parity — Tracking
 
+> **✅ STATUS (current): parity achieved as an alternate deployment target.** All feature items
+> (A–F) and the deployment-target readiness gaps (G1–G6) have landed — GCP deploys, serves, and is
+> reachable at a custom DNS host with an automated post-deploy smoke. See
+> `docs/aws-vs-gcp-comparison.md` (architecture), `docs/aws-vs-gcp-deployment.md` (pipelines/control),
+> and the runbook *Prod bring-up* section. Only genuinely-**deferred** items remain, each tracked in
+> specs: Vertex AI (**CP-GCP-090**), budget hard-cap (**CP-GCP-061**), private VPC egress
+> (**CP-GCP-091**), admin authz on GCP (**UM-GCP-008**), the AWS Cognito→Google-`sub` re-key, and
+> hosted-UI-per-RC (**G3**, not needed for prod). This doc is retained for the endpoint snapshot +
+> history; the residual items live in the specs above.
+
 Status after the **games + player-profile vertical slice** (Strategy C) merged to `main`
 (PR #137). The GCP path is proven end-to-end: pushing an `rcg-*` branch auto-builds the image
 and applies Terraform (`deploy-gcp.yml`), and deleting the branch (or a manual dispatch) tears the
@@ -96,33 +106,33 @@ secrets (`enable_coach`). Frontend calls it via `VITE_IMAGE_RECOGNITION_URL` (fa
 `VITE_API_URL` on AWS). **Not yet verified against a live Bedrock call on GCP** (needs the rcg-*
 deploy + secrets).
 
-### F. Ops / infra parity — **VITE wiring done; rest deferred**
+### F. Ops / infra parity — **done (except the deferred budget hard-cap)**
 - **Done:** full `VITE_*` injection set in `deploy-gcp.yml` — `VITE_MOCK_API`, `VITE_DEV_TOOLS`
   (per-workspace, off on `default`), `VITE_AI_COACH`, and `VITE_IMAGE_RECOGNITION_URL`
-  (**CP-GCP-042/043**). The workflow now also builds/pushes the Python image and passes
+  (**CP-GCP-042/043**). The workflow also builds/pushes the Python image and passes
   `deploy_image_recognition` / `enable_coach` (both on for `rcg-*` push).
-- Smoke test against the deployed GCP stack using the Identity Platform test user
-  (**CP-GCP-032** — **done**: `scripts/infra/gcp/create-smoke-user.sh` provisions the password user
-  and `scripts/github/gcp-smoke-token.sh` mints an ID token via `signInWithPassword`; used to verify
-  `rcg-parity` end-to-end — see `docs/aws-vs-gcp-comparison.md`). Wiring it as an automated CI job
-  remains. Smoke-user secrets per runbook §5.
+- **Done:** Identity Platform smoke user (**CP-GCP-032**) — `scripts/infra/gcp/create-smoke-user.sh`
+  provisions it, `scripts/github/gcp-smoke-token.sh` mints tokens, and the `smoke` job in
+  `deploy-gcp.yml` asserts the deployed backend serves (runbook §5).
+- **Done:** custom-domain cutover (`sudoku-gcp.edoatley.co.uk`) — `enable_custom_domain` +
+  `scripts/infra/gcp/{delegate-dns,apply-custom-domain-dns}.sh` (runbook §6b + *Prod bring-up*).
 - Budget/cost-guard parity (AWS has `budget-deny`; GCP budget alerts exist, hard-cap is the
   deferred **CP-GCP-061**). *(deferred)*
-- Custom-domain cutover (`sudoku-gcp.edoatley.co.uk`) once DNS is delegated. *(deferred)*
 
-**Pulled in from gap G** to make the rcg-* test reachable: **G1** (allUsers invoker for non-default
-workspaces, in Terraform — **CP-GCP-014**) and **G2** (CORS includes the workspace Hosting origin).
-Hosted-UI-per-RC (**G3**, needs per-workspace Firebase Hosting targets) is still open, so the rcg-*
-test is run with a **locally-run UI** (`localhost:5173`) against the deployed backend + image-rec.
+**Gap G is now complete** (see the G section below). RC (`rcg-*`) envs are reachable (invoker in
+Terraform), CORS-correct, and optionally deploy a hosted UI; prod is reachable at the custom DNS host
+with an automated smoke. A per-RC-workspace Hosting *target* (**G3**) remains the only deferred piece
+and isn't needed for prod — RC testing uses a local UI or the shared default site.
 
-### G. Deployment-target readiness (make a deployed GCP env actually usable)
+### G. Deployment-target readiness (make a deployed GCP env actually usable) — **done**
 
-Standing up an `rcg-*` environment works, but a freshly-deployed env is **not yet usable end to
-end**. These are the gaps found while trying to exercise `rcg-smoke` (backend `403`, no UI, CORS
-localhost-only). Each is what's required for GCP to be a first-class alternate deployment target,
-not just a provisioned one.
+**All of G1–G6 have landed** (via the DNS-deployment PRs). A deployed GCP env is now usable end to
+end: reachable (invoker), CORS-correct, frontend-deployable, sign-in-capable at a custom DNS host,
+and smoke-verified. The per-item notes below record how each was closed.
 
-- **G1. Public invoker — done for non-default (RC) workspaces** (CP-GCP-014); prod stays manual.
+- **G1. Public invoker — done.** Non-default (RC) workspaces get `allUsers` `run.invoker` from
+  Terraform (**CP-GCP-014**); prod is granted by `scripts/infra/gcp/grant-prod-invoker.sh` (kept out
+  of Terraform by design). The app enforces auth in-app, so this only lets requests *reach* Cloud Run.
   Cloud Run returns `403` until
   `roles/run.invoker` for `allUsers` is granted by hand (runbook §2). For ephemeral `rcg-*` envs
   this is friction on every deploy. Options: grant it in Terraform behind a non-`default`-only
@@ -134,22 +144,20 @@ not just a provisioned one.
   `rcg-*` backend is only usable from a **locally-run UI** (`localhost:5173`). To support a hosted
   RC UI, include the workspace's Firebase Hosting URL in `cors_allowed_origins` for non-`default`
   workspaces (it is a known static value: `https://${var.project_id}${local.suffix}.web.app`).
-- **G3. Frontend is not deployed by default on `rcg-*`.** `deploy-gcp.yml` deploys the UI only when
-  repo variable `GCP_DEPLOY_FRONTEND == 'true'`, which additionally needs the `VITE_FIREBASE_API_KEY`
-  secret and Identity Platform (§4). Until then, `https://<project>-<workspace>.web.app` returns
-  "Site Not Found". Decide whether hosted-UI-per-RC is wanted; if so, wire the secret + variable and
-  fix G2. (Also: the full `VITE_*` set is item F / CP-GCP-042/043.)
-- **G4. Identity Platform authorized domains per RC host.** Google sign-in on a hosted RC UI needs
-  each `*.web.app` (and any custom domain) added to the Identity Platform **authorized domains** /
-  OAuth redirect list. Identity Platform is project-level and manual (§4), so this is a per-new-host
-  step unless scripted.
-- **G5. Branch-name length constraint.** The Firebase `site_id` is `<project_id>-<workspace>` and
-  must be ≤ 30 chars; `scripts/github/gcp-workspace-name.sh` truncates the workspace to fit, so very
-  long `rcg-*` branch names are silently shortened. Keep RC branch names short, or the workspace
-  won't match the branch verbatim.
-- **G6. Per-env smoke verification.** No automated check that a freshly-deployed env actually serves
-  (login → create game → resume). Tie into the Identity Platform test user (CP-GCP-032, runbook §5)
-  so `deploy-gcp.yml` can assert the env is healthy before it's considered "up".
+- **G3. Frontend deploy — done for prod; per-RC hosted UI deferred.** `deploy-gcp.yml`'s
+  `deploy-frontend` job deploys the SPA to the default Hosting site (`<project>.web.app`) for prod
+  (dispatch `deploy_frontend=true`) and, opt-in, for `rcg-*` (`GCP_DEPLOY_FRONTEND=true`). A distinct
+  Hosting *target per RC workspace* is still deferred (not needed for prod); RC testing uses a local
+  UI or the shared default site.
+- **G4. Identity Platform authorized domains — done.** `scripts/infra/gcp/identity-platform-bootstrap.sh`
+  merges the custom domain (and `localhost`/`*.web.app`/`*.firebaseapp.com`) into the authorized
+  domains. The app uses `signInWithPopup` with the fixed `<project>.firebaseapp.com` handler, so the
+  custom domain needs **no** OAuth-client redirect URI (see runbook §4).
+- **G5. Branch-name length constraint — handled.** The Firebase `site_id` (`<project>-<workspace>`,
+  ≤ 30 chars) is length-capped by `scripts/github/gcp-workspace-name.sh`. Keep `rcg-*` names short.
+- **G6. Per-env smoke — done.** The `smoke` job in `deploy-gcp.yml` mints an Identity Platform token
+  (CP-GCP-032) and asserts `GET /players/me` 200 + `POST /games` 201, so a run isn't green until the
+  env serves (`run_smoke` input / `GCP_RUN_SMOKE` var; runbook §5).
 
 ## Related deferred specs (not parity gaps, tracked in specs)
 - **CP-GCP-061** — budget hard-cap (needs Pub/Sub-triggered function)
