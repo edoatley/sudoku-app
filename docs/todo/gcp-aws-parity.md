@@ -57,10 +57,13 @@ does its read-modify-write in a Firestore transaction; `findAll` reads the colle
 stays in memory, so no composite index is needed. Flips the leaderboard half of **CP-GCP-021**
 (coach-rate-limit Firestore I/O — item D — is the remaining half). Specs `LT-GCP-001`–`LT-GCP-008`.
 
-### C. Admin data browser → adapter
-`AdminDataResource` injects `DynamoDbEnhancedClient` directly (the one endpoint that bypasses the
-repository abstraction). Refactor it onto a repository/port, then add the Firestore query side.
-Prereq for admin parity; also unblocks **UM-GCP-008** (admin authz on GCP).
+### C. Admin data browser → adapter — **done**
+`AdminDataResource` now injects the `AdminDataRepository` port (spec **UM-GCP-010**) instead of
+`DynamoDbEnhancedClient` directly. `DynamoDbAdminDataRepository` keeps the AWS scan behaviour;
+`FirestoreAdminDataRepository` reads the `games`/`players` collections, selected at runtime by
+`sudoku.persistence` via `AdminDataRepositoryProducer` (same pattern as leaderboard, item B).
+Data access only — **UM-GCP-008** (admin authz on GCP) remains deferred (Identity Platform has no
+group concept).
 
 ### D. AI Coach on GCP
 Decision point:
