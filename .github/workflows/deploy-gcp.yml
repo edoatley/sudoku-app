@@ -50,6 +50,10 @@ on:
         description: "Attach the Firebase Hosting custom domain (needs DNS delegated)"
         type: boolean
         default: false
+      run_smoke:
+        description: "Post-deploy smoke: mint a token and assert the backend serves (needs the allUsers invoker granted — set false on the first prod deploy before grant-prod-invoker.sh)"
+        type: boolean
+        default: true
 
 env:
   GCP_REGION: us-central1
@@ -77,6 +81,7 @@ jobs:
       enable_coach: ${{ steps.resolve.outputs.enable_coach }}
       deploy_frontend: ${{ steps.resolve.outputs.deploy_frontend }}
       enable_custom_domain: ${{ steps.resolve.outputs.enable_custom_domain }}
+      run_smoke: ${{ steps.resolve.outputs.run_smoke }}
     steps:
       - uses: actions/checkout@v7
       - id: resolve
@@ -92,6 +97,7 @@ jobs:
               echo "enable_coach=true"
               echo "deploy_frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
               echo "enable_custom_domain=false"
+              echo "run_smoke=${{ vars.GCP_RUN_SMOKE == 'true' }}"
             } >> "$GITHUB_OUTPUT"
             echo "rcg-* push → workspace '${WS}', backend + image-rec + coach, frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
           else
@@ -102,6 +108,7 @@ jobs:
               echo "enable_coach=${{ inputs.enable_coach }}"
               echo "deploy_frontend=${{ inputs.deploy_frontend }}"
               echo "enable_custom_domain=${{ inputs.enable_custom_domain }}"
+              echo "run_smoke=${{ inputs.run_smoke }}"
             } >> "$GITHUB_OUTPUT"
           fi
 
@@ -306,3 +313,47 @@ jobs:
       - name: Deploy to Firebase Hosting
         working-directory: ui
         run: npx --yes firebase-tools@13 deploy --only hosting --project "${{ secrets.GCP_PROJECT_ID }}" --non-interactive
+
+  # Post-deploy smoke (G6 / CP-GCP-032): prove the deployed backend actually serves before the run is
+  # "green". Mints a real Identity Platform token (no browser) and asserts the games+player slice
+  # responds. Requires the allUsers invoker to be granted (auto for rcg-* via Terraform; for prod run
+  # scripts/infra/gcp/grant-prod-invoker.sh first, or dispatch with run_smoke=false on the very first
+  # prod apply). Enable on rcg-* pushes with repo var GCP_RUN_SMOKE=true.
+  smoke:
+    name: Post-deploy smoke (auth + games)
+    needs: [config, terraform]
+    if: ${{ always() && !cancelled() && needs.terraform.result == 'success' && needs.config.outputs.deploy_cloud_run == 'true' && needs.config.outputs.run_smoke == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Mint token and assert the env serves
+        env:
+          BACKEND_URL: ${{ needs.terraform.outputs.backend_url }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          SMOKE_TEST_USER_EMAIL: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
+          SMOKE_TEST_USER_PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -n "${BACKEND_URL}" ] || { echo "::error::backend_url is empty — backend not deployed, nothing to smoke."; exit 1; }
+          for v in VITE_FIREBASE_API_KEY SMOKE_TEST_USER_EMAIL SMOKE_TEST_USER_PASSWORD; do
+            [ -n "${!v}" ] || { echo "::error::secret ${v} is not set — required for the GCP smoke test (runbook §5)."; exit 1; }
+          done
+
+          echo "Minting Identity Platform token for ${SMOKE_TEST_USER_EMAIL}…"
+          TOKEN="$(bash scripts/github/gcp-smoke-token.sh)"
+          [ -n "${TOKEN}" ] || { echo "::error::token mint failed"; exit 1; }
+
+          fail=0
+          code="$(curl -s -o /tmp/me.json -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" "${BACKEND_URL}/api/v1/players/me")"
+          echo "GET  /players/me -> ${code}"
+          if [ "${code}" != "200" ]; then echo "::error::GET /players/me expected 200, got ${code}"; cat /tmp/me.json || true; fail=1; fi
+
+          code="$(curl -s -o /tmp/game.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+            -d '{"difficulty":"easy"}' "${BACKEND_URL}/api/v1/games")"
+          echo "POST /games      -> ${code}"
+          if [ "${code}" != "201" ]; then echo "::error::POST /games expected 201, got ${code}"; cat /tmp/game.json || true; fail=1; fi
+
+          [ "${fail}" -eq 0 ] || { echo "::error::smoke failed — the deployed env is not serving correctly."; exit 1; }
+          echo "✓ Prod env serves: auth + games verified against ${BACKEND_URL}."

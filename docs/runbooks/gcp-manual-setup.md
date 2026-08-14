@@ -275,8 +275,25 @@ curl -s "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?k
 ```
 
 The resulting token's `firebase.sign_in_provider` is `password`, so the backend resolves its
-`userId` to `firebase:<uid>` (namespaced away from Google users). Store `<WEB_API_KEY>`,
-`<smoke-user>`, `<smoke-pass>` as GitHub secrets for the GCP smoke test.
+`userId` to `firebase:<uid>` (namespaced away from Google users). Create/reset the user and write the
+creds to `scripts/.env.local` with `scripts/infra/gcp/create-smoke-user.sh` (CP-GCP-032).
+
+**Automated post-deploy smoke.** `deploy-gcp.yml`'s `smoke` job mints a token (via
+`scripts/github/gcp-smoke-token.sh`) and asserts `GET /players/me` → 200 and `POST /games` → 201
+against the deployed backend, so a run isn't "green" until the env actually serves. It needs three
+GitHub **secrets**:
+
+| Secret | Value |
+| --- | --- |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API key (already used by the frontend deploy) |
+| `SMOKE_TEST_USER_EMAIL` | the smoke user's email (on `app.allowed.emails`) |
+| `SMOKE_TEST_USER_PASSWORD` | the smoke user's password |
+
+Controls: `workflow_dispatch` has a `run_smoke` input (default **true**); `rcg-*` pushes run it only
+when repo var `GCP_RUN_SMOKE=true`. The smoke needs the `allUsers` invoker granted first — automatic
+for `rcg-*` (Terraform), manual for prod. **On the very first prod deploy, dispatch with
+`run_smoke=false`** (the service doesn't exist yet, so the invoker can't be granted), then run
+`scripts/infra/gcp/grant-prod-invoker.sh` and re-dispatch with `run_smoke=true` to validate.
 
 ---
 
@@ -372,6 +389,8 @@ This is the GCP analogue of the AWS `rc-*` flow; AWS is untouched.
   secret and Identity Platform (§4) in place first; leave it unset to deploy backend-only.
 - **Public invocation:** each new workspace's Cloud Run service needs the `allUsers` invoker
   binding (§2 *public invocation*) before it is reachable — the app still enforces auth in-app.
+- **Post-deploy smoke:** set repo var `GCP_RUN_SMOKE=true` to have `rcg-*` pushes run the `smoke`
+  job (mint token → assert the backend serves — §5). Needs the smoke secrets; off by default.
 - **Teardown:** deleting the `rcg-*` branch triggers `teardown-gcp.yml`, which
   `terraform destroy`s that workspace and deletes it (or run it via **workflow_dispatch** with an
   explicit `workspace` input to tear down any non-`default` workspace manually). Shared Artifact
