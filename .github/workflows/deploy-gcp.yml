@@ -264,6 +264,25 @@ jobs:
 
       - uses: ./.github/actions/setup-node
 
+      # Fail loud rather than ship a broken SPA: without the backend URL the build bakes a hostless
+      # "/api/v1" (every API call breaks), and without the Firebase Web API key the app cannot
+      # initialise Firebase Auth (no sign-in). Catches the two common prod-dispatch misconfigs.
+      - name: Verify frontend deploy prerequisites
+        env:
+          BACKEND_URL: ${{ needs.terraform.outputs.backend_url }}
+          FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+        run: |
+          missing=0
+          if [ -z "${BACKEND_URL}" ]; then
+            echo "::error::backend_url is empty — deploy the backend (deploy_cloud_run=true) in this run before/with the frontend, else the SPA ships a hostless /api/v1."
+            missing=1
+          fi
+          if [ -z "${FIREBASE_API_KEY}" ]; then
+            echo "::error::VITE_FIREBASE_API_KEY secret is not set — the deployed SPA cannot initialise Firebase Auth. See docs/runbooks/gcp-manual-setup.md §3/§4."
+            missing=1
+          fi
+          [ "${missing}" -eq 0 ] || exit 1
+
       - name: Build frontend (Firebase provider)
         working-directory: ui
         env:
