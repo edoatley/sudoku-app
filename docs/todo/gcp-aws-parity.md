@@ -26,8 +26,8 @@ build variants; `sudoku.persistence` (and equivalent AI/coach selectors) choose 
 | Player profile                           | DynamoDB                      | Firestore                       | **parity**   |
 | Auth (JWT validation, CORS, allow-list)  | Cognito/edge                  | Identity Platform/in-app        | **parity**   |
 | Leaderboard                              | DynamoDB                      | Firestore                       | **parity**   |
-| AI Coach                                 | Bedrock + DynamoDB rate-limit | —                               | gap — item D |
-| Admin data browser                       | DynamoDB (not behind adapter) | —                               | gap — item C |
+| AI Coach                                 | Bedrock + DynamoDB rate-limit | cross-cloud Bedrock + Firestore rate-limit | **parity** (item D) |
+| Admin data browser                       | DynamoDB (behind adapter)     | Firestore (behind adapter)      | **parity** (item C) |
 | Image recognition                        | Python Lambda                 | Cloud Run defined, not deployed | gap — item E |
 | Backend runtime artifact                 | container Lambda (`Dockerfile.jvm-lwa`) | container (HTTP+LWA)  | **parity**   |
 
@@ -65,14 +65,20 @@ stays in memory, so no composite index is needed. Flips the leaderboard half of 
 Data access only — **UM-GCP-008** (admin authz on GCP) remains deferred (Identity Platform has no
 group concept).
 
-### D. AI Coach on GCP
-Decision point:
-- **(i) cross-cloud Bedrock** — keep Bedrock, authenticate from GCP via the `bedrock-aws-credentials`
-  Secret Manager secret already scaffolded (runbook §6). Satisfies **CP-GCP-085**.
-- **(ii) Vertex AI (Gemini)** — GCP-native `CoachModel` adapter, no cross-cloud hop. This is the
-  deferred **CP-GCP-090** end state.
-Either way, move the coach rate-limit store from DynamoDB to Firestore (`coachRateLimits`, TTL on
-`expiresAt` — the collection + TTL already exist per CP-GCP-022). Completes the coach half of CP-GCP-021.
+### D. AI Coach on GCP — **done (coach; option i)**
+Chose **(i) cross-cloud Bedrock** (Vertex AI / **CP-GCP-090** stays deferred). Two parts landed:
+- **Rate-limit store → Firestore.** `CoachRateLimiter` is now a port with `DynamoDbCoachRateLimiter`
+  (AWS) and `FirestoreCoachRateLimiter` (GCP, transactional read-check-write, `expiresAt` as a
+  Timestamp so the CP-GCP-022 TTL purges it) behind `CoachRateLimiterProducer`. Completes the coach
+  half of **CP-GCP-021**; spec **SC-RL-011**.
+- **Cross-cloud Bedrock creds.** `enable_coach` (default `false`) mounts the manually-created AWS key
+  from Secret Manager into the backend Cloud Run service as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`
+  (`coach.tf` grants the run SA `secretAccessor`); the SDK's default chain resolves them, so no coach
+  code changed. Satisfies **CP-GCP-085** for the coach.
+- **Correction to earlier wording:** the Bedrock secret was **not** actually scaffolded in Terraform;
+  runbook §6 (now updated) documents creating **two plain secrets** manually. Live end-to-end
+  verification needs an `rcg-*` deploy with `enable_coach=true` and the secrets present — not yet run.
+- Note: the coach *UI* on hosted GCP still depends on `VITE_AI_COACH` (**item F**).
 
 ### E. Image recognition on Cloud Run
 Flip the `deploy_image_recognition` flag (added this slice), build/push the Python image to the
