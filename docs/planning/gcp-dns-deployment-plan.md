@@ -46,14 +46,23 @@ broken into five independently-reviewable PRs. Manual console/DNS steps live in
 ### PR 2 — Deploy the frontend for `default` (CI) — *step 2*
 **Goal:** publish the built SPA to Firebase Hosting for the default site so the host serves the app
 (not "Site Not Found").
-- Wire the `deploy_frontend` job to run for `workspace=default` (today it needs repo var
-  `GCP_DEPLOY_FRONTEND=true` + the `VITE_FIREBASE_API_KEY` secret — see runbook §3).
-- Ensure the build injects the full prod `VITE_*` set (`VITE_API_URL` = prod Cloud Run backend,
-  `VITE_FIREBASE_*`, `VITE_AI_COACH`, `VITE_IMAGE_RECOGNITION_URL`) — item F / CP-GCP-042/043.
-- **Repo config (not code, call out in PR):** set `GCP_DEPLOY_FRONTEND=true`, add
-  `VITE_FIREBASE_API_KEY` secret.
+- ✅ **Already wired:** the `deploy-frontend` job runs for `workspace=default` when a
+  `workflow_dispatch` sets `deploy_frontend=true` (for `rcg-*` pushes it keys off repo var
+  `GCP_DEPLOY_FRONTEND=true`); `firebase deploy --only hosting` targets the project's default site
+  (`<project>.web.app`) via `ui/.firebaserc`.
+- ✅ **VITE_* set is complete** — `VITE_API_URL` (prod Cloud Run backend), `VITE_FIREBASE_*`,
+  `VITE_AI_COACH`, `VITE_IMAGE_RECOGNITION_URL`, `VITE_MOCK_API=false`, `VITE_DEV_TOOLS` off on
+  `default` (CP-GCP-042/043). The only unset `VITE_*` the app reads are AWS-Cognito/dev-only, which
+  are correctly absent on the Firebase build.
+- ➕ **This PR:** a **fail-loud prerequisite guard** in `deploy-frontend` — abort the build if
+  `backend_url` is empty (would bake a hostless `/api/v1`) or `VITE_FIREBASE_API_KEY` is unset (no
+  Firebase Auth), rather than silently shipping a broken SPA.
+- **Repo config you must set (not code):** add the `VITE_FIREBASE_API_KEY` secret (runbook §3);
+  set repo var `GCP_DEPLOY_FRONTEND=true` only if you also want `rcg-*` pushes to deploy the UI.
+  Then run `workflow_dispatch` with `workspace=default, deploy_cloud_run=true, deploy_frontend=true`.
 - **Acceptance:** `firebase deploy` succeeds; `https://<project>.web.app` serves the SPA (login page
-  loads; API calls will still 403/CORS-fail until PR 3 + invoker — expected).
+  loads; API calls still CORS-fail from `*.web.app` until the custom domain + invoker — expected,
+  since prod CORS allows only `sudoku-gcp.edoatley.co.uk`).
 - **Depends on:** PR 1.
 
 ### PR 3 — DNS delegation + records + TLS (mostly runbook, some automation) — *step 3*
