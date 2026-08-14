@@ -28,7 +28,7 @@ build variants; `sudoku.persistence` (and equivalent AI/coach selectors) choose 
 | Leaderboard                              | DynamoDB                      | Firestore                       | **parity**   |
 | AI Coach                                 | Bedrock + DynamoDB rate-limit | cross-cloud Bedrock + Firestore rate-limit | **parity** (item D) |
 | Admin data browser                       | DynamoDB (behind adapter)     | Firestore (behind adapter)      | **parity** (item C) |
-| Image recognition                        | Python Lambda                 | Cloud Run defined, not deployed | gap — item E |
+| Image recognition                        | Python Lambda                 | Cloud Run (FastAPI front, deployed) | **parity** (item E) |
 | Backend runtime artifact                 | container Lambda (`Dockerfile.jvm-lwa`) | container (HTTP+LWA)  | **parity**   |
 
 ## Sequenced work items
@@ -73,7 +73,8 @@ Chose **(i) cross-cloud Bedrock** (Vertex AI / **CP-GCP-090** stays deferred). T
   half of **CP-GCP-021**; spec **SC-RL-011**.
 - **Cross-cloud Bedrock creds.** `enable_coach` (default `false`) mounts the manually-created AWS key
   from Secret Manager into the backend Cloud Run service as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`
-  (`coach.tf` grants the run SA `secretAccessor`); the SDK's default chain resolves them, so no coach
+  (`scripts/infra/gcp-aws-iam-bootstrap.sh` creates the secrets + grants the run SA `secretAccessor`);
+  the SDK's default chain resolves them, so no coach
   code changed. Satisfies **CP-GCP-085** for the coach.
 - **Correction to earlier wording:** the Bedrock secret was **not** actually scaffolded in Terraform;
   runbook §6 (now updated) documents creating **two plain secrets** manually. Live end-to-end
@@ -85,14 +86,34 @@ Flip the `deploy_image_recognition` flag (added this slice), build/push the Pyth
 `sudoku-image-recognition` Artifact Registry repo, and resolve its own HTTP-vs-Lambda question
 (LWA on the Python container, or a small FastAPI/Flask front). Wire the frontend endpoint + CORS.
 
-### F. Ops / infra parity
-- Full `VITE_*` injection set in the deploy workflow — `VITE_MOCK_API`, `VITE_DEV_TOOLS`
-  (per-workspace), `VITE_AI_COACH` (**CP-GCP-042/043**).
-- CI smoke test against the deployed GCP stack using the Identity Platform test user
-  (**CP-GCP-032**; smoke-user secrets per runbook §5).
+**Done — chose the FastAPI front (AWS Lambda untouched).** `image_recognition/app.py` wraps the
+existing `handler.py` as an HTTP service (`Dockerfile.cloudrun`, uvicorn :8080), adding the edge
+behaviours API Gateway provides on AWS: in-app Firebase JWT validation on POST, CORS, and an open
+warmup probe (specs **IR-GCP-001–005**). Deployed via `deploy_image_recognition`; the image shares
+the `sudoku-backend` Artifact Registry repo under image name `image-recognition` (GCP reuses one
+repo; AWS uses a dedicated ECR repo). Cross-cloud Bedrock creds reuse the coach's Secret Manager
+secrets (`enable_coach`). Frontend calls it via `VITE_IMAGE_RECOGNITION_URL` (falls back to
+`VITE_API_URL` on AWS). **Not yet verified against a live Bedrock call on GCP** (needs the rcg-*
+deploy + secrets).
+
+### F. Ops / infra parity — **VITE wiring done; rest deferred**
+- **Done:** full `VITE_*` injection set in `deploy-gcp.yml` — `VITE_MOCK_API`, `VITE_DEV_TOOLS`
+  (per-workspace, off on `default`), `VITE_AI_COACH`, and `VITE_IMAGE_RECOGNITION_URL`
+  (**CP-GCP-042/043**). The workflow now also builds/pushes the Python image and passes
+  `deploy_image_recognition` / `enable_coach` (both on for `rcg-*` push).
+- Smoke test against the deployed GCP stack using the Identity Platform test user
+  (**CP-GCP-032** — **done**: `scripts/infra/gcp-create-smoke-user.sh` provisions the password user
+  and `scripts/github/gcp-smoke-token.sh` mints an ID token via `signInWithPassword`; used to verify
+  `rcg-parity` end-to-end — see `docs/aws-vs-gcp-comparison.md`). Wiring it as an automated CI job
+  remains. Smoke-user secrets per runbook §5.
 - Budget/cost-guard parity (AWS has `budget-deny`; GCP budget alerts exist, hard-cap is the
-  deferred **CP-GCP-061**).
-- Custom-domain cutover (`sudoku-gcp.edoatley.co.uk`) once DNS is delegated.
+  deferred **CP-GCP-061**). *(deferred)*
+- Custom-domain cutover (`sudoku-gcp.edoatley.co.uk`) once DNS is delegated. *(deferred)*
+
+**Pulled in from gap G** to make the rcg-* test reachable: **G1** (allUsers invoker for non-default
+workspaces, in Terraform — **CP-GCP-014**) and **G2** (CORS includes the workspace Hosting origin).
+Hosted-UI-per-RC (**G3**, needs per-workspace Firebase Hosting targets) is still open, so the rcg-*
+test is run with a **locally-run UI** (`localhost:5173`) against the deployed backend + image-rec.
 
 ### G. Deployment-target readiness (make a deployed GCP env actually usable)
 
@@ -101,12 +122,13 @@ end**. These are the gaps found while trying to exercise `rcg-smoke` (backend `4
 localhost-only). Each is what's required for GCP to be a first-class alternate deployment target,
 not just a provisioned one.
 
-- **G1. Public invoker is manual, per workspace.** Cloud Run returns `403` until
+- **G1. Public invoker — done for non-default (RC) workspaces** (CP-GCP-014); prod stays manual.
+  Cloud Run returns `403` until
   `roles/run.invoker` for `allUsers` is granted by hand (runbook §2). For ephemeral `rcg-*` envs
   this is friction on every deploy. Options: grant it in Terraform behind a non-`default`-only
   condition (keep `default`/prod manual), or add a step to `deploy-gcp.yml`. The app enforces auth
   in-app, so `allUsers` invoker only lets requests *reach* the app — it is not "public access".
-- **G2. CORS excludes the workspace's own Hosting origin.** `main.tf` sets
+- **G2. CORS now includes the workspace's own Hosting origin — done.** (Previously) `main.tf` set
   `cors_allowed_origins = "http://localhost:5173"` for every non-`default` workspace, so a UI hosted
   at `https://<project>-<workspace>.web.app` is CORS-blocked when calling its backend. Today an
   `rcg-*` backend is only usable from a **locally-run UI** (`localhost:5173`). To support a hosted

@@ -34,12 +34,19 @@ export async function firebaseSignOut() {
 }
 
 export async function firebaseGetIdToken() {
-  const user = auth().currentUser;
+  const a = auth();
+  // Firebase restores the persisted session asynchronously; currentUser is null until it does.
+  // Without this, calls made right after a page load/refresh send no Authorization header and 401.
+  // getIdToken() auto-refreshes an expired token, so the returned token is always current.
+  await a.authStateReady();
+  const user = a.currentUser;
   return user ? user.getIdToken() : undefined;
 }
 
-export function firebaseGetEmail() {
-  return auth().currentUser?.email ?? null;
+export async function firebaseGetEmail() {
+  const a = auth();
+  await a.authStateReady();
+  return a.currentUser?.email ?? null;
 }
 
 // Subscribe to auth state; returns the unsubscribe function.

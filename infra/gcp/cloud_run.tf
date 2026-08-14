@@ -22,8 +22,11 @@ resource "google_cloud_run_v2_service" "backend" {
   }
 
   template {
-    service_account                  = var.run_service_account_email
-    timeout                          = "8s"
+    service_account = var.run_service_account_email
+    # 8s was too tight: a cold JVM container boot (min instances = 0) can exceed it, 504-ing the
+    # first request after idle, and it left no headroom for the AI coach's ~6s Bedrock call. 60s
+    # matches the image-recognition service.
+    timeout                          = "60s"
     max_instance_request_concurrency = var.backend_container_concurrency
 
     scaling {
@@ -109,11 +112,19 @@ resource "google_cloud_run_v2_service" "backend" {
     }
   }
 
-  depends_on = [
-    google_secret_manager_secret_iam_member.bedrock_access_key,
-    google_secret_manager_secret_iam_member.bedrock_secret_key,
-  ]
-
-  # checkov:skip=CKV_GCP_102: Public API — the app enforces auth in-app via JWT validation; roles/run.invoker for allUsers is granted manually (see runbook)
+  # checkov:skip=CKV_GCP_102: Public API — the app enforces auth in-app via JWT validation; roles/run.invoker for allUsers is granted below for non-default (RC) workspaces, manually for prod (see runbook)
   # checkov:skip=CKV_GCP_119: Binary Authorization not warranted for a single-developer project
+}
+
+# Public network reachability for RC (non-default) workspaces so a browser (local or hosted UI) can
+# reach the backend without a manual grant on every ephemeral deploy; the app still validates the
+# JWT in-app. Prod (default) invoker stays manual (gap G1). @spec CP-GCP-014
+resource "google_cloud_run_v2_service_iam_member" "backend_public" {
+  count = var.deploy_cloud_run && !local.is_default ? 1 : 0
+
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.backend[0].name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }

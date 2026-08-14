@@ -53,7 +53,7 @@
 
 Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All are active gaps (`[ ]`) until the GCP facet is implemented; genuinely deferred items are marked `[D]`.
 
-**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The remaining `[ ]` items are the **out-of-slice parity gaps** tracked in `docs/todo/gcp-aws-parity.md`: the full VITE_* injection set (CP-GCP-042/043) and the CI test user (CP-GCP-032). Firestore I/O for leaderboard + coach-rate-limit (CP-GCP-021) and cross-cloud Bedrock for the coach (CP-GCP-085) have landed; image recognition on Cloud Run (gap E) is still pending. The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
+**Scope:** the current arrow provisions GCP **infrastructure** (Terraform + bootstrap + CI) plus the games + player-profile runtime slice. The auth/persistence runtime specs for that slice have landed — in-app JWT validation (CP-GCP-010/011), in-app CORS (CP-GCP-012), and the CI image-build + Firebase Hosting deploy (CP-GCP-041, CP-GCP-080). The Identity Platform test user + `signInWithPassword` token minting (CP-GCP-032) have landed. Firestore I/O for leaderboard + coach-rate-limit (CP-GCP-021), cross-cloud Bedrock (CP-GCP-085), image recognition on Cloud Run (gap E), the full VITE_* injection set (CP-GCP-042/043), and non-default public invoker (CP-GCP-014) have landed. Deployment-target readiness (gap G — hosted-UI Hosting targets, prod invoker, Identity Platform authorized domains, per-env smoke) remains partially open. The GCP custom domain is `sudoku-gcp.edoatley.co.uk`.
 
 ## GCP — Compute (Cloud Run)
 
@@ -68,6 +68,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 - [x] **CP-GCP-011**: The system shall validate backend JWTs against the Identity Platform issuer (https://securetoken.google.com/{project_id}) and audience ({project_id}), using explicit key/issuer/audience configuration rather than OIDC discovery.
 - [x] **CP-GCP-012**: The system shall apply CORS allowed origins within the backend application (CORS_ALLOWED_ORIGINS), restricted to the static custom domain(s) and localhost for the workspace type.
 - [x] **CP-GCP-013**: The system shall bound backend request load on GCP via Cloud Run maximum-instance and container-concurrency caps in place of an API-Gateway request-rate throttle.
+- [x] **CP-GCP-014**: The system shall grant roles/run.invoker to allUsers on the backend and image-recognition Cloud Run services in non-default (RC) workspaces so a browser can reach them without a manual per-deploy grant; the default (prod) workspace's invoker stays manual (gap G1). This grants network reachability only — each service still validates the caller's JWT in-app.
 
 ## GCP — Firestore
 
@@ -81,14 +82,14 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 - [x] **CP-GCP-030**: The system shall authenticate end users via Identity Platform with Google as the sole sign-in provider, with no native username/password sign-up offered in the app.
 - [x] **CP-GCP-031**: The system shall provision the Identity Platform configuration and Google provider outside Terraform, with Terraform consuming the resulting issuer and audience by configuration.
-- [ ] **CP-GCP-032**: The system shall provide a manually-created Identity Platform test user that CI authenticates via the Identity Platform signInWithPassword REST endpoint.
+- [x] **CP-GCP-032**: The system shall provide a manually-created Identity Platform test user that CI authenticates via the Identity Platform signInWithPassword REST endpoint.
 
 ## GCP — Firebase Hosting & Frontend Delivery
 
 - [x] **CP-GCP-040**: The system shall host the frontend on a Firebase Hosting site (sudoku{suffix}) with a single-page-app rewrite of all paths to /index.html.
 - [x] **CP-GCP-041**: The system shall deploy the frontend to Firebase Hosting via CI after terraform apply, not on push, so build-time VITE_* values reflect the applied infrastructure.
-- [ ] **CP-GCP-042**: The system shall inject VITE_API_URL (backend Cloud Run URL + /api/v1), the Identity Platform equivalents of the VITE_COGNITO_* values, VITE_MOCK_API, VITE_DEV_TOOLS, and VITE_AI_COACH into the frontend build.
-- [ ] **CP-GCP-043**: The system shall set VITE_DEV_TOOLS=false in the default workspace and VITE_DEV_TOOLS=true in all other workspaces.
+- [x] **CP-GCP-042**: The system shall inject VITE_API_URL (backend Cloud Run URL + /api/v1), VITE_IMAGE_RECOGNITION_URL (the image-recognition Cloud Run URL), the Identity Platform equivalents of the VITE_COGNITO_* values (VITE_FIREBASE_*), VITE_MOCK_API, VITE_DEV_TOOLS, and VITE_AI_COACH into the frontend build.
+- [x] **CP-GCP-043**: The system shall set VITE_DEV_TOOLS=false in the default workspace and VITE_DEV_TOOLS=true in all other workspaces.
 
 ## GCP — DNS & TLS
 

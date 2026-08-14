@@ -8,10 +8,12 @@
 #   3. Required GCP API enablement
 #   4. Artifact Registry repositories (backend + image-recognition)
 #   5. Service accounts + Firestore (datastore.user) IAM for the runtime SAs
+#   6. Identity Platform sign-in (optional — only when GOOGLE_CLIENT_ID/SECRET are
+#      set; delegates to gcp-identity-platform-bootstrap.sh)
 #
 # It deliberately does NOT create: the deploy SA's broader project roles, public
-# Cloud Run invoker, Workload Identity Federation, or Identity Platform — those
-# remain hand-run from docs/runbooks/gcp-manual-setup.md (the learning surface).
+# Cloud Run invoker, or Workload Identity Federation — those remain hand-run from
+# docs/runbooks/gcp-manual-setup.md (the learning surface).
 #
 # Safe to re-run (idempotent).
 
@@ -126,6 +128,7 @@ APIS=(
   iamcredentials.googleapis.com      # Workload Identity Federation
   sts.googleapis.com                 # Workload Identity Federation
   cloudresourcemanager.googleapis.com
+  policytroubleshooter.googleapis.com # IAM policy troubleshooter (diagnostics)
 )
 
 gcloud services enable "${APIS[@]}" --project "${PROJECT_ID}"
@@ -204,6 +207,23 @@ for SA_NAME in sudoku-run sudoku-image-recognition-run; do
   echo "    Bound roles/datastore.user to ${SA_NAME}."
 done
 
+# ── 6. Identity Platform (optional; needs the reused Google OAuth client) ────────
+# Configures Google + Email/Password sign-in via the dedicated script when the OAuth client
+# credentials are supplied. Skipped otherwise so the core bootstrap stays credential-free.
+# (Still leaves the one-time "Enable Identity Platform" click + OAuth redirect-URI paste — the
+# script prints those.)
+echo "==> [6/6] Identity Platform sign-in (optional)"
+IDP_SCRIPT="$(dirname "$0")/gcp-identity-platform-bootstrap.sh"
+# The identity script self-loads GOOGLE_CLIENT_ID/SECRET from scripts/.env.local; run it when those
+# creds are available (in the environment or that file).
+if [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]] || [[ -f "$(dirname "$0")/../.env.local" ]]; then
+  PROJECT_ID="${PROJECT_ID}" "${IDP_SCRIPT}" ||
+    echo "    Identity Platform step reported an issue (see above) — re-run: ${IDP_SCRIPT}"
+else
+  echo "    Skipped — no OAuth creds. Populate them once with scripts/infra/setup-local-secrets.sh,"
+  echo "    then re-run this bootstrap (or run ${IDP_SCRIPT} directly)."
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "========================================================================"
@@ -214,8 +234,10 @@ echo "  Next steps:"
 echo "  1. Run the remaining MANUAL identity setup (still the learning surface):"
 echo "       docs/runbooks/gcp-manual-setup.md"
 echo "     Still hand-run: the deploy SA's project roles, public Cloud Run invoker,"
-echo "     Workload Identity Federation (GitHub → GCP), and Identity Platform + Google IdP."
-echo "     (Service accounts + runtime Firestore IAM are now created by step [5/5] above.)"
+echo "     and Workload Identity Federation (GitHub → GCP)."
+echo "     (Service accounts + runtime Firestore IAM come from step [5/6]; Identity"
+echo "      Platform sign-in from step [6/6] when the OAuth client creds are supplied —"
+echo "      it still needs the one-time 'Enable Identity Platform' click + OAuth redirect URI.)"
 echo ""
 echo "  2. Add the GitHub Actions secrets produced by that runbook:"
 echo "       GCP_PROJECT_ID       = ${PROJECT_ID}"
