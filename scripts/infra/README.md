@@ -54,15 +54,14 @@ Run in the order documented in `docs/runbooks/gcp-manual-setup.md` (it is the le
 | `bedrock-cross-cloud.sh` | AWS Bedrock key → GCP Secret Manager + runtime-SA access (cross-cloud) | before `enable_coach=true` |
 | `create-smoke-user.sh` | Provision the Identity Platform password smoke-test user (CP-GCP-032) | for CI/agent auth |
 | `grant-prod-invoker.sh` | `allUsers` `run.invoker` on the **prod** services (non-default is in Terraform) | after first prod apply |
-| `delegate-dns.sh` | Delegate `sudoku-gcp.edoatley.co.uk` to Cloud DNS (wraps `shared/delegate-dns.sh`) | after prod apply with `enable_custom_domain=true` |
-| `apply-custom-domain-dns.sh` | UPSERT Firebase's required A/AAAA/TXT records (from the terraform output) into the Cloud DNS zone | after delegation, once Firebase has computed them |
+| `set-custom-domain-cname.sh` | UPSERT `CNAME <custom_domain> -> <project>.web.app` in the parent Route53 zone (Firebase subdomain method) | after prod apply with `enable_custom_domain=true` |
 
 ## shared/
 
 | Script | Purpose |
 |---|---|
 | `setup-local-secrets.sh` | Collect deploy secrets → `scripts/.env.local` (both clouds source this) |
-| `delegate-dns.sh` | Generic Route53 NS-delegation tool (used for AWS Amplify domains and by `gcp/delegate-dns.sh`) |
+| `delegate-dns.sh` | Generic Route53 NS-delegation tool (used for AWS Amplify subdomain zones) |
 
 ## See also
 

@@ -10,7 +10,7 @@ variable "region" {
 }
 
 variable "custom_domain" {
-  description = "Custom domain for the GCP frontend (Firebase Hosting + Cloud DNS)."
+  description = "Custom domain (subdomain) for the GCP frontend on Firebase Hosting; routed via a CNAME to the default site."
   type        = string
   default     = "sudoku-gcp.edoatley.co.uk"
 }
@@ -36,7 +36,7 @@ variable "deploy_image_recognition" {
 }
 
 variable "enable_custom_domain" {
-  description = "Attach the Firebase Hosting custom domain (sudoku-gcp.edoatley.co.uk). Off until the Cloud DNS zone is delegated from the parent."
+  description = "Attach the Firebase Hosting custom domain (sudoku-gcp.edoatley.co.uk). Off until the parent-zone CNAME is in place."
   type        = bool
   default     = false
 }
