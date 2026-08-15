@@ -21,9 +21,12 @@ resource "google_firebase_hosting_site" "frontend" {
   depends_on = [google_firebase_project.default]
 }
 
-# Custom domain (production only). Firebase provisions and renews a Google-managed
-# TLS certificate. The required DNS records are surfaced by this resource and
-# added to the Cloud DNS zone in dns.tf / by the runbook.
+# Custom domain (production only). Firebase provisions and renews a Google-managed TLS certificate.
+# For a subdomain, Firebase verifies + routes via a single CNAME to the default site — add
+# `CNAME ${var.custom_domain} -> <site>.web.app` in the PARENT DNS zone (edoatley.co.uk, on Route53).
+# No Cloud DNS zone / delegation / A-AAAA-TXT records: GCP Cloud DNS has no apex-alias (unlike Route53
+# ALIAS), so the AWS-style delegated-subzone approach doesn't apply here. See the custom_domain_cname_target
+# output + runbook §6b.
 resource "google_firebase_hosting_custom_domain" "frontend" {
   provider      = google-beta
   count         = local.is_default && var.enable_custom_domain ? 1 : 0

@@ -23,30 +23,12 @@ output "firebase_hosting_default_url" {
   value       = "https://${google_firebase_hosting_site.frontend.site_id}.web.app"
 }
 
-output "dns_name_servers" {
-  description = "Cloud DNS name servers for sudoku-gcp.edoatley.co.uk — delegate these from the parent zone (only when enable_custom_domain = true)."
-  value       = local.is_default && var.enable_custom_domain ? google_dns_managed_zone.frontend[0].name_servers : []
-}
-
-# The A/AAAA/TXT records Firebase requires INSIDE the Cloud DNS zone to point the custom domain at
-# Hosting and prove ownership (distinct from dns_name_servers, which is the parent-zone NS delegation).
-# Firebase computes these asynchronously, so this may be [] on the first apply and populate on a later
-# refresh once verification has started. PR3 codifies these as google_dns_record_set resources; until
-# then they can be added by hand. Flattened to {domain_name,type,rdata,required_action} for easy use.
-output "custom_domain_required_dns_records" {
-  description = "Firebase-required DNS records to add to the Cloud DNS zone for the custom domain (empty until enable_custom_domain = true and Firebase has computed them)."
-  value = local.is_default && var.enable_custom_domain ? flatten([
-    for update in google_firebase_hosting_custom_domain.frontend[0].required_dns_updates : [
-      for d in update.desired : [
-        for r in d.records : {
-          domain_name     = r.domain_name
-          type            = r.type
-          rdata           = r.rdata
-          required_action = r.required_action
-        }
-      ]
-    ]
-  ]) : []
+# Firebase Hosting serves the custom domain (a subdomain) via a single CNAME to the default site.
+# Add `CNAME ${custom_domain} -> <this value>` in the PARENT DNS zone (edoatley.co.uk / Route53); no
+# Cloud DNS zone, delegation, or A/AAAA/TXT records are needed. See runbook §6b.
+output "custom_domain_cname_target" {
+  description = "CNAME target for the custom domain (the default Firebase Hosting site); empty unless enable_custom_domain = true."
+  value       = local.is_default && var.enable_custom_domain ? "${google_firebase_hosting_site.frontend.site_id}.web.app" : null
 }
 
 output "backend_service_account" {

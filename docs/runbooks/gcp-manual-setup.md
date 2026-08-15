@@ -327,35 +327,36 @@ with no application code change); it does **not** manage the secrets or their IA
 
 ---
 
-## 6b. Custom domain DNS delegation (prod)
+## 6b. Custom domain (prod) — a single CNAME
 
-The GCP frontend's custom domain `sudoku-gcp.edoatley.co.uk` is served by a Cloud DNS managed zone
-that Terraform creates in the **default** workspace when `enable_custom_domain=true`. The parent zone
-`edoatley.co.uk` lives in **AWS Route53**, so the subdomain must be delegated to the Cloud DNS
-nameservers — a one-time, cross-cloud step (needs both `gcloud` and `aws` sessions + `PARENT_ZONE_ID`):
+The GCP frontend's custom domain `sudoku-gcp.edoatley.co.uk` is a Firebase Hosting **subdomain**, so
+Firebase routes + verifies it with **one CNAME** to the default site — no Cloud DNS zone, NS
+delegation, or A/AAAA/TXT records.
 
-```bash
-# After the prod apply (workspace=default, enable_custom_domain=true) has created the Cloud DNS zone:
-PARENT_ZONE_ID=<edoatley.co.uk Route53 zone id> PROJECT_ID=<gcp-project-id> \
-  scripts/infra/gcp/delegate-dns.sh
-```
+> **Why not the AWS-style delegated sub-zone?** GCP Cloud DNS has no apex-alias record, so a CNAME
+> can't live at a delegated sub-zone's apex (it would collide with the zone's NS/SOA). Route53's
+> ALIAS is what lets the *AWS* side delegate `sudoku.edoatley.co.uk` to a sub-zone. For the Firebase
+> subdomain the CNAME simply goes in the parent zone — simpler, and a legitimate AWS/GCP difference.
 
-It reads the Cloud DNS nameservers (`gcloud`) and UPSERTs the `NS` delegation record in Route53 (via
-the generic `shared/delegate-dns.sh`).
-
-Then add the Firebase-required **A/AAAA + TXT** records *inside* the Cloud DNS zone. Firebase computes
-these asynchronously (surfaced by the `custom_domain_required_dns_records` Terraform output), so they
-are applied by a script rather than Terraform — `for_each` over a value Firebase hasn't computed yet
-would fail the first apply, and the exact record/TXT format is best verified live:
+After the prod apply (`workspace=default`, `enable_custom_domain=true`) has created the Firebase
+custom-domain resource, add the CNAME in the parent `edoatley.co.uk` zone (AWS Route53; needs an
+authenticated `aws` session for the account that owns it + `PARENT_ZONE_ID`):
 
 ```bash
-# After the prod apply; re-run if the terraform output was still empty (records populate async):
-PROJECT_ID=<gcp-project-id> scripts/infra/gcp/apply-custom-domain-dns.sh
+PARENT_ZONE_ID=<edoatley.co.uk Route53 zone id> [AWS_PROFILE=<profile>] PROJECT_ID=<gcp-project-id> \
+  scripts/infra/gcp/set-custom-domain-cname.sh
 ```
 
-It reads the terraform output and UPSERTs each A/AAAA/TXT record set into the `sudoku-gcp` zone
-(idempotent). Firebase then issues the managed TLS cert out of band; verify with
-`dig +short sudoku-gcp.edoatley.co.uk` and the Firebase console (custom domain shows "Connected").
+It UPSERTs `CNAME sudoku-gcp.edoatley.co.uk -> <project>.web.app`. Firebase then verifies ownership,
+hosts the domain, and issues the managed TLS cert out of band (usually minutes). Verify:
+
+```bash
+dig +short sudoku-gcp.edoatley.co.uk           # expect <project>.web.app
+curl -sI https://sudoku-gcp.edoatley.co.uk     # HTTP 200 with a valid cert once it lands
+```
+
+(The cert served is `CN=<project>.firebaseapp.com` until the managed cert for the custom domain is
+issued — browsers warn during that window; it clears automatically.)
 
 ## 7. Optional: private networking (NOT built by default)
 
@@ -420,17 +421,16 @@ DNS-deployment plan together. Assumes §1–§4 (bootstrap, WIF, Identity Platfo
    same) — the `smoke` job must pass (`GET /players/me` 200, `POST /games` 201). The UI is now live at
    `https://<project>.web.app` (API calls CORS-fail from there until the custom domain — expected).
 
-5. **Custom domain:**
-   - Re-dispatch with **`enable_custom_domain=true`** (creates the Cloud DNS zone + custom-domain
-     resource).
-   - `PARENT_ZONE_ID=<Route53 zone id> scripts/infra/gcp/delegate-dns.sh` — delegate the subdomain (§6b).
-   - `scripts/infra/gcp/apply-custom-domain-dns.sh` — write Firebase's A/AAAA/TXT into the zone
-     (re-run if the terraform output was still empty — records populate async).
+5. **Custom domain (§6b):**
+   - Re-dispatch with **`enable_custom_domain=true`** (creates the Firebase custom-domain resource).
+   - `PARENT_ZONE_ID=<Route53 zone id> [AWS_PROFILE=<profile>] scripts/infra/gcp/set-custom-domain-cname.sh`
+     — UPSERT `CNAME sudoku-gcp.edoatley.co.uk -> <project>.web.app` in the parent zone.
    - `scripts/infra/gcp/identity-platform-bootstrap.sh` — merge the custom domain into authorized
      domains (§4; no OAuth-client change needed — see the custom-domain note there).
 
-6. **Verify:** `dig +short sudoku-gcp.edoatley.co.uk` returns Firebase IPs; the Firebase console shows
-   the domain "Connected"; Google sign-in → create game → resume works in a browser on the custom
+6. **Verify:** `dig +short sudoku-gcp.edoatley.co.uk` returns `<project>.web.app`; `curl -sI` returns
+   HTTP 200 with a valid cert; the Firebase console shows the domain "Connected"; Google sign-in →
+   create game → resume works in a browser on the custom
    domain; the CI `smoke` job is green.
 
 > Ongoing prod deploys are then a single dispatch (`workspace=default`, `deploy_cloud_run=true`,
@@ -445,4 +445,4 @@ DNS-deployment plan together. Assumes §1–§4 (bootstrap, WIF, Identity Platfo
 5. `scripts/infra/gcp/grant-prod-invoker.sh` — §2 *public invocation* for prod (needs the services first)
 6. §5–§6 as the smoke tests / AI features are wired up
 7. **Prod custom domain:** apply with `enable_custom_domain=true`, then
-   `scripts/infra/gcp/delegate-dns.sh` (§6b) to delegate `sudoku-gcp.edoatley.co.uk`
+   `scripts/infra/gcp/set-custom-domain-cname.sh` (§6b) — CNAME `sudoku-gcp.edoatley.co.uk` to the site

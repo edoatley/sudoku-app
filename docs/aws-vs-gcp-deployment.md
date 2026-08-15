@@ -39,7 +39,7 @@ other cloud's workflow (`ci-deploy.yml` watches `main`/`rc-*`; `deploy-gcp.yml` 
 | Frontend | Amplify build hook | `deploy-frontend` job (`firebase deploy`); gated by `deploy_frontend` input / `GCP_DEPLOY_FRONTEND` var |
 | Public reachability | API Gateway stage (always public) | `allUsers` `run.invoker` — Terraform for RC, **manual `grant-prod-invoker.sh` for prod** |
 | Post-deploy smoke | `smoke-tests.yml` (Cognito `USER_PASSWORD_AUTH`) | `smoke` job (Identity Platform `signInWithPassword`); `run_smoke` input / `GCP_RUN_SMOKE` var |
-| Custom domain | Amplify + Route53 (automatic on `main`) | Firebase Hosting + Cloud DNS, **manual** (`enable_custom_domain`, delegate + records scripts) |
+| Custom domain | Amplify + Route53 ALIAS (automatic on `main`) | Firebase Hosting, **manual**: `enable_custom_domain` + one CNAME in the parent Route53 zone (`set-custom-domain-cname.sh`) — no Cloud DNS zone |
 | Teardown | `teardown-rc.yml` (delete `rc-*`), `teardown.yml` (dispatch) | `teardown-gcp.yml` (delete `rcg-*`, or dispatch) |
 
 ## Controlling a GCP deploy (the dispatch inputs)
@@ -54,7 +54,7 @@ runs, so prod can be brought up in stages:
 | `deploy_image_recognition` | `false` | Build + deploy the image-rec service |
 | `enable_coach` | `false` | Mount the cross-cloud Bedrock secrets (needs runbook §6) |
 | `deploy_frontend` | `false` | Build + `firebase deploy` the SPA (needs `VITE_FIREBASE_API_KEY`) |
-| `enable_custom_domain` | `false` | Attach the Firebase custom domain (needs DNS delegated) |
+| `enable_custom_domain` | `false` | Attach the Firebase custom domain (then add the parent-zone CNAME) |
 | `run_smoke` | `true` | Post-deploy smoke; assert the env serves (needs the invoker granted) |
 
 `rcg-*` pushes resolve these automatically (backend + image-rec + coach on; frontend/smoke opt-in via
