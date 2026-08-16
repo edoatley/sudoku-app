@@ -79,3 +79,19 @@ chmod 600 "${ENV_FILE}"
 echo ""
 echo "==> Done. Wrote SMOKE_TEST_USER_EMAIL/PASSWORD to ${ENV_FILE}."
 echo "    Mint a token with:  scripts/github/gcp-smoke-token.sh"
+
+# This script RESETS the password every run, so the SMOKE_TEST_USER_* GitHub secrets used by the
+# deploy-gcp.yml `smoke` job go stale after a re-run (a green deploy then fails the smoke with
+# INVALID_LOGIN_CREDENTIALS). Sync them: automatically with SYNC_GITHUB_SECRETS=y (needs an
+# authenticated `gh`), else run the printed commands.
+if [[ "${SYNC_GITHUB_SECRETS:-}" =~ ^[Yy]$ ]] && command -v gh >/dev/null; then
+  gh secret set SMOKE_TEST_USER_EMAIL --body "${SMOKE_EMAIL}" >/dev/null
+  gh secret set SMOKE_TEST_USER_PASSWORD --body "${PASS}" >/dev/null
+  echo "    ✓ Synced SMOKE_TEST_USER_EMAIL/PASSWORD to GitHub Actions secrets."
+else
+  echo ""
+  echo "    ⚠ The password was reset — update the CI secrets so the smoke job keeps passing:"
+  echo "        gh secret set SMOKE_TEST_USER_EMAIL --body \"${SMOKE_EMAIL}\""
+  echo "        gh secret set SMOKE_TEST_USER_PASSWORD  # paste the value from ${ENV_FILE}"
+  echo "      (or re-run with SYNC_GITHUB_SECRETS=y to do this automatically)"
+fi

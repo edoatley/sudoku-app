@@ -278,6 +278,10 @@ The resulting token's `firebase.sign_in_provider` is `password`, so the backend 
 `userId` to `firebase:<uid>` (namespaced away from Google users). Create/reset the user and write the
 creds to `scripts/.env.local` with `scripts/infra/gcp/create-smoke-user.sh` (CP-GCP-032).
 
+> The script **resets the password every run**, so re-running it staled the CI secret below (a green
+> deploy then failed the smoke). Re-run it with `SYNC_GITHUB_SECRETS=y` to push the new creds to the
+> GitHub secrets automatically, or update `SMOKE_TEST_USER_EMAIL`/`SMOKE_TEST_USER_PASSWORD` by hand.
+
 **Automated post-deploy smoke.** `deploy-gcp.yml`'s `smoke` job mints a token (via
 `scripts/github/gcp-smoke-token.sh`) and asserts `GET /players/me` → 200 and `POST /games` → 201
 against the deployed backend, so a run isn't "green" until the env actually serves. It needs three
