@@ -232,6 +232,69 @@ with (SC-BE-030 cross-references them rather than restating the rules).
 
 Spec: `docs/specs/sudoku-coach-specs.md` — `SC-BE-005..030`.
 
+### AI Provider Port and Vertex AI (GCP) — `CoachAiClient`
+
+On GCP the coach uses the native model (Gemini via Vertex AI, authenticated by the Cloud Run runtime
+service account) instead of calling AWS Bedrock cross-cloud. This is a ports-and-adapters swap, the
+same shape as `GameRepository` (persistence) and `CoachRateLimiter`.
+
+```
+SudokuCoachServiceImpl ──► CoachAiClient (port)          ← extracted from BedrockCoachClient
+                             ├── BedrockCoachClient       ← AWS + interim cross-cloud
+                             └── VertexCoachClient         ← Gemini via ADC (GCP-native)
+                         ◄── CoachAiClientProducer selects on `coach.ai.provider`
+```
+
+**The port** — `CoachAiClient`:
+```java
+interface CoachAiClient {
+    CallResult call(String pid, String userMessage, HintResponse hint,
+                    List<ChatMessage> history, Board board);
+    record AiReply(String aiMessage, boolean revealHint, String responseType) {}
+    record CallResult(AiReply reply, long tokensUsed) {}
+}
+```
+`BedrockCoachClient implements CoachAiClient` unchanged; `SudokuCoachServiceImpl` injects the port,
+not the concrete class. (SC-GCP-001)
+
+**Shared prompt builder** — the tutor system prompt, human-readable board format (SC-BE-004), the
+escalation context block (SC-BE-024), the JSON output contract, and the conversation history are
+hoisted out of `BedrockCoachClient` into a provider-agnostic `CoachPromptBuilder`, so both adapters
+send an identical prompt + schema. Provider choice never changes coaching content. (SC-GCP-004)
+
+**`VertexCoachClient`** (new): calls Gemini via the Google Gen AI SDK for Java (`com.google.genai`),
+model `coach.vertex.model-id` (e.g. `gemini-2.0-flash`), region `coach.vertex.location`
+(`us-central1`), project `GCP_PROJECT_ID`.
+- **Auth:** Application Default Credentials → the runtime SA. **No keys.** This is the point of the
+  migration: the cross-cloud AWS Bedrock access key + Secret Manager mount are not needed for the
+  coach on GCP. (SC-GCP-002)
+- **Structured output:** Gemini `responseSchema` + `responseMimeType=application/json` enforce the
+  *same* schema as SC-BE-025 (`{aiMessage, revealHint, responseType}`, `additionalProperties:false`),
+  producing the same `AiReply`. (SC-GCP-003)
+- **Token accounting:** from Gemini `usageMetadata` (prompt + candidate tokens) → the monthly counter
+  and `CoachRateLimiter`, as the Bedrock adapter does. (SC-GCP-005)
+- **Fallback:** on a Gemini error / unparseable / blank reply, the same deterministic nudge fallback
+  and `fallback:true` logging as SC-BE-021/023. (SC-GCP-006)
+
+**Selection** — `CoachAiClientProducer` (mirrors `GameRepositoryProducer`): `coach.ai.provider`
+(default `bedrock`; `%gcp.coach.ai.provider=vertex`). Only the resolvable adapter's SDK client is
+instantiated, so the AWS SDK Bedrock client is never created on GCP and vice-versa. (SC-GCP-001)
+
+**Config:** `coach.ai.provider`, `coach.vertex.model-id`, `coach.vertex.location`. The existing
+`coach.bedrock.*` are unchanged (AWS path).
+
+**Infra deltas:** `gcp-bootstrap.sh` enables `aiplatform.googleapis.com` and binds
+`roles/aiplatform.user` to the runtime SA (same manual-IAM pattern as `datastore.user`, CP-GCP-083);
+Terraform stops mounting the AWS Bedrock secrets for the coach when `coach.ai.provider=vertex`.
+(SC-GCP-007)
+
+**Risks:** (1) Claude↔Gemini prompt-behaviour differences — validate with the `test:coach-quality`
+harness before switching prod. (2) Google Gen AI SDK on the Quarkus `native` profile needs reflection
+config; the JVM fast-jar on Cloud Run is unaffected. (3) verify Gemini structured-output fidelity vs
+the Bedrock `JsonSchemaDefinition`.
+
+Spec: `docs/specs/sudoku-coach-specs.md` — `SC-GCP-001..007`; `docs/specs/cloud-platform-specs.md` — `CP-GCP-090`.
+
 ### Constants
 
 These live in their respective classes (no shared `CoachConstants` class):
