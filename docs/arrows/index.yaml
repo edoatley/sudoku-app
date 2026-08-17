@@ -86,8 +86,8 @@ arrows:
     arrow: docs/arrows/cloud-platform.md
     spec_count: 58
     implemented: 50
-    deferred: 3
-    gaps: 5
+    deferred: 2
+    gaps: 6
     next: >-
       GCP games+player-profile slice landed: unified HTTP+LWA image, runtime
       Firestore/DynamoDB selection, in-app JWT + CORS, and the deploy-gcp CI pipeline
@@ -194,8 +194,8 @@ arrows:
     lld: docs/llds/sudoku-coach.md
     specs: docs/specs/sudoku-coach-specs.md
     arrow: docs/arrows/sudoku-coach.md
-    spec_count: 75
-    implemented: 74
+    spec_count: 83
+    implemented: 75
     deferred: 0
-    gaps: 1
+    gaps: 8
     next: SC-UI-013 (Escape closes panel); coach-quality harness A/B (invoke vs converse) still outstanding for the structured-output/caching work

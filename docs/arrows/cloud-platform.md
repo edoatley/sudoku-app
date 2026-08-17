@@ -79,7 +79,7 @@ Cloud infrastructure across two facets: **AWS** (`infra/aws/` — Lambda, API Ga
 | Cost Guardrail | CP-GCP-060 to 061 | 1 (060) | 1 (061) | 0 |
 | Labels | CP-GCP-070 | 1 | 0 | 0 |
 | CI/CD, Bootstrap & WIF | CP-GCP-080 to 083 | 3 (081,082,083) | 0 | 1 (080) |
-| AI Inference | CP-GCP-085, 090 | 0 | 1 (090) | 1 (085) |
+| AI Inference | CP-GCP-085, 090 | 0 | 0 | 2 (085, 090) |
 | Networking | CP-GCP-091 | 0 | 1 | 0 |
 
 **Summary (GCP facet):** 18 infra specs implemented (terraform `fmt`/`validate`/`checkov`-clean, **not yet applied to a live GCP project**); 3 deferred; 11 gaps owned by the app-adapter arrows.
@@ -109,6 +109,6 @@ Cloud infrastructure across two facets: **AWS** (`infra/aws/` — Lambda, API Ga
 
 1. Add CloudWatch alarms on Lambda error rate and throttle metrics with SNS notification. (separate feature work)
 2. **GCP app-adapter arrows** (make GCP run end-to-end): backend Firestore persistence profile (CP-GCP-021), backend in-app JWT validation + CORS (CP-GCP-010,011,012), frontend Firebase Auth path (CP-GCP-030,042,043), `deploy-gcp` CI job + WIF-in-CI + `firebase deploy` + GCP smoke test (CP-GCP-032,041,080), cross-cloud Bedrock wiring (CP-GCP-085).
-3. **GCP `[D]` items:** budget hard-cap enforcement via Pub/Sub Cloud Function (CP-GCP-061); Vertex AI migration (CP-GCP-090); private VPC egress (CP-GCP-091).
+3. **GCP `[D]` items:** budget hard-cap enforcement via Pub/Sub Cloud Function (CP-GCP-061); private VPC egress (CP-GCP-091). *(Vertex AI, CP-GCP-090, is now an active gap — coach on Gemini behind the `CoachAiClient` port; see the sudoku-coach arrow SC-GCP-001..007.)*
 4. **Cross-cloud identity re-key** (separate cross-segment arrow): adopt the Google `sub` as canonical `userId` + DynamoDB→Firestore migration for AWS→GCP continuity.
 5. **Apply `infra/gcp` to a live GCP project** once created, to validate the plan against real APIs (bootstrap → runbook → `terraform apply`).

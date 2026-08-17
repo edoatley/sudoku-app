@@ -115,7 +115,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 ## GCP — AI Inference
 
 - [x] **CP-GCP-085**: Where AI features (coach, image recognition) are enabled on GCP, the system shall invoke AWS Bedrock cross-cloud using credentials sourced from Secret Manager. (Coach: when `enable_coach = true`, the backend Cloud Run service mounts the manually-created Bedrock access-key secrets as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` and the run SA is granted `secretmanager.secretAccessor`; the SDK's default credential chain resolves them with no code change. Image recognition on Cloud Run remains gap E.)
-- [D] **CP-GCP-090**: The system shall perform AI inference via Vertex AI (Gemini), replacing cross-cloud Bedrock. (Deferred — GCP-native end state; requires backend code change.)
+- [ ] **CP-GCP-090**: The system shall perform **coach** AI inference on GCP via Vertex AI (Gemini) authenticated by the runtime service account, replacing cross-cloud Bedrock, selected behind the `CoachAiClient` port (`coach.ai.provider=vertex`). See `docs/specs/sudoku-coach-specs.md` SC-GCP-001..007. (Image-recognition inference on GCP still uses cross-cloud Bedrock; migrating it to Gemini vision is a separate follow-up before the interim AWS key — CP-GCP-085 — can be fully retired.)
 
 ## GCP — Networking
 
