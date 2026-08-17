@@ -19,8 +19,8 @@
 
 - [x] **AEH-EX-006**: The system shall define `GameNotFoundException` in `com.sudoku.game`, thrown when a game lookup by (userId, gameId) finds no record.
 - [x] **AEH-EX-007**: `GameNotFoundException` shall accept a `gameId` argument and include it in the exception message.
-- [ ] **AEH-EX-008**: When `DynamoDbGameRepository.findById()` finds no matching record, the system shall throw `GameNotFoundException` rather than returning an empty Optional.
-- [ ] **AEH-EX-009**: When `DynamoDbGameRepository.update()` targets a game that does not exist, the system shall throw `GameNotFoundException` rather than silently no-oping.
+- [x] **AEH-EX-008**: When `DynamoDbGameRepository.findById()` finds no matching record, the system shall throw `GameNotFoundException` rather than returning an empty Optional.
+- [x] **AEH-EX-009**: When `DynamoDbGameRepository.update()` targets a game that does not exist, the system shall throw `GameNotFoundException` rather than silently no-oping.
 
 ## Exception Mappers
 

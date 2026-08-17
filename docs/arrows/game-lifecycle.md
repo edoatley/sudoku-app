@@ -4,7 +4,7 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 
 ## Status
 
-**OK** - 2026-04-19. All active specs implemented. AEH-EX-008/009 intentionally deferred.
+**OK** - 2026-04-19 (reconciled 2026-08). All active specs implemented, incl. AEH-EX-008/009 (DynamoDbGameRepository throws GameNotFoundException directly).
 
 ## References
 
@@ -17,7 +17,7 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 ### EARS
 - docs/specs/game-lifecycle-specs.md (all [x])
 - docs/specs/domain-types-specs.md — DT-DTO-004/005/007, DT-SVC-003 all [x]
-- docs/specs/api-error-handling-specs.md — AEH-EX-006/007 [x], AEH-EX-008/009 [D]
+- docs/specs/api-error-handling-specs.md — AEH-EX-006..009 [x]
 
 ### Tests
 - backend/src/test/java/com/sudoku/game/GameServiceImplTest.java — covers GL-BE-001 to 022, GL-BE-030, GL-DATA-001 to 004; @spec annotations added
@@ -69,9 +69,9 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 | Domain Types (DTOs) | DT-DTO-004/005/007 | 3 | 0 | 0 |
 | Domain Types (Service) | DT-SVC-003 | 1 | 0 | 0 |
 | GameNotFoundException | AEH-EX-006/007 | 2 | 0 | 0 |
-| Repository exceptions | AEH-EX-008/009 | 0 | 2 | 0 |
+| Repository exceptions | AEH-EX-008/009 | 2 | 0 | 0 |
 
-**Summary:** 28 of 30 active specs implemented; 2 deferred (AEH-EX-008/009); 0 gaps.
+**Summary:** 30 of 30 active specs implemented; 0 gaps. (GL-GCP-006 remains [D] in the spec — Firestore single-active-game transaction.)
 
 ## Key Findings
 
@@ -89,8 +89,8 @@ Game state machine, single-active-game invariant, DynamoDB persistence, and impo
 8. ~~`GameState.solutionGrid` nullable~~ — Non-nullable; every persisted game has a solution. (DT-DTO-007)
 
 ### Deferred
-- AEH-EX-008: `DynamoDbGameRepository.findById()` should throw `GameNotFoundException` directly — deferred until real DynamoDB deployed and testable.
-- AEH-EX-009: `DynamoDbGameRepository.update()` silently no-ops on missing game — deferred as above.
+- GL-GCP-006: enforce the single-active-game invariant in a Firestore transaction (atomic abandon+write). Deferred — orchestrated non-atomically by `GameServiceImpl`, matching AWS.
+  (AEH-EX-008/009 are now implemented: `DynamoDbGameRepository.findById()`/`update()` throw `GameNotFoundException` directly.)
 
 ### Nice to Have
 - Log a warning when `update()` is called for a non-existent game (precursor to AEH-EX-009). (GL-API-005)

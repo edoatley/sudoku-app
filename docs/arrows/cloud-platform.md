@@ -4,7 +4,7 @@ Cloud infrastructure across two facets: **AWS** (`infra/aws/` — Lambda, API Ga
 
 ## Status
 
-**IN_PROGRESS** - 2026-07-17. GCP facet added as **infrastructure scaffolding** (`infra/gcp/`): Cloud Run, Firestore, Firebase Hosting, Cloud DNS, and a billing budget, plus `scripts/infra/gcp/bootstrap.sh`, the manual runbook `docs/runbooks/gcp-manual-setup.md`, and the CI validate gate. Terraform is `fmt`/`validate`/`checkov`-clean but **not yet applied to a live GCP project** (no project/credentials in this environment — same "no apply/drift audit" caveat as the AWS facet). 18 infra CP-GCP specs implemented; 11 gaps + the `deploy-gcp` CI job land with the app-adapter arrows; 3 deferred. IAM/SA/WIF/Identity Platform are deliberately manual (the ACE-exam learning surface), not Terraform. See the GCP Facet section below.
+**IN_PROGRESS** - 2026-07-17 (reconciled 2026-08). The GCP facet is now **live end-to-end**: applied to the `sudoku-app-eo` project and serving at the custom DNS host `sudoku-gcp.edoatley.co.uk` (backend + image-rec on Cloud Run, Firestore, Firebase Hosting, custom domain, automated post-deploy smoke). **30 of 33 CP-GCP specs implemented**; **1 gap** (CP-GCP-090 — coach on Vertex AI, in progress) and **2 deferred** (CP-GCP-061 budget hard-cap, CP-GCP-091 private VPC). IAM/SA/WIF/Identity Platform are deliberately manual (the learning surface), not Terraform. See the GCP Facet section below.
 
 **AWS facet: OK** - 2026-07-09. Admin data-browser JWT routes added (`/admin/data/games`, `/admin/data/players`); `administrators` Cognito group provisioned. All 19 findings from `docs/planning/old/infra-review.md` (H1-H4, M1-M7, L1-L5) fixed and verified via live CI/Deploy against the `rc-terraform-review` workspace — see that doc for full detail. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists).
 
@@ -71,22 +71,22 @@ Cloud infrastructure across two facets: **AWS** (`infra/aws/` — Lambda, API Ga
 | Category | Spec IDs | Implemented | Deferred | Gaps |
 | --- | --- | --- | --- | --- |
 | Compute (Cloud Run) | CP-GCP-001 to 004 | 4 | 0 | 0 |
-| Edge & Authentication | CP-GCP-010 to 013 | 1 (013) | 0 | 3 (010,011,012) |
-| Firestore | CP-GCP-020 to 024 | 4 | 0 | 1 (021) |
-| Identity Platform | CP-GCP-030 to 032 | 1 (031) | 0 | 2 (030,032) |
-| Firebase Hosting & Frontend | CP-GCP-040 to 043 | 1 (040) | 0 | 3 (041,042,043) |
+| Edge & Authentication | CP-GCP-010 to 014 | 5 | 0 | 0 |
+| Firestore | CP-GCP-020 to 024 | 5 | 0 | 0 |
+| Identity Platform | CP-GCP-030 to 032 | 3 | 0 | 0 |
+| Firebase Hosting & Frontend | CP-GCP-040 to 043 | 4 | 0 | 0 |
 | DNS & TLS | CP-GCP-050 to 051 | 2 | 0 | 0 |
 | Cost Guardrail | CP-GCP-060 to 061 | 1 (060) | 1 (061) | 0 |
 | Labels | CP-GCP-070 | 1 | 0 | 0 |
-| CI/CD, Bootstrap & WIF | CP-GCP-080 to 083 | 3 (081,082,083) | 0 | 1 (080) |
-| AI Inference | CP-GCP-085, 090 | 0 | 0 | 2 (085, 090) |
+| CI/CD, Bootstrap & WIF | CP-GCP-080 to 083 | 4 | 0 | 0 |
+| AI Inference | CP-GCP-085, 090 | 1 (085) | 0 | 1 (090) |
 | Networking | CP-GCP-091 | 0 | 1 | 0 |
 
-**Summary (GCP facet):** 18 infra specs implemented (terraform `fmt`/`validate`/`checkov`-clean, **not yet applied to a live GCP project**); 3 deferred; 11 gaps owned by the app-adapter arrows.
+**Summary (GCP facet):** 30 of 33 CP-GCP specs implemented (live on `sudoku-app-eo`); 1 gap (CP-GCP-090 Vertex AI); 2 deferred (CP-GCP-061, CP-GCP-091).
 
 ### GCP Key Findings
 
-1. **Infra-only scaffolding.** The 11 gaps are runtime/app behaviours (in-app JWT validation, Firestore document I/O, Firebase Auth consumption, VITE injection + `firebase deploy`, WIF-in-CI, cross-cloud Bedrock) satisfied by the backend/frontend arrows, not this infra arrow.
+1. **Now live, not just scaffolding.** The former runtime/app gaps (in-app JWT validation, Firestore I/O, Firebase Auth, VITE injection + `firebase deploy`, WIF-in-CI, cross-cloud Bedrock) all landed and are serving in prod. The only remaining CP-GCP gap is CP-GCP-090 (coach on Vertex AI, in progress).
 2. **`deploy-gcp` CI job deferred.** A functional GCP deploy needs a runnable app (backend Firestore + frontend Firebase Auth) and a GCP image-build pipeline; wiring a non-functional/dormant deploy now would be speculative (Rule 2). Only the always-on `terraform-validate` matrix gate is active for `infra/gcp`.
 3. **Identity/IAM/WIF manual by design.** No `iam.tf` / `identity_platform.tf`; provisioned by hand per `docs/runbooks/gcp-manual-setup.md`. Terraform references SA emails + Identity Platform issuer/audience by variable.
 4. **Throttle deviation.** No request-rate limit on GCP (Cloud Run exposes none); load is bounded by max-instances × concurrency + per-request timeout + the app-layer per-user coach limiter. Accepted departure from `security-standards.md` 25 rps (CP-GCP-013).

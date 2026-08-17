@@ -1,6 +1,6 @@
 # Arrow: League Table
 
-**Status**: PLANNED
+**Status**: OK
 **Created**: 2026-05-31
 
 ## Intent
@@ -11,20 +11,20 @@ Introduce server-side scoring, a write-through leaderboard aggregate, and a `GET
 
 | Spec | Code Location | Status |
 |------|--------------|--------|
-| LT-BE-001 | `backend/.../game/ScoringConstants.java` | [ ] |
-| LT-BE-002 | `backend/.../game/GameItem.java` — `applyUpdate()` | [ ] |
-| LT-BE-003 | `backend/.../game/GameItem.java` — score floor at 0 | [ ] |
-| LT-BE-004 | `backend/.../game/GameItem.java` — `score` attribute | [ ] |
-| LT-BE-005 | `backend/.../dto/GameHistoryEntry.java` — `score` field | [ ] |
-| LT-BE-006 | `backend/.../dto/GameState.java` — `score` field | [ ] |
-| LT-INFRA-001 | `infra/aws/dynamodb.tf` — `SudokuLeaderboard` table | [ ] |
-| LT-INFRA-002 | `infra/aws/iam.tf` — Lambda policy for leaderboard table | [ ] |
-| LT-BE-007 | `backend/.../leaderboard/LeaderboardRepository.java` | [ ] |
-| LT-BE-008 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `ADD totalGames` | [ ] |
-| LT-BE-009 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `ADD totalWins, totalScore, totalElapsedSeconds` | [ ] |
-| LT-BE-010 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — conditional best-time update | [ ] |
-| LT-BE-011 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `updatedAt` | [ ] |
-| LT-BE-012 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `findAll()` Scan | [ ] |
+| LT-BE-001 | `backend/.../game/ScoringConstants.java` | [x] |
+| LT-BE-002 | `backend/.../game/GameItem.java` — `applyUpdate()` | [x] |
+| LT-BE-003 | `backend/.../game/GameItem.java` — score floor at 0 | [x] |
+| LT-BE-004 | `backend/.../game/GameItem.java` — `score` attribute | [x] |
+| LT-BE-005 | `backend/.../dto/GameHistoryEntry.java` — `score` field | [x] |
+| LT-BE-006 | `backend/.../dto/GameState.java` — `score` field | [x] |
+| LT-INFRA-001 | `infra/aws/dynamodb.tf` — `SudokuLeaderboard` table | [x] |
+| LT-INFRA-002 | `infra/aws/iam.tf` — Lambda policy for leaderboard table | [x] |
+| LT-BE-007 | `backend/.../leaderboard/LeaderboardRepository.java` | [x] |
+| LT-BE-008 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `ADD totalGames` | [x] |
+| LT-BE-009 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `ADD totalWins, totalScore, totalElapsedSeconds` | [x] |
+| LT-BE-010 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — conditional best-time update | [x] |
+| LT-BE-011 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `updatedAt` | [x] |
+| LT-BE-012 | `backend/.../leaderboard/DynamoDbLeaderboardRepository.java` — `findAll()` Scan | [x] |
 | LT-GCP-001 | `backend/.../leaderboard/persistence/LeaderboardRepositoryProducer.java` — firestore selection | [x] |
 | LT-GCP-002 | `backend/.../leaderboard/persistence/FirestoreLeaderboardRepository.java` — `leaderboard` collection, `LeaderboardItem` doc model | [x] |
 | LT-GCP-003 | `FirestoreLeaderboardRepository.updateOnSolve` — Firestore transaction (read-modify-write) | [x] |
@@ -33,29 +33,29 @@ Introduce server-side scoring, a write-through leaderboard aggregate, and a `GET
 | LT-GCP-006 | `FirestoreLeaderboardRepository.updateOnSolve` — win counters (`totalWins`/`totalScore`/`totalElapsedSeconds`) | [x] |
 | LT-GCP-007 | `FirestoreLeaderboardRepository.updateBestTime` — min best-time, unknown difficulty → medium | [x] |
 | LT-GCP-008 | `FirestoreLeaderboardRepository.findAll` — collection read (no index) | [x] |
-| LT-BE-013 | `backend/.../game/GameServiceImpl.java` — trigger `updateOnSolve` | [ ] |
-| LT-BE-014 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — join + rank | [ ] |
-| LT-BE-015 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — primary sort avgScore | [ ] |
-| LT-BE-016 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — tie-break avgElapsedSeconds | [ ] |
-| LT-BE-017 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — zero-win players last | [ ] |
-| LT-BE-018 | `backend/.../dto/LeaderboardEntry.java` — all fields | [ ] |
-| LT-API-001 | `backend/.../leaderboard/LeaderboardResource.java` — `GET /api/v1/leaderboard` | [ ] |
-| LT-API-002 | `backend/.../leaderboard/LeaderboardResource.java` — JWT auth | [ ] |
-| LT-UI-001 | `ui/src/api/sudokuApi.js` — `getLeaderboard()` | [ ] |
-| LT-UI-002 | `ui/src/api/sudokuApi.js` — mock path | [ ] |
-| LT-UI-003 | `ui/src/hooks/useLeaderboard.js` | [ ] |
-| LT-UI-004 | `ui/src/hooks/useLeaderboard.js` — loading state | [ ] |
-| LT-UI-005 | `ui/src/hooks/useLeaderboard.js` — error state | [ ] |
-| LT-UI-006 | `ui/src/components/views/LeaderboardView.jsx` — layout + title | [ ] |
-| LT-UI-007 | `ui/src/components/views/LeaderboardView.jsx` — player cards | [ ] |
-| LT-UI-008 | `ui/src/components/views/LeaderboardView.jsx` — rank badges | [ ] |
-| LT-UI-009 | `ui/src/components/views/LeaderboardView.jsx` — best-time chips | [ ] |
-| LT-UI-010 | `ui/src/components/views/LeaderboardView.jsx` — skeleton loading | [ ] |
-| LT-UI-011 | `ui/src/components/views/LeaderboardView.jsx` — error alert + retry | [ ] |
-| LT-UI-012 | `ui/src/components/views/LeaderboardView.jsx` — empty state | [ ] |
-| LT-UI-013 | `ui/src/components/views/HistoryView.jsx` — remove `calculateScore()` | [ ] |
-| LT-UI-014 | `ui/src/hooks/usePlayerProfile.js` — `score` mapping | [ ] |
-| LT-UI-015 | `ui/src/components/views/StatisticsView.jsx` — avg score column | [ ] |
+| LT-BE-013 | `backend/.../game/GameServiceImpl.java` — trigger `updateOnSolve` | [x] |
+| LT-BE-014 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — join + rank | [x] |
+| LT-BE-015 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — primary sort avgScore | [x] |
+| LT-BE-016 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — tie-break avgElapsedSeconds | [x] |
+| LT-BE-017 | `backend/.../leaderboard/LeaderboardServiceImpl.java` — zero-win players last | [x] |
+| LT-BE-018 | `backend/.../dto/LeaderboardEntry.java` — all fields | [x] |
+| LT-API-001 | `backend/.../leaderboard/LeaderboardResource.java` — `GET /api/v1/leaderboard` | [x] |
+| LT-API-002 | `backend/.../leaderboard/LeaderboardResource.java` — JWT auth | [x] |
+| LT-UI-001 | `ui/src/api/sudokuApi.js` — `getLeaderboard()` | [x] |
+| LT-UI-002 | `ui/src/api/sudokuApi.js` — mock path | [x] |
+| LT-UI-003 | `ui/src/hooks/useLeaderboard.js` | [x] |
+| LT-UI-004 | `ui/src/hooks/useLeaderboard.js` — loading state | [x] |
+| LT-UI-005 | `ui/src/hooks/useLeaderboard.js` — error state | [x] |
+| LT-UI-006 | `ui/src/components/views/LeaderboardView.jsx` — layout + title | [x] |
+| LT-UI-007 | `ui/src/components/views/LeaderboardView.jsx` — player cards | [x] |
+| LT-UI-008 | `ui/src/components/views/LeaderboardView.jsx` — rank badges | [x] |
+| LT-UI-009 | `ui/src/components/views/LeaderboardView.jsx` — best-time chips | [x] |
+| LT-UI-010 | `ui/src/components/views/LeaderboardView.jsx` — skeleton loading | [x] |
+| LT-UI-011 | `ui/src/components/views/LeaderboardView.jsx` — error alert + retry | [x] |
+| LT-UI-012 | `ui/src/components/views/LeaderboardView.jsx` — empty state | [x] |
+| LT-UI-013 | `ui/src/components/views/HistoryView.jsx` — remove `calculateScore()` | [x] |
+| LT-UI-014 | `ui/src/hooks/usePlayerProfile.js` — `score` mapping | [x] |
+| LT-UI-015 | `ui/src/components/views/StatisticsView.jsx` — avg score column | [x] |
 
 ## Files
 

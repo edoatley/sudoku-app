@@ -4,7 +4,7 @@ Cross-cutting layer: uniform `ErrorResponse` envelope, specific domain exception
 
 ## Status
 
-**OK** - 2026-04-19. All 20 active specs implemented. AEH-EX-008/009 intentionally deferred.
+**OK** - 2026-04-19 (reconciled 2026-08). All 22 specs implemented, including AEH-EX-008/009 (`DynamoDbGameRepository` now throws `GameNotFoundException` directly).
 
 ## References
 
@@ -55,14 +55,14 @@ Cross-cutting layer: uniform `ErrorResponse` envelope, specific domain exception
 | Exception mappers | AEH-MAP-001 to 007 | 7 | 0 | 0 |
 | Wire format | AEH-WIRE-001 to 002 | 2 | 0 | 0 |
 
-**Summary:** 20 of 22 active specs implemented; 2 deferred (AEH-EX-008/009); 0 gaps.
+**Summary:** 22 of 22 specs implemented; 0 deferred; 0 gaps.
 
 ## Key Findings
 
-1. **AEH-EX-008/009 deferred** — `DynamoDbGameRepository.findById()` and `update()` do not yet throw `GameNotFoundException` directly. Deferred until the real DynamoDB repository is deployed and testable end-to-end. `GameServiceImpl.loadGame()` throws it instead (AEH-EX-007).
+1. **AEH-EX-008/009 implemented** — `DynamoDbGameRepository.findById()` and `update()` throw `GameNotFoundException` directly (`@spec`-annotated). `GameServiceImpl.loadGame()` also throws it (AEH-EX-007).
 2. **Specificity rule** — JAX-RS resolves `ExceptionMapper` by most specific type. `InvalidPuzzleExceptionMapper` catches all three subclasses; `GlobalExceptionMapper` fires only for unmatched exceptions.
 3. **Correlation ID** — `GlobalExceptionMapper` generates a `UUID.randomUUID()` per 500 error and sets it in `ErrorResponse.detail`. The same ID is logged at ERROR level for correlation.
 
 ## Work Required
 
-None. AEH-EX-008/009 are intentionally deferred — re-evaluate when real DynamoDB repository is deployed.
+None. All specs implemented.
