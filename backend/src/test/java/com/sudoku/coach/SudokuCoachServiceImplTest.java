@@ -1,6 +1,5 @@
 package com.sudoku.coach;
 
-import com.sudoku.coach.bedrock.BedrockCoachClient;
 import com.sudoku.coach.web.CoachRequest;
 import com.sudoku.domain.Board;
 import com.sudoku.domain.Grid;
@@ -33,7 +32,7 @@ class SudokuCoachServiceImplTest {
     SudokuService sudokuService;
 
     @InjectMock
-    BedrockCoachClient bedrockCoachClient;
+    CoachAiClient coachAiClient;
 
     @Inject
     SudokuCoachService coachService;
@@ -56,50 +55,50 @@ class SudokuCoachServiceImplTest {
             "Place 4 in Row 1, Column 3.", List.of(), List.of(), List.of(), List.of());
 
     @Test
-    void coach_hintFound_delegatesToBedrockCoachClientExactlyOnce() {
+    void coach_hintFound_delegatesToCoachAiClientExactlyOnce() {
         // @spec SC-BE-009
         when(sudokuService.getHint(any())).thenReturn(new HintResult.Found(HINT));
-        when(bedrockCoachClient.call(anyString(), anyString(), any(), anyList(), any(Board.class)))
-                .thenReturn(new BedrockCoachClient.CallResult(
-                        new BedrockCoachClient.AiReply("Let's look at Row 1.", false, "nudge"), 100L));
+        when(coachAiClient.call(anyString(), anyString(), any(), anyList(), any(Board.class)))
+                .thenReturn(new CoachAiClient.CallResult(
+                        new CoachAiClient.AiReply("Let's look at Row 1.", false, "nudge"), 100L));
 
         coachService.coach(new CoachRequest(PARTIAL_GRID, List.of(), "I'm stuck", "game-1"));
 
-        verify(bedrockCoachClient, times(1)).call(anyString(), anyString(), any(), anyList(), any(Board.class));
+        verify(coachAiClient, times(1)).call(anyString(), anyString(), any(), anyList(), any(Board.class));
     }
 
     @Test
-    void coach_puzzleSolved_neverCallsBedrockCoachClient() {
+    void coach_puzzleSolved_neverCallsCoachAiClient() {
         // @spec SC-BE-009, SC-BE-002
         when(sudokuService.getHint(any())).thenReturn(new HintResult.PuzzleSolved());
 
         coachService.coach(new CoachRequest(PARTIAL_GRID, List.of(), "Am I done?", "game-1"));
 
-        verify(bedrockCoachClient, never()).call(anyString(), anyString(), any(), anyList(), any());
+        verify(coachAiClient, never()).call(anyString(), anyString(), any(), anyList(), any());
     }
 
     @Test
-    void coach_noStrategyApplied_neverCallsBedrockCoachClient() {
+    void coach_noStrategyApplied_neverCallsCoachAiClient() {
         // @spec SC-BE-009
         when(sudokuService.getHint(any())).thenReturn(new HintResult.NoStrategyApplied());
 
         coachService.coach(new CoachRequest(PARTIAL_GRID, List.of(), "Help", "game-1"));
 
-        verify(bedrockCoachClient, never()).call(anyString(), anyString(), any(), anyList(), any());
+        verify(coachAiClient, never()).call(anyString(), anyString(), any(), anyList(), any());
     }
 
     @Test
     void coach_hintFound_passesBoardWithCandidatesAlreadyComputed() {
-        // @spec SC-BE-007 — candidates computed once by the caller, before BedrockCoachClient is invoked
+        // @spec SC-BE-007 — candidates computed once by the caller, before CoachAiClient is invoked
         when(sudokuService.getHint(any())).thenReturn(new HintResult.Found(HINT));
-        when(bedrockCoachClient.call(anyString(), anyString(), any(), anyList(), any(Board.class)))
-                .thenReturn(new BedrockCoachClient.CallResult(
-                        new BedrockCoachClient.AiReply("ok", false, "nudge"), 100L));
+        when(coachAiClient.call(anyString(), anyString(), any(), anyList(), any(Board.class)))
+                .thenReturn(new CoachAiClient.CallResult(
+                        new CoachAiClient.AiReply("ok", false, "nudge"), 100L));
 
         coachService.coach(new CoachRequest(PARTIAL_GRID, List.of(), "I'm stuck", "game-1"));
 
         ArgumentCaptor<Board> boardCaptor = ArgumentCaptor.forClass(Board.class);
-        verify(bedrockCoachClient).call(anyString(), anyString(), any(), anyList(), boardCaptor.capture());
+        verify(coachAiClient).call(anyString(), anyString(), any(), anyList(), boardCaptor.capture());
         Board passedBoard = boardCaptor.getValue();
         // Row 1 (index 0), Col 3 (index 2) is empty (0) in PARTIAL_GRID — must have candidates populated
         assertFalse(passedBoard.getCell(0, 2).candidates().isEmpty());

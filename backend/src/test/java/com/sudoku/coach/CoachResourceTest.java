@@ -1,6 +1,5 @@
 package com.sudoku.coach;
 
-import com.sudoku.coach.bedrock.BedrockCoachClient;
 import com.sudoku.coach.bedrock.CoachRateLimiter;
 import com.sudoku.domain.Grid;
 import com.sudoku.coach.web.ChatMessage;
@@ -32,7 +31,7 @@ import static org.mockito.Mockito.when;
 class CoachResourceTest {
 
     @InjectMock
-    BedrockCoachClient bedrockCoachClient;
+    CoachAiClient coachAiClient;
 
     @InjectMock
     PlayerService playerService;
@@ -52,9 +51,9 @@ class CoachResourceTest {
     @BeforeEach
     void stubDependencies() {
         // pid (first arg) is null when the request carries no gameId, so it must match nullable
-        when(bedrockCoachClient.call(nullable(String.class), anyString(), any(), anyList(), any()))
-                .thenReturn(new BedrockCoachClient.CallResult(
-                        new BedrockCoachClient.AiReply("Let's look at the board together.", false, "nudge"), 1500L));
+        when(coachAiClient.call(nullable(String.class), anyString(), any(), anyList(), any()))
+                .thenReturn(new CoachAiClient.CallResult(
+                        new CoachAiClient.AiReply("Let's look at the board together.", false, "nudge"), 1500L));
         when(playerService.getOrCreateProfile(anyString(), any(), any())).thenReturn(ENABLED_PLAYER);
         when(rateLimiter.tryConsume(anyString())).thenReturn(true);
         doNothing().when(playerRepository).incrementCoachTokens(anyString(), anyLong(), anyString());

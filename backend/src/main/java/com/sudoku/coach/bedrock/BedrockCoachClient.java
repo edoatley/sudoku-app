@@ -8,7 +8,10 @@ import com.sudoku.domain.Board;
 import com.sudoku.domain.Cell;
 import com.sudoku.coach.web.ChatMessage;
 import com.sudoku.puzzle.web.HintResponse;
+import com.sudoku.coach.CoachAiClient;
+import io.quarkus.arc.lookup.LookupUnlessProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import software.amazon.awssdk.core.SdkBytes;
@@ -43,7 +46,9 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 // SC-BE-023, SC-BE-025, SC-BE-026, SC-BE-027, SC-BE-028, SC-BE-029, SC-BE-030
 
 @ApplicationScoped
-public class BedrockCoachClient {
+@Typed(BedrockCoachClient.class)
+@LookupUnlessProperty(name = "coach.ai.provider", stringValue = "vertex", lookupIfMissing = true)
+public class BedrockCoachClient implements CoachAiClient {
 
     private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(BedrockCoachClient.class);
 
@@ -308,13 +313,10 @@ public class BedrockCoachClient {
     @Inject
     ObjectMapper objectMapper;
 
-    // responseType is null on the fallback path (fallback never calls Bedrock's structured
-    // output, so there is no model-chosen category to report) and non-null on a genuine parse,
-    // constrained to OUTPUT_SCHEMA_JSON's enum. Logging/testing only — never surfaced to the
-    // player (see @spec SC-BE-028).
-    public record AiReply(String aiMessage, boolean revealHint, String responseType) {}
-
-    public record CallResult(AiReply reply, long tokensUsed) {}
+    // AiReply / CallResult are the port's DTOs (com.sudoku.coach.CoachAiClient), inherited here via
+    // `implements CoachAiClient` and referenced by simple name below. responseType is null on the
+    // fallback path (no model-chosen category) and, on a genuine parse, one of OUTPUT_SCHEMA_JSON's
+    // enum values — logging/testing only, never surfaced to the player (see @spec SC-BE-028).
 
     // fallbackReason is null on a genuine successful parse; non-null identifies why parseResponse
     // fell back internally, so the caller can log fallback=true instead of silently misreporting
@@ -327,6 +329,7 @@ public class BedrockCoachClient {
 
     // @spec SC-BE-009 — single Bedrock call per request; @spec SC-BE-015, SC-BE-016 — fallback on error
     // @spec SC-BE-026 — dispatches to InvokeModel or Converse per coach.bedrock.api-mode
+    @Override
     public CallResult call(String pid, String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
         String cid = UUID.randomUUID().toString();
         long startMs = System.currentTimeMillis();
