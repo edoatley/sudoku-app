@@ -30,7 +30,7 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 - docs/planning/ai-guide.md — original design spike
 
 ### EARS
-- docs/specs/sudoku-coach-specs.md (75 × [x], 8 × [ ])
+- docs/specs/sudoku-coach-specs.md (81 × [x], 2 × [ ])
 - docs/specs/hint-engine-specs.md — shared `getHint()` path used for pre-analysis
 
 ### Tests
@@ -81,7 +81,7 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 | Deterministic Pre-Analysis (BE) | SC-BE-001 to SC-BE-004 | 4 | 0 |
 | Coordination and Content Logging (BE) | SC-BE-005 to SC-BE-009, SC-BE-019, SC-BE-020 | 7 | 0 |
 | Bedrock Integration (BE) | SC-BE-010 to SC-BE-018, SC-BE-021 to SC-BE-030 | 19 | 0 |
-| AI Provider Port + Vertex AI (BE, GCP) | SC-GCP-001 to SC-GCP-007 | 0 | 7 |
+| AI Provider Port + Vertex AI (BE, GCP) | SC-GCP-001 to SC-GCP-007 | 6 | 1 |
 | Coach Response (BE) | SC-API-010 to SC-API-012 | 3 | 0 |
 | Widget Rendering (FE) | SC-UI-001 to SC-UI-004 | 4 | 0 |
 | Panel Open/Close (FE) | SC-UI-010 to SC-UI-014 | 4 | 1 (SC-UI-013) |
@@ -92,7 +92,7 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 | Conversation Lifecycle (FE) | SC-UI-060 to SC-UI-064 | 5 | 0 |
 | Rate Limiting & Cost (BE+FE) | SC-RL-001 to SC-RL-010 | 10 | 0 |
 
-**Summary:** 75 of 83 specs implemented; 0 deferred; 8 gaps (SC-UI-013 + SC-GCP-001..007 — the Vertex AI coach provider, designed, not yet built).
+**Summary:** 81 of 83 specs implemented; 0 deferred; 2 gaps (SC-UI-013; SC-GCP-007 — Terraform Bedrock-secret drop + validated prod cutover). VertexCoachClient is built + unit-tested; prod stays on Bedrock until coach-quality validation.
 
 ## Open Gaps
 

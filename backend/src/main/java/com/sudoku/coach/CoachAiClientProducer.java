@@ -1,6 +1,7 @@
 package com.sudoku.coach;
 
 import com.sudoku.coach.bedrock.BedrockCoachClient;
+import com.sudoku.coach.vertex.VertexCoachClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
@@ -20,11 +21,14 @@ import jakarta.inject.Inject;
 public class CoachAiClientProducer {
 
     @Inject
+    Instance<VertexCoachClient> vertex;
+
+    @Inject
     Instance<BedrockCoachClient> bedrock;
 
     @Produces
     @ApplicationScoped
     public CoachAiClient coachAiClient() {
-        return bedrock.get();
+        return vertex.isResolvable() ? vertex.get() : bedrock.get();
     }
 }

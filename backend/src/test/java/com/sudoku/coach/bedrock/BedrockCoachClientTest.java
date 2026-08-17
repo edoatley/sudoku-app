@@ -295,7 +295,7 @@ class BedrockCoachClientTest {
     @Test
     void outputSchema_constrainsResponseTypeToTheDocumentedEnum() throws Exception {
         // @spec SC-BE-028 — responseType is enum-constrained, not free-form, in both API modes
-        JsonNode schema = objectMapper.readTree(BedrockCoachClient.OUTPUT_SCHEMA_JSON);
+        JsonNode schema = objectMapper.readTree(CoachPromptBuilder.OUTPUT_SCHEMA_JSON);
         JsonNode enumValues = schema.path("properties").path("responseType").path("enum");
 
         List<String> values = new ArrayList<>();
@@ -312,7 +312,7 @@ class BedrockCoachClientTest {
         ConverseRequest request = bedrockCoachClient.buildConverseRequest("Help", HINT, List.of(), board());
 
         List<SystemContentBlock> system = request.system();
-        assertTrue(system.stream().anyMatch(b -> b.text() != null && b.text().equals(BedrockCoachClient.SYSTEM_PROMPT)));
+        assertTrue(system.stream().anyMatch(b -> b.text() != null && b.text().equals(CoachPromptBuilder.SYSTEM_PROMPT)));
         assertTrue(system.stream().anyMatch(b -> b.cachePoint() != null));
     }
 
@@ -321,7 +321,7 @@ class BedrockCoachClientTest {
         ConverseRequest request = bedrockCoachClient.buildConverseRequest("Help", HINT, List.of(), board());
 
         String schema = request.outputConfig().textFormat().structure().jsonSchema().schema();
-        assertEquals(BedrockCoachClient.OUTPUT_SCHEMA_JSON, schema);
+        assertEquals(CoachPromptBuilder.OUTPUT_SCHEMA_JSON, schema);
         assertEquals("json_schema", request.outputConfig().textFormat().typeAsString());
         assertTrue(schema.contains("responseType"));
     }

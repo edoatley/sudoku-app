@@ -55,28 +55,28 @@ Vertex AI, authenticated by the runtime service account) instead of calling AWS 
 The pedagogical contract (prompt, structured-output schema, fallback, token accounting) is identical
 across providers; only the API surface + auth differ. @spec CP-GCP-090
 
-- [ ] **SC-GCP-001**: The active coach LLM client shall be selected at runtime behind a `CoachAiClient`
+- [x] **SC-GCP-001**: The active coach LLM client shall be selected at runtime behind a `CoachAiClient`
   port by the `coach.ai.provider` property — `BedrockCoachClient` (`bedrock`, the default) on AWS and
   `VertexCoachClient` (`vertex`, set via `%gcp.coach.ai.provider=vertex`) on GCP — mirroring the
   `GameRepository`/`CoachRateLimiter` producer pattern, so only the resolvable adapter's SDK client is
   instantiated.
-- [ ] **SC-GCP-002**: `VertexCoachClient` shall authenticate to Vertex AI via Application Default
+- [x] **SC-GCP-002**: `VertexCoachClient` shall authenticate to Vertex AI via Application Default
   Credentials (the Cloud Run runtime service account) and use no long-lived keys, so the coach on GCP
   requires neither the cross-cloud AWS Bedrock access key nor its Secret Manager mount.
-- [ ] **SC-GCP-003**: `VertexCoachClient` shall call Gemini (model `coach.vertex.model-id`, region
+- [x] **SC-GCP-003**: `VertexCoachClient` shall call Gemini (model `coach.vertex.model-id`, region
   `coach.vertex.location`, project from `GCP_PROJECT_ID`) and constrain the reply to the same JSON
   schema as SC-BE-025 (`{aiMessage: string, revealHint: boolean, responseType: enum}`,
   `additionalProperties: false`) via Gemini structured output (`responseSchema` +
   `responseMimeType=application/json`), so a schema-violating reply cannot be returned regardless of
   prompt wording.
-- [ ] **SC-GCP-004**: Both adapters shall build an identical prompt — tutor system prompt, the
+- [x] **SC-GCP-004**: Both adapters shall build an identical prompt — tutor system prompt, the
   human-readable board format (SC-BE-004), the escalation context block (SC-BE-024), and the trimmed
   conversation history — from a single provider-agnostic prompt builder, so the coaching content
   contract does not vary by provider.
-- [ ] **SC-GCP-005**: `VertexCoachClient` shall report tokens used from Gemini's `usageMetadata`
+- [x] **SC-GCP-005**: `VertexCoachClient` shall report tokens used from Gemini's `usageMetadata`
   (prompt + candidate tokens) to the monthly counter and `CoachRateLimiter`, consistent with the
   Bedrock adapter's accounting (SC-RL-002/005).
-- [ ] **SC-GCP-006**: On a Gemini error, or an unparseable or blank reply, `VertexCoachClient` shall
+- [x] **SC-GCP-006**: On a Gemini error, or an unparseable or blank reply, `VertexCoachClient` shall
   take the same deterministic fallback as the Bedrock adapter (SC-BE-021/023) — returning the nudge
   text and logging `fallback: true` with a non-null `errorMsg` and the `rawResponseText`.
 - [ ] **SC-GCP-007**: When `coach.ai.provider=vertex`, the backend Cloud Run service shall not mount

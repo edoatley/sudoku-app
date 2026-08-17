@@ -129,6 +129,7 @@ APIS=(
   sts.googleapis.com                 # Workload Identity Federation
   cloudresourcemanager.googleapis.com
   policytroubleshooter.googleapis.com # IAM policy troubleshooter (diagnostics)
+  aiplatform.googleapis.com          # Vertex AI (Gemini) — GCP-native coach provider (CP-GCP-090)
 )
 
 gcloud services enable "${APIS[@]}" --project "${PROJECT_ID}"
@@ -206,6 +207,13 @@ for SA_NAME in sudoku-run sudoku-image-recognition-run; do
     --role="roles/datastore.user" --condition=None >/dev/null
   echo "    Bound roles/datastore.user to ${SA_NAME}."
 done
+
+# roles/aiplatform.user on the backend runtime SA — the GCP-native coach (VertexCoachClient) calls
+# Gemini via ADC as this SA when coach.ai.provider=vertex (CP-GCP-090). No key required.
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:sudoku-run@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user" --condition=None >/dev/null
+echo "    Bound roles/aiplatform.user to sudoku-run."
 
 # ── 6. Identity Platform (optional; needs the reused Google OAuth client) ────────
 # Configures Google + Email/Password sign-in via the dedicated script when the OAuth client
