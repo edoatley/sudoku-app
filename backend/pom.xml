@@ -66,6 +66,13 @@
             <artifactId>quarkus-google-cloud-firestore</artifactId>
             <version>2.23.1</version>
         </dependency>
+        <!-- Vertex AI (Gemini) for the GCP-native coach provider; ADC via the shared google-cloud
+             credential producer (no keys). @spec CP-GCP-090, SC-GCP-002 -->
+        <dependency>
+            <groupId>io.quarkiverse.googlecloudservices</groupId>
+            <artifactId>quarkus-google-cloud-vertex-ai</artifactId>
+            <version>2.23.1</version>
+        </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-oidc</artifactId>
