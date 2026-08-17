@@ -195,7 +195,7 @@ arrows:
     specs: docs/specs/sudoku-coach-specs.md
     arrow: docs/arrows/sudoku-coach.md
     spec_count: 83
-    implemented: 75
+    implemented: 81
     deferred: 0
-    gaps: 8
+    gaps: 2
     next: SC-UI-013 (Escape closes panel); coach-quality harness A/B (invoke vs converse) still outstanding for the structured-output/caching work
