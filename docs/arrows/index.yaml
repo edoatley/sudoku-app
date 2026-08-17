@@ -8,9 +8,9 @@ arrows:
     specs: docs/specs/api-error-handling-specs.md
     arrow: docs/arrows/api-error-handling.md
     spec_count: 22
-    implemented: 20
+    implemented: 22
     deferred: 0
-    gaps: 2
+    gaps: 0
     next: ~
 
   - id: sudoku-logic
@@ -51,9 +51,9 @@ arrows:
     lld: docs/llds/game-lifecycle.md
     specs: docs/specs/game-lifecycle-specs.md
     arrow: docs/arrows/game-lifecycle.md
-    spec_count: 29
-    implemented: 29
-    deferred: 0
+    spec_count: 37
+    implemented: 36
+    deferred: 1
     gaps: 0
     next: ~
 
@@ -62,9 +62,9 @@ arrows:
     lld: docs/llds/user-management.md
     specs: docs/specs/user-management-specs.md
     arrow: docs/arrows/user-management.md
-    spec_count: 38
-    implemented: 38
-    deferred: 0
+    spec_count: 48
+    implemented: 47
+    deferred: 1
     gaps: 0
     next: ~
 
@@ -73,8 +73,8 @@ arrows:
     lld: docs/llds/image-recognition.md
     specs: docs/specs/image-recognition-specs.md
     arrow: docs/arrows/image-recognition.md
-    spec_count: 25
-    implemented: 20
+    spec_count: 30
+    implemented: 25
     deferred: 5
     gaps: 0
     next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)
@@ -84,10 +84,10 @@ arrows:
     lld: docs/llds/cloud-platform.md
     specs: docs/specs/cloud-platform-specs.md
     arrow: docs/arrows/cloud-platform.md
-    spec_count: 58
-    implemented: 50
+    spec_count: 59
+    implemented: 56
     deferred: 2
-    gaps: 6
+    gaps: 1
     next: >-
       GCP games+player-profile slice landed: unified HTTP+LWA image, runtime
       Firestore/DynamoDB selection, in-app JWT + CORS, and the deploy-gcp CI pipeline
@@ -102,8 +102,8 @@ arrows:
     lld: docs/llds/react-frontend.md
     specs: docs/specs/react-frontend-specs.md
     arrow: docs/arrows/react-frontend.md
-    spec_count: 50
-    implemented: 50
+    spec_count: 52
+    implemented: 52
     deferred: 0
     gaps: 0
     next: ~
@@ -183,8 +183,8 @@ arrows:
     lld: docs/llds/league-table.md
     specs: docs/specs/league-table-specs.md
     arrow: docs/arrows/league-table.md
-    spec_count: 37
-    implemented: 37
+    spec_count: 45
+    implemented: 45
     deferred: 0
     gaps: 0
     next: ~
