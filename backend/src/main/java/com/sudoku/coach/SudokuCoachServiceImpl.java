@@ -1,6 +1,5 @@
 package com.sudoku.coach;
 
-import com.sudoku.coach.bedrock.BedrockCoachClient;
 import com.sudoku.domain.Board;
 import com.sudoku.puzzle.SudokuService;
 import com.sudoku.puzzle.web.BoardRequest;
@@ -33,7 +32,7 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
     SudokuService sudokuService;
 
     @Inject
-    BedrockCoachClient bedrockCoachClient;
+    CoachAiClient coachAiClient;
 
     @Override
     public CoachResult coach(CoachRequest request) {
@@ -49,14 +48,14 @@ public class SudokuCoachServiceImpl implements SudokuCoachService {
             case HintResult.NoStrategyApplied ignored -> new CoachResult.Response(
                     new CoachResponse(NO_MOVES_MESSAGE, null, false, 0L), 0L);
 
-            // @spec SC-BE-003, SC-BE-009 — one Bedrock call; falls back to nudge on error
+            // @spec SC-BE-003, SC-BE-009 — one AI call via the CoachAiClient port; falls back to nudge on error
             case HintResult.Found f -> {
                 // @spec SC-BE-007 — candidates computed once here (only on this path — PuzzleSolved
-                // and NoStrategyApplied never reach BedrockCoachClient, so computing them there
+                // and NoStrategyApplied never reach the AI client, so computing them there
                 // would be wasted work), then passed through rather than recomputed downstream.
                 Board board = Board.fromGrid(request.board());
                 board.calculateAllCandidates();
-                BedrockCoachClient.CallResult result = bedrockCoachClient.call(
+                CoachAiClient.CallResult result = coachAiClient.call(
                         request.gameId(), request.userMessage(), f.hint(), trimmedHistory, board);
                 yield new CoachResult.Response(
                         new CoachResponse(result.reply().aiMessage(), f.hint(), result.reply().revealHint(), 0L),
