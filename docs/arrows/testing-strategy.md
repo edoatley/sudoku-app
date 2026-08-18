@@ -209,6 +209,11 @@ a scenario.
 ```bash
 AWS_PROFILE=sandbox bash scripts/local/coach-quality-test.sh
 ```
+`COACH_QUALITY_API_URL`/`COACH_QUALITY_AUTH_TOKEN` (`lib/apiClient.js`) let the runner target a
+deployed backend instead of `localhost:8080` — a deployed `%gcp`/`%prod` backend has no
+`DevUserFilter`, so a bearer token (e.g. from `scripts/github/gcp-smoke-token.sh`) is required.
+`scripts/local/coach-quality-remote-compare.sh` wraps this for comparing `coach_ai_provider`
+values (bedrock vs vertex) on the same deployed `rcg-*` workspace — see the README.
 
 ---
 

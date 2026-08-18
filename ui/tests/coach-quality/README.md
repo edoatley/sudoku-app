@@ -38,6 +38,19 @@ Filter to one scenario with Playwright's `--grep`:
 npm run test:coach-quality -- --grep "explicit-answer-request"
 ```
 
+### Against a deployed environment
+
+`COACH_QUALITY_API_URL` points the runner at any backend, not just `localhost:8080`. A deployed
+`%gcp`/`%prod` backend has no `DevUserFilter` and enforces real Identity Platform JWT validation,
+so also set `COACH_QUALITY_AUTH_TOKEN` (a bearer token — `scripts/github/gcp-smoke-token.sh`
+mints one). `scripts/local/coach-quality-remote-compare.sh` wraps both, looping N runs against a
+deployed URL and aggregating labelled reports — e.g. to compare `coach_ai_provider=bedrock` vs
+`vertex` on the same `rcg-*` workspace:
+```bash
+COACH_QUALITY_API_URL=https://sudoku-rcg-xyz-abc.a.run.app/api/v1 \
+  LABEL=vertex-gemini-2-0-flash RUNS=5 bash scripts/local/coach-quality-remote-compare.sh
+```
+
 ## The report
 
 Every run writes two files per scenario to `ui/tests/coach-quality/reports/` (gitignored):
