@@ -209,11 +209,18 @@ a scenario.
 ```bash
 AWS_PROFILE=sandbox bash scripts/local/coach-quality-test.sh
 ```
-`COACH_QUALITY_API_URL`/`COACH_QUALITY_AUTH_TOKEN` (`lib/apiClient.js`) let the runner target a
-deployed backend instead of `localhost:8080` — a deployed `%gcp`/`%prod` backend has no
-`DevUserFilter`, so a bearer token (e.g. from `scripts/github/gcp-smoke-token.sh`) is required.
-`scripts/local/coach-quality-remote-compare.sh` wraps this for comparing `coach_ai_provider`
-values (bedrock vs vertex) on the same deployed `rcg-*` workspace — see the README.
+`docker-compose.coach-quality-vertex.yml` stacks onto the above to compare `coach_ai_provider`
+values (bedrock vs vertex) locally — Vertex AI auth is ADC, which resolves a local `gcloud auth
+application-default login` credential the same way it resolves Cloud Run's in prod, so this
+reuses the existing local log-correlation path unchanged. See the README's "Comparing coach
+providers" section.
+
+`COACH_QUALITY_API_URL`/`COACH_QUALITY_AUTH_TOKEN` (`lib/apiClient.js`) let the runner send
+authenticated requests to a deployed backend instead of `localhost:8080`, but `lib/dockerLogs.js`
+still only reads local `docker compose logs` — a deployed environment's structured logs live in
+Cloud Logging, unread by anything here yet (`docs/todo/coach-quality-gcp-cloud-logging.md`), so
+this alone doesn't produce a usable report against a real deployment. See the README's "Against a
+deployed environment" section.
 
 ---
 
