@@ -80,13 +80,27 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "COACH_BEDROCK_API_MODE"
         value = local.coach_bedrock_api_mode
       }
+      # Selects CoachAiClient's adapter. "vertex" also suppresses the AWS Bedrock mount below;
+      # image-recognition keeps Bedrock regardless (image_recognition.tf). @spec CP-GCP-090
+      env {
+        name  = "COACH_AI_PROVIDER"
+        value = var.coach_ai_provider
+      }
+      # VertexCoachClient's Vertex AI location (quarkus.google.cloud.vertexai.location reads this,
+      # default us-central1) — must track the Cloud Run region, not just its own default, so a
+      # non-default region doesn't silently mismatch. Harmless when coach_ai_provider = bedrock.
+      env {
+        name  = "GCP_REGION"
+        value = var.region
+      }
 
       # Cross-cloud Bedrock credentials for the AI coach (gap D). Mounted as the standard AWS SDK
       # env vars so BedrockClientProducer's default credential chain resolves them with no code
-      # change; region stays eu-west-2 (its default). Only wired when enable_coach = true so a
-      # backend-only deploy without the secrets still applies. See runbook §6 + CP-GCP-085.
+      # change; region stays eu-west-2 (its default). Only wired when enable_coach = true and the
+      # coach isn't on Vertex, so a backend-only deploy without the secrets still applies, and the
+      # Vertex path never creates an AWS SDK client. See runbook §6 + CP-GCP-085. @spec SC-GCP-007
       dynamic "env" {
-        for_each = var.enable_coach ? [1] : []
+        for_each = var.enable_coach && var.coach_ai_provider != "vertex" ? [1] : []
         content {
           name = "AWS_ACCESS_KEY_ID"
           value_source {
@@ -98,7 +112,7 @@ resource "google_cloud_run_v2_service" "backend" {
         }
       }
       dynamic "env" {
-        for_each = var.enable_coach ? [1] : []
+        for_each = var.enable_coach && var.coach_ai_provider != "vertex" ? [1] : []
         content {
           name = "AWS_SECRET_ACCESS_KEY"
           value_source {

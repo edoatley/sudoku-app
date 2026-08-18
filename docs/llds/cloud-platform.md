@@ -557,7 +557,7 @@ The GCP facet extends the existing pipeline in tiers.
 | Workspace isolation | Named Firestore database per workspace, single project | Project-per-environment | One project keeps billing/free-tier simple; project-per-env documented as the heavier alternative |
 | Edge | Cloud Run direct + in-app JWT validation | GCP API Gateway; external HTTPS load balancer | Gateway adds cost/complexity; Quarkus already validates OIDC JWTs; throttle achieved via instance/concurrency caps |
 | IAM / SA / WIF / Identity Platform | Manual (runbook), not Terraform | Terraform-managed | Deliberate learning surface; least-privilege authored by hand (HLD tenet) |
-| AI inference | Bedrock cross-cloud via Secret Manager | Vertex AI (Gemini) now | No backend code change; stands the platform up fast; Vertex migration deferred |
+| AI inference | Bedrock cross-cloud via Secret Manager, default; `coach_ai_provider` Terraform var (default `bedrock`) opts a workspace into Vertex AI (Gemini) | Flip the default to `vertex` directly | Prod is live; validate via the `test:coach-quality` harness on an `rcg-*` workspace with `-var coach_ai_provider=vertex` before ever changing the default (SC-GCP-007) |
 | Region | `us-central1` | `europe-west2` (London, AWS-parity) | Maximises free-tier coverage; residency shift acceptable under one-cloud-at-a-time |
 | Budget enforcement | Alert-only (Pub/Sub) | Hard-cap auto-disable | GCP budgets cannot attach a deny action; automated enforcement deferred to a Pub/Sub Cloud Function |
 
@@ -594,7 +594,7 @@ The GCP facet extends the existing pipeline in tiers.
 | Firebase JWT verification | Firebase ID tokens are non-standard OIDC | Backend needs explicit JWKS/issuer/audience config, not Quarkus OIDC auto-discovery; verify in code phase |
 | Bedrock credential | Long-lived AWS access key in Secret Manager (path A) | Security tension (WIF avoids long-lived keys) + cross-region latency; accepted interim, resolved by the Vertex AI migration |
 | Budget enforcement | Alert-only; no hard cap | Automated enforcement (Pub/Sub → Cloud Function disabling billing / scaling to zero) deferred |
-| AI provider | Bedrock cross-cloud interim | Vertex AI (Gemini) migration is the GCP-native end state; deferred |
+| AI provider | Bedrock cross-cloud interim | `VertexCoachClient` is built and merged; only the rollout — flipping `coach_ai_provider`'s default to `vertex` after harness validation — remains |
 | Private networking | Cloud Run → Firestore over public managed API | VPC + Serverless VPC Access connector documented but unbuilt |
 
 ## References

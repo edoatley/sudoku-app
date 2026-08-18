@@ -42,9 +42,20 @@ variable "enable_custom_domain" {
 }
 
 variable "enable_coach" {
-  description = "Wire the AI coach's cross-cloud AWS Bedrock credentials into the backend Cloud Run service (Secret Manager → AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env, grant the run SA secretAccessor). Off until the secrets exist (see runbook §6); keeps backend-only deploys applying cleanly."
+  description = "Wire the AI coach's cross-cloud AWS Bedrock credentials into the backend Cloud Run service (Secret Manager → AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env, grant the run SA secretAccessor). Off until the secrets exist (see runbook §6); keeps backend-only deploys applying cleanly. Also gates image-recognition's Bedrock mount (image_recognition.tf), which always uses cross-cloud Bedrock regardless of coach_ai_provider."
   type        = bool
   default     = false
+}
+
+variable "coach_ai_provider" {
+  description = "AI provider for the coach on the backend Cloud Run service: \"bedrock\" (cross-cloud, default) or \"vertex\" (Gemini via Vertex AI, ADC, no keys). Sets COACH_AI_PROVIDER and, when \"vertex\", suppresses the backend's AWS Bedrock secret mount (SC-GCP-007) — image-recognition's separate Bedrock mount is unaffected. Validate on an rcg-* workspace before changing this default."
+  type        = string
+  default     = "bedrock"
+
+  validation {
+    condition     = contains(["bedrock", "vertex"], var.coach_ai_provider)
+    error_message = "coach_ai_provider must be \"bedrock\" or \"vertex\"."
+  }
 }
 
 variable "bedrock_access_key_secret_id" {
