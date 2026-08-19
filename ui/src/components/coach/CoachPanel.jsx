@@ -1,4 +1,4 @@
-// @spec SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-012, SC-UI-022, SC-UI-023, SC-UI-024, SC-UI-030, SC-UI-031, SC-UI-032, SC-RL-009
+// @spec SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-012, SC-UI-022, SC-UI-023, SC-UI-024, SC-UI-025, SC-UI-030, SC-UI-031, SC-UI-032, SC-RL-009
 import { useState, useRef, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -26,9 +26,10 @@ export default function CoachPanel({
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-scroll on every new message (SC-UI-025), not just when the effect body's own refs change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  }, [history.length]);
 
   const handleSend = () => {
     const text = input.trim();
@@ -96,7 +97,7 @@ export default function CoachPanel({
             </Typography>
           </Box>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} data-testid="coach-messages-end" />
       </Box>
 
       {/* Quick replies */}

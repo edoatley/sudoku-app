@@ -244,12 +244,12 @@ arrows:
     parent: ~
     sampled: 2026-07-16
     audited: 2026-08-19
-    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    audited_sha: 86e70e1cc1adb75ce62ad23651957e1493cf88fe
     blocks: []
     blockedBy: []
     detail: sudoku-coach.md
     next: "SC-UI-013 (Escape closes panel); SC-GCP-007 (Vertex AI cutover — see docs/roadmap.md AI Quality)"
-    drift: "SC-UI-025 (auto-scroll to new coach message) has a confirmed functional bug, found 2026-08-19: CoachPanel.jsx's scroll useEffect has an empty dependency array, so it only fires on mount and never re-fires when new messages arrive. Not yet fixed. SC-BE-004, SC-UI-041, SC-UI-060/061/062 verified genuinely implemented but have no @spec citation to extend (annotation gap only)."
+    drift: "SC-BE-004, SC-UI-041, SC-UI-060/061/062 verified genuinely implemented but have no @spec citation to extend (annotation gap only, see docs/todo/spec-annotation-backfill.md)."
 
 # Items found during mapping that don't yet belong to a segment. Empty — the orphan-artifacts
 # check (reference coherence, reverse-@spec-orphans) found none this audit.
