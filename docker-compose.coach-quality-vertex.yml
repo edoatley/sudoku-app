@@ -24,3 +24,4 @@ services:
       # Bare key (no value): passed through from the host shell only when set there, same
       # idiom as COACH_BEDROCK_MODEL_ID in docker-compose.coach-quality.yml.
       COACH_AI_PROVIDER:
+      COACH_VERTEX_MODEL_ID:

@@ -27,9 +27,20 @@ function loadCoachResponses(dir) {
   const responses = [];
   for (const file of files) {
     const trace = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+    // Bedrock's COACH_RESPONSE log line carries its own server-measured `latencyMs`; Vertex's
+    // doesn't (see VertexCoachClient) — fall back to the client-measured round-trip time from
+    // the step that produced this turn, correlated by `cid`, so both providers get a latency
+    // figure even though only one of them logs it server-side.
+    const durationByCid = new Map();
+    for (const step of trace.steps ?? []) {
+      const response = step.result?.logPair?.response;
+      if (response?.type === 'COACH_RESPONSE' && response.cid) {
+        durationByCid.set(response.cid, step.durationMs);
+      }
+    }
     for (const line of trace.finalLogs ?? []) {
       if (line.type === 'COACH_RESPONSE') {
-        responses.push({ scenario: trace.scenario, file, ...line });
+        responses.push({ scenario: trace.scenario, file, durationMs: durationByCid.get(line.cid), ...line });
       }
     }
   }
@@ -45,18 +56,26 @@ function percentile(sorted, p) {
 function summarize(responses) {
   const n = responses.length;
   const fallbacks = responses.filter((r) => r.fallback);
-  const latencies = responses.map((r) => r.latencyMs).sort((a, b) => a - b);
+  const latencies = responses
+    .map((r) => r.latencyMs ?? r.durationMs)
+    .filter((v) => typeof v === 'number')
+    .sort((a, b) => a - b);
   const sum = (key) => responses.reduce((acc, r) => acc + (r[key] ?? 0), 0);
+  // Bedrock logs a granular input/output/cache breakdown; Vertex logs one `tokens` total (see
+  // VertexCoachClient) — sum whichever each response actually has, per response, so a total is
+  // available for both instead of always reading 0 for the provider that logs `tokens`.
+  const totalTokens = responses.reduce((acc, r) => acc + (r.tokens ?? (r.inputTokens ?? 0) + (r.outputTokens ?? 0)), 0);
   return {
     n,
     fallbackRate: n === 0 ? 0 : fallbacks.length / n,
-    meanLatencyMs: n === 0 ? 0 : Math.round(latencies.reduce((a, b) => a + b, 0) / n),
+    meanLatencyMs: latencies.length === 0 ? 0 : Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length),
     p50LatencyMs: Math.round(percentile(latencies, 50)),
     p90LatencyMs: Math.round(percentile(latencies, 90)),
     inputTokens: sum('inputTokens'),
     outputTokens: sum('outputTokens'),
     cacheReadTokens: sum('cacheReadTokens'),
     cacheWriteTokens: sum('cacheWriteTokens'),
+    totalTokens,
     fallbacks,
   };
 }
@@ -67,7 +86,7 @@ function printSummary(label, summary) {
   console.log(`  latencyMs: mean=${summary.meanLatencyMs} p50=${summary.p50LatencyMs} p90=${summary.p90LatencyMs}`);
   console.log(
     `  tokens: input=${summary.inputTokens} output=${summary.outputTokens} ` +
-      `cacheRead=${summary.cacheReadTokens} cacheWrite=${summary.cacheWriteTokens}`
+      `cacheRead=${summary.cacheReadTokens} cacheWrite=${summary.cacheWriteTokens} total=${summary.totalTokens}`
   );
   if (summary.fallbacks.length > 0) {
     console.log(`  fallbacks (${summary.fallbacks.length}):`);
