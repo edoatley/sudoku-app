@@ -26,11 +26,18 @@
 #   AWS_PROFILE=sandbox RUNS=10 LABEL=haiku-4-5-baseline bash scripts/local/coach-quality-repeat.sh
 #   AWS_PROFILE=sandbox COACH_BEDROCK_MODEL_ID=eu.anthropic.claude-sonnet-4-6-... \
 #     RUNS=10 LABEL=sonnet-4-6 bash scripts/local/coach-quality-repeat.sh
+#
+# EXTRA_COMPOSE_FILE stacks one more overlay on top of the two above — e.g.
+# docker-compose.coach-quality-vertex.yml to compare the AI coach's Vertex AI provider against
+# the Bedrock baseline (see that file's header for the full vertex-comparison usage).
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_ARGS=(-f "${REPO_ROOT}/docker-compose.test.yml" -f "${REPO_ROOT}/docker-compose.coach-quality.yml")
+if [[ -n "${EXTRA_COMPOSE_FILE:-}" ]]; then
+  COMPOSE_ARGS+=(-f "${REPO_ROOT}/${EXTRA_COMPOSE_FILE}")
+fi
 SERVICES=(dynamodb-local dynamodb-setup dynamodb-setup-coach-quality backend)
 REPORTS_DIR="${REPO_ROOT}/ui/tests/coach-quality/reports"
 

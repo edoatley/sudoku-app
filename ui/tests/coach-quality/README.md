@@ -38,6 +38,36 @@ Filter to one scenario with Playwright's `--grep`:
 npm run test:coach-quality -- --grep "explicit-answer-request"
 ```
 
+### Comparing coach providers (Bedrock vs Vertex AI)
+
+`docker-compose.coach-quality-vertex.yml` is a second overlay for
+`scripts/local/coach-quality-repeat.sh` that mounts a local `gcloud auth application-default
+login` credential into the backend container and sets `coach.ai.provider=vertex`, so the coach
+calls real Gemini instead of Bedrock — everything else (auth, log correlation, reports) is
+identical to the Bedrock path, since `VertexCoachClient`'s ADC auth resolves a local credential
+file the same way it resolves Cloud Run's metadata server in prod:
+```bash
+gcloud auth application-default login   # once
+AWS_PROFILE=sandbox GCP_PROJECT_ID=<id> \
+  EXTRA_COMPOSE_FILE=docker-compose.coach-quality-vertex.yml \
+  COACH_AI_PROVIDER=vertex RUNS=5 LABEL=vertex-gemini-2-0-flash \
+  bash scripts/local/coach-quality-repeat.sh
+```
+
+### Against a deployed environment (partial — no log correlation yet)
+
+`COACH_QUALITY_API_URL`/`COACH_QUALITY_AUTH_TOKEN` (`lib/apiClient.js`) let the runner send
+authenticated requests to any backend, not just `localhost:8080` — `scripts/github/gcp-smoke-token.sh`
+mints a bearer token for a deployed `%gcp`/`%prod` backend, which has no `DevUserFilter`.
+**This alone isn't enough for a real report:** `lib/dockerLogs.js` reads `COACH_REQUEST`/
+`COACH_RESPONSE` structured log lines via `docker compose logs`, which only exist for a local
+stack — a deployed environment's logs live in Cloud Logging, which nothing in this harness reads
+yet (see `docs/todo/coach-quality-gcp-cloud-logging.md`). Every scenario will fail at the
+log-correlation step even though the underlying `/ai/coach` call succeeds — don't run
+`scripts/local/coach-quality-remote-compare.sh` against a real deployment expecting a usable
+report until that gap is closed; the "Comparing coach providers" section above is the working
+path today.
+
 ## The report
 
 Every run writes two files per scenario to `ui/tests/coach-quality/reports/` (gitignored):

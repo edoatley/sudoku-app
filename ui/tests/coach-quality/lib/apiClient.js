@@ -7,9 +7,12 @@
  * (see backend/.../game/web/PuzzleEvent.java's own doc comment) — nothing requires it to have
  * come from real UI interaction. So a script can construct events itself and PATCH them in.
  *
- * No Authorization header is sent — DevUserFilter (backend/.../developer/DevUserFilter.java,
+ * No Authorization header is sent by default — DevUserFilter (backend/.../developer/DevUserFilter.java,
  * active under the dev/it/test build profiles) injects a fixed mock principal
- * ("local-dev-user") whenever one is absent, regardless of caller.
+ * ("local-dev-user") whenever one is absent, regardless of caller. A deployed %gcp/%prod
+ * backend has no such filter and enforces real Identity Platform JWT validation, so pointing
+ * COACH_QUALITY_API_URL at one also requires COACH_QUALITY_AUTH_TOKEN (a bearer token, e.g.
+ * minted via scripts/github/gcp-smoke-token.sh) or every call 401s.
  */
 import { request as playwrightRequest } from '@playwright/test';
 
@@ -18,13 +21,17 @@ import { request as playwrightRequest } from '@playwright/test';
 // of appending to it.
 const rawApiUrl = process.env.COACH_QUALITY_API_URL ?? 'http://localhost:8080/api/v1';
 const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl : `${rawApiUrl}/`;
+const AUTH_TOKEN = process.env.COACH_QUALITY_AUTH_TOKEN;
 
 function emptyCandidatesGrid() {
   return { rows: Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => [])) };
 }
 
 export async function createApiClient() {
-  const api = await playwrightRequest.newContext({ baseURL: API_URL });
+  const api = await playwrightRequest.newContext({
+    baseURL: API_URL,
+    extraHTTPHeaders: AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : undefined,
+  });
 
   async function postJson(path, data) {
     const started = Date.now();

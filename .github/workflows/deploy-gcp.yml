@@ -42,6 +42,13 @@ on:
         description: "Wire cross-cloud Bedrock creds (Secret Manager) into the backend + image-rec (needs the secrets to exist — runbook §6)"
         type: boolean
         default: false
+      coach_ai_provider:
+        description: "Coach AI provider on the backend: bedrock (cross-cloud, default) or vertex (Gemini via ADC, no keys — suppresses the backend's Bedrock mount; image-rec keeps Bedrock regardless)"
+        type: choice
+        options:
+          - bedrock
+          - vertex
+        default: bedrock
       deploy_frontend:
         description: "Build and deploy the frontend to Firebase Hosting (needs the backend deployed)"
         type: boolean
@@ -79,6 +86,7 @@ jobs:
       deploy_cloud_run: ${{ steps.resolve.outputs.deploy_cloud_run }}
       deploy_image_recognition: ${{ steps.resolve.outputs.deploy_image_recognition }}
       enable_coach: ${{ steps.resolve.outputs.enable_coach }}
+      coach_ai_provider: ${{ steps.resolve.outputs.coach_ai_provider }}
       deploy_frontend: ${{ steps.resolve.outputs.deploy_frontend }}
       enable_custom_domain: ${{ steps.resolve.outputs.enable_custom_domain }}
       run_smoke: ${{ steps.resolve.outputs.run_smoke }}
@@ -95,6 +103,7 @@ jobs:
               echo "deploy_cloud_run=true"
               echo "deploy_image_recognition=true"
               echo "enable_coach=true"
+              echo "coach_ai_provider=bedrock"
               echo "deploy_frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
               echo "enable_custom_domain=false"
               echo "run_smoke=${{ vars.GCP_RUN_SMOKE == 'true' }}"
@@ -106,6 +115,7 @@ jobs:
               echo "deploy_cloud_run=${{ inputs.deploy_cloud_run }}"
               echo "deploy_image_recognition=${{ inputs.deploy_image_recognition }}"
               echo "enable_coach=${{ inputs.enable_coach }}"
+              echo "coach_ai_provider=${{ inputs.coach_ai_provider }}"
               echo "deploy_frontend=${{ inputs.deploy_frontend }}"
               echo "enable_custom_domain=${{ inputs.enable_custom_domain }}"
               echo "run_smoke=${{ inputs.run_smoke }}"
@@ -240,6 +250,7 @@ jobs:
             -var "deploy_cloud_run=${{ needs.config.outputs.deploy_cloud_run }}" \
             -var "deploy_image_recognition=${{ needs.config.outputs.deploy_image_recognition }}" \
             -var "enable_coach=${{ needs.config.outputs.enable_coach }}" \
+            -var "coach_ai_provider=${{ needs.config.outputs.coach_ai_provider }}" \
             -var "enable_custom_domain=${{ needs.config.outputs.enable_custom_domain }}" \
             -var "backend_image=${BACKEND_IMAGE}" \
             -var "image_recognition_image_uri=${IR_IMAGE}" \

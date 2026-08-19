@@ -1,0 +1,27 @@
+# Second overlay, stacked on top of docker-compose.coach-quality.yml, for comparing the AI
+# coach's Vertex AI (Gemini) provider against the Bedrock baseline using the same local
+# harness/log-correlation as docker-compose.coach-quality.yml's Bedrock path — no deployed
+# environment needed. VertexCoachClient's auth is ADC (google-cloud-vertexai's default
+# credential chain), which resolves a local `gcloud auth application-default login` file just
+# as it resolves Cloud Run's metadata server in prod — this overlay mounts that file in.
+#
+# Usage: run `gcloud auth application-default login` once, then
+#   AWS_PROFILE=sandbox GCP_PROJECT_ID=<id> \
+#     EXTRA_COMPOSE_FILE=docker-compose.coach-quality-vertex.yml \
+#     COACH_AI_PROVIDER=vertex RUNS=5 LABEL=vertex-gemini-2-0-flash \
+#     bash scripts/local/coach-quality-repeat.sh
+#
+# (AWS credentials are still required by coach-quality-repeat.sh itself even for a
+# vertex-only run — DynamoDB Local uses dummy creds, so this is just the script's existing
+# unconditional check, harmless to satisfy.)
+services:
+  backend:
+    volumes:
+      - "${HOME}/.config/gcloud/application_default_credentials.json:/gcp-adc/adc.json:ro"
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp-adc/adc.json
+      QUARKUS_GOOGLE_CLOUD_PROJECT_ID: "${GCP_PROJECT_ID:?GCP_PROJECT_ID must be set — the Vertex AI project to call}"
+      # Bare key (no value): passed through from the host shell only when set there, same
+      # idiom as COACH_BEDROCK_MODEL_ID in docker-compose.coach-quality.yml.
+      COACH_AI_PROVIDER:
+      COACH_VERTEX_MODEL_ID:
