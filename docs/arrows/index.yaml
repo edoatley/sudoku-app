@@ -66,7 +66,7 @@ arrows:
     blockedBy: []
     detail: hint-engine.md
     next: ~
-    drift: ~
+    drift: "HE-BE-035 (hasSingleSolution single-solution-count check, SudokuServiceImpl.java:154) has no test exercising it directly and no @spec citation anywhere — appears to be a genuine untested/unannotated gap, not just a missing citation (found during 2026-08-19 coverage audit)."
 
   puzzle-generation:
     status: OK
@@ -114,7 +114,7 @@ arrows:
     blockedBy: []
     detail: image-recognition.md
     next: "Re-evaluate IR-PROC-001-005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)"
-    drift: ~
+    drift: "20 implemented specs (IR-API-*, IR-BE-*, IR-PROC-*, IR-GCP-005) have no @spec citation anywhere -- handler.py and image_recognition.tf were never annotated. Verified genuinely implemented line-by-line during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
 
   cloud-platform:
     status: PARTIAL
@@ -126,7 +126,7 @@ arrows:
     blockedBy: []
     detail: cloud-platform.md
     next: "CP-GCP-090 (Vertex AI coach) — rollout var + local validation done (see docs/roadmap.md AI Quality); deployed-path validation + default flip still open."
-    drift: ~
+    drift: "48 implemented specs (25 CP-INFRA-*, 23 CP-GCP-*) have no @spec citation anywhere -- infra/aws/*.tf uses no annotation convention at all, and infra/gcp/*.tf's primary resource blocks are uncited. Verified genuinely implemented during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
 
   react-frontend:
     status: OK
@@ -138,7 +138,7 @@ arrows:
     blockedBy: []
     detail: react-frontend.md
     next: ~
-    drift: ~
+    drift: "39 implemented specs (FE-UI-*, FE-BE-*, FE-MOB-*) have no @spec citation anywhere across several hooks/components (useSudokuGame.js, useGameSync.js, sudokuApi.js, App.jsx, SudokuGrid.jsx, HintDialog.jsx, ImportModal.jsx, and others). Verified genuinely implemented during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
 
   domain-types:
     status: OK
@@ -249,7 +249,7 @@ arrows:
     blockedBy: []
     detail: sudoku-coach.md
     next: "SC-UI-013 (Escape closes panel); SC-GCP-007 (Vertex AI cutover — see docs/roadmap.md AI Quality)"
-    drift: ~
+    drift: "SC-UI-025 (auto-scroll to new coach message) has a confirmed functional bug, found 2026-08-19: CoachPanel.jsx's scroll useEffect has an empty dependency array, so it only fires on mount and never re-fires when new messages arrive. Not yet fixed. SC-BE-004, SC-UI-041, SC-UI-060/061/062 verified genuinely implemented but have no @spec citation to extend (annotation gap only)."
 
 # Items found during mapping that don't yet belong to a segment. Empty — the orphan-artifacts
 # check (reference coherence, reverse-@spec-orphans) found none this audit.

@@ -27,7 +27,7 @@ import java.util.Map;
  * <p>Set {@code sudoku.dev.mock-identity.enabled=false} to leave requests anonymous — used by the
  * route-coverage test to assert protected routes reject anonymous callers.
  *
- * @spec UM-GCP-009
+ * @spec UM-GCP-009, UM-BE-030, UM-BE-031, UM-BE-032
  */
 @ApplicationScoped
 @IfBuildProfile(anyOf = {"dev", "it", "test"})

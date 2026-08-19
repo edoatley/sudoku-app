@@ -1,4 +1,4 @@
-// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004
+// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-010, SC-UI-014, SC-UI-020, SC-UI-021, SC-UI-030, SC-UI-031, SC-UI-032, SC-UI-040, SC-UI-063
 import { test, expect } from '@playwright/test';
 import { setupGameRoutes, waitForGrid } from './helpers.js';
 

@@ -12,6 +12,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * @spec UM-BE-050, UM-BE-051, UM-BE-052
+ */
 @Provider
 public class ApiLoggingFilter implements ContainerRequestFilter, ContainerResponseFilter {
 

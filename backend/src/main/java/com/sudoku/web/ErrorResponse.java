@@ -1,6 +1,6 @@
 package com.sudoku.web;
 
-// @spec AEH-DTO-001, AEH-DTO-002, AEH-DTO-003, AEH-DTO-004
+// @spec AEH-DTO-001, AEH-DTO-002, AEH-DTO-003, AEH-DTO-004, AEH-WIRE-002
 
 /**
  * Standard error envelope returned by all API error responses.
