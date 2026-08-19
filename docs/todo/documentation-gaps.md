@@ -23,9 +23,25 @@ triage layer — it does not itself contain new design work.
   `VertexCoachClient`'s Vertex AI location would have silently defaulted to `us-central1`
   regardless of the actual deploy region. `docs/llds/cloud-platform.md`'s Design Decisions table
   updated accordingly.
-- **What's left (still `[ ]`):** (1) deploy an `rcg-*` branch with
-  `-var coach_ai_provider=vertex` and validate Gemini via `npm run test:coach-quality` against it
-  — prompt behaviour differs Claude↔Gemini; (2) once validated, flip `coach_ai_provider`'s
+- **Validation done (local, not yet against a live deployment):** an `rcg-*`-based validation
+  attempt hit a real blocker — the coach-quality harness's log correlation only reads local
+  `docker compose logs`, with no GCP Cloud Logging equivalent
+  (`docs/todo/coach-quality-gcp-cloud-logging.md`). Redirected to a local comparison instead
+  (`docker-compose.coach-quality-vertex.yml`, real Vertex AI calls via local ADC): 55 turns on
+  `gemini-2.5-flash-lite`, 0% fallback rate, mean latency 1143ms vs Bedrock's 2041ms (~2x
+  faster), multi-turn escalation-ladder quality confirmed by eye (correct reasoning, proper
+  nudge→focus→reveal escalation). One real cost gap found:
+  `docs/todo/vertex-context-caching.md` — Vertex pays full price for ~89% of the tokens Bedrock
+  gets at a steep cache-read discount, since `VertexCoachClient` doesn't use Vertex AI context
+  caching yet. Also fixed two real bugs surfaced during this: `COACH_VERTEX_MODEL_ID` wasn't
+  passed through the compose overlay (silently used a stale, now-`NOT_FOUND` default model id),
+  and `aggregate.js` assumed Bedrock's log schema unconditionally (Vertex's simpler `tokens`
+  total + missing `latencyMs` aggregated to `NaN`/`0` despite real successful responses).
+- **What's left (still `[ ]`):** (1) decide whether the context-caching gap blocks cutover or is
+  an acceptable interim cost tradeoff given the latency win; (2) validate against an actual
+  deployed `rcg-*`/Cloud Run environment (the local comparison validates the Vertex AI call
+  itself, not the deployed path) — needs `docs/todo/coach-quality-gcp-cloud-logging.md` first for
+  a real report, or a lighter manual smoke check; (3) once satisfied, flip `coach_ai_provider`'s
   **default** to `"vertex"` in a small follow-up (the actual prod cutover), which flips
   `SC-GCP-007` to `[x]`.
 - **Specs:** `docs/specs/cloud-platform-specs.md` (CP-GCP-090), `docs/specs/sudoku-coach-specs.md`
