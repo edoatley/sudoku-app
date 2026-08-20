@@ -506,7 +506,7 @@ describe('hintsUsed and excludedHintRanks', () => {
   });
 
   it('requestHint next call after fallback excludes only the fallback rank', async () => {
-    // @spec HE-UI-011 — after a reset, the exclusion list starts fresh from the new rank
+    // @spec HE-UI-011, HE-UI-012 — after a reset, the exclusion list starts fresh from the new rank
     const { result } = await mountAndWait();
     await act(async () => result.current.requestHint()); // excludedHintRanks = [20]
 
@@ -535,7 +535,7 @@ describe('hintsUsed and excludedHintRanks', () => {
   });
 
   it('requestHint shows no-hints message when both calls return null', async () => {
-    // @spec HE-UI-011 — genuinely no applicable strategy even with clean slate
+    // @spec HE-UI-011, HE-UI-014 — genuinely no applicable strategy even with clean slate
     const { result } = await mountAndWait();
     await act(async () => result.current.requestHint()); // builds excludedHintRanks = [20]
 
@@ -547,7 +547,7 @@ describe('hintsUsed and excludedHintRanks', () => {
   });
 
   it('requestHint does not retry when exclusions are empty and call returns null', async () => {
-    // With no exclusions, null means PuzzleSolved (204) — no retry needed
+    // @spec HE-UI-013 — with no exclusions, null means PuzzleSolved (204) — no retry needed
     const { result } = await mountAndWait();
     getHint.mockResolvedValueOnce(null);
     await act(async () => result.current.requestHint());

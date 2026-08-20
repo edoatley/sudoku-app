@@ -156,4 +156,4 @@ for every auth question.
 `docs/specs/cloud-platform-specs.md` (CP-GCP-010/011/012 auth+CORS, CP-GCP-014 invoker, CP-GCP-020
 Firestore provisioning, CP-GCP-021 Firestore I/O — the access-token fix, CP-GCP-032 test user,
 CP-GCP-042/043 VITE wiring, CP-GCP-085 cross-cloud Bedrock); `docs/llds/user-management.md` (UM-GCP-002/003/004/006);
-`docs/todo/gcp-aws-parity.md` (the gap tracker).
+`docs/planning/old/gcp-aws-parity.md` (the gap tracker).

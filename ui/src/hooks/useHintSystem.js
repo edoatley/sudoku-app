@@ -46,7 +46,7 @@ export function useHintSystem({
     setExcludedHintRanks([]);
   }, []);
 
-  // @spec HE-UI-011 — fetch a hint, retrying with no exclusions if the first call finds nothing.
+  // @spec HE-UI-011, HE-UI-012, HE-UI-013, HE-UI-014 — fetch a hint, retrying with no exclusions if the first call finds nothing.
   const fetchHintWithFallback = useCallback(
     async (excluded) => {
       const hint = await getHint(currentGridRef.current, hintMinRankRef.current, excluded);

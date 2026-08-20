@@ -4,9 +4,10 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 
 ## Status
 
-**IN_PROGRESS** — 2026-07-16. 74/75 specs implemented. 1 gap remains (`SC-UI-013`, Escape key
-close). The Bedrock structured-output + caching-fix work
-(`docs/planning/bedrock-coach-structured-output-plan.md`) is merged, code-complete and
+**PARTIAL** — 2026-08-19. 81/83 specs implemented. 2 gaps remain (`SC-UI-013`, Escape key close;
+`SC-GCP-007`, Terraform Bedrock-secret drop + validated prod cutover for the Vertex AI coach —
+see the Vertex AI coach cutover item in `docs/roadmap.md`). The Bedrock structured-output + caching-fix work
+(`docs/planning/old/bedrock-coach-structured-output-plan.md`) is merged, code-complete and
 test-verified, including a `responseType` categorical field (SC-BE-028/029) that replaced a
 flaky prose-substring assertion in the coach-quality harness (CQ-AST-001); harness A/B
 validation against the coach-quality suite is still outstanding. `SC-BE-030` fixes a reported
@@ -100,7 +101,7 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 
 SC-BE-011/012/014/025/026/027/028/029 (Bedrock structured output + caching fix, plus the
 `responseType` categorical field) are now implemented and unit-tested (`BedrockCoachClientTest`,
-352 backend tests passing) — see `docs/planning/bedrock-coach-structured-output-plan.md`.
+352 backend tests passing) — see `docs/planning/old/bedrock-coach-structured-output-plan.md`.
 `responseType` also unblocked CQ-AST-001 in the coach-quality harness, replacing a flaky
 prose-substring assertion (`wrong-guess-acknowledgment` scenario) with a schema-enforced
 categorical check. Outstanding before that plan's work is fully closed: the coach-quality harness

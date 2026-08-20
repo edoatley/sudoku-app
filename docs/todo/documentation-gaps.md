@@ -6,7 +6,9 @@
 HLD → LLD → EARS → Tests → Code workflow without re-deriving this survey. This doc is the
 triage layer — it does not itself contain new design work.
 
-**As of:** 2026-08-18. Re-derive rather than trust this snapshot once specs/arrows have moved on.
+**As of:** 2026-08-19. Re-derive rather than trust this snapshot once specs/arrows have moved on.
+See [`docs/roadmap.md`](../roadmap.md) for the same gaps grouped by area (infrastructure, AI
+quality, UX, tech debt) instead of by discovery order.
 
 ---
 
@@ -80,23 +82,33 @@ duplicating it here.
    filter-log-events` calls. Needs new IAM grant + `/admin/logs` endpoint + UI dialog. Not
    started. Size: medium.
 
-2. **[AWS ↔ GCP parity tracking](gcp-aws-parity.md)** — largely historical: the doc's own header
-   states parity is achieved as an alternate deployment target. Its residual items (Vertex AI,
-   budget hard-cap, VPC egress, admin authz, per-RC hosted UI) are the same items already listed
-   in this inventory's Active gaps and Deferred sections via their spec IDs — the specs are now
-   the source of truth, this doc is a historical snapshot + endpoint-parity table.
-
-3. **[Integrate hint output into AI coach chat window](integrate-hint-output-into-coach-chat.md)**
+2. **[Integrate hint output into AI coach chat window](integrate-hint-output-into-coach-chat.md)**
    — merge the standalone `HintDialog` popup into the `CoachPanel` chat stream so hints and
    coach conversation share one transcript. Explicitly flagged in the doc as needing a full
    HLD/LLD/EARS pass before any code changes (UX surface merge, not a bug fix). Not started.
    Size: large.
 
-4. **[Optimise AI coach Bedrock model selection](optimise-ai-coach-bedrock-model.md)** — evaluate
+3. **[Optimise AI coach Bedrock model selection](optimise-ai-coach-bedrock-model.md)** — evaluate
    Claude Haiku 4.5 vs Sonnet 4.6 cost/quality tradeoff for the coach using the
    `coach-quality-repeat.sh` harness (scripted-scenario comparison) and/or production log
    analysis. Acceptance criteria (cache hit rate, p90 latency, cost estimate) not yet measured.
    Size: medium.
+
+4. **[GCP Cloud Logging support for the coach-quality harness](coach-quality-gcp-cloud-logging.md)**
+   — let the diagnostic runner read structured logs from Cloud Logging, not just local
+   `docker compose logs`, so it can validate a real deployed environment. Filed while validating
+   the Vertex AI cutover (item 1 above). Size: medium-large.
+
+5. **[Vertex AI context caching](vertex-context-caching.md)** — `VertexCoachClient` pays full
+   price for ~89% of the tokens Bedrock gets at a steep cache-read discount, since it doesn't
+   use Vertex AI's context-caching feature yet. Directly informs the Vertex cutover cost
+   tradeoff (item 1 above). Size: medium.
+
+6. **[Terraform CI/testing review](terraform-ci-testing-review.md)** — local pre-push suite
+   (`scripts/local/local-alltests.sh`) and the Trivy pre-commit hook both only validate
+   `infra/aws`, not `infra/gcp`, even though CI validates both; no `terraform test`/tflint
+   anywhere. Size: small-medium (the immediate AWS/GCP asymmetry fix), open-ended if
+   `terraform test` adoption is pursued.
 
 ---
 
@@ -115,15 +127,18 @@ that changes the tradeoff that led to deferring them.
 
 ---
 
-## Doc hygiene
+## Doc hygiene — done
 
-**`docs/planning/bedrock-coach-structured-output-plan.md` should be archived.** It's a live
-(non-`old/`) plan doc still marked "Approved — ready to implement," but every spec it tracks
-(SC-BE-011, SC-BE-012, SC-BE-014, SC-BE-025, SC-BE-026, SC-BE-027, SC-BE-029 — Bedrock structured
-output + prompt caching) is now `[x]` implemented in `docs/specs/sudoku-coach-specs.md`. The plan
-is done; the doc just hasn't been moved. Recommended action: `git mv
-docs/planning/bedrock-coach-structured-output-plan.md docs/planning/old/` in a small standalone
-change, per the repo's "mutation not accumulation" principle for planning docs.
+Both items below were completed 2026-08-19:
+
+- **`docs/planning/bedrock-coach-structured-output-plan.md` → `docs/planning/old/`.** Every spec
+  it tracked (SC-BE-011/012/014/025/026/027/029) is `[x]` implemented.
+- **`docs/todo/gcp-aws-parity.md` → `docs/planning/old/gcp-aws-parity.md`.** It tracked sequenced
+  work items and decisions (a planning artifact, not an open todo) whose residual items are now
+  tracked directly via spec IDs elsewhere in this inventory; `docs/aws-vs-gcp-comparison.md` and
+  `docs/aws-vs-gcp-deployment.md` are the maintained architecture/ops reference docs it was
+  superseded by. References in `docs/llds/cloud-platform.md` and `docs/aws-vs-gcp-comparison.md`
+  updated to the new path.
 
 ---
 

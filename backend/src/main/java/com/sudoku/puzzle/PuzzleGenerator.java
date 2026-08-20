@@ -26,6 +26,7 @@ import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
  * <p>All heavy per-request work is done in {@link #generate}; the class itself is stateless and
  * SnapStart-safe (no static mutable state).
  */
+// @spec DT-GEN-004
 @ApplicationScoped
 public class PuzzleGenerator {
 

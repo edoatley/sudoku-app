@@ -1,4 +1,4 @@
-// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004
+// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-010, SC-UI-014, SC-UI-020, SC-UI-021, SC-UI-025, SC-UI-030, SC-UI-031, SC-UI-032, SC-UI-040, SC-UI-063
 import { test, expect } from '@playwright/test';
 import { setupGameRoutes, waitForGrid } from './helpers.js';
 
@@ -125,6 +125,26 @@ test('coach — token counter updates from the coach response after a message is
   await page.getByPlaceholder('Ask your coach…').press('Enter');
 
   await expect(page.getByTestId('coach-panel')).toContainText('4,242 / 100,000');
+});
+
+test('coach — scrolls to show the new AI message when a reply arrives', async ({ page }) => {
+  // Small viewport so a handful of exchanges overflow the panel's message list —
+  // otherwise the test can't distinguish "scrolled correctly" from "never needed to scroll".
+  await page.setViewportSize({ width: 1024, height: 500 });
+  await setupGameRoutes(page);
+  await page.route('**/ai/coach', (route) => route.fulfill({ json: COACH_RESPONSE }));
+  await page.goto('/');
+  await waitForGrid(page);
+
+  await page.getByRole('button', { name: 'Open coach' }).click();
+
+  for (const message of ["I'm stuck on row 1", 'What about row 2?', 'And row 3?']) {
+    await page.getByPlaceholder('Ask your coach…').fill(message);
+    await page.getByPlaceholder('Ask your coach…').press('Enter');
+    await expect(page.getByTestId('coach-panel')).toContainText(message);
+  }
+
+  await expect(page.getByTestId('coach-messages-end')).toBeInViewport();
 });
 
 test('coach — coach response with hint highlights cells on the board', async ({ page }) => {

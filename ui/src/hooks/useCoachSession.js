@@ -1,4 +1,4 @@
-// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-050, SC-UI-051
+// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-010, SC-UI-011, SC-UI-012, SC-UI-014, SC-UI-040, SC-UI-042, SC-UI-050, SC-UI-051, SC-UI-063, SC-UI-064
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { postCoachMessage } from '../api/sudokuApi.js';
 

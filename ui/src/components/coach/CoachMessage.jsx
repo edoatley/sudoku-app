@@ -1,4 +1,4 @@
-// @spec SC-UI-002
+// @spec SC-UI-002, SC-UI-020, SC-UI-021
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';

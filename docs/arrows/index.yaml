@@ -1,201 +1,258 @@
-version: 1
-updated: 2026-07-16
+schema_version: 2
+last_updated: 2026-08-19
 
+# Organizational only; arrow-maintenance logic doesn't depend on taxonomy placement.
+taxonomy:
+  core-sudoku-logic:
+    - sudoku-logic
+    - hint-engine
+    - puzzle-generation
+    - domain-types
+  game-management:
+    - game-lifecycle
+    - game-history
+    - user-management
+    - league-table
+    - navigation
+    - keyboard-input
+  ai-coach:
+    - sudoku-coach
+  platform:
+    - cloud-platform
+    - api-error-handling
+    - observability
+    - security-standards
+    - testing-strategy
+  frontend:
+    - react-frontend
+  media:
+    - image-recognition
+
+# Flat depth-2 project — every node is a leaf segment at the root level (no sub-HLD nesting;
+# this project has no docs/intent/ tree, using docs/llds/ + docs/specs/ + docs/arrows/ instead,
+# referenced from within each segment's own arrow doc rather than from this index).
 arrows:
-  - id: api-error-handling
+  api-error-handling:
     status: OK
-    lld: docs/llds/api-error-handling.md
-    specs: docs/specs/api-error-handling-specs.md
-    arrow: docs/arrows/api-error-handling.md
-    spec_count: 22
-    implemented: 22
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: api-error-handling.md
     next: ~
+    drift: ~
 
-  - id: sudoku-logic
+  sudoku-logic:
     status: OK
-    lld: docs/llds/sudoku-logic.md
-    specs: docs/specs/sudoku-logic-specs.md
-    arrow: docs/arrows/sudoku-logic.md
-    spec_count: 14
-    implemented: 14
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: sudoku-logic.md
     next: ~
+    drift: ~
 
-  - id: hint-engine
+  hint-engine:
     status: OK
-    lld: docs/llds/hint-engine.md
-    specs: docs/specs/hint-engine-specs.md
-    arrow: docs/arrows/hint-engine.md
-    spec_count: 40
-    implemented: 40
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: hint-engine.md
     next: ~
+    drift: "HE-BE-035 (hasSingleSolution single-solution-count check, SudokuServiceImpl.java:154) has no test exercising it directly and no @spec citation anywhere — appears to be a genuine untested/unannotated gap, not just a missing citation (found during 2026-08-19 coverage audit)."
 
-  - id: puzzle-generation
+  puzzle-generation:
     status: OK
-    lld: docs/llds/puzzle-generation-validation.md
-    specs: docs/specs/puzzle-generation-specs.md
-    arrow: docs/arrows/puzzle-generation.md
-    spec_count: 17
-    implemented: 17
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: puzzle-generation.md
     next: ~
+    drift: ~
 
-  - id: game-lifecycle
-    status: OK
-    lld: docs/llds/game-lifecycle.md
-    specs: docs/specs/game-lifecycle-specs.md
-    arrow: docs/arrows/game-lifecycle.md
-    spec_count: 37
-    implemented: 36
-    deferred: 1
-    gaps: 0
+  game-lifecycle:
+    status: PARTIAL
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: game-lifecycle.md
     next: ~
+    drift: ~
 
-  - id: user-management
-    status: OK
-    lld: docs/llds/user-management.md
-    specs: docs/specs/user-management-specs.md
-    arrow: docs/arrows/user-management.md
-    spec_count: 48
-    implemented: 47
-    deferred: 1
-    gaps: 0
+  user-management:
+    status: PARTIAL
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: user-management.md
     next: ~
+    drift: ~
 
-  - id: image-recognition
+  image-recognition:
+    status: PARTIAL
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: image-recognition.md
+    next: "Re-evaluate IR-PROC-001-005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)"
+    drift: "20 implemented specs (IR-API-*, IR-BE-*, IR-PROC-*, IR-GCP-005) have no @spec citation anywhere -- handler.py and image_recognition.tf were never annotated. Verified genuinely implemented line-by-line during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
+
+  cloud-platform:
+    status: PARTIAL
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: cloud-platform.md
+    next: "CP-GCP-090 (Vertex AI coach) — rollout var + local validation done (see docs/roadmap.md AI Quality); deployed-path validation + default flip still open."
+    drift: "48 implemented specs (25 CP-INFRA-*, 23 CP-GCP-*) have no @spec citation anywhere -- infra/aws/*.tf uses no annotation convention at all, and infra/gcp/*.tf's primary resource blocks are uncited. Verified genuinely implemented during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
+
+  react-frontend:
     status: OK
-    lld: docs/llds/image-recognition.md
-    specs: docs/specs/image-recognition-specs.md
-    arrow: docs/arrows/image-recognition.md
-    spec_count: 30
-    implemented: 25
-    deferred: 5
-    gaps: 0
-    next: Re-evaluate IR-PROC-001–005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)
-
-  - id: cloud-platform
-    status: IN_PROGRESS
-    lld: docs/llds/cloud-platform.md
-    specs: docs/specs/cloud-platform-specs.md
-    arrow: docs/arrows/cloud-platform.md
-    spec_count: 59
-    implemented: 56
-    deferred: 2
-    gaps: 1
-    next: >-
-      GCP games+player-profile slice landed: unified HTTP+LWA image, runtime
-      Firestore/DynamoDB selection, in-app JWT + CORS, and the deploy-gcp CI pipeline
-      (image build/push + Firebase Hosting). Closed CP-GCP-010,011,012,041,080. The 5
-      remaining gaps (CP-GCP-021 leaderboard/coach Firestore I/O, 032 CI test user, 042/043
-      full VITE_* injection, 085 cross-cloud Bedrock) are out-of-slice AWS↔GCP parity work
-      tracked in docs/todo/gcp-aws-parity.md. Deferred [D] items are 061 (budget hard-cap),
-      090 (Vertex AI), 091 (private VPC).
-
-  - id: react-frontend
-    status: OK
-    lld: docs/llds/react-frontend.md
-    specs: docs/specs/react-frontend-specs.md
-    arrow: docs/arrows/react-frontend.md
-    spec_count: 52
-    implemented: 52
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: react-frontend.md
     next: ~
+    drift: "39 implemented specs (FE-UI-*, FE-BE-*, FE-MOB-*) have no @spec citation anywhere across several hooks/components (useSudokuGame.js, useGameSync.js, sudokuApi.js, App.jsx, SudokuGrid.jsx, HintDialog.jsx, ImportModal.jsx, and others). Verified genuinely implemented during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
 
-  - id: domain-types
+  domain-types:
     status: OK
-    lld: docs/llds/sudoku-logic.md
-    specs: docs/specs/domain-types-specs.md
-    arrow: docs/arrows/domain-types.md
-    spec_count: 36
-    implemented: 36
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: domain-types.md
     next: ~
+    drift: ~
 
-  - id: security-standards
+  security-standards:
     status: OK
-    lld: ~
-    specs: ~
-    arrow: docs/arrows/security-standards.md
-    notes: Cross-cutting security policy — IAM, throttling, IDOR prevention, input validation
-
-  - id: observability
-    status: OK
-    lld: docs/llds/observability.md
-    specs: ~
-    arrow: docs/arrows/observability.md
-    notes: Cross-cutting structured-logging schema — spans game-lifecycle, sudoku-coach, react-frontend; owns no spec IDs of its own (see GL-BE-040..047, SC-BE-005..022, FE-BE-020..025 in their owning spec files)
-
-  - id: keyboard-input
-    status: OK
-    lld: docs/llds/keyboard-input.md
-    specs: docs/specs/keyboard-input-specs.md
-    arrow: docs/arrows/keyboard-input.md
-    spec_count: 25
-    implemented: 25
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: security-standards.md
     next: ~
+    drift: ~
+    notes: "Cross-cutting security policy — IAM, throttling, IDOR prevention, input validation. No dedicated LLD/spec file of its own."
 
-  - id: testing-strategy
+  observability:
     status: OK
-    lld: ~
-    specs: docs/specs/coach-quality-specs.md
-    arrow: docs/arrows/testing-strategy.md
-    spec_count: 8
-    implemented: 8
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: observability.md
     next: ~
-    notes: Cross-cutting test pyramid — unit/integration/E2E, CI structure, environment variable rules. specs/spec_count cover only the Layer 2c coach-quality diagnostic runner; the rest of the arrow is process/architecture, not spec-tracked.
+    drift: ~
+    notes: "Cross-cutting structured-logging schema — spans game-lifecycle, sudoku-coach, react-frontend; owns no spec IDs of its own (see GL-BE-040..047, SC-BE-005..022, FE-BE-020..025 in their owning spec files)."
 
-  - id: game-history
+  keyboard-input:
     status: OK
-    lld: docs/llds/game-history.md
-    specs: docs/specs/game-history-specs.md
-    arrow: docs/arrows/game-history.md
-    spec_count: 18
-    implemented: 18
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: keyboard-input.md
     next: ~
+    drift: ~
 
-  - id: navigation
+  testing-strategy:
     status: OK
-    lld: docs/llds/navigation.md
-    specs: docs/specs/navigation-specs.md
-    arrow: docs/arrows/navigation.md
-    spec_count: 25
-    implemented: 25
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: testing-strategy.md
     next: ~
+    drift: ~
+    notes: "Cross-cutting test pyramid — unit/integration/E2E, CI structure, environment variable rules. Only the Layer 2c coach-quality diagnostic runner owns spec IDs (docs/specs/coach-quality-specs.md); the rest of the arrow is process/architecture, not spec-tracked."
 
-  - id: league-table
+  game-history:
     status: OK
-    lld: docs/llds/league-table.md
-    specs: docs/specs/league-table-specs.md
-    arrow: docs/arrows/league-table.md
-    spec_count: 45
-    implemented: 45
-    deferred: 0
-    gaps: 0
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: game-history.md
     next: ~
+    drift: ~
 
-  - id: sudoku-coach
-    status: IN_PROGRESS
-    lld: docs/llds/sudoku-coach.md
-    specs: docs/specs/sudoku-coach-specs.md
-    arrow: docs/arrows/sudoku-coach.md
-    spec_count: 83
-    implemented: 81
-    deferred: 0
-    gaps: 2
-    next: SC-UI-013 (Escape closes panel); coach-quality harness A/B (invoke vs converse) still outstanding for the structured-output/caching work
+  navigation:
+    status: OK
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: navigation.md
+    next: ~
+    drift: ~
+
+  league-table:
+    status: OK
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: e98eed33ebc34b06565837a2e5c0c45a61297c50
+    blocks: []
+    blockedBy: []
+    detail: league-table.md
+    next: ~
+    drift: ~
+
+  sudoku-coach:
+    status: PARTIAL
+    parent: ~
+    sampled: 2026-07-16
+    audited: 2026-08-19
+    audited_sha: 86e70e1cc1adb75ce62ad23651957e1493cf88fe
+    blocks: []
+    blockedBy: []
+    detail: sudoku-coach.md
+    next: "SC-UI-013 (Escape closes panel); SC-GCP-007 (Vertex AI cutover — see docs/roadmap.md AI Quality)"
+    drift: "SC-BE-004, SC-UI-041, SC-UI-060/061/062 verified genuinely implemented but have no @spec citation to extend (annotation gap only, see docs/todo/spec-annotation-backfill.md)."
+
+# Items found during mapping that don't yet belong to a segment. Empty — the orphan-artifacts
+# check (reference coherence, reverse-@spec-orphans) found none this audit.
+unmapped:
+  docs:
+    intent: []

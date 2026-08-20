@@ -194,6 +194,7 @@ Mutation, not accumulation — docs reflect current intent, not history.
 | EARS specs | `docs/specs/` |
 | Implementation plans | `docs/planning/` |
 | Arrow of intent tracking | `docs/arrows/index.yaml` |
+| Roadmap (gaps by area) | `docs/roadmap.md` |
 
 ### Terminology
 
