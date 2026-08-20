@@ -263,7 +263,7 @@ hoisted out of `BedrockCoachClient` into a provider-agnostic `CoachPromptBuilder
 send an identical prompt + schema. Provider choice never changes coaching content. (SC-GCP-004)
 
 **`VertexCoachClient`** (new): calls Gemini via the Google Gen AI SDK for Java (`com.google.genai`),
-model `coach.vertex.model-id` (e.g. `gemini-2.0-flash`), region `coach.vertex.location`
+model `coach.vertex.model-id` (e.g. `gemini-2.5-flash-lite`), region `coach.vertex.location`
 (`us-central1`), project `GCP_PROJECT_ID`.
 - **Auth:** Application Default Credentials → the runtime SA. **No keys.** This is the point of the
   migration: the cross-cloud AWS Bedrock access key + Secret Manager mount are not needed for the
