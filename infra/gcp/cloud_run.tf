@@ -86,9 +86,10 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "COACH_AI_PROVIDER"
         value = var.coach_ai_provider
       }
-      # VertexCoachClient's Vertex AI location (quarkus.google.cloud.vertexai.location reads this,
-      # default us-central1) — must track the Cloud Run region, not just its own default, so a
-      # non-default region doesn't silently mismatch. Harmless when coach_ai_provider = bedrock.
+      # VertexCoachClient's Vertex AI location (coach.vertex.location reads this via
+      # GenAiClientProducer, default us-central1) — must track the Cloud Run region, not just its
+      # own default, so a non-default region doesn't silently mismatch. Harmless when
+      # coach_ai_provider = bedrock.
       env {
         name  = "GCP_REGION"
         value = var.region

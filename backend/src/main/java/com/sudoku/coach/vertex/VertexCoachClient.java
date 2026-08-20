@@ -2,15 +2,14 @@ package com.sudoku.coach.vertex;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.cloud.vertexai.VertexAI;
-import com.google.cloud.vertexai.api.Content;
-import com.google.cloud.vertexai.api.GenerateContentResponse;
-import com.google.cloud.vertexai.api.GenerationConfig;
-import com.google.cloud.vertexai.api.Schema;
-import com.google.cloud.vertexai.api.Type;
-import com.google.cloud.vertexai.generativeai.ContentMaker;
-import com.google.cloud.vertexai.generativeai.GenerativeModel;
-import com.google.cloud.vertexai.generativeai.ResponseHandler;
+import com.google.genai.Client;
+import com.google.genai.types.Content;
+import com.google.genai.types.GenerateContentConfig;
+import com.google.genai.types.GenerateContentResponse;
+import com.google.genai.types.GenerateContentResponseUsageMetadata;
+import com.google.genai.types.Part;
+import com.google.genai.types.Schema;
+import com.google.genai.types.Type;
 import com.sudoku.coach.CoachAiClient;
 import com.sudoku.coach.bedrock.CoachPromptBuilder;
 import com.sudoku.coach.web.ChatMessage;
@@ -24,13 +23,14 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * GCP-native coach LLM adapter — Gemini via Vertex AI. Authenticates with Application Default
- * Credentials (the Cloud Run runtime service account) via the shared quarkiverse google-cloud
- * credential producer, so it uses no long-lived keys and does not need the cross-cloud AWS Bedrock
- * secret. Builds the identical prompt as the Bedrock adapter (via {@link CoachPromptBuilder}) and
+ * Credentials (the Cloud Run runtime service account) via {@link GenAiClientProducer}, so it uses
+ * no long-lived keys and does not need the cross-cloud AWS Bedrock secret. Builds the identical
+ * prompt as the Bedrock adapter (via {@link CoachPromptBuilder}) and
  * enforces the same JSON output schema through Gemini structured output; on any error or an
  * unparseable/blank reply it takes the same deterministic nudge fallback.
  *
@@ -45,7 +45,7 @@ public class VertexCoachClient implements CoachAiClient {
             org.jboss.logging.Logger.getLogger(VertexCoachClient.class);
 
     @Inject
-    VertexAI vertexAI;
+    Client client;
 
     @Inject
     ObjectMapper objectMapper;
@@ -56,15 +56,16 @@ public class VertexCoachClient implements CoachAiClient {
     // Gemini structured-output schema, mirroring CoachPromptBuilder.OUTPUT_SCHEMA_JSON (SC-BE-025):
     // the reply is constrained to {aiMessage:string, revealHint:boolean, responseType:enum} server-side.
     // @spec SC-GCP-003
-    private static final Schema RESPONSE_SCHEMA = Schema.newBuilder()
-            .setType(Type.OBJECT)
-            .putProperties("aiMessage", Schema.newBuilder().setType(Type.STRING).build())
-            .putProperties("revealHint", Schema.newBuilder().setType(Type.BOOLEAN).build())
-            .putProperties("responseType", Schema.newBuilder().setType(Type.STRING)
-                    .addAllEnum(List.of("nudge", "focus-hint", "reveal-answer", "gentle-redirect",
-                            "off-topic-redirect", "celebrate-progress", "clarify-technique"))
-                    .build())
-            .addRequired("aiMessage").addRequired("revealHint").addRequired("responseType")
+    private static final Schema RESPONSE_SCHEMA = Schema.builder()
+            .type(Type.Known.OBJECT)
+            .properties(Map.of(
+                    "aiMessage", Schema.builder().type(Type.Known.STRING).build(),
+                    "revealHint", Schema.builder().type(Type.Known.BOOLEAN).build(),
+                    "responseType", Schema.builder().type(Type.Known.STRING)
+                            .enum_(List.of("nudge", "focus-hint", "reveal-answer", "gentle-redirect",
+                                    "off-topic-redirect", "celebrate-progress", "clarify-technique"))
+                            .build()))
+            .required("aiMessage", "revealHint", "responseType")
             .build();
 
     // @spec SC-GCP-001, SC-BE-009 — one Gemini call per request; SC-GCP-006 — fallback on error
@@ -77,19 +78,20 @@ public class VertexCoachClient implements CoachAiClient {
         // @spec SC-GCP-004 — identical prompt as the Bedrock adapter via the shared builder
         String contextText = CoachPromptBuilder.buildContextBlock(userMessage, hint, history, board);
         try {
-            GenerationConfig config = GenerationConfig.newBuilder()
-                    .setResponseMimeType("application/json")
-                    .setResponseSchema(RESPONSE_SCHEMA)
-                    .setTemperature(0.7f)
+            GenerateContentConfig config = GenerateContentConfig.builder()
+                    .responseMimeType("application/json")
+                    .responseSchema(RESPONSE_SCHEMA)
+                    .temperature(0.7f)
+                    .systemInstruction(Content.fromParts(Part.fromText(CoachPromptBuilder.SYSTEM_PROMPT)))
                     .build();
-            GenerativeModel model = new GenerativeModel(modelId, vertexAI)
-                    .withSystemInstruction(ContentMaker.fromString(CoachPromptBuilder.SYSTEM_PROMPT))
-                    .withGenerationConfig(config);
 
-            GenerateContentResponse response = model.generateContent(buildContents(history, contextText));
-            String text = ResponseHandler.getText(response);
+            GenerateContentResponse response = client.models.generateContent(modelId, buildContents(history, contextText), config);
+            String text = response.text();
             // @spec SC-GCP-005 — total tokens (prompt + candidates) fed to the monthly counter / rate limiter
-            long tokens = response.getUsageMetadata().getTotalTokenCount();
+            long tokens = response.usageMetadata()
+                    .flatMap(GenerateContentResponseUsageMetadata::totalTokenCount)
+                    .map(Integer::longValue)
+                    .orElse(0L);
 
             AiReply reply = parse(text);
             if (reply == null) {
@@ -113,9 +115,9 @@ public class VertexCoachClient implements CoachAiClient {
         List<Content> contents = new ArrayList<>();
         for (ChatMessage m : history) {
             String role = "assistant".equals(m.role()) ? "model" : "user";
-            contents.add(ContentMaker.forRole(role).fromString(m.content()));
+            contents.add(Content.builder().role(role).parts(Part.fromText(m.content())).build());
         }
-        contents.add(ContentMaker.forRole("user").fromString(finalUserText));
+        contents.add(Content.builder().role("user").parts(Part.fromText(finalUserText)).build());
         return contents;
     }
 
