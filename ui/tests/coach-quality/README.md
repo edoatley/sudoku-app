@@ -50,7 +50,7 @@ file the same way it resolves Cloud Run's metadata server in prod:
 gcloud auth application-default login   # once
 AWS_PROFILE=sandbox GCP_PROJECT_ID=<id> \
   EXTRA_COMPOSE_FILE=docker-compose.coach-quality-vertex.yml \
-  COACH_AI_PROVIDER=vertex RUNS=5 LABEL=vertex-gemini-2-0-flash \
+  COACH_AI_PROVIDER=vertex RUNS=5 LABEL=vertex-gemini-2-5-flash-lite \
   bash scripts/local/coach-quality-repeat.sh
 ```
 
