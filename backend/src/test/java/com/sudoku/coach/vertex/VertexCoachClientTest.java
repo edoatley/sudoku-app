@@ -6,6 +6,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.time.Duration;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,8 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Unit tests for the Vertex adapter's structured-reply parsing + fallback trigger (SC-GCP-003/006).
- * The live Gemini call is exercised by the coach-quality harness, not here.
+ * Unit tests for the Vertex adapter's structured-reply parsing + fallback trigger (SC-GCP-003/006)
+ * and the cached-prompt freshness predicate (SC-GCP-008). The live Gemini call — including actual
+ * cache creation/reuse — is exercised by the coach-quality harness, not here.
  */
 class VertexCoachClientTest {
 
@@ -67,5 +70,26 @@ class VertexCoachClientTest {
         AiReply r = client.parse("{\"aiMessage\":\"Hi\",\"revealHint\":false}");
         assertNotNull(r);
         assertNull(r.responseType());
+    }
+
+    @Test
+    void isFresh_wellBeforeExpiryMinusMargin_isTrue() {
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        Instant expiresAt = now.plus(Duration.ofHours(1));
+        assertTrue(VertexCoachClient.isFresh(expiresAt, now, Duration.ofMinutes(5)));
+    }
+
+    @Test
+    void isFresh_withinMarginOfExpiry_isFalse() {
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        Instant expiresAt = now.plus(Duration.ofMinutes(3));
+        assertFalse(VertexCoachClient.isFresh(expiresAt, now, Duration.ofMinutes(5)));
+    }
+
+    @Test
+    void isFresh_alreadyExpired_isFalse() {
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        Instant expiresAt = now.minus(Duration.ofMinutes(1));
+        assertFalse(VertexCoachClient.isFresh(expiresAt, now, Duration.ofMinutes(5)));
     }
 }
