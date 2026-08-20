@@ -3,7 +3,10 @@ package com.sudoku.coach.vertex;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
+import com.google.genai.types.CachedContent;
+import com.google.genai.types.CachedContentUsageMetadata;
 import com.google.genai.types.Content;
+import com.google.genai.types.CreateCachedContentConfig;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.GenerateContentResponseUsageMetadata;
@@ -21,6 +24,8 @@ import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +37,14 @@ import java.util.UUID;
  * no long-lived keys and does not need the cross-cloud AWS Bedrock secret. Builds the identical
  * prompt as the Bedrock adapter (via {@link CoachPromptBuilder}) and
  * enforces the same JSON output schema through Gemini structured output; on any error or an
- * unparseable/blank reply it takes the same deterministic nudge fallback.
+ * unparseable/blank reply it takes the same deterministic nudge fallback. Caches the tutor system
+ * prompt via a Vertex AI {@code CachedContent} resource, reused across calls until near expiry —
+ * unlike Bedrock's automatic per-call caching, this is an explicit resource this class creates
+ * and holds itself; any failure to create or reuse it degrades to an uncached call rather than
+ * breaking coaching.
  *
- * @spec SC-GCP-001, SC-GCP-002, SC-GCP-003, SC-GCP-004, SC-GCP-005, SC-GCP-006, CP-GCP-090
+ * @spec SC-GCP-001, SC-GCP-002, SC-GCP-003, SC-GCP-004, SC-GCP-005, SC-GCP-006, SC-GCP-008,
+ *       SC-GCP-009, CP-GCP-090
  */
 @ApplicationScoped
 @Typed(VertexCoachClient.class)
@@ -68,6 +78,19 @@ public class VertexCoachClient implements CoachAiClient {
             .required("aiMessage", "revealHint", "responseType")
             .build();
 
+    // @spec SC-GCP-008 — TTL for the cached tutor system prompt; refresh a little early so a
+    // call never races the cache's actual server-side expiry.
+    private static final Duration CACHE_TTL = Duration.ofHours(1);
+    private static final Duration CACHE_REFRESH_MARGIN = Duration.ofMinutes(5);
+
+    private volatile CachedPromptHandle cachedPrompt;
+
+    private record CachedPromptHandle(String name, Instant expiresAt) {}
+
+    // name == null means no usable cache; writeTokens is nonzero only on the call that just
+    // (re)created the cache.
+    private record CacheLookup(String name, long writeTokens) {}
+
     // @spec SC-GCP-001, SC-BE-009 — one Gemini call per request; SC-GCP-006 — fallback on error
     @Override
     public CallResult call(String pid, String userMessage, HintResponse hint, List<ChatMessage> history, Board board) {
@@ -78,18 +101,31 @@ public class VertexCoachClient implements CoachAiClient {
         // @spec SC-GCP-004 — identical prompt as the Bedrock adapter via the shared builder
         String contextText = CoachPromptBuilder.buildContextBlock(userMessage, hint, history, board);
         try {
-            GenerateContentConfig config = GenerateContentConfig.builder()
+            // @spec SC-GCP-008 — cache the tutor system prompt; getOrCreateCachedPrompt() never
+            // throws, so a cache failure degrades to an uncached call rather than reaching the
+            // outer catch's nudge fallback.
+            CacheLookup cache = getOrCreateCachedPrompt();
+            GenerateContentConfig.Builder configBuilder = GenerateContentConfig.builder()
                     .responseMimeType("application/json")
                     .responseSchema(RESPONSE_SCHEMA)
-                    .temperature(0.7f)
-                    .systemInstruction(Content.fromParts(Part.fromText(CoachPromptBuilder.SYSTEM_PROMPT)))
-                    .build();
+                    .temperature(0.7f);
+            if (cache.name() != null) {
+                configBuilder.cachedContent(cache.name());
+            } else {
+                configBuilder.systemInstruction(Content.fromParts(Part.fromText(CoachPromptBuilder.SYSTEM_PROMPT)));
+            }
+            GenerateContentConfig config = configBuilder.build();
 
             GenerateContentResponse response = client.models.generateContent(modelId, buildContents(history, contextText), config);
             String text = response.text();
             // @spec SC-GCP-005 — total tokens (prompt + candidates) fed to the monthly counter / rate limiter
             long tokens = response.usageMetadata()
                     .flatMap(GenerateContentResponseUsageMetadata::totalTokenCount)
+                    .map(Integer::longValue)
+                    .orElse(0L);
+            // @spec SC-GCP-009 — cached-content tokens, 0 when this call ran uncached
+            long cacheReadTokens = response.usageMetadata()
+                    .flatMap(GenerateContentResponseUsageMetadata::cachedContentTokenCount)
                     .map(Integer::longValue)
                     .orElse(0L);
 
@@ -99,8 +135,8 @@ public class VertexCoachClient implements CoachAiClient {
                         pid == null ? "null" : "\"" + pid + "\"", cid, jsonString(text));
                 return new CallResult(fallback(hint), 0L);
             }
-            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"provider\":\"vertex\",\"pid\":%s,\"cid\":\"%s\",\"revealHint\":%b,\"tokens\":%d,\"fallback\":false,\"responseType\":%s}",
-                    pid == null ? "null" : "\"" + pid + "\"", cid, reply.revealHint(), tokens, jsonString(reply.responseType()));
+            LOG.infof("{\"type\":\"COACH_RESPONSE\",\"provider\":\"vertex\",\"pid\":%s,\"cid\":\"%s\",\"revealHint\":%b,\"tokens\":%d,\"cacheReadTokens\":%d,\"cacheWriteTokens\":%d,\"fallback\":false,\"responseType\":%s}",
+                    pid == null ? "null" : "\"" + pid + "\"", cid, reply.revealHint(), tokens, cacheReadTokens, cache.writeTokens(), jsonString(reply.responseType()));
             return new CallResult(reply, tokens);
         } catch (Exception e) {
             // @spec SC-GCP-006 — same deterministic fallback as the Bedrock adapter on any SDK/network error
@@ -119,6 +155,43 @@ public class VertexCoachClient implements CoachAiClient {
         }
         contents.add(Content.builder().role("user").parts(Part.fromText(finalUserText)).build());
         return contents;
+    }
+
+    // @spec SC-GCP-008 — reuse the current cache handle if still fresh; otherwise (re)create it.
+    // synchronized is fine at this call volume (SC-RL-005 rate-limits to 5 calls/min/user) — no
+    // need for finer-grained locking. Never throws: any failure here must degrade to an uncached
+    // call, not break coaching.
+    private synchronized CacheLookup getOrCreateCachedPrompt() {
+        CachedPromptHandle current = cachedPrompt;
+        Instant now = Instant.now();
+        if (current != null && isFresh(current.expiresAt(), now, CACHE_REFRESH_MARGIN)) {
+            return new CacheLookup(current.name(), 0L);
+        }
+        try {
+            CachedContent created = client.caches.create(modelId, CreateCachedContentConfig.builder()
+                    .displayName("sudoku-coach-tutor-prompt")
+                    .systemInstruction(Content.fromParts(Part.fromText(CoachPromptBuilder.SYSTEM_PROMPT)))
+                    .ttl(CACHE_TTL)
+                    .build());
+            String name = created.name().orElse(null);
+            if (name == null) {
+                return new CacheLookup(null, 0L);
+            }
+            cachedPrompt = new CachedPromptHandle(name, now.plus(CACHE_TTL));
+            long writeTokens = created.usageMetadata()
+                    .flatMap(CachedContentUsageMetadata::totalTokenCount)
+                    .map(Integer::longValue)
+                    .orElse(0L);
+            return new CacheLookup(name, writeTokens);
+        } catch (Exception e) {
+            LOG.warnf("Vertex context cache creation failed, proceeding uncached: %s", e.getMessage());
+            return new CacheLookup(null, 0L);
+        }
+    }
+
+    // @spec SC-GCP-008
+    static boolean isFresh(Instant expiresAt, Instant now, Duration margin) {
+        return now.isBefore(expiresAt.minus(margin));
     }
 
     // Extract the first top-level {...} and map to AiReply; null on parse failure or blank aiMessage

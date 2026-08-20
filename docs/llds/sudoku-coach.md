@@ -275,6 +275,12 @@ model `coach.vertex.model-id` (e.g. `gemini-2.5-flash-lite`), region `coach.vert
   and `CoachRateLimiter`, as the Bedrock adapter does. (SC-GCP-005)
 - **Fallback:** on a Gemini error / unparseable / blank reply, the same deterministic nudge fallback
   and `fallback:true` logging as SC-BE-021/023. (SC-GCP-006)
+- **Prompt caching:** the tutor system prompt is cached via an explicit Vertex AI `CachedContent`
+  resource, created once and reused across calls until near its TTL — unlike Bedrock's automatic
+  per-call caching, Vertex requires the caller to create and hold the cache resource itself. Any
+  failure to create or reuse it degrades to an uncached call rather than breaking coaching.
+  Cached/fresh tokens are logged as `cacheReadTokens`/`cacheWriteTokens`, matching Bedrock's field
+  names. (SC-GCP-008, SC-GCP-009)
 
 **Selection** — `CoachAiClientProducer` (mirrors `GameRepositoryProducer`): `coach.ai.provider`
 (default `bedrock`; `%gcp.coach.ai.provider=vertex`). Only the resolvable adapter's SDK client is

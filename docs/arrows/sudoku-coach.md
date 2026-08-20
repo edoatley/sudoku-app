@@ -4,9 +4,9 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 
 ## Status
 
-**PARTIAL** — 2026-08-19. 81/83 specs implemented. 2 gaps remain (`SC-UI-013`, Escape key close;
-`SC-GCP-007`, Terraform Bedrock-secret drop + validated prod cutover for the Vertex AI coach —
-see the Vertex AI coach cutover item in `docs/roadmap.md`). The Bedrock structured-output + caching-fix work
+**PARTIAL** — 2026-08-20. 84/85 specs implemented. 1 gap remains (`SC-GCP-007`, Terraform
+Bedrock-secret drop + validated prod cutover for the Vertex AI coach — see the Vertex AI coach
+cutover item in `docs/roadmap.md`). The Bedrock structured-output + caching-fix work
 (`docs/planning/old/bedrock-coach-structured-output-plan.md`) is merged, code-complete and
 test-verified, including a `responseType` categorical field (SC-BE-028/029) that replaced a
 flaky prose-substring assertion in the coach-quality harness (CQ-AST-001); harness A/B
@@ -82,7 +82,7 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 | Deterministic Pre-Analysis (BE) | SC-BE-001 to SC-BE-004 | 4 | 0 |
 | Coordination and Content Logging (BE) | SC-BE-005 to SC-BE-009, SC-BE-019, SC-BE-020 | 7 | 0 |
 | Bedrock Integration (BE) | SC-BE-010 to SC-BE-018, SC-BE-021 to SC-BE-030 | 19 | 0 |
-| AI Provider Port + Vertex AI (BE, GCP) | SC-GCP-001 to SC-GCP-007 | 6 | 1 |
+| AI Provider Port + Vertex AI (BE, GCP) | SC-GCP-001 to SC-GCP-009 | 8 | 1 |
 | Coach Response (BE) | SC-API-010 to SC-API-012 | 3 | 0 |
 | Widget Rendering (FE) | SC-UI-001 to SC-UI-004 | 4 | 0 |
 | Panel Open/Close (FE) | SC-UI-010 to SC-UI-014 | 5 | 0 |
@@ -93,7 +93,7 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 | Conversation Lifecycle (FE) | SC-UI-060 to SC-UI-064 | 5 | 0 |
 | Rate Limiting & Cost (BE+FE) | SC-RL-001 to SC-RL-010 | 10 | 0 |
 
-**Summary:** 82 of 83 specs implemented; 0 deferred; 1 gap (SC-GCP-007 — Terraform Bedrock-secret drop + validated prod cutover). VertexCoachClient is built + unit-tested; prod stays on Bedrock until coach-quality validation.
+**Summary:** 84 of 85 specs implemented; 0 deferred; 1 gap (SC-GCP-007 — Terraform Bedrock-secret drop + validated prod cutover). VertexCoachClient is built + unit-tested, including tutor-prompt context caching (SC-GCP-008/009); prod stays on Bedrock until coach-quality validation.
 
 ## Open Gaps
 

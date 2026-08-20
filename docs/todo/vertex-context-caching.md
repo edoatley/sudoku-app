@@ -62,20 +62,26 @@ gap from an unused feature, not an inherent Gemini limitation.
 1. ~~Check the `google-cloud-vertexai` SDK version in use (`pom.xml`) for its context-caching
    API surface.~~ Done — see "Update (2026-08-20)" above; use `com.google.genai`'s `Caches`
    client and `GenerateContentConfig.cachedContent(name)` instead.
-2. Add caching to `VertexCoachClient`'s system-prompt transmission, mirroring the intent of
-   SC-BE-011/027 for the Vertex path.
-3. Extend the `COACH_RESPONSE` log line to report cached vs fresh tokens for Vertex (parallel
+2. ~~Add caching to `VertexCoachClient`'s system-prompt transmission, mirroring the intent of
+   SC-BE-011/027 for the Vertex path.~~ Done (SC-GCP-008) — an explicit `CachedContent` resource,
+   created once and reused across calls until near its TTL, since (unlike Bedrock's automatic
+   per-call caching) Vertex requires the caller to manage the cache resource itself. Degrades to
+   an uncached call on any failure.
+3. ~~Extend the `COACH_RESPONSE` log line to report cached vs fresh tokens for Vertex (parallel
    to Bedrock's `cacheReadTokens`/`cacheWriteTokens`), and update `aggregate.js` if the field
-   names differ from what it currently expects.
+   names differ from what it currently expects.~~ Done (SC-GCP-009) — same field names as
+   Bedrock; `aggregate.js` needed no changes, it already reads these fields unconditionally.
 4. Re-run the local comparison (`docker-compose.coach-quality-vertex.yml`) to confirm the total
-   token volume drops toward Bedrock's cached-adjusted cost.
+   token volume drops toward Bedrock's cached-adjusted cost. **Not yet done** — a 55-turn live
+   comparison is real API spend, tracked as a follow-up decision rather than run automatically.
 
 ## Acceptance criteria
 
-- [ ] `VertexCoachClient` uses Vertex AI context caching for the system prompt
+- [x] `VertexCoachClient` uses Vertex AI context caching for the system prompt
 - [ ] A repeat coach-quality comparison run shows materially lower total token cost per turn
-      than the 270,775/55-turn baseline recorded here
-- [ ] Cached vs fresh token counts are visible in the `COACH_RESPONSE` log line and the
+      than the 270,775/55-turn baseline recorded here — pending a live 55-turn run (real API
+      spend, needs explicit sign-off; see item 4 above)
+- [x] Cached vs fresh token counts are visible in the `COACH_RESPONSE` log line and the
       coach-quality aggregate summary
 
 ## Related specs / docs

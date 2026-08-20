@@ -84,6 +84,25 @@ across providers; only the API surface + auth differ. @spec CP-GCP-090
   and the project shall have `aiplatform.googleapis.com` enabled (provisioned by `gcp-bootstrap.sh`,
   per CP-GCP-083). *(Image recognition on GCP still calls Bedrock cross-cloud, so the AWS key is fully
   retired only once it too migrates — tracked separately.)*
+- [x] **SC-GCP-008**: `VertexCoachClient` shall cache the tutor system prompt via a Vertex AI
+  `CachedContent` resource, creating it once and reusing the same resource across calls until it
+  nears its TTL — mirroring the cost intent of SC-BE-011 for the Vertex path, though the mechanism
+  differs (Vertex requires an explicit, separately-managed cache resource; Bedrock's caching is
+  automatic and implicit per call). On any failure to create or reuse the cached resource, the
+  system shall proceed with an uncached call rather than failing the coaching request — caching is
+  a cost optimization, not a functional requirement. *(Known, low-severity edge case: measured
+  cache-creation latency is ~0-1s once a GCP project has created at least one cache before, but a
+  project's very first-ever `CachedContent` creation took ~2 minutes in testing — a one-time
+  per-project warm-up cost, not per-call. A brand-new GCP project's first live coach request could
+  hit this before Cloud Run's 60s timeout. Synchronous creation was kept rather than adding
+  background-job complexity, since this project is already past that one-time cost and Cloud Run's
+  `cpu_idle=true`/scale-to-zero config makes reliable background execution impractical anyway; a
+  fresh project should have one cache pre-warmed manually before its first real coach traffic.)*
+- [x] **SC-GCP-009**: `VertexCoachClient` shall report cached-content tokens from Gemini's
+  `usageMetadata` in the `COACH_RESPONSE` log line as `cacheReadTokens` (read from cache) and
+  `cacheWriteTokens` (nonzero only on the call that creates or refreshes the cache), using the same
+  field names as the Bedrock adapter (SC-BE-027) so cache effectiveness is comparable across
+  providers in the coach-quality aggregate summary.
 
 ## Coach Response (Backend)
 
