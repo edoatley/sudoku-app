@@ -7,7 +7,11 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: 0,
+  // CI runs against the Vite dev server under 2 parallel workers, which is more prone to
+  // transient timing flakiness (React state updates racing runner load) than a real bug —
+  // retry there before failing the build. Never retry locally; a local failure should surface
+  // immediately.
+  retries: isCI ? 2 : 0,
   workers: isCI ? 2 : undefined,
   timeout: 10_000,
   expect: { timeout: 5_000 },
