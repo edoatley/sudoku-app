@@ -1,0 +1,40 @@
+
+Overall — /Users/edoatley/source/sudoku-app/ui/tests/coach-quality/reports/vertex-caching-comparison-2026-08-20-v2
+  n=55 fallbackRate=0.0%
+  latencyMs: mean=1475 p50=1063 p90=1562
+  tokens: input=0 output=0 cacheRead=242275 cacheWrite=4405 total=266161
+
+  deep-escalation-ladder
+  n=20 fallbackRate=0.0%
+  latencyMs: mean=1572 p50=1179 p90=1562
+  tokens: input=0 output=0 cacheRead=88100 cacheWrite=0 total=95867
+
+  explicit-answer-request
+  n=5 fallbackRate=0.0%
+  latencyMs: mean=933 p50=953 p90=1001
+  tokens: input=0 output=0 cacheRead=22025 cacheWrite=0 total=24309
+
+  naked-single-conversation
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1895 p50=1166 p90=1591
+  tokens: input=0 output=0 cacheRead=44050 cacheWrite=4405 total=48812
+
+  off-topic-message
+  n=5 fallbackRate=0.0%
+  latencyMs: mean=932 p50=913 p90=1063
+  tokens: input=0 output=0 cacheRead=22025 cacheWrite=0 total=24267
+
+  stuck-single-turn
+  n=5 fallbackRate=0.0%
+  latencyMs: mean=2178 p50=954 p90=7217
+  tokens: input=0 output=0 cacheRead=22025 cacheWrite=0 total=24249
+
+  technique-explanation-ask
+  n=5 fallbackRate=0.0%
+  latencyMs: mean=1169 p50=1155 p90=1365
+  tokens: input=0 output=0 cacheRead=22025 cacheWrite=0 total=24402
+
+  wrong-guess-acknowledgment
+  n=5 fallbackRate=0.0%
+  latencyMs: mean=935 p50=950 p90=1002
+  tokens: input=0 output=0 cacheRead=22025 cacheWrite=0 total=24255

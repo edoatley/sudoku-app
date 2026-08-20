@@ -29,8 +29,11 @@ public class GenAiClientProducer {
     @ConfigProperty(name = "coach.vertex.location")
     String location;
 
+    // @Dependent (the default — no scope annotation), not @ApplicationScoped: Client is a final
+    // class, so ArC can't generate a normal-scope client proxy for it. @Dependent beans are
+    // injected directly, no proxy required. VertexCoachClient (the sole injection point) is
+    // itself @ApplicationScoped, so this is still only ever constructed once in practice.
     @Produces
-    @ApplicationScoped
     public Client genAiClient() {
         try {
             Client.Builder builder = Client.builder()
