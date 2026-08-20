@@ -1,4 +1,4 @@
-// @spec SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-012, SC-UI-022, SC-UI-023, SC-UI-024, SC-UI-025, SC-UI-030, SC-UI-031, SC-UI-032, SC-RL-009
+// @spec SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-012, SC-UI-013, SC-UI-022, SC-UI-023, SC-UI-024, SC-UI-025, SC-UI-030, SC-UI-031, SC-UI-032, SC-RL-009
 import { useState, useRef, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -30,6 +30,15 @@ export default function CoachPanel({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [history.length]);
+
+  // @spec SC-UI-013 — Escape closes the coach panel
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSend = () => {
     const text = input.trim();

@@ -103,7 +103,7 @@ across providers; only the API surface + auth differ. @spec CP-GCP-090
 - [x] **SC-UI-010**: When the coach button is clicked and the panel is closed, the system shall open the coach panel.
 - [x] **SC-UI-011**: When the coach button is clicked and the panel is open, the system shall close the coach panel.
 - [x] **SC-UI-012**: When the close button within the coach panel is clicked, the system shall close the coach panel.
-- [ ] **SC-UI-013**: When the Escape key is pressed and the coach panel is open, the system shall close the coach panel.
+- [x] **SC-UI-013**: When the Escape key is pressed and the coach panel is open, the system shall close the coach panel.
 - [x] **SC-UI-014**: When the panel opens for the first time in a game session and no conversation history exists, the system shall display a welcome message without requiring the player to type anything. (Implementation note: a local canned message is used rather than an API call — avoids a Bedrock call on panel open.)
 
 ## Conversation Display (Frontend)
