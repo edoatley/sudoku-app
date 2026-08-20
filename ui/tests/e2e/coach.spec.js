@@ -112,6 +112,20 @@ test('coach — closing panel hides it and FAB shows Open label', async ({ page 
   await expect(page.getByRole('button', { name: 'Open coach' })).toBeVisible();
 });
 
+test('coach — pressing Escape closes the panel', async ({ page }) => {
+  await setupGameRoutes(page);
+  await page.goto('/');
+  await waitForGrid(page);
+
+  await page.getByRole('button', { name: 'Open coach' }).click();
+  await expect(page.getByTestId('coach-panel')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  await expect(page.getByTestId('coach-panel')).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open coach' })).toBeVisible();
+});
+
 test('coach — token counter updates from the coach response after a message is sent', async ({ page }) => {
   await setupGameRoutes(page);
   await page.route('**/ai/coach', (route) => route.fulfill({ json: { ...COACH_RESPONSE, tokensUsedThisMonth: 4242 } }));

@@ -85,7 +85,7 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 | AI Provider Port + Vertex AI (BE, GCP) | SC-GCP-001 to SC-GCP-007 | 6 | 1 |
 | Coach Response (BE) | SC-API-010 to SC-API-012 | 3 | 0 |
 | Widget Rendering (FE) | SC-UI-001 to SC-UI-004 | 4 | 0 |
-| Panel Open/Close (FE) | SC-UI-010 to SC-UI-014 | 4 | 1 (SC-UI-013) |
+| Panel Open/Close (FE) | SC-UI-010 to SC-UI-014 | 5 | 0 |
 | Conversation Display (FE) | SC-UI-020 to SC-UI-025 | 6 | 0 |
 | Quick Reply Chips (FE) | SC-UI-030 to SC-UI-032 | 3 | 0 |
 | Board-Chat Linkage (FE) | SC-UI-040 to SC-UI-042 | 3 | 0 |
@@ -93,11 +93,9 @@ behaviour; implementing them (`useCoachSession.js` now writes `solvedCells`/remo
 | Conversation Lifecycle (FE) | SC-UI-060 to SC-UI-064 | 5 | 0 |
 | Rate Limiting & Cost (BE+FE) | SC-RL-001 to SC-RL-010 | 10 | 0 |
 
-**Summary:** 81 of 83 specs implemented; 0 deferred; 2 gaps (SC-UI-013; SC-GCP-007 — Terraform Bedrock-secret drop + validated prod cutover). VertexCoachClient is built + unit-tested; prod stays on Bedrock until coach-quality validation.
+**Summary:** 82 of 83 specs implemented; 0 deferred; 1 gap (SC-GCP-007 — Terraform Bedrock-secret drop + validated prod cutover). VertexCoachClient is built + unit-tested; prod stays on Bedrock until coach-quality validation.
 
 ## Open Gaps
-
-- **SC-UI-013** — Escape key closes the coach panel. Not implemented.
 
 SC-BE-011/012/014/025/026/027/028/029 (Bedrock structured output + caching fix, plus the
 `responseType` categorical field) are now implemented and unit-tested (`BedrockCoachClientTest`,
