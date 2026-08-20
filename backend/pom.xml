@@ -66,12 +66,23 @@
             <artifactId>quarkus-google-cloud-firestore</artifactId>
             <version>2.23.1</version>
         </dependency>
-        <!-- Vertex AI (Gemini) for the GCP-native coach provider; ADC via the shared google-cloud
-             credential producer (no keys). @spec CP-GCP-090, SC-GCP-002 -->
+        <!-- Vertex AI (Gemini) for the GCP-native coach provider; ADC via a hand-rolled CDI
+             producer (no keys, no Quarkiverse extension exists for this SDK yet).
+             @spec CP-GCP-090, SC-GCP-002 -->
         <dependency>
-            <groupId>io.quarkiverse.googlecloudservices</groupId>
-            <artifactId>quarkus-google-cloud-vertex-ai</artifactId>
-            <version>2.23.1</version>
+            <groupId>com.google.genai</groupId>
+            <artifactId>google-genai</artifactId>
+            <version>1.66.0</version>
+        </dependency>
+        <!-- google-genai pulls google-auth-library-oauth2-http:1.33.0 directly, which Maven's
+             nearest-wins mediation picks over the 1.48.0 every other GCP extension (Firestore
+             included) requests. 1.33.0 predates the com.google.auth.mtls package, breaking
+             Firestore's credential resolution at runtime. Pin explicitly to the version
+             everything else already wants. -->
+        <dependency>
+            <groupId>com.google.auth</groupId>
+            <artifactId>google-auth-library-oauth2-http</artifactId>
+            <version>1.48.0</version>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>

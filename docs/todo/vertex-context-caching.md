@@ -13,6 +13,21 @@ Out of scope for the comparison run itself — this is a finding from that run, 
 fix mid-validation. Recorded as its own item since it materially affects the cost side of the
 SC-GCP-007 cutover decision.
 
+## Update (2026-08-20): SDK migration is a prerequisite
+
+Investigation found this isn't a contained caching change. `VertexCoachClient` was built on
+`com.google.cloud.vertexai.generativeai.GenerativeModel`, deprecated by Google in June 2025 with
+a stated removal date of June 24, 2026 (already past). That package also has no hook to attach a
+`CachedContent` resource and no bundled client to manage cache resources at all — caching is only
+reachable via Google's new unified `com.google.genai:google-genai` SDK, which has first-class
+`cachedContent` support.
+
+The prerequisite migration — `VertexCoachClient` moved to `com.google.genai`, functionally
+identical, no caching yet — landed first (separate PR from this work item). The caching work
+described below is the follow-on, now unblocked: `GenerateContentConfig.builder().cachedContent
+(name)` and `client.caches` are both confirmed present in the new SDK (verified directly against
+the resolved 1.66.0 jar).
+
 ## Context
 
 **Relevant files:**
@@ -44,8 +59,9 @@ gap from an unused feature, not an inherent Gemini limitation.
 
 ## What to do
 
-1. Check the `google-cloud-vertexai` SDK version in use (`pom.xml`) for its context-caching
-   API surface.
+1. ~~Check the `google-cloud-vertexai` SDK version in use (`pom.xml`) for its context-caching
+   API surface.~~ Done — see "Update (2026-08-20)" above; use `com.google.genai`'s `Caches`
+   client and `GenerateContentConfig.cachedContent(name)` instead.
 2. Add caching to `VertexCoachClient`'s system-prompt transmission, mirroring the intent of
    SC-BE-011/027 for the Vertex path.
 3. Extend the `COACH_RESPONSE` log line to report cached vs fresh tokens for Vertex (parallel
