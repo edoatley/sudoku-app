@@ -4,14 +4,42 @@ Grouped view of every open gap tracked in `docs/todo/documentation-gaps.md` and 
 deferred items in `docs/specs/*.md`, organized by area instead of by discovery order. This is a
 navigation layer — full detail (state, size, acceptance criteria) lives in each linked doc; this
 file doesn't duplicate it. Within each group, items are listed in the priority order agreed
-2026-08-19; re-order as priorities shift rather than appending a new list.
+2026-08-19 (updated 2026-08-20 — see Sequence below); re-order as priorities shift rather than
+appending a new list.
 
-**As of:** 2026-08-19. Re-derive against `docs/arrows/index.yaml` and `docs/todo/*.md` once
+**As of:** 2026-08-20. Re-derive against `docs/arrows/index.yaml` and `docs/todo/*.md` once
 specs have moved on — this snapshot decays the same way `documentation-gaps.md` does.
 
 Status tags: **[active]** — an open gap, safe to pick up now. **[deferred]** — intentionally
 shelved; don't re-open without a reason that changes the original tradeoff. **[done]** — closed
 recently; kept visible for one pass so the change is easy to spot, then removed.
+
+---
+
+## Sequence
+
+The actual execution order, agreed 2026-08-20 — distinct from the grouped-by-area lists below
+(those describe *what* each gap is; this describes *the order to do them in*, and why). **This
+section is the source of truth for "what's next" — a cold-start session should read this first,
+not infer priority from the grouped lists.** Update it whenever the plan changes.
+
+1. **[done] `SC-UI-013`** — Escape closes coach panel. Merged (#189).
+2. **[done, one follow-up open] Vertex AI context caching** — `SC-GCP-008/009`. Merged: SDK
+   migration (#191) and the caching implementation itself (#193), both verified against real
+   Vertex AI. One acceptance criterion from `docs/todo/vertex-context-caching.md` remains: a
+   55-turn Bedrock-vs-Vertex comparison re-run to confirm total cost actually drops toward
+   Bedrock's cached-adjusted baseline. Real API spend (55 live calls) — blocked as of this
+   writing on the `sandbox` AWS profile's SSO session having expired; re-run once re-authenticated
+   (`aws sso login --profile sandbox`).
+3. **[next] Spec-annotation backfill** —
+   [`docs/todo/spec-annotation-backfill.md`](todo/spec-annotation-backfill.md). The single
+   biggest tracked item on this roadmap by volume (~107 uncited-but-implemented specs). Naturally
+   sub-divides into the 4 clusters the 2026-08-19 coverage audit already found — image-recognition,
+   cloud-platform, react-frontend, sudoku-coach (see each segment's `drift` note in
+   `docs/arrows/index.yaml`). Recommended: its own focused session, likely one cluster per PR
+   given the size — don't try to do all 4 in one pass.
+4. **[unplanned]** Everything else in the grouped lists below. Order beyond item 3 isn't decided
+   yet — re-derive once spec-annotation backfill is done or partially done.
 
 ---
 
@@ -40,16 +68,13 @@ recently; kept visible for one pass so the change is easy to spot, then removed.
 
 ## AI Quality
 
-1. **[active] Vertex AI context caching** —
-   [`docs/todo/vertex-context-caching.md`](todo/vertex-context-caching.md). `VertexCoachClient`
-   pays full price for ~89% of the tokens Bedrock gets at a steep cache-read discount. Directly
-   informs the cutover decision below.
+1. **[done, one follow-up open] Vertex AI context caching** — see Sequence item 2 above.
 2. **[active] Vertex AI coach cutover completion** — `CP-GCP-090` / `SC-GCP-007`, tracked as
    item 1 in [`docs/todo/documentation-gaps.md`](todo/documentation-gaps.md)'s Active gaps
-   section. Closest-to-done item on the whole roadmap: adapter and rollout var are merged, and a
-   real local comparison (55 turns, 0% fallback, ~2x faster than Bedrock) is done. Needs the
-   caching decision above plus either the Cloud Logging work or a lighter smoke check, then a
-   one-line default flip.
+   section. Closest-to-done item on the whole roadmap: adapter, rollout var, and context caching
+   are all merged, and a real local comparison (55 turns, 0% fallback, ~2x faster than Bedrock)
+   is done. No longer blocked on a caching decision — needs either the Cloud Logging work or a
+   lighter smoke check against a deployed environment, then a one-line default flip.
 3. **[active] Coach-quality invoke/converse A/B** — noted in `docs/arrows/index.yaml`
    (`sudoku-coach` arrow). Closes the loop on the structured-output/caching PR that shipped both
    Bedrock API modes without ever comparing them. Small, reuses existing tooling.
@@ -63,11 +88,10 @@ recently; kept visible for one pass so the change is easy to spot, then removed.
 
 ## UX
 
-1. **[active] Escape key closes coach panel** — `SC-UI-013`, see
-   `docs/specs/sudoku-coach-specs.md`. Trivial, isolated, zero risk.
+1. **[done] Escape key closes coach panel** — see Sequence item 1 above.
 2. **[active] Integrate hint output into AI coach chat window** —
    [`docs/todo/integrate-hint-output-into-coach-chat.md`](todo/integrate-hint-output-into-coach-chat.md).
-   Merge the standalone `HintDialog` into the `CoachPanel` chat stream. Biggest single
+   Merge the standalone `HintDialog` into the `CoachPanel` chat stream. Biggest single UX
    investment on this roadmap — needs a full HLD/LLD/EARS pass before any code, per
    Linked-Intent Development (this is a UX surface merge, not a bug fix).
 
@@ -80,6 +104,7 @@ recently; kept visible for one pass so the change is easy to spot, then removed.
    (it was a planning-shaped work log, not an open todo; its residual items are tracked directly
    via spec IDs elsewhere on this roadmap). References updated in `docs/llds/cloud-platform.md`
    and `docs/aws-vs-gcp-comparison.md`.
+3. **[active] Spec-annotation backfill** — see Sequence item 3 above. Recommended next item.
 
 ---
 
