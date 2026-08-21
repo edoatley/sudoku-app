@@ -39,13 +39,14 @@ quality, UX, tech debt) instead of by discovery order.
   passed through the compose overlay (silently used a stale, now-`NOT_FOUND` default model id),
   and `aggregate.js` assumed Bedrock's log schema unconditionally (Vertex's simpler `tokens`
   total + missing `latencyMs` aggregated to `NaN`/`0` despite real successful responses).
-- **What's left (still `[ ]`):** (1) decide whether the context-caching gap blocks cutover or is
-  an acceptable interim cost tradeoff given the latency win; (2) validate against an actual
-  deployed `rcg-*`/Cloud Run environment (the local comparison validates the Vertex AI call
-  itself, not the deployed path) — needs `docs/todo/coach-quality-gcp-cloud-logging.md` first for
-  a real report, or a lighter manual smoke check; (3) once satisfied, flip `coach_ai_provider`'s
-  **default** to `"vertex"` in a small follow-up (the actual prod cutover), which flips
-  `SC-GCP-007` to `[x]`.
+- **What's left (still `[ ]`):** (1) ~~decide whether the context-caching gap blocks cutover~~ —
+  resolved 2026-08-20: `SC-GCP-008/009` closed the cost gap (91% cache-read ratio, matching
+  Bedrock's ~89%), see `docs/planning/old/vertex-context-caching.md`; (2) validate against an
+  actual deployed `rcg-*`/Cloud Run environment (the local comparison validates the Vertex AI
+  call itself, not the deployed path) — needs `docs/todo/coach-quality-gcp-cloud-logging.md`
+  first for a real report, or a lighter manual smoke check; (3) once satisfied, flip
+  `coach_ai_provider`'s **default** to `"vertex"` in a small follow-up (the actual prod cutover),
+  which flips `SC-GCP-007` to `[x]`.
 - **Specs:** `docs/specs/cloud-platform-specs.md` (CP-GCP-090), `docs/specs/sudoku-coach-specs.md`
   (SC-GCP-007 — Cloud Run must **not** mount AWS Bedrock creds when `coach.ai.provider=vertex`).
 - **Size:** small now — the rollout plumbing is done; what remains is a live harness run plus a
@@ -99,12 +100,7 @@ duplicating it here.
    `docker compose logs`, so it can validate a real deployed environment. Filed while validating
    the Vertex AI cutover (item 1 above). Size: medium-large.
 
-5. **[Vertex AI context caching](vertex-context-caching.md)** — `VertexCoachClient` pays full
-   price for ~89% of the tokens Bedrock gets at a steep cache-read discount, since it doesn't
-   use Vertex AI's context-caching feature yet. Directly informs the Vertex cutover cost
-   tradeoff (item 1 above). Size: medium.
-
-6. **[Terraform CI/testing review](terraform-ci-testing-review.md)** — local pre-push suite
+5. **[Terraform CI/testing review](terraform-ci-testing-review.md)** — local pre-push suite
    (`scripts/local/local-alltests.sh`) and the Trivy pre-commit hook both only validate
    `infra/aws`, not `infra/gcp`, even though CI validates both; no `terraform test`/tflint
    anywhere. Size: small-medium (the immediate AWS/GCP asymmetry fix), open-ended if
