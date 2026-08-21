@@ -5,6 +5,7 @@ import com.sudoku.domain.Board;
 import static com.sudoku.domain.SudokuConstants.BOX_SIZE;
 import static com.sudoku.domain.SudokuConstants.UNIT_SIZE;
 
+// @spec SC-BE-004
 /**
  * Formats a {@link Board} as a human-readable string for use in LLM prompts.
  *
