@@ -74,8 +74,8 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
 - [ ] `infra/aws/*.tf` has `@spec` annotations covering all 25 `CP-INFRA-*` IDs listed above
 - [ ] `infra/gcp/*.tf` has `@spec` annotations covering all 23 `CP-GCP-*` IDs listed above
 - [ ] The listed frontend files have `@spec` annotations covering all 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs
-- [ ] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs
-- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend`, `image-recognition` cleared
+- [x] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs — done 2026-08-21
+- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend` cleared (`image-recognition` cleared 2026-08-21)
 
 ## Related specs / docs
 
