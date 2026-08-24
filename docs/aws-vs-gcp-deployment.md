@@ -53,6 +53,7 @@ runs, so prod can be brought up in stages:
 | `deploy_cloud_run` | `false` | Build + deploy the backend service |
 | `deploy_image_recognition` | `false` | Build + deploy the image-rec service |
 | `enable_coach` | `false` | Mount the cross-cloud Bedrock secrets (needs runbook §6) |
+| `coach_ai_provider` | `bedrock` | Backend coach LLM: `bedrock` (cross-cloud) or `vertex` (Gemini via ADC, no AWS keys — suppresses the backend Bedrock mount; image-rec keeps Bedrock regardless) |
 | `deploy_frontend` | `false` | Build + `firebase deploy` the SPA (needs `VITE_FIREBASE_API_KEY`) |
 | `enable_custom_domain` | `false` | Attach the Firebase custom domain (then add the parent-zone CNAME) |
 | `run_smoke` | `true` | Post-deploy smoke; assert the env serves (needs the invoker granted) |

@@ -5,8 +5,8 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="title" value="Sudoku on GCP — project sudoku-app-eo · region us-central1 (as deployed 2026-07-18)" style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="40" y="20" width="1000" height="30" as="geometry" />
+        <mxCell id="title" value="Sudoku on GCP — project sudoku-app-eo · region us-central1 (live in prod — sudoku-gcp.edoatley.co.uk)" style="text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1100" height="30" as="geometry" />
         </mxCell>
 
         <!-- ============ CI / CD + Trust column ============ -->
@@ -78,33 +78,33 @@
         </mxCell>
 
         <!-- Row 3: artifact registry -->
-        <mxCell id="ar_be" value="Artifact Registry&#10;sudoku-backend (empty)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ar_be" value="Artifact Registry&#10;sudoku-backend (backend image)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="420" y="360" width="220" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ar_ir" value="Artifact Registry&#10;sudoku-image-recognition (empty)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="ar_ir" value="Artifact Registry&#10;sudoku-image-recognition (image)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="680" y="360" width="240" height="60" as="geometry" />
         </mxCell>
 
-        <!-- Gated group -->
-        <mxCell id="gated_lbl" value="Gated — not yet deployed (phased flags off)" style="text;html=1;fontSize=12;fontStyle=1;align=left;fontColor=#9E9E9E;" vertex="1" parent="1">
-          <mxGeometry x="420" y="450" width="360" height="20" as="geometry" />
+        <!-- Runtime / compute group (now live) -->
+        <mxCell id="gated_lbl" value="Runtime (live in prod · phased flags on; RC/dev via workspace)" style="text;html=1;fontSize=12;fontStyle=1;align=left;fontColor=#1A73E8;" vertex="1" parent="1">
+          <mxGeometry x="420" y="450" width="420" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="run_be" value="Cloud Run: sudoku (backend)&#10;deploy_cloud_run = false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="run_be" value="Cloud Run: sudoku (backend)&#10;512MiB · scale-to-zero · in-app JWT&#10;coach: cross-cloud Bedrock / Vertex" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="420" y="480" width="220" height="65" as="geometry" />
         </mxCell>
-        <mxCell id="run_ir" value="Cloud Run: image-recognition&#10;deploy_cloud_run = false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="run_ir" value="Cloud Run: image-recognition&#10;Python · cross-cloud Bedrock" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="680" y="480" width="240" height="65" as="geometry" />
         </mxCell>
-        <mxCell id="dns" value="Cloud DNS zone + custom domain&#10;sudoku-gcp.edoatley.co.uk&#10;enable_custom_domain = false" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="dns" value="Custom domain (no Cloud DNS zone)&#10;sudoku-gcp.edoatley.co.uk&#10;CNAME in parent Route53 zone" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#4285F4;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="960" y="480" width="240" height="65" as="geometry" />
         </mxCell>
-        <mxCell id="idp" value="Identity Platform + Google IdP&#10;(manual · not Terraform)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#9E9E9E;dashed=1;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="idp" value="Identity Platform + Google IdP&#10;(manual · not Terraform)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF7E0;strokeColor=#F9AB00;dashed=1;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="1240" y="480" width="200" height="65" as="geometry" />
         </mxCell>
 
         <!-- Legend -->
-        <mxCell id="legend" value="Solid blue = deployed data/hosting · Amber = identity/SA · Dashed grey = gated/planned or manual" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=#FFFDE7;strokeColor=#E0E0E0;" vertex="1" parent="1">
-          <mxGeometry x="420" y="590" width="760" height="30" as="geometry" />
+        <mxCell id="legend" value="Solid blue = deployed compute/data/hosting · Amber = identity/SA (dashed = manual, not Terraform) · Coach LLM selectable via coach_ai_provider (Bedrock default | Vertex AI)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fillColor=#FFFDE7;strokeColor=#E0E0E0;" vertex="1" parent="1">
+          <mxGeometry x="420" y="590" width="1000" height="30" as="geometry" />
         </mxCell>
 
         <!-- ============ cross edges ============ -->

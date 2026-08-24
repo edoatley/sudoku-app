@@ -10,6 +10,14 @@ Reference code: `backend/src/main/resources/application.properties` (profile blo
 `com/sudoku/auth/UserIdentityResolver.java`, `com/sudoku/web/filter/{CorsFilter,AllowedUsersFilter}.java`,
 `infra/aws/*.tf`, `infra/gcp/*.tf`, `scripts/{github/gcp-smoke-token.sh,local/smoke-token-local.sh}`.
 
+## Side-by-side at a glance
+
+![AWS vs GCP side-by-side](diagrams/aws-vs-gcp-sidebyside.png)
+
+*Source: [`diagrams/aws-vs-gcp-sidebyside.drawio`](diagrams/aws-vs-gcp-sidebyside.drawio) (editable). The
+per-cloud topology diagrams are [`diagram/architecture.drawio`](diagram/architecture.drawio) (AWS) and
+[`diagrams/gcp-infrastructure.drawio`](diagrams/gcp-infrastructure.drawio) (GCP).*
+
 ## The one thing that's the same
 
 The **backend is a single fast-jar HTTP server** in one image (`backend/src/main/docker/Dockerfile.jvm-lwa`).
@@ -35,7 +43,7 @@ on Cloud Run; default + `%prod` on Lambda) and a handful of env vars — no code
 | **CORS** | Handled at **API Gateway** | **In-app** `CorsFilter` (`%gcp.sudoku.cors.filter.enabled=true`) |
 | Persistence | DynamoDB (`sudoku.persistence=dynamodb`) | Firestore Native (`%gcp.sudoku.persistence=firestore`) |
 | Persistence auth | Lambda execution role (IAM) | Cloud Run runtime SA `sudoku-run@` via ADC (`roles/datastore.user`) |
-| AI coach (Bedrock) | Direct — Lambda role has Bedrock IAM | **Cross-cloud** — AWS keys from Secret Manager mounted as `AWS_*` env; region stays `eu-west-2` |
+| AI coach | Bedrock, direct — Lambda role has Bedrock IAM | Provider-selectable (`coach_ai_provider`, default `bedrock`): **cross-cloud Bedrock** (AWS keys from Secret Manager mounted as `AWS_*`, region stays `eu-west-2`) or **native Vertex AI** (Gemini via ADC, no AWS keys). Image recognition is always cross-cloud Bedrock. |
 | Frontend hosting | AWS Amplify | Firebase Hosting (SPA rewrites in `ui/firebase.json`) |
 | Public reachability | API Gateway stage | Cloud Run `allUsers` invoker on non-`default` workspaces (CP-GCP-014); app still enforces auth |
 | Test-token minting | Cognito `USER_PASSWORD_AUTH` (`scripts/local/smoke-token-local.sh`) | Identity Platform `signInWithPassword` (`scripts/github/gcp-smoke-token.sh`) |
@@ -80,14 +88,25 @@ only the resolvable adapter is instantiated, so the unused cloud SDK never initi
 differs: AWS uses per-env table names; GCP uses a **named Firestore database per Terraform workspace**
 (`main.tf`: `(default)` for the default workspace, else `sudoku<suffix>`).
 
-### 5. AI coach (Bedrock) — direct vs cross-cloud credentials
-`BedrockClientProducer` builds a `BedrockRuntimeClient` with the **default AWS credential chain** and
-region `eu-west-2` — unchanged across clouds. What changes is where the credentials come from:
-- **AWS**: the Lambda execution role carries Bedrock IAM directly.
-- **GCP**: there is no AWS identity, so real AWS keys live in **Secret Manager** and are mounted as
-  the standard `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (only when `enable_coach=true`).
-  The same default chain resolves them — no code change. It calls Bedrock in `eu-west-2` *from*
-  `us-central1`.
+### 5. AI coach — direct Bedrock vs cross-cloud Bedrock vs native Vertex AI
+The coach speaks to an LLM through the `CoachAiClient` port, and the **provider is selectable per
+workspace** via the `coach_ai_provider` Terraform variable (`infra/gcp/variables.tf`, default
+`"bedrock"`; validated to `bedrock`|`vertex`). Two GCP paths:
+
+- **Cross-cloud Bedrock (default).** `BedrockClientProducer` builds a `BedrockRuntimeClient` with the
+  **default AWS credential chain** and region `eu-west-2` — identical code to AWS. What changes is
+  where the credentials come from:
+  - **AWS**: the Lambda execution role carries Bedrock IAM directly.
+  - **GCP**: there is no AWS identity, so real AWS keys live in **Secret Manager** and are mounted as
+    the standard `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (only when `enable_coach=true`).
+    The same default chain resolves them — no code change. It calls Bedrock in `eu-west-2` *from*
+    `us-central1`.
+- **Native Vertex AI (`coach_ai_provider=vertex`).** `VertexCoachClient` calls Gemini via **ADC** (the
+  Cloud Run runtime SA) — **no AWS keys mounted at all** (SC-GCP-007). This is the intended GCP end
+  state; the adapter, rollout var, and Vertex context caching are all merged, with the default flip to
+  `vertex` tracked as the top remaining feature (see `docs/roadmap.md`).
+
+**Image recognition** always uses cross-cloud Bedrock on GCP, independent of `coach_ai_provider`.
 
 ### 6. Test-token minting — deterministic, no browser
 Both clouds have a REST way to mint a real ID token for a password test user, so CI/agents never need
@@ -147,10 +166,19 @@ with a deterministic client before blaming the code**. A minted-token `curl` bea
 for every auth question.
 
 ## Still open / deferred (not parity-blocking)
+GCP is now live in prod at parity (`sudoku-gcp.edoatley.co.uk`), so several items that were open when
+this doc was first written have since shipped: the **custom-domain cutover** is done (Firebase Hosting
+subdomain via the parent-zone CNAME, CP-GCP-050), and the **automated CI smoke job** now runs
+(`deploy-gcp.yml`'s `smoke` job wraps `gcp-smoke-token.sh` / Identity Platform `signInWithPassword`).
+Bedrock-backed coach and image recognition both run on GCP.
+
+Genuinely still open (see `docs/roadmap.md` for the authoritative, ordered list):
+- **Vertex AI coach cutover** — flip `coach_ai_provider`'s default to `vertex` after a deployed-path
+  smoke check (`CP-GCP-090` / `SC-GCP-007`); the top remaining feature.
 - Layer-2 Playwright run against the deployed GCP backend (Firebase-seeded session).
-- Automated CI smoke job wrapping `gcp-smoke-token.sh` (the user + minting exist; CP-GCP-032).
-- Hosted-UI-per-RC Firebase Hosting targets (gap G3), custom-domain cutover, GCP budget hard-cap
-  (CP-GCP-061), and a live Bedrock call verified on GCP.
+- Hosted-UI-per-RC Firebase Hosting targets (gap G3).
+- **Deferred by design:** GCP budget hard-cap (`CP-GCP-061`), private VPC egress to Firestore
+  (`CP-GCP-091`), GCP admin authorization (`UM-GCP-008`).
 
 ## Related specs
 `docs/specs/cloud-platform-specs.md` (CP-GCP-010/011/012 auth+CORS, CP-GCP-014 invoker, CP-GCP-020
