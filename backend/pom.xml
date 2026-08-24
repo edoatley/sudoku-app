@@ -15,8 +15,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.38.2</quarkus.platform.version>
-        <quarkus-amazon-services-bom.version>3.21.1</quarkus-amazon-services-bom.version>
+        <quarkus.platform.version>3.38.3</quarkus.platform.version>
+        <quarkus-amazon-services-bom.version>3.21.2</quarkus-amazon-services-bom.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.6</surefire-plugin.version>
     </properties>
@@ -72,7 +72,7 @@
         <dependency>
             <groupId>com.google.genai</groupId>
             <artifactId>google-genai</artifactId>
-            <version>1.66.0</version>
+            <version>1.67.0</version>
         </dependency>
         <!-- google-genai pulls google-auth-library-oauth2-http:1.33.0 directly, which Maven's
              nearest-wins mediation picks over the 1.48.0 every other GCP extension (Firestore
@@ -82,7 +82,7 @@
         <dependency>
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
-            <version>1.48.0</version>
+            <version>1.50.0</version>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
