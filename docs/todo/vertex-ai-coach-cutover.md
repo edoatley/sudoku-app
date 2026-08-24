@@ -37,6 +37,21 @@ one-line flip of the `coach_ai_provider` default. Backlog priority 1 — the clo
    to `"vertex"` in `infra/gcp/variables.tf` (the actual prod cutover), which flips `SC-GCP-007` to
    `[x]`.
 
+## Prerequisites & concrete first step (for a cold start)
+
+- **Prerequisite:** `aiplatform.googleapis.com` must be enabled on the GCP project. It was not
+  originally; re-running the idempotent `scripts/infra/gcp/bootstrap.sh` enables it (the
+  `gcloud services enable` line is already present).
+- **Manual smoke — the lighter of the two validation paths:**
+  1. Dispatch *Actions → Deploy GCP → Run workflow* with `coach_ai_provider=vertex` and
+     `deploy_cloud_run=true` against the target workspace.
+  2. Mint an ID token with `scripts/github/gcp-smoke-token.sh`.
+  3. `curl` the deployed backend's coach endpoint with that token and exercise a few turns.
+  4. Confirm **0% Bedrock fallback** and that the backend Cloud Run service has **no `AWS_*` env vars
+     mounted** (`gcloud run services describe …`) when `coach_ai_provider=vertex`.
+- To re-run the local baseline instead, use `docker-compose.coach-quality-vertex.yml` +
+  `coach-quality-repeat.sh` (Vertex auth via a local `gcloud auth application-default login` cred).
+
 ## Acceptance criteria
 
 - [ ] The Vertex path is validated against a real deployed Cloud Run env (0% fallback, no `AWS_*`
