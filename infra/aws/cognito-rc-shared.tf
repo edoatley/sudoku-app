@@ -114,7 +114,9 @@ resource "aws_cognito_user_pool_client" "rc_shared_web" {
   # Cognito does not support wildcard callback URLs — they are accepted by the API
   # but silently rejected during the OAuth flow (returns HTTP 400).
   # The deploy workflow adds each rc-* branch's exact Amplify URL after terraform apply.
-  # ignore_changes prevents Terraform from reverting the accumulated URL list on each run.
+  # ignore_changes prevents Terraform from reverting the accumulated URL list on each run,
+  # which is what allows scripts/github/amplify-remove-rc-urls.sh to prune a deleted branch's
+  # URL without a subsequent apply clobbering the rest of the list. @spec CP-INFRA-022, CP-INFRA-023
   callback_urls = ["http://localhost:5173/"]
   logout_urls   = ["http://localhost:5173/"]
 

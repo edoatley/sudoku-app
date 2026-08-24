@@ -126,7 +126,7 @@ arrows:
     blockedBy: []
     detail: cloud-platform.md
     next: "CP-GCP-090 (Vertex AI coach) — rollout var + local validation done (see docs/roadmap.md AI Quality); deployed-path validation + default flip still open."
-    drift: "48 implemented specs (25 CP-INFRA-*, 23 CP-GCP-*) have no @spec citation anywhere -- infra/aws/*.tf uses no annotation convention at all, and infra/gcp/*.tf's primary resource blocks are uncited. Verified genuinely implemented during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
+    drift: "23 CP-GCP-* implemented specs have no @spec citation anywhere -- infra/gcp/*.tf's primary resource blocks are uncited. infra/aws/*.tf's 26 CP-INFRA-* IDs were backfilled 2026-08-24 (25 of 26; CP-INFRA-061 scoped out, no clear home in infra/aws/*.tf -- see docs/todo/spec-annotation-backfill.md). Verified genuinely implemented during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
 
   react-frontend:
     status: OK
