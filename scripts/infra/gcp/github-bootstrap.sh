@@ -15,6 +15,8 @@
 # short-lived OIDC token, GCP verifies it against a trust policy, and returns a
 # short-lived token that impersonates the deploy SA. Nothing durable at rest. This
 # is the GCP counterpart to the AWS "GitHub OIDC provider + assume-role" setup.
+#
+# @spec CP-GCP-080
 
 set -euo pipefail
 

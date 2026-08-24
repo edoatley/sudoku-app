@@ -7,7 +7,7 @@ file doesn't duplicate it. Within each group, items are listed in the priority o
 2026-08-19 (updated 2026-08-21 — see Sequence below); re-order as priorities shift rather than
 appending a new list.
 
-**As of:** 2026-08-21. Re-derive against `docs/arrows/index.yaml` and `docs/todo/*.md` once
+**As of:** 2026-08-24. Re-derive against `docs/arrows/index.yaml` and `docs/todo/*.md` once
 specs have moved on — this snapshot decays the same way `documentation-gaps.md` does.
 
 Status tags: **[active]** — an open gap, safe to pick up now. **[deferred]** — intentionally
@@ -34,15 +34,30 @@ the plan changes.
    Bedrock's ~89%. Also: issue #195 (`docs/gcp-infra-dev-journey.md`, PR #198) done alongside this
    — a commit-history-grounded summary of the whole GCP migration, useful background for anyone
    picking up the Vertex cutover (item below) or GCP infra work generally.
-3. **[next] Spec-annotation backfill** —
-   [`docs/todo/spec-annotation-backfill.md`](todo/spec-annotation-backfill.md). The single
-   biggest tracked item on this roadmap by volume (~107 uncited-but-implemented specs). Naturally
-   sub-divides into the 4 clusters the 2026-08-19 coverage audit already found — image-recognition,
-   cloud-platform, react-frontend, sudoku-coach (see each segment's `drift` note in
-   `docs/arrows/index.yaml`). Recommended: its own focused session, likely one cluster per PR
-   given the size — don't try to do all 4 in one pass.
-4. **[unplanned]** Everything else in the grouped lists below. Order beyond item 3 isn't decided
-   yet — re-derive once spec-annotation backfill is done or partially done.
+3. **[done] Spec-annotation backfill** —
+   [`docs/todo/spec-annotation-backfill.md`](todo/spec-annotation-backfill.md). Done 2026-08-24
+   (PRs #200/#201/#204/#205/#206, one cluster per PR). All residual loose ends closed the same day:
+   the 6 genuinely-uncited GCP CI/bootstrap IDs (`CP-GCP-041/043/050/080/081/082`) annotated in their
+   real homes, `CP-GCP-050`'s spec text corrected (Route53 CNAME, not Cloud DNS zone), `CP-INFRA-061`
+   and `FE-UI-042b` retired `[D]`, and the separate `HE-BE-035` hint-engine test gap closed with a
+   direct test + citation. All `index.yaml` drift notes cleared.
+4. **[next] Remaining new features, in order.** Tidy-up/tech-debt is complete; the sequence below is
+   the agreed order for the remaining feature work (rationale inline). Re-order as priorities shift.
+   1. **Vertex AI coach cutover completion** (`CP-GCP-090`/`SC-GCP-007`) — closest to done; adapter,
+      rollout var, and context caching are all merged and locally validated. Finish with a light
+      deployed-path smoke check, then flip `coach_ai_provider`'s default to `vertex`.
+   2. **GCP Cloud Logging for the coach-quality harness** — unblocks durable (not just local-ADC)
+      validation of #1 and all future GCP-hosted coach work.
+   3. **Coach-quality invoke/converse A/B** — small; reuses `coach-quality-repeat.sh`.
+   4. **Optimise AI coach Bedrock model selection** (Haiku 4.5 vs Sonnet) — same tooling family as #3.
+   5. **Admin log browser** (CloudWatch viewer in the admin menu) — standalone, no dependencies.
+   6. **Terraform CI/testing review** — extend the local pre-push suite / tflint to `infra/gcp`.
+   7. **Integrate hint output into the AI coach chat window** — largest UX item; needs a full
+      HLD→LLD→EARS pass before any code.
+
+   Deferred (don't re-open without a reason that changes the tradeoff): `CP-GCP-061` (GCP budget
+   hard-cap), `CP-GCP-091` (private VPC egress), `GL-GCP-006` (single-active-game txn), `UM-GCP-008`
+   (GCP admin authz), `IR-PROC-001..005` (image preprocessing).
 
 ---
 
@@ -98,7 +113,10 @@ the plan changes.
 
 ## Tech debt
 
-1. **[active] Spec-annotation backfill** — see Sequence item 3 above. Recommended next item.
+_No open tech-debt/tidy-up items — the tracked backlog here is clear._
+
+1. **[done] Spec-annotation backfill** — done 2026-08-24; all residual loose ends closed (see
+   Sequence item 3).
 
 ---
 

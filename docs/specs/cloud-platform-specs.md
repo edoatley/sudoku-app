@@ -45,7 +45,7 @@
 ## Workspace Isolation
 
 - [x] **CP-INFRA-060**: The system shall append -{workspace} to all resource names in non-default workspaces to prevent naming collisions. (Cloud-general: honoured by both the AWS and GCP facets.)
-- [x] **CP-INFRA-061**: The system shall share the Lambda zip S3 bucket across all workspaces, with each workspace uploading to its own key prefix.
+- [D] **CP-INFRA-061**: ~~The system shall share the Lambda zip S3 bucket across all workspaces, with each workspace uploading to its own key prefix.~~ Superseded by the zip→container-image migration: the backend and image-recognition Lambdas now deploy from ECR container images (`infra/aws/lambda.tf`, `image_recognition_lambda.tf`), so no shared zip bucket is provisioned. The only residual reference is a vestigial IAM grant in `scripts/infra/aws/bootstrap.sh` — a separate optional cleanup, not part of this spec.
 
 ---
 
@@ -93,7 +93,7 @@ Specifications for the GCP realisation of the Cloud Platform (`infra/gcp/`). All
 
 ## GCP — DNS & TLS
 
-- [x] **CP-GCP-050**: The system shall provision a Cloud DNS managed zone for sudoku-gcp.edoatley.co.uk once in the default workspace and point the custom domain at Firebase Hosting.
+- [x] **CP-GCP-050**: The system shall point sudoku-gcp.edoatley.co.uk at Firebase Hosting via a single CNAME to the Hosting default site, upserted once in the parent edoatley.co.uk zone (AWS Route53) — no GCP Cloud DNS managed zone (Cloud DNS has no apex-alias equivalent, so the AWS-style delegated-subzone approach doesn't apply to a Firebase subdomain).
 - [x] **CP-GCP-051**: The system shall serve the frontend over Google-managed TLS certificates, with no manual certificate provisioning.
 
 ## GCP — Cost Guardrail

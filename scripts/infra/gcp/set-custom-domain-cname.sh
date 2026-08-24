@@ -16,7 +16,7 @@
 #   PARENT_ZONE_ID=Z... [AWS_PROFILE=...] [PROJECT_ID=<id>] [CUSTOM_DOMAIN=sudoku-gcp.edoatley.co.uk] \
 #     scripts/infra/gcp/set-custom-domain-cname.sh
 #
-# @spec CP-GCP-014
+# @spec CP-GCP-014, CP-GCP-050
 
 set -euo pipefail
 
