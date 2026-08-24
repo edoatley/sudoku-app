@@ -125,7 +125,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: cloud-platform.md
-    next: "CP-GCP-090 (Vertex AI coach) — rollout var + local validation done (see docs/roadmap.md AI Quality); deployed-path validation + default flip still open."
+    next: "CP-GCP-090 (Vertex AI coach) — rollout var + local validation done (see docs/todo/vertex-ai-coach-cutover.md); deployed-path validation + default flip still open."
     drift: ~
 
   react-frontend:
@@ -137,7 +137,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: react-frontend.md
-    next: "FE-UI-042b (provisional per-game score) has no frontend implementation -- scoring appears to have already moved server-side (backend/Java), possibly making this ID stale; see docs/todo/spec-annotation-backfill.md."
+    next: "FE-UI-042b retired [D] in #208 -- provisional per-game score moved server-side (LT-BE-001/002/003); no open frontend work. See docs/specs/react-frontend-specs.md."
     drift: ~
 
   domain-types:
@@ -248,7 +248,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: sudoku-coach.md
-    next: "SC-GCP-007 (Vertex AI cutover — see docs/roadmap.md AI Quality)"
+    next: "SC-GCP-007 (Vertex AI cutover — see docs/todo/vertex-ai-coach-cutover.md)"
     drift: ~
 
 # Items found during mapping that don't yet belong to a segment. Empty — the orphan-artifacts

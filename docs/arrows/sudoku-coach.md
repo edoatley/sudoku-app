@@ -6,7 +6,7 @@ Conversational AI tutoring via Amazon Bedrock; deterministic pre-analysis gates 
 
 **PARTIAL** — 2026-08-20. 84/85 specs implemented. 1 gap remains (`SC-GCP-007`, Terraform
 Bedrock-secret drop + validated prod cutover for the Vertex AI coach — see the Vertex AI coach
-cutover item in `docs/roadmap.md`). The Bedrock structured-output + caching-fix work
+cutover item in [`docs/todo/vertex-ai-coach-cutover.md`](../todo/vertex-ai-coach-cutover.md)). The Bedrock structured-output + caching-fix work
 (`docs/planning/old/bedrock-coach-structured-output-plan.md`) is merged, code-complete and
 test-verified, including a `responseType` categorical field (SC-BE-028/029) that replaced a
 flaky prose-substring assertion in the coach-quality harness (CQ-AST-001); harness A/B

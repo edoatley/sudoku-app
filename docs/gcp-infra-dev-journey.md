@@ -96,9 +96,9 @@ Source of truth for current status: `docs/aws-vs-gcp-comparison.md` (architectur
 
 ## What's still open
 
-Per `docs/roadmap.md`'s AI Quality section: the Vertex AI coach cutover itself (`SC-GCP-007` —
-flipping `coach_ai_provider`'s default from `bedrock` to `vertex`) is the closest-to-done item on
-the whole roadmap. What's left is validating against an actual deployed `rcg-*`/Cloud Run
+Per [`docs/todo/vertex-ai-coach-cutover.md`](todo/vertex-ai-coach-cutover.md): the Vertex AI coach
+cutover itself (`SC-GCP-007` — flipping `coach_ai_provider`'s default from `bedrock` to `vertex`) is
+the closest-to-done item on the backlog. What's left is validating against an actual deployed `rcg-*`/Cloud Run
 environment (blocked on GCP Cloud Logging support for the local coach-quality harness, or a
 lighter manual smoke check) before the one-line default flip. Deferred, lower-priority gaps: a
 budget hard cap, private VPC egress to Firestore, and admin authorization on GCP (Identity
