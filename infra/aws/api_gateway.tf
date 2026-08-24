@@ -4,6 +4,7 @@ locals {
     payload_format_version = "1.0"
   }
 
+  # @spec CP-INFRA-001, CP-INFRA-002
   base_routes = {
     "$default" = {
       integration = local._lambda_integration
@@ -47,6 +48,7 @@ locals {
 
     # Admin data browser — JWT proves the caller is authenticated; the additional
     # "administrators" Cognito group check happens in the Lambda (AdminAuthorizationFilter).
+    # @spec CP-INFRA-007
     "GET /api/v1/admin/data/games" = {
       authorization_type = "JWT"
       authorizer_key     = "cognito_jwt"
@@ -59,6 +61,7 @@ locals {
       integration        = local._lambda_integration
     }
 
+    # @spec CP-INFRA-003
     "POST /api/v1/ai/image-to-puzzle" = {
       authorization_type = "JWT"
       authorizer_key     = "cognito_jwt"
@@ -68,6 +71,7 @@ locals {
       }
     }
 
+    # @spec CP-INFRA-004
     "GET /api/v1/ai/image-to-puzzle/warmup" = {
       integration = {
         uri                    = module.image_recognition_lambda.lambda_function_invoke_arn
@@ -91,6 +95,7 @@ locals {
 
 # ── CloudWatch log group (standalone to preserve existing resource name) ──────
 # Kept outside the module so Terraform does not rename/recreate the log group.
+# @spec CP-INFRA-006
 resource "aws_cloudwatch_log_group" "api_gateway" {
   name              = "/aws/apigateway/sudoku${local.suffix}"
   retention_in_days = local.is_default ? 7 : 3
@@ -104,6 +109,7 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
 # sets them correctly — no post-deploy CORS tightening step needed.
 # The raw *.amplifyapp.com URL is intentionally excluded: referencing aws_amplify_app
 # or aws_amplify_branch here would create a cycle (Amplify depends on api_endpoint).
+# @spec CP-INFRA-020
 module "api_gateway" {
   source  = "terraform-aws-modules/apigateway-v2/aws"
   version = "~> 6.1"
@@ -134,6 +140,7 @@ module "api_gateway" {
   stage_name   = "$default"
   deploy_stage = true
 
+  # @spec CP-INFRA-005
   stage_default_route_settings = {
     throttling_burst_limit = var.api_gateway_throttle_burst_limit
     throttling_rate_limit  = var.api_gateway_throttle_rate_limit

@@ -5,6 +5,7 @@
 # Console. The pool itself is owned by the "rc-shared" Terraform workspace;
 # all other rc-* workspaces reference it via data sources.
 # ---------------------------------------------------------------------------
+# @spec CP-INFRA-031
 data "aws_cognito_user_pools" "rc_shared" {
   count = local.is_rc ? 1 : 0
   name  = "sudoku-rc"
@@ -26,6 +27,7 @@ data "aws_cognito_user_pool_client" "rc_smoke" {
 # Owned Cognito resources — created for default (prod) and non-rc workspaces.
 # Skipped for rc-* workspaces which share the pool above.
 # ---------------------------------------------------------------------------
+# @spec CP-INFRA-030
 resource "aws_cognito_user_pool" "main" {
   count = local.is_rc ? 0 : 1
   name  = "sudoku${local.suffix}"
@@ -111,6 +113,7 @@ resource "aws_cognito_identity_provider" "google" {
 # Smoke-test user — admin-created, username/password auth only.
 # Never surfaced in the UI; used exclusively by CI to obtain a real JWT.
 # ---------------------------------------------------------------------------
+# @spec CP-INFRA-032
 resource "aws_cognito_user" "smoke_test" {
   count        = local.is_rc ? 0 : 1
   user_pool_id = aws_cognito_user_pool.main[0].id
@@ -131,6 +134,7 @@ resource "aws_cognito_user" "smoke_test" {
 # Server-side app client used only by CI — has a client secret and enables
 # USER_PASSWORD_AUTH so the smoke test can exchange credentials for tokens.
 # The public web client remains social-only.
+# @spec CP-INFRA-033
 resource "aws_cognito_user_pool_client" "smoke_test" {
   count        = local.is_rc ? 0 : 1
   name         = "sudoku-smoke-test${local.suffix}"
@@ -196,9 +200,11 @@ resource "aws_cognito_user_pool_client" "web" {
   # Callback URL circular dependency: Amplify URL is not known until after first apply.
   # Provisioned with a broad wildcard baseline; the deploy workflow tightens this to the
   # exact Amplify URL immediately after terraform apply (same pattern as CORS).
+  # @spec CP-INFRA-021
   callback_urls = ["https://*.amplifyapp.com/", "http://localhost:5173/"]
   logout_urls   = ["https://*.amplifyapp.com/", "http://localhost:5173/"]
 
+  # @spec CP-INFRA-022
   lifecycle {
     ignore_changes = [callback_urls, logout_urls]
   }

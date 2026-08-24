@@ -1,3 +1,4 @@
+# @spec CP-INFRA-041, CP-INFRA-042
 resource "aws_amplify_app" "sudoku" {
   name         = "sudoku${local.suffix}"
   repository   = "https://github.com/${var.github_owner}/${var.github_repo}"
@@ -42,6 +43,7 @@ resource "aws_amplify_app" "sudoku" {
   enable_auto_branch_creation = false
 }
 
+# @spec CP-INFRA-040
 resource "aws_amplify_branch" "main" {
   app_id      = aws_amplify_app.sudoku.id
   branch_name = local.is_default ? "main" : (var.git_branch != "" ? var.git_branch : terraform.workspace)
@@ -51,5 +53,6 @@ resource "aws_amplify_branch" "main" {
   # *after* terraform apply has set the correct VITE_API_URL env var.
   # If auto-build were enabled, Amplify would start building on push before
   # Terraform runs, baking a stale (or missing) API URL into the JS bundle.
+  # @spec CP-INFRA-040
   enable_auto_build = false
 }
