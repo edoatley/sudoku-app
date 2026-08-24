@@ -5,6 +5,7 @@
 # games / players / leaderboard / coachRateLimits (created implicitly by the
 # app on first write — Firestore collections are schemaless).
 # ---------------------------------------------------------------------------
+# @spec CP-GCP-020, CP-GCP-021, CP-GCP-023, CP-GCP-024
 
 resource "google_firestore_database" "main" {
   project     = var.project_id
@@ -23,7 +24,7 @@ resource "google_firestore_database" "main" {
 }
 
 # TTL on coachRateLimits.expiresAt — ephemeral per-user rate-limit counters
-# auto-expire (parity with the AWS SudokuCoachRateLimits TTL).
+# auto-expire (parity with the AWS SudokuCoachRateLimits TTL). @spec CP-GCP-022
 resource "google_firestore_field" "coach_rate_limit_ttl" {
   project    = var.project_id
   database   = google_firestore_database.main.name

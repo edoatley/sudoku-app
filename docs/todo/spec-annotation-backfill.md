@@ -26,12 +26,14 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
   `terraform.tf`, `variables.tf`). **Done** (2026-08-24) for 25 of 26 — see the note below on
   `CP-INFRA-061`. The
   convention isn't used in this facet's Terraform at all.
-- **`infra/gcp/*.tf` (23 IDs, all `CP-GCP-*`)** — primary resource blocks
-  (`google_cloud_run_v2_service.backend`/`.image_recognition`, `google_firestore_database.main`,
-  `google_firebase_hosting_site.frontend`, `google_firebase_hosting_custom_domain.frontend`,
-  `google_billing_budget.monthly`, label locals in `main.tf`) carry no citation. The few
-  citations that exist (`CP-GCP-014`, `CP-GCP-090`/`SC-GCP-007`, `GL-GCP-007`) are on narrower,
-  unrelated sub-blocks.
+- **`infra/gcp/*.tf` (30 `[x]` `CP-GCP-*` IDs total, not 23 as originally scoped)** — primary
+  resource blocks (`google_cloud_run_v2_service.backend`/`.image_recognition`,
+  `google_firestore_database.main`, `google_firebase_hosting_site.frontend`,
+  `google_firebase_hosting_custom_domain.frontend`, `google_billing_budget.monthly`, label locals
+  in `main.tf`) carry no citation. The few citations that exist (`CP-GCP-014`, `CP-GCP-090`/
+  `SC-GCP-007`, `GL-GCP-007`) are on narrower, unrelated sub-blocks. **Done** (2026-08-24) for 21
+  of 30 — see the note below on the 9 CI-workflow/bootstrap-script IDs, which have no Terraform
+  home at all and are a distinct, newly-found gap.
 - **`ui/src/hooks/{useSudokuGame,useGameSync,useGameTimer}.js`, `ui/src/api/sudokuApi.js`,
   `ui/src/App.jsx`, `ui/src/main.jsx`, `ui/src/components/{NumberPad,SudokuGrid,SudokuCell,
   HintDialog,ImportModal,AvatarPickerDialog,DevDataDialog}.jsx`, `ui/src/hooks/
