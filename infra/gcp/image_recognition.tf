@@ -69,6 +69,7 @@ resource "google_cloud_run_v2_service" "image_recognition" {
       }
       # Cross-cloud Bedrock credentials (same secrets as the coach; gap D). Only wired when
       # enable_coach = true so an image-rec deploy without the secrets still applies.
+      # @spec IR-GCP-005
       dynamic "env" {
         for_each = var.enable_coach ? [1] : []
         content {

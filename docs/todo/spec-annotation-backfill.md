@@ -100,7 +100,7 @@ still open). The `sudoku-coach` and `image-recognition` entries' drift notes wer
       `CP-INFRA-061` scoped out, see the note above
 - [ ] `infra/gcp/*.tf` has `@spec` annotations covering all 23 `CP-GCP-*` IDs listed above
 - [ ] The listed frontend files have `@spec` annotations covering all 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs
-- [ ] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs (done on branch `docs/spec-annotation-image-recognition`, not yet merged as of this branch's base)
+- [x] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs — done 2026-08-21
 - [x] `sudoku-coach`'s 5 uncited IDs (`SC-BE-004`, `SC-UI-041`, `SC-UI-060/061/062`) annotated — done 2026-08-21
 - [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend`, `image-recognition` cleared (`sudoku-coach`'s cleared 2026-08-21; `cloud-platform`'s AWS half done here but its GCP half keeps the note open)
 
