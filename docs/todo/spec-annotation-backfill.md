@@ -58,18 +58,18 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
   prop in `App.jsx`, `SC-UI-041`/`060` on `useCoachSession.js`'s file header and its
   `setHighlightCells` call site. **Done** (2026-08-21) — see the `sudoku-coach` row below.
 
-**`CP-INFRA-061` gap (found 2026-08-24, during the AWS Terraform pass):** "share the Lambda zip S3
-bucket across all workspaces" has no home in `infra/aws/*.tf` — no `.tf` resource, data source, or
-variable references the `sudoku-lambda-zip-{account}` bucket at all. The only reference found is an
-IAM policy grant (`LambdaZipBucket` statement, including `s3:CreateBucket`) in
-`scripts/infra/aws/bootstrap.sh`, which suggests the bucket may be created out-of-band or as an
-implicit side effect of the `terraform-aws-modules/lambda` module rather than by an explicit
-resource — genuinely unclear without further investigation, and this project's other
-CI/bootstrap scripts do carry `@spec` citations (e.g. `scripts/github/amplify-remove-rc-urls.sh`),
-so a shell-script citation wouldn't be unprecedented if that turns out to be the right home.
-**Left unannotated, scoped out of the AWS Terraform PR** rather than force a citation onto an
-ambiguous location — needs its own short investigation to confirm where the bucket is actually
-provisioned before annotating.
+**`CP-INFRA-061` gap (found 2026-08-24, during the AWS Terraform pass; resolved 2026-08-24):**
+"share the Lambda zip S3 bucket across all workspaces" has no home in `infra/aws/*.tf` — no `.tf`
+resource, data source, or variable references the `sudoku-lambda-zip-{account}` bucket at all.
+**Root cause confirmed via `git log -p --follow -- infra/aws/lambda.tf`:** commit #154 ("migrate
+AWS backend Lambda from zip to container image") explicitly removed
+`resource "aws_s3_bucket" "lambda_zip"` when both Lambdas moved to `package_type = "Image"` /
+`create_package = false`. The bucket infrastructure this spec describes was deliberately deleted,
+not merely uncited — `CP-INFRA-061` is a **stale spec**, not an annotation gap. The `LambdaZipBucket`
+IAM policy statement in `scripts/infra/aws/bootstrap.sh` is leftover cruft from the same migration
+(never cleaned up). **Not annotated** — the right fix is marking `CP-INFRA-061` `[D]`/retired in
+`docs/specs/cloud-platform-specs.md` and removing the dead IAM statement, tracked as
+`docs/roadmap.md` Tech debt item 2, not more annotation work.
 
 **GCP CI-workflow/bootstrap-script gap (found 2026-08-24, during the GCP Terraform pass):** 9 of
 the 30 `[x]` `CP-GCP-*` IDs (`CP-GCP-030`, `032`, `041`, `042`, `043`, `050`, `080`, `081`, `082`)

@@ -18,7 +18,7 @@ recently; kept visible for one pass so the change is easy to spot, then removed.
 
 ## Sequence
 
-The actual execution order, agreed 2026-08-20, last synced 2026-08-21 — distinct from the
+The actual execution order, agreed 2026-08-20, last synced 2026-08-24 — distinct from the
 grouped-by-area lists below (those describe *what* each gap is; this describes *the order to do
 them in*, and why). **This section is the source of truth for "what's next" — a cold-start
 session should read this first, not infer priority from the grouped lists.** Update it whenever
@@ -35,29 +35,18 @@ the plan changes.
    — a commit-history-grounded summary of the whole GCP migration, useful background for anyone
    picking up the Vertex cutover (item below) or GCP infra work generally.
 3. **[done] Spec-annotation backfill** —
-   [`docs/todo/spec-annotation-backfill.md`](todo/spec-annotation-backfill.md). Done 2026-08-24
-   (PRs #200/#201/#204/#205/#206, one cluster per PR). All residual loose ends closed the same day:
-   the 6 genuinely-uncited GCP CI/bootstrap IDs (`CP-GCP-041/043/050/080/081/082`) annotated in their
-   real homes, `CP-GCP-050`'s spec text corrected (Route53 CNAME, not Cloud DNS zone), `CP-INFRA-061`
-   and `FE-UI-042b` retired `[D]`, and the separate `HE-BE-035` hint-engine test gap closed with a
-   direct test + citation. All `index.yaml` drift notes cleared.
-4. **[next] Remaining new features, in order.** Tidy-up/tech-debt is complete; the sequence below is
-   the agreed order for the remaining feature work (rationale inline). Re-order as priorities shift.
-   1. **Vertex AI coach cutover completion** (`CP-GCP-090`/`SC-GCP-007`) — closest to done; adapter,
-      rollout var, and context caching are all merged and locally validated. Finish with a light
-      deployed-path smoke check, then flip `coach_ai_provider`'s default to `vertex`.
-   2. **GCP Cloud Logging for the coach-quality harness** — unblocks durable (not just local-ADC)
-      validation of #1 and all future GCP-hosted coach work.
-   3. **Coach-quality invoke/converse A/B** — small; reuses `coach-quality-repeat.sh`.
-   4. **Optimise AI coach Bedrock model selection** (Haiku 4.5 vs Sonnet) — same tooling family as #3.
-   5. **Admin log browser** (CloudWatch viewer in the admin menu) — standalone, no dependencies.
-   6. **Terraform CI/testing review** — extend the local pre-push suite / tflint to `infra/gcp`.
-   7. **Integrate hint output into the AI coach chat window** — largest UX item; needs a full
-      HLD→LLD→EARS pass before any code.
-
-   Deferred (don't re-open without a reason that changes the tradeoff): `CP-GCP-061` (GCP budget
-   hard-cap), `CP-GCP-091` (private VPC egress), `GL-GCP-006` (single-active-game txn), `UM-GCP-008`
-   (GCP admin authz), `IR-PROC-001..005` (image preprocessing).
+   [`docs/todo/spec-annotation-backfill.md`](todo/spec-annotation-backfill.md). Merged as 5 PRs,
+   one per cluster (#200 sudoku-coach, #201 image-recognition, #204 AWS Terraform, #205 GCP
+   Terraform, #206 frontend), 2026-08-21 to 2026-08-24. 109 of 120 targeted IDs annotated. The 11
+   IDs that had surfaced as genuine spec drift rather than missing citations were then closed by
+   #208: the 6 genuinely-uncited GCP CI/bootstrap IDs annotated in their real homes, `CP-GCP-050`
+   spec text corrected (Route53 CNAME, not a Cloud DNS zone), and `CP-INFRA-061` + `FE-UI-042b`
+   retired `[D]` — plus the separate `HE-BE-035` hint-engine test gap closed with a direct test +
+   citation. All `index.yaml` drift notes cleared. See Tech debt below.
+4. **[active] Vertex AI coach cutover completion** — `CP-GCP-090`/`SC-GCP-007`, see AI Quality
+   item 1 below. Promoted to explicit item 4 — the closest-to-done item on the whole roadmap
+   (adapter, rollout var, and context caching are all merged and validated locally; see the AI
+   Quality section for what's left).
 
 ---
 
@@ -115,8 +104,13 @@ the plan changes.
 
 _No open tech-debt/tidy-up items — the tracked backlog here is clear._
 
-1. **[done] Spec-annotation backfill** — done 2026-08-24; all residual loose ends closed (see
-   Sequence item 3).
+1. **[done] Spec-annotation backfill** — see Sequence item 3 above.
+2. **[done] Spec-drift cleanup** — closed by #208 (2026-08-24). The 6 genuinely-uncited GCP
+   CI/bootstrap IDs were annotated in their real homes (`.github/workflows/{deploy-gcp,ci}.yml`,
+   `scripts/infra/gcp/{bootstrap,github-bootstrap,set-custom-domain-cname}.sh`); `CP-GCP-050`'s spec
+   text was corrected (Route53 CNAME, not a Cloud DNS zone); `CP-INFRA-061` and `FE-UI-042b` were
+   retired `[D]`; and the `HE-BE-035` test gap was closed. Residual: the now-dead `LambdaZipBucket`
+   IAM statement in `scripts/infra/aws/bootstrap.sh` is left as a separate optional cleanup.
 
 ---
 
