@@ -104,7 +104,7 @@ workspace** via the `coach_ai_provider` Terraform variable (`infra/gcp/variables
 - **Native Vertex AI (`coach_ai_provider=vertex`).** `VertexCoachClient` calls Gemini via **ADC** (the
   Cloud Run runtime SA) — **no AWS keys mounted at all** (SC-GCP-007). This is the intended GCP end
   state; the adapter, rollout var, and Vertex context caching are all merged, with the default flip to
-  `vertex` tracked as the top remaining feature (see `docs/roadmap.md`).
+  `vertex` tracked as the top remaining feature (see `docs/backlog.md`).
 
 **Image recognition** always uses cross-cloud Bedrock on GCP, independent of `coach_ai_provider`.
 
@@ -172,7 +172,7 @@ subdomain via the parent-zone CNAME, CP-GCP-050), and the **automated CI smoke j
 (`deploy-gcp.yml`'s `smoke` job wraps `gcp-smoke-token.sh` / Identity Platform `signInWithPassword`).
 Bedrock-backed coach and image recognition both run on GCP.
 
-Genuinely still open (see `docs/roadmap.md` for the authoritative, ordered list):
+Genuinely still open (see `docs/backlog.md` for the authoritative, ordered list):
 - **Vertex AI coach cutover** — flip `coach_ai_provider`'s default to `vertex` after a deployed-path
   smoke check (`CP-GCP-090` / `SC-GCP-007`); the top remaining feature.
 - Layer-2 Playwright run against the deployed GCP backend (Firebase-seeded session).
