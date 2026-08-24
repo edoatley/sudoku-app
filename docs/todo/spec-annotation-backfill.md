@@ -19,10 +19,12 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
 ## Context
 
 **Relevant files (by cluster, from the agent reports):**
-- **`infra/aws/*.tf` (25 IDs, all `CP-INFRA-*`)** — confirmed **zero** `@spec` annotations
-  anywhere in `infra/aws/` (`amplify.tf`, `api_gateway.tf`, `budgets.tf`, `cognito.tf`,
-  `cognito-rc-shared.tf`, `domain.tf`, `dynamodb.tf`, `iam.tf`, `image_recognition_lambda.tf`,
-  `lambda.tf`, `main.tf`, `migrations.tf`, `outputs.tf`, `terraform.tf`, `variables.tf`). The
+- **`infra/aws/*.tf` (26 IDs, all `CP-INFRA-*` — the doc originally said 25; the spec file has 26)**
+  — confirmed **zero** `@spec` annotations anywhere in `infra/aws/` (`amplify.tf`,
+  `api_gateway.tf`, `budgets.tf`, `cognito.tf`, `cognito-rc-shared.tf`, `domain.tf`, `dynamodb.tf`,
+  `iam.tf`, `image_recognition_lambda.tf`, `lambda.tf`, `main.tf`, `migrations.tf`, `outputs.tf`,
+  `terraform.tf`, `variables.tf`). **Done** (2026-08-24) for 25 of 26 — see the note below on
+  `CP-INFRA-061`. The
   convention isn't used in this facet's Terraform at all.
 - **`infra/gcp/*.tf` (23 IDs, all `CP-GCP-*`)** — primary resource blocks
   (`google_cloud_run_v2_service.backend`/`.image_recognition`, `google_firestore_database.main`,
@@ -52,9 +54,23 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
   prop in `App.jsx`, `SC-UI-041`/`060` on `useCoachSession.js`'s file header and its
   `setHighlightCells` call site. **Done** (2026-08-21) — see the `sudoku-coach` row below.
 
-**Current state:** `docs/arrows/index.yaml`'s `cloud-platform`, `react-frontend`, and
-`image-recognition` entries carry a `drift` note pointing here as of 2026-08-19. The `sudoku-coach`
-entry's drift note (a separate, smaller gap) was cleared 2026-08-21.
+**`CP-INFRA-061` gap (found 2026-08-24, during the AWS Terraform pass):** "share the Lambda zip S3
+bucket across all workspaces" has no home in `infra/aws/*.tf` — no `.tf` resource, data source, or
+variable references the `sudoku-lambda-zip-{account}` bucket at all. The only reference found is an
+IAM policy grant (`LambdaZipBucket` statement, including `s3:CreateBucket`) in
+`scripts/infra/aws/bootstrap.sh`, which suggests the bucket may be created out-of-band or as an
+implicit side effect of the `terraform-aws-modules/lambda` module rather than by an explicit
+resource — genuinely unclear without further investigation, and this project's other
+CI/bootstrap scripts do carry `@spec` citations (e.g. `scripts/github/amplify-remove-rc-urls.sh`),
+so a shell-script citation wouldn't be unprecedented if that turns out to be the right home.
+**Left unannotated, scoped out of the AWS Terraform PR** rather than force a citation onto an
+ambiguous location — needs its own short investigation to confirm where the bucket is actually
+provisioned before annotating.
+
+**Current state:** `docs/arrows/index.yaml`'s `cloud-platform` and `react-frontend` entries carry a
+`drift` note pointing here as of 2026-08-19 (cloud-platform's GCP half — 23 `CP-GCP-*` IDs — is
+still open). The `sudoku-coach` and `image-recognition` entries' drift notes were cleared
+2026-08-21 and 2026-08-24 respectively.
 
 **Key constraints:**
 - Per this project's `@spec` convention, annotations go "at the entry point of the behavior's
@@ -80,12 +96,13 @@ entry's drift note (a separate, smaller gap) was cleared 2026-08-21.
 
 ## Acceptance criteria
 
-- [ ] `infra/aws/*.tf` has `@spec` annotations covering all 25 `CP-INFRA-*` IDs listed above
+- [x] `infra/aws/*.tf` has `@spec` annotations covering 25 of 26 `CP-INFRA-*` IDs — done 2026-08-24;
+      `CP-INFRA-061` scoped out, see the note above
 - [ ] `infra/gcp/*.tf` has `@spec` annotations covering all 23 `CP-GCP-*` IDs listed above
 - [ ] The listed frontend files have `@spec` annotations covering all 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs
-- [ ] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs
+- [ ] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs (done on branch `docs/spec-annotation-image-recognition`, not yet merged as of this branch's base)
 - [x] `sudoku-coach`'s 5 uncited IDs (`SC-BE-004`, `SC-UI-041`, `SC-UI-060/061/062`) annotated — done 2026-08-21
-- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend`, `image-recognition` cleared (`sudoku-coach`'s cleared 2026-08-21)
+- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend`, `image-recognition` cleared (`sudoku-coach`'s cleared 2026-08-21; `cloud-platform`'s AWS half done here but its GCP half keeps the note open)
 
 ## Related specs / docs
 

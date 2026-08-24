@@ -6,7 +6,8 @@ locals {
   aws_region = data.aws_region.current.region
   is_default = terraform.workspace == "default"
   is_rc      = startswith(terraform.workspace, "rc-")
-  suffix     = local.is_default ? "" : "-${terraform.workspace}"
+  # @spec CP-INFRA-060
+  suffix = local.is_default ? "" : "-${terraform.workspace}"
 
   # Bedrock inference profiles used by the image recognition Lambda.
   # This list is the single source of truth: IAM permissions and the Lambda

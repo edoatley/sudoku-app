@@ -59,6 +59,7 @@ resource "aws_iam_role_policy_attachment" "image_recognition_bedrock" {
 
 # ── Lambda function ───────────────────────────────────────────────────────────
 
+# @spec CP-INFRA-012
 module "image_recognition_lambda" {
   source  = "terraform-aws-modules/lambda/aws"
   version = "~> 8.8"
