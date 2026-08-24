@@ -249,7 +249,7 @@ arrows:
     blockedBy: []
     detail: sudoku-coach.md
     next: "SC-GCP-007 (Vertex AI cutover — see docs/roadmap.md AI Quality)"
-    drift: "SC-BE-004, SC-UI-041, SC-UI-060/061/062 verified genuinely implemented but have no @spec citation to extend (annotation gap only, see docs/todo/spec-annotation-backfill.md)."
+    drift: ~
 
 # Items found during mapping that don't yet belong to a segment. Empty — the orphan-artifacts
 # check (reference coherence, reverse-@spec-orphans) found none this audit.
