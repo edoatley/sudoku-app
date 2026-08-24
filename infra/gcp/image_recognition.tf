@@ -4,6 +4,7 @@
 # AWS image-recognition Lambda's 60s). Runs as its own runtime service account.
 # ---------------------------------------------------------------------------
 
+# @spec CP-GCP-002, CP-GCP-003, CP-GCP-004
 resource "google_cloud_run_v2_service" "image_recognition" {
   count = var.deploy_image_recognition ? 1 : 0
 

@@ -26,12 +26,14 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
   `terraform.tf`, `variables.tf`). **Done** (2026-08-24) for 25 of 26 — see the note below on
   `CP-INFRA-061`. The
   convention isn't used in this facet's Terraform at all.
-- **`infra/gcp/*.tf` (23 IDs, all `CP-GCP-*`)** — primary resource blocks
-  (`google_cloud_run_v2_service.backend`/`.image_recognition`, `google_firestore_database.main`,
-  `google_firebase_hosting_site.frontend`, `google_firebase_hosting_custom_domain.frontend`,
-  `google_billing_budget.monthly`, label locals in `main.tf`) carry no citation. The few
-  citations that exist (`CP-GCP-014`, `CP-GCP-090`/`SC-GCP-007`, `GL-GCP-007`) are on narrower,
-  unrelated sub-blocks.
+- **`infra/gcp/*.tf` (30 `[x]` `CP-GCP-*` IDs total, not 23 as originally scoped)** — primary
+  resource blocks (`google_cloud_run_v2_service.backend`/`.image_recognition`,
+  `google_firestore_database.main`, `google_firebase_hosting_site.frontend`,
+  `google_firebase_hosting_custom_domain.frontend`, `google_billing_budget.monthly`, label locals
+  in `main.tf`) carry no citation. The few citations that exist (`CP-GCP-014`, `CP-GCP-090`/
+  `SC-GCP-007`, `GL-GCP-007`) are on narrower, unrelated sub-blocks. **Done** (2026-08-24) for 21
+  of 30 — see the note below on the 9 CI-workflow/bootstrap-script IDs, which have no Terraform
+  home at all and are a distinct, newly-found gap.
 - **`ui/src/hooks/{useSudokuGame,useGameSync,useGameTimer}.js`, `ui/src/api/sudokuApi.js`,
   `ui/src/App.jsx`, `ui/src/main.jsx`, `ui/src/components/{NumberPad,SudokuGrid,SudokuCell,
   HintDialog,ImportModal,AvatarPickerDialog,DevDataDialog}.jsx`, `ui/src/hooks/
@@ -67,10 +69,28 @@ so a shell-script citation wouldn't be unprecedented if that turns out to be the
 ambiguous location — needs its own short investigation to confirm where the bucket is actually
 provisioned before annotating.
 
+**GCP CI-workflow/bootstrap-script gap (found 2026-08-24, during the GCP Terraform pass):** 9 of
+the 30 `[x]` `CP-GCP-*` IDs (`CP-GCP-030`, `032`, `041`, `042`, `043`, `050`, `080`, `081`, `082`)
+are genuinely implemented, but not by anything in `infra/gcp/*.tf` — no Terraform resource,
+data-source, or variable references them at all. Verified case-by-case: `CP-GCP-041`/`080`/`081`/
+`082` are CI-workflow/bootstrap-script behavior by explicit spec-text design ("deploy... via CI",
+"authenticate GitHub Actions via Workload Identity Federation" — confirmed no `infra/gcp/` WIF
+resource exists; the real implementation is `scripts/infra/gcp/{bootstrap,github-bootstrap}.sh`);
+`CP-GCP-030`/`032` are Identity Platform config, provisioned manually/outside Terraform per
+`CP-GCP-031`'s own spec text; `CP-GCP-042`/`043` are the CI deploy workflow's VITE_* injection.
+`CP-GCP-050` (Cloud DNS managed zone) is a spec-text/implementation mismatch worth flagging on its
+own — the actual implementation uses a CNAME record in the AWS-side parent zone (Route53), not a
+GCP Cloud DNS zone at all (see `firebase_hosting.tf`'s own comment on this). None of these were
+force-annotated onto an unrelated Terraform block. This is a new, distinct, out-of-scope gap — this
+doc's title is "infra, plain frontend components, and image_recognition", and CI workflows /
+bootstrap shell scripts are neither; needs its own follow-up (likely small, since precedent for
+`@spec` citations in bootstrap scripts already exists — see `scripts/github/amplify-remove-rc-urls.sh`).
+
 **Current state:** `docs/arrows/index.yaml`'s `cloud-platform` and `react-frontend` entries carry a
-`drift` note pointing here as of 2026-08-19 (cloud-platform's GCP half — 23 `CP-GCP-*` IDs — is
-still open). The `sudoku-coach` and `image-recognition` entries' drift notes were cleared
-2026-08-21 and 2026-08-24 respectively.
+`drift` note pointing here as of 2026-08-19. The `sudoku-coach` and `image-recognition` entries'
+drift notes were cleared 2026-08-21 and 2026-08-24 respectively. `cloud-platform`'s AWS and GCP
+Terraform halves were both done 2026-08-24. Either way, the `cloud-platform` drift note stays open
+for the CI/bootstrap-script gap above.
 
 **Key constraints:**
 - Per this project's `@spec` convention, annotations go "at the entry point of the behavior's
@@ -98,11 +118,11 @@ still open). The `sudoku-coach` and `image-recognition` entries' drift notes wer
 
 - [x] `infra/aws/*.tf` has `@spec` annotations covering 25 of 26 `CP-INFRA-*` IDs — done 2026-08-24;
       `CP-INFRA-061` scoped out, see the note above
-- [ ] `infra/gcp/*.tf` has `@spec` annotations covering all 23 `CP-GCP-*` IDs listed above
+- [x] `infra/gcp/*.tf` has `@spec` annotations covering 21 of 30 `CP-GCP-*` IDs — done 2026-08-24; the other 9 are a CI-workflow/bootstrap-script gap, see the note above
 - [ ] The listed frontend files have `@spec` annotations covering all 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs
 - [x] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs — done 2026-08-21
 - [x] `sudoku-coach`'s 5 uncited IDs (`SC-BE-004`, `SC-UI-041`, `SC-UI-060/061/062`) annotated — done 2026-08-21
-- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend`, `image-recognition` cleared (`sudoku-coach`'s cleared 2026-08-21; `cloud-platform`'s AWS half done here but its GCP half keeps the note open)
+- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend` cleared (`sudoku-coach`'s and `image-recognition`'s already cleared; `cloud-platform`'s stays open for the CI/bootstrap-script gap even after both Terraform halves land)
 
 ## Related specs / docs
 

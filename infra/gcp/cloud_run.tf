@@ -5,6 +5,7 @@
 # granted by hand, not here — see docs/runbooks/gcp-manual-setup.md.
 # ---------------------------------------------------------------------------
 
+# @spec CP-GCP-001, CP-GCP-003, CP-GCP-004, CP-GCP-013
 resource "google_cloud_run_v2_service" "backend" {
   count = var.deploy_cloud_run ? 1 : 0
 
@@ -62,6 +63,7 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       # %gcp OIDC issuer/client-id/audience all interpolate ${GCP_PROJECT_ID}. The Firebase
       # project id equals the GCP project id.
+      # @spec CP-GCP-010, CP-GCP-011, CP-GCP-031
       env {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
@@ -72,6 +74,7 @@ resource "google_cloud_run_v2_service" "backend" {
         value = var.project_id
       }
       # Consumed by %gcp.quarkus.http.cors.origins (native CORS; the custom filter is disabled).
+      # @spec CP-GCP-012
       env {
         name  = "CORS_ALLOWED_ORIGINS"
         value = local.cors_allowed_origins
@@ -99,7 +102,7 @@ resource "google_cloud_run_v2_service" "backend" {
       # env vars so BedrockClientProducer's default credential chain resolves them with no code
       # change; region stays eu-west-2 (its default). Only wired when enable_coach = true and the
       # coach isn't on Vertex, so a backend-only deploy without the secrets still applies, and the
-      # Vertex path never creates an AWS SDK client. See runbook §6 + CP-GCP-085. @spec SC-GCP-007
+      # Vertex path never creates an AWS SDK client. See runbook §6 + CP-GCP-085. @spec SC-GCP-007, CP-GCP-085
       dynamic "env" {
         for_each = var.enable_coach && var.coach_ai_provider != "vertex" ? [1] : []
         content {
