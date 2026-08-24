@@ -114,7 +114,7 @@ arrows:
     blockedBy: []
     detail: image-recognition.md
     next: "Re-evaluate IR-PROC-001-005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)"
-    drift: "20 implemented specs (IR-API-*, IR-BE-*, IR-PROC-*, IR-GCP-005) have no @spec citation anywhere -- handler.py and image_recognition.tf were never annotated. Verified genuinely implemented line-by-line during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
+    drift: ~
 
   cloud-platform:
     status: PARTIAL

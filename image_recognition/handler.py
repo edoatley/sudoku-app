@@ -52,6 +52,7 @@ _AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
 # Prompts
 # ---------------------------------------------------------------------------
 
+# @spec IR-PROC-013
 _SYSTEM_PROMPT = (
     "You are a precise Sudoku digit extractor. You specialize in spatial mapping. "
     "You count columns from left to right (1-9) and rows from top to bottom (1-9). "
@@ -63,6 +64,7 @@ _SYSTEM_PROMPT = (
     "Background shading, highlight colour, and small pencil-mark numbers do NOT count as digits."
 )
 
+# @spec IR-PROC-012
 _USER_PROMPT = (
     "Analyze the image of the Sudoku puzzle.\n\n"
     "IMPORTANT: Many cells have coloured or shaded backgrounds (orange, tan, grey, yellow). "
@@ -98,6 +100,8 @@ def handler(event: dict, context: object) -> dict:
       }
 
     where ``originalGrid`` is a 9x9 list of ints (0 = empty cell).
+
+    @spec IR-API-001, IR-API-002, IR-BE-001, IR-BE-002, IR-API-010, IR-API-011, IR-API-012
     """
     # Warmup probe — returns immediately without invoking Bedrock
     raw_path = event.get("rawPath", "")
@@ -184,6 +188,8 @@ def _recognize_with_bedrock(
 
     ``valid`` is True when the best grid has no duplicate digits and has at
     least 17 clues (the minimum for a uniquely-solvable Sudoku puzzle).
+
+    @spec IR-PROC-030, IR-PROC-031, IR-PROC-032, IR-PROC-033
     """
     best_grid: list[list[int]] | None = None
     best_score: int = -1
@@ -305,7 +311,10 @@ def _recognize_with_bedrock(
 
 
 def _detect_image_format(image_bytes: bytes) -> str:
-    """Detect image format from magic bytes. Returns a Bedrock-compatible format string."""
+    """Detect image format from magic bytes. Returns a Bedrock-compatible format string.
+
+    @spec IR-PROC-006
+    """
     if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
         return "png"
     if image_bytes[:3] == b"\xff\xd8\xff":
@@ -328,6 +337,8 @@ def _invoke_model(
     The Converse API is used (rather than InvokeModel) because it supports a
     system prompt for all model families, which is critical for reliable JSON
     output from Nova models.
+
+    @spec IR-PROC-010, IR-PROC-011
     """
     image_format = _detect_image_format(image_bytes)
     response = client.converse(
@@ -364,6 +375,8 @@ def _parse_grid(text: str) -> list[list[int]]:
     """
     Enhanced parser that handles JSON and falls back to parsing
     the pipe-delimited scratchpad if the JSON is malformed.
+
+    @spec IR-PROC-020, IR-PROC-021, IR-PROC-022, IR-PROC-023
     """
     cleaned = text.strip()
 
