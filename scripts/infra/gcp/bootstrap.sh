@@ -16,6 +16,8 @@
 # docs/runbooks/gcp-manual-setup.md (the learning surface).
 #
 # Safe to re-run (idempotent).
+#
+# @spec CP-GCP-082
 
 set -euo pipefail
 

@@ -6,9 +6,12 @@
 HLD → LLD → EARS → Tests → Code workflow without re-deriving this survey. This doc is the
 triage layer — it does not itself contain new design work.
 
-**As of:** 2026-08-19. Re-derive rather than trust this snapshot once specs/arrows have moved on.
+**As of:** 2026-08-24. Re-derive rather than trust this snapshot once specs/arrows have moved on.
 See [`docs/roadmap.md`](../roadmap.md) for the same gaps grouped by area (infrastructure, AI
-quality, UX, tech debt) instead of by discovery order.
+quality, UX, tech debt) **and the agreed execution order** — the roadmap's Sequence section is the
+source of truth for "what's next"; this file is discovery-order triage only. The spec-annotation
+backfill and all its residual loose ends are **complete** as of 2026-08-24 (see
+[`spec-annotation-backfill.md`](spec-annotation-backfill.md)).
 
 ---
 
@@ -53,12 +56,8 @@ quality, UX, tech debt) instead of by discovery order.
   one-line default flip.
 - **Recommendation:** pursue next. Closest-to-done item in the inventory.
 
-### 2. Escape key closes coach panel — SC-UI-013
-- **State:** Isolated, small UI gap in the coach chat panel.
-- **Spec:** `docs/specs/sudoku-coach-specs.md` (SC-UI-013).
-- **Size:** small.
-- **Recommendation:** pursue opportunistically — cheap to fold into any other coach-panel UI
-  work, or take standalone as a quick win.
+### 2. Escape key closes coach panel — SC-UI-013 — [done]
+- **State:** Done — merged (#189). Kept for one pass so the change is easy to spot, then removed.
 
 ### 3. Coach-quality harness A/B (invoke vs converse)
 - **State:** Noted in `docs/arrows/index.yaml` (`sudoku-coach` arrow `next` field) as

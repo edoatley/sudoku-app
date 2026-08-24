@@ -264,6 +264,7 @@ jobs:
           echo "image_recognition_url=$(terraform output -raw image_recognition_url 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
           echo "firebase_site=$(terraform output -raw firebase_hosting_site_id)" >> "$GITHUB_OUTPUT"
 
+  # @spec CP-GCP-041
   deploy-frontend:
     name: Build & deploy frontend (Firebase Hosting)
     needs: [config, terraform]
@@ -314,7 +315,7 @@ jobs:
           # Full VITE_* set (CP-GCP-042/043) — mirrors the AWS Amplify build.
           VITE_AI_COACH: ${{ needs.config.outputs.enable_coach }}
           VITE_MOCK_API: "false"
-          # CP-GCP-043: dev tools off in the default (prod) workspace, on elsewhere.
+          # @spec CP-GCP-043 — dev tools off in the default (prod) workspace, on elsewhere.
           VITE_DEV_TOOLS: ${{ needs.config.outputs.workspace != 'default' }}
         run: npm run build
 

@@ -149,7 +149,7 @@ public class SudokuServiceImpl implements SudokuService {
         return generator.solveGrid(puzzle);
     }
 
-    // @spec DT-SVC-002
+    // @spec DT-SVC-002, HE-BE-035
     @Override
     public boolean hasSingleSolution(Grid grid) {
         return generator.countSolutions(grid) == 1;

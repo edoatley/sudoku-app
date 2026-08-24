@@ -98,11 +98,17 @@ itself possibly stale (the ID may need re-scoping to a `GL-BE-*`/backend ID, not
 frontend at all). **Left uncited, out of scope for this frontend annotation pass** — flagging as a
 spec-drift question, not just a missing citation.
 
-**Current state:** `docs/arrows/index.yaml`'s `cloud-platform` entry carries a `drift` note pointing
-here as of 2026-08-19 (its AWS and GCP Terraform halves were both done 2026-08-24; the note stays
-open for the CI/bootstrap-script gap above either way). The `sudoku-coach` and `image-recognition`
-entries' drift notes were cleared 2026-08-21 and 2026-08-24 respectively. `react-frontend`'s drift
-note is cleared, with the caveat that `FE-UI-042b` is a distinct, unresolved gap (see above).
+**Current state (closed 2026-08-24):** all residuals resolved. The CI-workflow/bootstrap-script gap
+was closed by annotating the 6 genuinely-uncited IDs in their real homes (`CP-GCP-041/043` →
+`.github/workflows/deploy-gcp.yml`; `CP-GCP-081` → `.github/workflows/ci.yml`; `CP-GCP-050` →
+`scripts/infra/gcp/set-custom-domain-cname.sh`; `CP-GCP-080` → `github-bootstrap.sh`; `CP-GCP-082` →
+`bootstrap.sh`) — the other three (`CP-GCP-030/032/042`) were already cited. `CP-GCP-050`'s spec text
+was corrected (Cloud DNS → Route53 CNAME). `CP-INFRA-061` was retired `[D]` (container-image
+migration superseded the zip bucket). `FE-UI-042b` was retired `[D]` (scoring moved server-side,
+`LT-BE-001/002/003`). `HE-BE-035` (a separate hint-engine gap) was closed with a direct test in
+`SudokuServiceImplTest.java` + a `@spec` citation at `SudokuServiceImpl.java:154`. All `index.yaml`
+drift notes are now cleared: `sudoku-coach` (2026-08-21), `image-recognition` (2026-08-24),
+`react-frontend` (2026-08-24), `hint-engine` (2026-08-24), `cloud-platform` (2026-08-24).
 
 **Key constraints:**
 - Per this project's `@spec` convention, annotations go "at the entry point of the behavior's
@@ -133,7 +139,9 @@ note is cleared, with the caveat that `FE-UI-042b` is a distinct, unresolved gap
 - [x] The listed frontend files have `@spec` annotations covering 38 of 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs — done 2026-08-24; `FE-UI-042b` scoped out, see the note above
 - [x] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs — done 2026-08-21
 - [x] `sudoku-coach`'s 5 uncited IDs (`SC-BE-004`, `SC-UI-041`, `SC-UI-060/061/062`) annotated — done 2026-08-21
-- [x] `docs/arrows/index.yaml`'s `drift` notes cleared where fully resolvable: `sudoku-coach` (2026-08-21), `image-recognition` (2026-08-24), `react-frontend` (2026-08-24, with the `FE-UI-042b` caveat). `cloud-platform`'s stays open — its Terraform work is done but the CI/bootstrap-script gap is new, distinct scope.
+- [x] The 6 genuinely-uncited CI-workflow/bootstrap-script IDs (`CP-GCP-041/043/050/080/081/082`) annotated in their real homes; `CP-GCP-030/032/042` were already cited — done 2026-08-24
+- [x] `CP-GCP-050` spec text corrected (Route53 CNAME, not Cloud DNS zone); `CP-INFRA-061` and `FE-UI-042b` retired `[D]`; `HE-BE-035` closed with a test + citation — done 2026-08-24
+- [x] `docs/arrows/index.yaml`'s `drift` notes all cleared: `sudoku-coach` (2026-08-21), `image-recognition`/`react-frontend`/`hint-engine`/`cloud-platform` (2026-08-24)
 
 ## Related specs / docs
 

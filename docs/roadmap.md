@@ -37,17 +37,16 @@ the plan changes.
 3. **[done] Spec-annotation backfill** —
    [`docs/todo/spec-annotation-backfill.md`](todo/spec-annotation-backfill.md). Merged as 5 PRs,
    one per cluster (#200 sudoku-coach, #201 image-recognition, #204 AWS Terraform, #205 GCP
-   Terraform, #206 frontend), 2026-08-21 to 2026-08-24. 109 of 120 targeted IDs annotated (actual
-   counts ran higher than the original ~107 estimate once each cluster was audited in detail — e.g.
-   GCP had 30 implemented IDs, not 23). 11 IDs surfaced as genuine spec drift rather than missing
-   citations, not annotated — see Tech debt item 2 below: `CP-INFRA-061` (describes an S3 zip
-   bucket deliberately deleted in #154's zip→container-image migration), 9 `CP-GCP-*` IDs
-   (CI-workflow/bootstrap-script behavior, never Terraform), and `FE-UI-042b` (scoring moved
-   server-side; no frontend implementation exists).
+   Terraform, #206 frontend), 2026-08-21 to 2026-08-24. 109 of 120 targeted IDs annotated. The 11
+   IDs that had surfaced as genuine spec drift rather than missing citations were then closed by
+   #208: the 6 genuinely-uncited GCP CI/bootstrap IDs annotated in their real homes, `CP-GCP-050`
+   spec text corrected (Route53 CNAME, not a Cloud DNS zone), and `CP-INFRA-061` + `FE-UI-042b`
+   retired `[D]` — plus the separate `HE-BE-035` hint-engine test gap closed with a direct test +
+   citation. All `index.yaml` drift notes cleared. See Tech debt below.
 4. **[active] Vertex AI coach cutover completion** — `CP-GCP-090`/`SC-GCP-007`, see AI Quality
-   item 1 below. Promoted from "next roadmap item, TBD" to explicit item 4 — it's the
-   closest-to-done item on the whole roadmap (adapter, rollout var, and context caching are all
-   merged and validated locally; see docs/roadmap.md AI Quality section for what's left).
+   item 1 below. Promoted to explicit item 4 — the closest-to-done item on the whole roadmap
+   (adapter, rollout var, and context caching are all merged and validated locally; see the AI
+   Quality section for what's left).
 
 ---
 
@@ -103,25 +102,15 @@ the plan changes.
 
 ## Tech debt
 
+_No open tech-debt/tidy-up items — the tracked backlog here is clear._
+
 1. **[done] Spec-annotation backfill** — see Sequence item 3 above.
-2. **[active] Spec-drift cleanup (3 IDs found during the backfill)** — small, well-scoped, no
-   architectural risk. Each needs a maintainer call rather than more annotation work:
-   - `CP-INFRA-061` — the spec describes a shared Lambda-zip S3 bucket; that infrastructure was
-     deliberately deleted in #154 (zip→container-image migration). Likely action: mark `[D]`
-     deferred/retired in `docs/specs/cloud-platform-specs.md`, and remove the now-dead
-     `LambdaZipBucket` IAM policy statement in `scripts/infra/aws/bootstrap.sh`.
-   - 9 `CP-GCP-*` IDs (`030`/`032`/`041`/`042`/`043`/`050`/`080`/`081`/`082`) — genuinely
-     implemented, but by CI workflows or bootstrap scripts, not Terraform. Likely action: add
-     `@spec` citations directly in `.github/workflows/deploy-gcp.yml` and
-     `scripts/infra/gcp/{bootstrap,github-bootstrap}.sh` (precedent already exists for
-     `@spec` in bootstrap scripts, e.g. `scripts/github/amplify-remove-rc-urls.sh`). Also:
-     `CP-GCP-050`'s text describes a Cloud DNS managed zone that was never built (the actual
-     implementation is a Route53 CNAME in the AWS parent zone) — spec text may need correcting to
-     match, separate from the citation gap.
-   - `FE-UI-042b` — no frontend implementation exists; provisional scoring already moved
-     server-side (`backend/src/main/java/com/sudoku/game/{ScoringConstants,GameServiceImpl}.java`).
-     Likely action: re-scope the ID to a `GL-BE-*`/backend spec ID, or mark it superseded.
-   See `docs/todo/spec-annotation-backfill.md` for the full investigation notes on all three.
+2. **[done] Spec-drift cleanup** — closed by #208 (2026-08-24). The 6 genuinely-uncited GCP
+   CI/bootstrap IDs were annotated in their real homes (`.github/workflows/{deploy-gcp,ci}.yml`,
+   `scripts/infra/gcp/{bootstrap,github-bootstrap,set-custom-domain-cname}.sh`); `CP-GCP-050`'s spec
+   text was corrected (Route53 CNAME, not a Cloud DNS zone); `CP-INFRA-061` and `FE-UI-042b` were
+   retired `[D]`; and the `HE-BE-035` test gap was closed. Residual: the now-dead `LambdaZipBucket`
+   IAM statement in `scripts/infra/aws/bootstrap.sh` is left as a separate optional cleanup.
 
 ---
 

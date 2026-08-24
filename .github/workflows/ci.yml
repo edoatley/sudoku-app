@@ -127,6 +127,7 @@ jobs:
             backend/target/failsafe-reports/TEST-*.xml
           retention-days: 14
 
+  # @spec CP-GCP-081
   ci-infra:
     name: Infra — Terraform fmt & validate
     runs-on: ubuntu-latest

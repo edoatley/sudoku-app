@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// @spec HE-BE-001, HE-BE-002, HE-BE-003, HE-BE-004, HE-BE-005, HE-BE-006, HE-BE-007, HE-BE-030, HE-BE-031, HE-BE-032, HE-BE-033, HE-BE-034
+// @spec HE-BE-001, HE-BE-002, HE-BE-003, HE-BE-004, HE-BE-005, HE-BE-006, HE-BE-007, HE-BE-030, HE-BE-031, HE-BE-032, HE-BE-033, HE-BE-034, HE-BE-035
 class SudokuServiceImplTest {
 
     private SudokuServiceImpl service;
@@ -271,6 +271,37 @@ class SudokuServiceImplTest {
         Optional<Grid> result = service.solveGrid(invalid);
 
         assertTrue(result.isEmpty());
+    }
+
+    // ---- hasSingleSolution tests ----
+
+    @Test
+    void hasSingleSolution_uniquePuzzle_returnsTrue() {
+        // EASY_GRID has exactly one solution (SOLVED_GRID).
+        assertTrue(service.hasSingleSolution(EASY_GRID));
+    }
+
+    @Test
+    void hasSingleSolution_solvedGrid_returnsTrue() {
+        // A fully solved grid has exactly one solution — itself.
+        assertTrue(service.hasSingleSolution(SOLVED_GRID));
+    }
+
+    @Test
+    void hasSingleSolution_underConstrainedGrid_returnsFalse() {
+        // An empty grid is under-constrained and has many solutions.
+        Grid emptyGrid = Grid.of(List.of(
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(0, 0, 0, 0, 0, 0, 0, 0, 0)
+        ));
+        assertFalse(service.hasSingleSolution(emptyGrid));
     }
 
     @Test

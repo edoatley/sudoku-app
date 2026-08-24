@@ -66,7 +66,7 @@ arrows:
     blockedBy: []
     detail: hint-engine.md
     next: ~
-    drift: "HE-BE-035 (hasSingleSolution single-solution-count check, SudokuServiceImpl.java:154) has no test exercising it directly and no @spec citation anywhere — appears to be a genuine untested/unannotated gap, not just a missing citation (found during 2026-08-19 coverage audit)."
+    drift: ~
 
   puzzle-generation:
     status: OK
@@ -126,7 +126,7 @@ arrows:
     blockedBy: []
     detail: cloud-platform.md
     next: "CP-GCP-090 (Vertex AI coach) — rollout var + local validation done (see docs/roadmap.md AI Quality); deployed-path validation + default flip still open."
-    drift: "infra/gcp/*.tf's 30 CP-GCP-* IDs were backfilled 2026-08-24 (21 of 30; the other 9 -- CP-GCP-030/032/041/042/043/050/080/081/082 -- are CI-workflow/bootstrap-script behavior with no infra/gcp/*.tf home, a distinct newly-found gap). infra/aws/*.tf's 26 CP-INFRA-* IDs were backfilled the same day (25 of 26; CP-INFRA-061 scoped out). See docs/todo/spec-annotation-backfill.md for both."
+    drift: ~
 
   react-frontend:
     status: OK
