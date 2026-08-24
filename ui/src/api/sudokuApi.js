@@ -15,6 +15,8 @@ const API_URL = import.meta.env.VITE_API_URL;
 // Image recognition has its own base URL on GCP (a separate Cloud Run service). On AWS it is served
 // under the same API Gateway as the backend, so fall back to API_URL when the var is unset.
 const IMAGE_RECOGNITION_URL = import.meta.env.VITE_IMAGE_RECOGNITION_URL || API_URL;
+// @spec FE-BE-013 — where VITE_MOCK_API is true, every exported call below returns canned data
+// (see the `if (MOCK_API)` branch in each) instead of making a network request
 const MOCK_API = import.meta.env.VITE_MOCK_API === 'true';
 const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === 'true';
 const LOG_API = import.meta.env.VITE_LOG_API === 'true';
@@ -34,6 +36,8 @@ export async function getEmailFromSession() {
   return getEmail();
 }
 
+// @spec FE-BE-010 — attach the Cognito ID token as a Bearer token on authenticated requests;
+// FE-BE-011 — a 403 response throws ForbiddenError so callers can show the forbidden-access screen
 async function apiFetch(label, url, options = {}, authenticated = false, nullStatuses = []) {
   if (LOG_API) {
     const body = options.body ? JSON.parse(options.body) : undefined;

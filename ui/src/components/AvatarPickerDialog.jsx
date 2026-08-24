@@ -9,6 +9,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Box from '@mui/material/Box';
 import { AVATAR_ICONS } from '../utils/avatarIcons.js';
 
+// @spec FE-UI-040 — allow avatar selection from a predefined set of icons
 export default function AvatarPickerDialog({ open, currentAvatar, onSelect, onClose }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>

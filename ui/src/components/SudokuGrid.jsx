@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import SudokuCell from './SudokuCell.jsx';
 
+// @spec FE-UI-001 — bold borders at every third row/column boundary
 function getBorderSx(row, col) {
   const majorColor = 'primary.dark';
   const minorColor = 'divider';
@@ -16,6 +17,7 @@ function getBorderSx(row, col) {
   };
 }
 
+// @spec FE-UI-002 — highlight all cells in the selected cell's row, column, and 3x3 block
 function isSameRegion(selectedCell, row, col) {
   if (!selectedCell) return false;
   const { row: sr, col: sc } = selectedCell;
@@ -45,6 +47,8 @@ export default function SudokuGrid({
     <Box
       sx={{
         display: 'inline-block',
+        // @spec FE-MOB-004 — size cells/borders/padding to fit the mobile viewport width without
+        // horizontal overflow
         // On mobile: fill viewport width minus a small gutter (8px each side)
         // On desktop (md+): fill height minus header (~56px) minus numberpad (~220px) minus gaps (~32px)
         // Cap at 756px (≈ 20cm at 96dpi). The CSS min() picks the smaller of the two constraints.
@@ -75,6 +79,7 @@ export default function SudokuGrid({
                   selectedNumber === null
                 }
                 isRegionHighlight={isSameRegion(selectedCell, row, col)}
+                // @spec FE-UI-003 — highlight all other cells containing the same digit
                 isNumberHighlight={selectedValue !== 0 && value === selectedValue}
                 candidates={candidateGrid ? candidateGrid[row][col] : []}
                 onClick={() => onCellClick(row, col)}

@@ -40,7 +40,9 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
   usePlayerProfile.js`, `ui/src/components/views/StatisticsView.jsx` (39 IDs: `FE-UI-*`,
   `FE-BE-*`, `FE-MOB-*`)** — each verified genuinely implemented; zero `@spec` comments in most
   of these files, or an existing citation that covers a different, unrelated ID range in the
-  same file.
+  same file. **Done** (2026-08-24) for 38 of 39 — see the note below on `FE-UI-042b`.
+  `FE-UI-030`/`FE-UI-050` (the "Import from Image" menu entry and the dev hint-demo submenu) were
+  found to live in `Header.jsx`, not one of the originally-listed files, and were annotated there.
 - **`image_recognition/handler.py` (19 IDs: `IR-API-*`, `IR-BE-*`, `IR-PROC-*`)** — verified
   line-by-line (warmup route, image validation, Bedrock Converse call, JSON/pipe-table parsing,
   scoring). Only `IR-PROC-013` is cited anywhere, and only in a test file, never in `handler.py`
@@ -86,11 +88,21 @@ doc's title is "infra, plain frontend components, and image_recognition", and CI
 bootstrap shell scripts are neither; needs its own follow-up (likely small, since precedent for
 `@spec` citations in bootstrap scripts already exists — see `scripts/github/amplify-remove-rc-urls.sh`).
 
-**Current state:** `docs/arrows/index.yaml`'s `cloud-platform` and `react-frontend` entries carry a
-`drift` note pointing here as of 2026-08-19. The `sudoku-coach` and `image-recognition` entries'
-drift notes were cleared 2026-08-21 and 2026-08-24 respectively. `cloud-platform`'s AWS and GCP
-Terraform halves were both done 2026-08-24. Either way, the `cloud-platform` drift note stays open
-for the CI/bootstrap-script gap above.
+**`FE-UI-042b` gap (found 2026-08-24, during the frontend pass):** "compute a provisional per-game
+score for won games based on difficulty base score, elapsed time, and hints used" has no frontend
+implementation at all — `HistoryView.jsx` only reads `entry.score` (already server-computed), and
+the actual scoring logic (`ScoringConstants.java`, `GameServiceImpl.java`) is backend/Java, not
+`ui/src/`. The spec's own text ends with "(TODO: replace with server-side scoring system)" —
+scoring appears to have already moved server-side since this ID was written, making `FE-UI-042b`
+itself possibly stale (the ID may need re-scoping to a `GL-BE-*`/backend ID, not annotating as
+frontend at all). **Left uncited, out of scope for this frontend annotation pass** — flagging as a
+spec-drift question, not just a missing citation.
+
+**Current state:** `docs/arrows/index.yaml`'s `cloud-platform` entry carries a `drift` note pointing
+here as of 2026-08-19 (its AWS and GCP Terraform halves were both done 2026-08-24; the note stays
+open for the CI/bootstrap-script gap above either way). The `sudoku-coach` and `image-recognition`
+entries' drift notes were cleared 2026-08-21 and 2026-08-24 respectively. `react-frontend`'s drift
+note is cleared, with the caveat that `FE-UI-042b` is a distinct, unresolved gap (see above).
 
 **Key constraints:**
 - Per this project's `@spec` convention, annotations go "at the entry point of the behavior's
@@ -116,13 +128,12 @@ for the CI/bootstrap-script gap above.
 
 ## Acceptance criteria
 
-- [x] `infra/aws/*.tf` has `@spec` annotations covering 25 of 26 `CP-INFRA-*` IDs — done 2026-08-24;
-      `CP-INFRA-061` scoped out, see the note above
+- [x] `infra/aws/*.tf` has `@spec` annotations covering 25 of 26 `CP-INFRA-*` IDs — done 2026-08-24; `CP-INFRA-061` scoped out, see the note above
 - [x] `infra/gcp/*.tf` has `@spec` annotations covering 21 of 30 `CP-GCP-*` IDs — done 2026-08-24; the other 9 are a CI-workflow/bootstrap-script gap, see the note above
-- [ ] The listed frontend files have `@spec` annotations covering all 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs
+- [x] The listed frontend files have `@spec` annotations covering 38 of 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs — done 2026-08-24; `FE-UI-042b` scoped out, see the note above
 - [x] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs — done 2026-08-21
 - [x] `sudoku-coach`'s 5 uncited IDs (`SC-BE-004`, `SC-UI-041`, `SC-UI-060/061/062`) annotated — done 2026-08-21
-- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend` cleared (`sudoku-coach`'s and `image-recognition`'s already cleared; `cloud-platform`'s stays open for the CI/bootstrap-script gap even after both Terraform halves land)
+- [x] `docs/arrows/index.yaml`'s `drift` notes cleared where fully resolvable: `sudoku-coach` (2026-08-21), `image-recognition` (2026-08-24), `react-frontend` (2026-08-24, with the `FE-UI-042b` caveat). `cloud-platform`'s stays open — its Terraform work is done but the CI/bootstrap-script gap is new, distinct scope.
 
 ## Related specs / docs
 

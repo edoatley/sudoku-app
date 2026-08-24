@@ -21,6 +21,7 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+// @spec FE-UI-043 — game statistics grouped by difficulty (total, wins, losses, average time)
 function computeStats(history) {
   const difficulties = ['easy', 'medium', 'hard', 'imported'];
   return difficulties

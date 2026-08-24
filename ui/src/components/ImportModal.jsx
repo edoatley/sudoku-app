@@ -8,6 +8,8 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
+// @spec FE-UI-031 — file picker accepting image files with a preview of the selection;
+// FE-UI-032 — loading indicator with an uploading/analysing stage label while processing
 export default function ImportModal({ open, isLoading, importStage, onConfirm, onCancel }) {
   const [imageFile, setImageFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);

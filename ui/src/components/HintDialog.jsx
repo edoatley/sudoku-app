@@ -25,6 +25,10 @@ function stageText(hint, stage) {
   return formatHintText(hint.reveal);
 }
 
+// @spec FE-UI-010 — nudge stage shows text/highlights without revealing the solution;
+// FE-UI-011, FE-UI-012 — "Show Me" advances nudge to focus, then focus to reveal (which applies
+// the hint's eliminations/solved cells via onAdvance -> useHintSystem.advanceHint);
+// FE-UI-013 — "Try Different Hint" at nudge/focus requests a new hint excluding this technique
 function HintActions({ stage, onAdvance, onDismiss, onAlternateHint }) {
   return (
     <>
@@ -50,6 +54,7 @@ function HintActions({ stage, onAdvance, onDismiss, onAlternateHint }) {
 export default function HintDialog({ open, hint, stage, onAdvance, onDismiss, onAlternateHint }) {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const theme = useTheme();
+  // @spec FE-UI-014 — inline panel below the grid at md+, modal dialog on narrower screens
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   const titleBar = (

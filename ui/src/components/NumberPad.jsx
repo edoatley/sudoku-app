@@ -32,6 +32,7 @@ const toolBtnSx = {
   '&.Mui-disabled': { color: 'action.disabled' },
 };
 
+// @spec FE-UI-006 — disable a digit button in normal mode once that digit appears 9 times
 function NumButton({ n, selectedNumber, onNumberSelect, completedNumbers, inputMode }) {
   const active = selectedNumber === n;
   const completed = inputMode === 'normal' && completedNumbers?.has(n);
@@ -84,7 +85,10 @@ function ToolButton({ label, icon, tooltip, onClick, disabled, active }) {
 
 // ── Composable sub-components ────────────────────────────────────────────────
 
-/** Toolbar row: mode toggle left | Undo, Clear | Check, Hint, Fill, Help right */
+/**
+ * Toolbar row: mode toggle left | Undo, Clear | Check, Hint, Fill, Help right
+ * @spec FE-MOB-001 — action buttons stay in a single toolbar row at all viewport sizes
+ */
 export function NumberPadToolbar({
   inputMode,
   onModeChange,
@@ -223,7 +227,10 @@ export function NumberPadToolbar({
   );
 }
 
-/** Single row of number buttons 1–9 (sm+); 5+4 split on xs */
+/**
+ * Single row of number buttons 1–9 (sm+); 5+4 split on xs
+ * @spec FE-MOB-002 — digit buttons 1-9 in one row above `sm`, two rows (1-5, 6-9) below it
+ */
 export function NumberPadInput({ selectedNumber, inputMode, onNumberSelect, completedNumbers }) {
   const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   const numProps = (n) => ({ n, selectedNumber, onNumberSelect, completedNumbers, inputMode });

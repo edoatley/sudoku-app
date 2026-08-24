@@ -135,6 +135,8 @@ function JsonDetailDialog({ open, record, onClose }) {
   );
 }
 
+// @spec FE-UI-051 — Data Browser for inspecting DynamoDB game and player records, shown when
+// VITE_DEV_TOOLS is true or the user is in the admin Cognito group (gating is done by the caller)
 export default function DevDataDialog({ open, onClose }) {
   const [tabIndex, setTabIndex] = useState(0);
   const [dataByEntity, setDataByEntity] = useState({});
