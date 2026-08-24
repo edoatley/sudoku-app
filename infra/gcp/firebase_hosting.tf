@@ -10,6 +10,7 @@ resource "google_firebase_project" "default" {
   project  = var.project_id
 }
 
+# @spec CP-GCP-040
 resource "google_firebase_hosting_site" "frontend" {
   provider = google-beta
   project  = var.project_id
@@ -27,6 +28,7 @@ resource "google_firebase_hosting_site" "frontend" {
 # No Cloud DNS zone / delegation / A-AAAA-TXT records: GCP Cloud DNS has no apex-alias (unlike Route53
 # ALIAS), so the AWS-style delegated-subzone approach doesn't apply here. See the custom_domain_cname_target
 # output + runbook §6b.
+# @spec CP-GCP-051
 resource "google_firebase_hosting_custom_domain" "frontend" {
   provider      = google-beta
   count         = local.is_default && var.enable_custom_domain ? 1 : 0

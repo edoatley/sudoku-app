@@ -18,6 +18,7 @@ terraform {
   }
 }
 
+# @spec CP-GCP-070
 provider "google" {
   project = var.project_id
   region  = var.region

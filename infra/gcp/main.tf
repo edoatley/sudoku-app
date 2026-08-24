@@ -6,7 +6,7 @@ locals {
   suffix     = local.is_default ? "" : "-${terraform.workspace}"
 
   # GCP label values must be lowercase, match [a-z0-9_-], and be <= 63 chars.
-  # Sanitize the workspace name before using it as a label value.
+  # Sanitize the workspace name before using it as a label value. @spec CP-GCP-070
   workspace_label   = substr(lower(replace(terraform.workspace, "/[^a-z0-9_-]/", "-")), 0, 63)
   environment_label = local.is_default ? "prod" : local.workspace_label
 

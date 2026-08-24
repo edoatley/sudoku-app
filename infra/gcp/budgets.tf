@@ -27,6 +27,7 @@ resource "google_monitoring_notification_channel" "budget_email" {
   }
 }
 
+# @spec CP-GCP-060
 resource "google_billing_budget" "monthly" {
   count           = local.create_budget ? 1 : 0
   billing_account = var.budget_billing_account
