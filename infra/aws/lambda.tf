@@ -7,6 +7,7 @@ data "aws_ecr_repository" "sudoku_backend" {
   name = "sudoku-backend"
 }
 
+# @spec CP-INFRA-010
 module "lambda" {
   source  = "terraform-aws-modules/lambda/aws"
   version = "~> 8.8"
@@ -77,6 +78,7 @@ resource "aws_cloudwatch_log_group" "lambda" {
 # Alias and permission are kept standalone because the module (v7) does not
 # manage aliases, and the permission must target the alias qualifier, not the
 # published version that the module's allowed_triggers would target.
+# @spec CP-INFRA-011
 resource "aws_lambda_alias" "live" {
   name             = "live"
   function_name    = module.lambda.lambda_function_name

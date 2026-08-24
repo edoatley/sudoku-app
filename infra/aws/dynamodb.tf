@@ -1,3 +1,4 @@
+# @spec CP-INFRA-050, CP-INFRA-051, CP-INFRA-052
 resource "aws_dynamodb_table" "sudoku_games" {
   name                        = "SudokuGames${local.suffix}"
   billing_mode                = "PAY_PER_REQUEST"
@@ -23,6 +24,7 @@ resource "aws_dynamodb_table" "sudoku_games" {
   # checkov:skip=CKV_AWS_28: PITR is enabled for production (local.is_default=true); disabled in RC/dev to avoid costs
 }
 
+# @spec CP-INFRA-050, CP-INFRA-051, CP-INFRA-052
 resource "aws_dynamodb_table" "sudoku_leaderboard" {
   name                        = "SudokuLeaderboard${local.suffix}"
   billing_mode                = "PAY_PER_REQUEST"
@@ -42,6 +44,7 @@ resource "aws_dynamodb_table" "sudoku_leaderboard" {
   # checkov:skip=CKV_AWS_28: PITR is enabled for production (local.is_default=true); disabled in RC/dev to avoid costs
 }
 
+# @spec CP-INFRA-050, CP-INFRA-051, CP-INFRA-052
 resource "aws_dynamodb_table" "sudoku_players" {
   name                        = "SudokuPlayers${local.suffix}"
   billing_mode                = "PAY_PER_REQUEST"
@@ -61,6 +64,7 @@ resource "aws_dynamodb_table" "sudoku_players" {
   # checkov:skip=CKV_AWS_28: PITR is enabled for production (local.is_default=true); disabled in RC/dev to avoid costs
 }
 
+# @spec CP-INFRA-050
 resource "aws_dynamodb_table" "sudoku_coach_rate_limits" {
   name         = "SudokuCoachRateLimits${local.suffix}"
   billing_mode = "PAY_PER_REQUEST"
