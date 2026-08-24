@@ -44,11 +44,14 @@ export function useGameSync({
       .finally(() => setIsSyncing(false));
   }, [gameIdRef, currentGridRef, candidateGridRef, elapsedSecondsRef, hintsUsedRef, takeEventBatch, restoreEventBatch]);
 
+  // @spec FE-BE-004 — auto-save currentGrid, candidates, timeSpentSeconds, and hintsUsed every 60s
   useEffect(() => {
     const interval = setInterval(syncToBackend, 60_000);
     return () => clearInterval(interval);
   }, [syncToBackend]);
 
+  // @spec FE-BE-005, FE-BE-006 — save and pause the timer when the tab becomes hidden; resume the
+  // timer when it becomes visible again
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {

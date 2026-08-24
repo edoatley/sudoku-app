@@ -23,6 +23,8 @@ const LS_KEY_DIFFICULTY = 'sudoku_difficulty';
 const LS_KEY_ELAPSED_SECONDS = 'sudoku_elapsedSeconds';
 const LS_KEY_HINTS_USED = 'sudoku_hintsUsed';
 
+// @spec FE-BE-001 — persist gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds, and
+// hintsUsed to localStorage on every state change
 function lsSave(gameId, currentGrid, candidateGrid, difficulty, elapsedSeconds, hintsUsed) {
   try {
     localStorage.setItem(LS_KEY_GAME_ID, gameId);
@@ -201,6 +203,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     [difficulty, startTimer, onForbidden, resetHintState, resetEvents]
   );
 
+  // @spec FE-BE-002, FE-BE-003 — restore from localStorage without an API call when a saved game
+  // exists; otherwise call GET /games/current to resume a server-side active game
   useEffect(() => {
     const controller = new AbortController();
 
@@ -325,6 +329,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
 
   const inactivityRef = useRef(null);
 
+  // @spec FE-UI-022 — auto-pause after 3 minutes without cell/number input
   useEffect(() => {
     const INACTIVITY_MS = 3 * 60 * 1000;
     const resetTimer = () => {
@@ -346,6 +351,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pauseGame]);
 
+  // @spec FE-UI-004, FE-UI-005 — place a digit in normal mode, or toggle it in the cell's
+  // candidate set in candidate mode
   const writeCellValue = useCallback(
     (row, col, number) => {
       if (originalGrid && originalGrid[row][col] !== 0) return;
@@ -540,6 +547,7 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     }
   }, [currentGrid, onForbidden]);
 
+  // @spec FE-UI-008 — restore the grid to the state before the most recent cell edit
   const undoLastMove = useCallback(() => {
     setHistory((prev) => {
       if (prev.length === 0) return prev;
@@ -639,6 +647,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     setSelectedNumber(null);
   }, [pauseTimer, setIsPaused, gameStatus, onGameComplete, hintsUsed, resetEvents]);
 
+  // @spec FE-UI-032, FE-UI-033 — track uploading/analysing stage while the image is processed;
+  // the Java backend (via createGameFromGrid) is the authoritative validator of the imported grid
   const startNewGameFromImage = useCallback(
     async (imageFile) => {
       setIsLoading(true);
@@ -679,6 +689,8 @@ export function useSudokuGame(user, { onGameComplete, onForbidden } = {}) {
     [startTimer, onForbidden, resetHintState, resetEvents]
   );
 
+  // @spec FE-UI-052 — load the pre-baked demo grid with the technique's minRank set so simpler
+  // strategies are skipped
   const loadDemoGame = useCallback(
     async (technique) => {
       setIsLoading(true);

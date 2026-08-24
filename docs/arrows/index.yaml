@@ -137,8 +137,8 @@ arrows:
     blocks: []
     blockedBy: []
     detail: react-frontend.md
-    next: ~
-    drift: "39 implemented specs (FE-UI-*, FE-BE-*, FE-MOB-*) have no @spec citation anywhere across several hooks/components (useSudokuGame.js, useGameSync.js, sudokuApi.js, App.jsx, SudokuGrid.jsx, HintDialog.jsx, ImportModal.jsx, and others). Verified genuinely implemented during the 2026-08-19 coverage audit; see docs/todo/spec-annotation-backfill.md."
+    next: "FE-UI-042b (provisional per-game score) has no frontend implementation -- scoring appears to have already moved server-side (backend/Java), possibly making this ID stale; see docs/todo/spec-annotation-backfill.md."
+    drift: ~
 
   domain-types:
     status: OK

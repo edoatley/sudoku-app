@@ -25,6 +25,7 @@ function getBackground(isError, isHighlight, isNumberHighlight, isSelected, isRe
 
 // Backgrounds that are always light-coloured regardless of colour mode.
 // Candidate text on these needs a dark colour to maintain WCAG AA contrast.
+// @spec FE-UI-008a — candidate digit colour meets WCAG AA contrast (>=4.5:1) in both colour modes
 const LIGHT_BG_TOKENS = new Set(['#e8eaf6', '#fffde7', 'error.light', 'warning.light', 'primary.light']);
 
 function getCandidateColor(bg, isSelected, isError, isHighlight) {
@@ -33,6 +34,7 @@ function getCandidateColor(bg, isSelected, isError, isHighlight) {
   return 'text.primary';
 }
 
+// @spec FE-UI-007 — candidate digits render as a 3x3 mini-grid within cells with no placed value
 function CandidateDisplay({ candidates, color }) {
   return (
     <Box

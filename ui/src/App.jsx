@@ -193,6 +193,7 @@ function SudokuApp({ user, signOut }) {
     isModalOpen: currentView !== 'game',
   });
 
+  // @spec FE-UI-006 — disable digit buttons in normal mode once a digit appears 9 times in the grid
   const completedNumbers = useMemo(() => {
     if (!currentGrid) return new Set();
     const counts = {};
@@ -324,6 +325,7 @@ function SudokuApp({ user, signOut }) {
           {isLoading && !currentGrid ? (
             <CircularProgress />
           ) : isPaused ? (
+            // @spec FE-UI-021 — pause overlay covers the grid; the timer itself stops in useGameTimer
             <PauseOverlay onResume={resumeGame} />
           ) : currentGrid ? (
             /* Outer box centres the game column on the page */
@@ -446,6 +448,8 @@ function SudokuApp({ user, signOut }) {
   );
 }
 
+// @spec FE-BE-012 — where VITE_SKIP_AUTH is false, wrap the app in the Amplify Authenticator and
+// require login before displaying the game (Cognito build only; see FirebaseLoginLayout for GCP)
 function LoginLayout() {
   // When unauthenticated, Authenticator renders its own centered login form.
   // When authenticated, children are called with { user, signOut } and we render

@@ -174,6 +174,7 @@ export default function Header({
                   </ListItemIcon>
                   <ListItemText>New Game</ListItemText>
                 </MenuItem>
+                {/* @spec FE-UI-030 */}
                 {onImport && (
                   <MenuItem
                     onClick={() => {
@@ -188,6 +189,7 @@ export default function Header({
                   </MenuItem>
                 )}
                 {onDemoGame && <Divider />}
+                {/* @spec FE-UI-050 — onDemoGame is only passed when VITE_DEV_TOOLS is true (see App.jsx) */}
                 {onDemoGame && (
                   <MenuItem onClick={handleDevMenuOpen}>
                     <ListItemIcon>

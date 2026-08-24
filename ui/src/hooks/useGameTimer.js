@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 
+// @spec FE-UI-020 — increment elapsed time every second while running; FE-UI-021 — pauseGame stops
+// the timer (the pause overlay itself is rendered by App.jsx/PauseOverlay)
 export function useGameTimer() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);

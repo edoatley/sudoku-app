@@ -70,6 +70,7 @@ export function usePlayerProfile(user, { onForbidden } = {}) {
       });
   }, [user, onForbidden]);
 
+  // @spec FE-UI-041 — persist the selected avatar to localStorage under key sudoku_avatar
   const setAvatar = useCallback((iconName) => {
     localStorage.setItem(LS_KEY_AVATAR, iconName);
     setAvatarState(iconName);
