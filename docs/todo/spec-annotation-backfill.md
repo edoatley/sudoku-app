@@ -44,8 +44,17 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
 - **`infra/gcp/image_recognition.tf` (`IR-GCP-005`)** — the `dynamic "env"` blocks wiring
   Bedrock creds from Secret Manager; verified implemented, uncited.
 
+- **`sudoku-coach` (5 IDs: `SC-BE-004`, `SC-UI-041`, `SC-UI-060/061/062`)** — smaller, separately
+  flagged gap on the `sudoku-coach` arrow entry rather than this doc's original scoping (found
+  2026-08-19, not folded in until 2026-08-21). `SC-BE-004` cites cleanly at
+  `BoardFormatter.format()`. The other four are emergent from shared state / a `key`-based remount
+  pattern rather than single function bodies — `SC-UI-061`/`062` sit on the `CoachWidget`'s `key`
+  prop in `App.jsx`, `SC-UI-041`/`060` on `useCoachSession.js`'s file header and its
+  `setHighlightCells` call site. **Done** (2026-08-21) — see the `sudoku-coach` row below.
+
 **Current state:** `docs/arrows/index.yaml`'s `cloud-platform`, `react-frontend`, and
-`image-recognition` entries carry a `drift` note pointing here as of 2026-08-19.
+`image-recognition` entries carry a `drift` note pointing here as of 2026-08-19. The `sudoku-coach`
+entry's drift note (a separate, smaller gap) was cleared 2026-08-21.
 
 **Key constraints:**
 - Per this project's `@spec` convention, annotations go "at the entry point of the behavior's
@@ -75,7 +84,8 @@ citation, and out of scope for a same-session audit-and-fix pass. Filed as its o
 - [ ] `infra/gcp/*.tf` has `@spec` annotations covering all 23 `CP-GCP-*` IDs listed above
 - [ ] The listed frontend files have `@spec` annotations covering all 39 `FE-UI-*`/`FE-BE-*`/`FE-MOB-*` IDs
 - [x] `image_recognition/handler.py` and `infra/gcp/image_recognition.tf` have `@spec` annotations covering all 20 `IR-*` IDs — done 2026-08-21
-- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend` cleared (`image-recognition` cleared 2026-08-21)
+- [x] `sudoku-coach`'s 5 uncited IDs (`SC-BE-004`, `SC-UI-041`, `SC-UI-060/061/062`) annotated — done 2026-08-21
+- [ ] `docs/arrows/index.yaml`'s `drift` notes on `cloud-platform`, `react-frontend`, `image-recognition` cleared (`sudoku-coach`'s cleared 2026-08-21)
 
 ## Related specs / docs
 

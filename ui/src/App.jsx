@@ -412,6 +412,8 @@ function SudokuApp({ user, signOut }) {
 
       {AI_COACH && (
         <CoachWidget
+          // @spec SC-UI-061, SC-UI-062 — keying on the puzzle remounts CoachWidget on new game,
+          // resetting useCoachSession's history/isOpen state to their initial (empty/closed) values
           key={originalGrid ? originalGrid[0].join(',') : 'no-game'}
           gameId={gameId}
           currentGrid={currentGrid}

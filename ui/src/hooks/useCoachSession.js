@@ -1,4 +1,4 @@
-// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-010, SC-UI-011, SC-UI-012, SC-UI-014, SC-UI-040, SC-UI-042, SC-UI-050, SC-UI-051, SC-UI-063, SC-UI-064
+// @spec SC-UI-001, SC-UI-002, SC-UI-003, SC-UI-004, SC-UI-010, SC-UI-011, SC-UI-012, SC-UI-014, SC-UI-040, SC-UI-041, SC-UI-042, SC-UI-050, SC-UI-051, SC-UI-060, SC-UI-063, SC-UI-064
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { postCoachMessage } from '../api/sudokuApi.js';
 
@@ -74,6 +74,9 @@ export function useCoachSession({
         }
 
         setHistory((prev) => [...prev, { role: 'assistant', content: response.aiMessage }]);
+        // @spec SC-UI-041 — coach and useHintSystem share the same highlightCells state; writing
+        // here on every coach response supersedes any stale hint-sourced highlight while the
+        // panel is open, giving coach highlights precedence.
         setHighlightCells?.(response.hint?.highlightCells ?? []);
 
         // @spec SC-UI-050, SC-UI-051 — solvedCells/eliminatedCandidates only take effect on the
