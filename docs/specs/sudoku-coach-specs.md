@@ -79,7 +79,7 @@ across providers; only the API surface + auth differ. @spec CP-GCP-090
 - [x] **SC-GCP-006**: On a Gemini error, or an unparseable or blank reply, `VertexCoachClient` shall
   take the same deterministic fallback as the Bedrock adapter (SC-BE-021/023) — returning the nudge
   text and logging `fallback: true` with a non-null `errorMsg` and the `rawResponseText`.
-- [ ] **SC-GCP-007**: When `coach.ai.provider=vertex`, the backend Cloud Run service shall not mount
+- [x] **SC-GCP-007**: When `coach.ai.provider=vertex`, the backend Cloud Run service shall not mount
   the AWS Bedrock secrets for the coach; the runtime service account shall hold `roles/aiplatform.user`
   and the project shall have `aiplatform.googleapis.com` enabled (provisioned by `gcp-bootstrap.sh`,
   per CP-GCP-083). *(Image recognition on GCP still calls Bedrock cross-cloud, so the AWS key is fully

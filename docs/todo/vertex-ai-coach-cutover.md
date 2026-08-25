@@ -54,10 +54,25 @@ one-line flip of the `coach_ai_provider` default. Backlog priority 1 — the clo
 
 ## Acceptance criteria
 
-- [ ] The Vertex path is validated against a real deployed Cloud Run env (0% fallback, no `AWS_*`
+- [x] The Vertex path is validated against a real deployed Cloud Run env (0% fallback, no `AWS_*`
       creds mounted on the backend when `coach_ai_provider=vertex`)
-- [ ] `coach_ai_provider` default is `"vertex"`; `SC-GCP-007` marked `[x]`
-- [ ] Image recognition still uses cross-cloud Bedrock (unaffected by the coach provider)
+- [x] `coach_ai_provider` default is `"vertex"`; `SC-GCP-007` marked `[x]`
+- [x] Image recognition still uses cross-cloud Bedrock (unaffected by the coach provider)
+
+## Validation evidence (2026-08-25)
+
+Dispatched *Deploy GCP* (run `32833070148`) to workspace `rcg-vertex-validate` with
+`coach_ai_provider=vertex`, `deploy_cloud_run=true`, `enable_coach=true`. Deployed-path checks against
+`https://sudoku-rcg-vertex-validate-6cxgoss43q-uc.a.run.app`:
+
+- `POST /api/v1/ai/coach` → **HTTP 200** with real coaching content (a naked-single nudge).
+- Cloud Run logs: `COACH_RESPONSE` `"provider":"vertex"`, `"fallback":false`, `cacheReadTokens:4405`
+  (context cache hit); `COACH_REQUEST` `"modelId":"gemini-2.5-flash-lite"` — **0% Bedrock fallback**.
+- `gcloud run services describe` env: `COACH_AI_PROVIDER=vertex`, **no `AWS_ACCESS_KEY_ID` /
+  `AWS_SECRET_ACCESS_KEY`** mounted on the backend.
+
+Default flipped in `infra/gcp/variables.tf` and the `rcg-*` push path in `deploy-gcp.yml` (RC now
+mirrors prod). Validation workspace torn down afterward.
 
 ## Related specs / docs
 

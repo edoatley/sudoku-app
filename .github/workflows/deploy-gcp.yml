@@ -103,7 +103,7 @@ jobs:
               echo "deploy_cloud_run=true"
               echo "deploy_image_recognition=true"
               echo "enable_coach=true"
-              echo "coach_ai_provider=bedrock"
+              echo "coach_ai_provider=vertex"
               echo "deploy_frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
               echo "enable_custom_domain=false"
               echo "run_smoke=${{ vars.GCP_RUN_SMOKE == 'true' }}"
