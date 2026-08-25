@@ -11,6 +11,9 @@ describe('auth/session provider dispatch', () => {
   });
 
   it('cognito (default): reads token, email and groups from aws-amplify/auth', async () => {
+    // Unset the provider so this genuinely exercises session.js's default-to-cognito fallback,
+    // independent of .env.test's pin (which only guards against a stray .env.local firebase value).
+    vi.stubEnv('VITE_AUTH_PROVIDER', undefined);
     vi.doMock('aws-amplify/auth', () => ({
       fetchAuthSession: vi.fn().mockResolvedValue({
         tokens: {
