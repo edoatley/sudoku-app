@@ -48,9 +48,9 @@ variable "enable_coach" {
 }
 
 variable "coach_ai_provider" {
-  description = "AI provider for the coach on the backend Cloud Run service: \"bedrock\" (cross-cloud, default) or \"vertex\" (Gemini via Vertex AI, ADC, no keys). Sets COACH_AI_PROVIDER and, when \"vertex\", suppresses the backend's AWS Bedrock secret mount (SC-GCP-007) — image-recognition's separate Bedrock mount is unaffected. Validate on an rcg-* workspace before changing this default."
+  description = "AI provider for the coach on the backend Cloud Run service: \"vertex\" (Gemini via Vertex AI, ADC, no keys — default) or \"bedrock\" (cross-cloud). Sets COACH_AI_PROVIDER and, when \"vertex\", suppresses the backend's AWS Bedrock secret mount (SC-GCP-007) — image-recognition's separate Bedrock mount is unaffected. Validate on an rcg-* workspace before changing this default."
   type        = string
-  default     = "bedrock"
+  default     = "vertex"
 
   validation {
     condition     = contains(["bedrock", "vertex"], var.coach_ai_provider)
