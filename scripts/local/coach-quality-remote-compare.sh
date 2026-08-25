@@ -44,6 +44,9 @@ REPORTS_DIR="${REPO_ROOT}/ui/tests/coach-quality/reports"
 
 RUNS="${RUNS:-5}"
 SLEEP_BETWEEN_RUNS="${SLEEP_BETWEEN_RUNS:-90}"
+# Long multi-turn scenarios against a cold deployed backend blow past Playwright's 60s per-test
+# default; give them room (overridable). Cloud Logging poll timeout is separate (dockerLogs.js).
+export COACH_QUALITY_TEST_TIMEOUT_MS="${COACH_QUALITY_TEST_TIMEOUT_MS:-240000}"
 LABEL_DIR="${REPORTS_DIR}/${LABEL}"
 
 if [[ -e "${LABEL_DIR}" ]]; then

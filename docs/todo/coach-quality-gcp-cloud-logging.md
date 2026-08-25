@@ -79,11 +79,27 @@ to correlate the coach turn against logs it can't fetch.
 
 ## Acceptance criteria
 
-- [ ] `COACH_QUALITY_API_URL` pointed at a deployed GCP backend produces a full report
+- [x] `COACH_QUALITY_API_URL` pointed at a deployed GCP backend produces a full report
       (fallback/responseType/token counts populated, not "No COACH_RESPONSE entries found")
-- [ ] `scripts/local/coach-quality-remote-compare.sh` run against a live `rcg-*` workspace
+- [x] `scripts/local/coach-quality-remote-compare.sh` run against a live `rcg-*` workspace
       completes without the log-correlation failures seen in this session
-- [ ] Local docker-compose runs are unaffected (no behavior change to the existing working path)
+- [x] Local docker-compose runs are unaffected (no behavior change to the existing working path)
+
+## Validation evidence (2026-08-25)
+
+Implemented `lib/cloudLoggingClient.js` (`gcloud logging read`, zero new deps) + shared
+`lib/logParse.js`; `lib/dockerLogs.js` selects the source by target and uses longer remote poll
+defaults. Validated against a live `rcg-cq-gcplog` Vertex workspace
+(`sudoku-rcg-cq-gcplog-...run.app`): the report populated real per-turn data
+(`fallbackRate=0.0%`, token/latency counts) instead of "No COACH_RESPONSE entries found". The
+multi-turn `deep-escalation-ladder` correlated all 4 pairs from Cloud Logging
+(`nudge→focus-hint→reveal-answer→reveal-answer`, 0 fallbacks). Spec `CQ-LOG-003` added `[x]`.
+
+Two side-findings (not log-correlation, left as separate concerns): `off-topic-message`'s
+`coachLogContains "puzzle"` assertion is Bedrock-prose-specific and fails on Gemini's redirect
+wording; and cold deployed multi-turn scenarios blew past Playwright's 60s per-test timeout, so the
+per-test timeout is now env-configurable (`COACH_QUALITY_TEST_TIMEOUT_MS`, raised to 240s by the
+remote wrapper). Unit tests cover parsing + source/service/project resolution.
 
 ## Related specs / docs
 
