@@ -27,6 +27,12 @@
 #                             the bedrock leg; harmless overhead on the vertex leg
 #   SMOKE_TEST_USER_EMAIL / SMOKE_TEST_USER_PASSWORD / VITE_FIREBASE_API_KEY — forwarded to
 #                             scripts/github/gcp-smoke-token.sh (see its header for fallbacks)
+#
+# Log correlation: because COACH_QUALITY_API_URL is remote, the harness reads COACH_REQUEST/
+# COACH_RESPONSE lines from GCP Cloud Logging (lib/cloudLoggingClient.js), not docker logs. This
+# needs the `gcloud` CLI authenticated with logging.view on the project; the Cloud Run service +
+# project are derived from the URL + `gcloud config`, or set COACH_QUALITY_GCP_SERVICE /
+# COACH_QUALITY_GCP_PROJECT explicitly.
 
 set -euo pipefail
 
@@ -38,6 +44,9 @@ REPORTS_DIR="${REPO_ROOT}/ui/tests/coach-quality/reports"
 
 RUNS="${RUNS:-5}"
 SLEEP_BETWEEN_RUNS="${SLEEP_BETWEEN_RUNS:-90}"
+# Long multi-turn scenarios against a cold deployed backend blow past Playwright's 60s per-test
+# default; give them room (overridable). Cloud Logging poll timeout is separate (dockerLogs.js).
+export COACH_QUALITY_TEST_TIMEOUT_MS="${COACH_QUALITY_TEST_TIMEOUT_MS:-240000}"
 LABEL_DIR="${REPORTS_DIR}/${LABEL}"
 
 if [[ -e "${LABEL_DIR}" ]]; then

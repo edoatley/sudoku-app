@@ -54,19 +54,26 @@ AWS_PROFILE=sandbox GCP_PROJECT_ID=<id> \
   bash scripts/local/coach-quality-repeat.sh
 ```
 
-### Against a deployed environment (partial — no log correlation yet)
+### Against a deployed GCP environment
 
 `COACH_QUALITY_API_URL`/`COACH_QUALITY_AUTH_TOKEN` (`lib/apiClient.js`) let the runner send
 authenticated requests to any backend, not just `localhost:8080` — `scripts/github/gcp-smoke-token.sh`
 mints a bearer token for a deployed `%gcp`/`%prod` backend, which has no `DevUserFilter`.
-**This alone isn't enough for a real report:** `lib/dockerLogs.js` reads `COACH_REQUEST`/
-`COACH_RESPONSE` structured log lines via `docker compose logs`, which only exist for a local
-stack — a deployed environment's logs live in Cloud Logging, which nothing in this harness reads
-yet (see `docs/todo/coach-quality-gcp-cloud-logging.md`). Every scenario will fail at the
-log-correlation step even though the underlying `/ai/coach` call succeeds — don't run
-`scripts/local/coach-quality-remote-compare.sh` against a real deployment expecting a usable
-report until that gap is closed; the "Comparing coach providers" section above is the working
-path today.
+
+Log correlation follows the target automatically (CQ-LOG-003): when `COACH_QUALITY_API_URL`
+points at a non-local host, `lib/dockerLogs.js` reads the `COACH_REQUEST`/`COACH_RESPONSE`
+structured lines from **GCP Cloud Logging** (`lib/cloudLoggingClient.js`, via `gcloud logging
+read`) instead of `docker compose logs`, so scenarios produce a full report against a deployed
+Cloud Run backend. Requirements:
+
+- the `gcloud` CLI on `PATH`, authenticated with `logging.view` on the project;
+- the service/project are derived from the Cloud Run URL + `gcloud config`, or set explicitly via
+  `COACH_QUALITY_GCP_SERVICE` / `COACH_QUALITY_GCP_PROJECT`;
+- Cloud Logging ingestion lag is absorbed by a longer poll timeout (defaults 90s/5s, override with
+  `COACH_QUALITY_LOG_TIMEOUT_MS` / `COACH_QUALITY_LOG_POLL_MS`).
+
+Run it with `scripts/local/coach-quality-remote-compare.sh` (see its header). The "Comparing coach
+providers" section above remains the lighter, local-ADC path when you don't need a deployed target.
 
 ## The report
 

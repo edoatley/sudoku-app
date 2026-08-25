@@ -20,6 +20,11 @@ is the primary deliverable.
 - [x] **CQ-LOG-002**: The system shall bound backend log reads to lines emitted at or after the
   current scenario's start time, rather than re-reading the backend container's entire log
   history on every poll.
+- [x] **CQ-LOG-003**: When `COACH_QUALITY_API_URL` targets a deployed (non-local) backend, the
+  system shall read the structured log lines from GCP Cloud Logging (the deployed Cloud Run
+  service) rather than the local container's stdout, preserving the FIFO pairing and since-bound
+  reads of CQ-LOG-001/002; and it shall tolerate Cloud Logging's ingestion propagation delay
+  with a longer, env-overridable poll timeout than the local path.
 
 ## Assertions
 

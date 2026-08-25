@@ -1,0 +1,35 @@
+
+Overall — /Users/edoatley/source/sudoku-app/ui/tests/coach-quality/reports/vertex-gcplog-validate
+  n=7 fallbackRate=0.0%
+  latencyMs: mean=17947 p50=21126 p90=21365
+  tokens: input=0 output=0 cacheRead=30835 cacheWrite=4405 total=34084
+
+  explicit-answer-request
+  n=1 fallbackRate=0.0%
+  latencyMs: mean=21126 p50=21126 p90=21126
+  tokens: input=0 output=0 cacheRead=4405 cacheWrite=0 total=4866
+
+  naked-single-conversation
+  n=2 fallbackRate=0.0%
+  latencyMs: mean=13000 p50=10509 p90=15490
+  tokens: input=0 output=0 cacheRead=8810 cacheWrite=4405 total=9793
+
+  off-topic-message
+  n=1 fallbackRate=0.0%
+  latencyMs: mean=21184 p50=21184 p90=21184
+  tokens: input=0 output=0 cacheRead=4405 cacheWrite=0 total=4855
+
+  stuck-single-turn
+  n=1 fallbackRate=0.0%
+  latencyMs: mean=21258 p50=21258 p90=21258
+  tokens: input=0 output=0 cacheRead=4405 cacheWrite=0 total=4844
+
+  technique-explanation-ask
+  n=1 fallbackRate=0.0%
+  latencyMs: mean=14695 p50=14695 p90=14695
+  tokens: input=0 output=0 cacheRead=4405 cacheWrite=0 total=4863
+
+  wrong-guess-acknowledgment
+  n=1 fallbackRate=0.0%
+  latencyMs: mean=21365 p50=21365 p90=21365
+  tokens: input=0 output=0 cacheRead=4405 cacheWrite=0 total=4863

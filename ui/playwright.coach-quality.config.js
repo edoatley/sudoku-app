@@ -17,11 +17,16 @@ import process from 'node:process';
 
 export default defineConfig({
   testDir: './tests/coach-quality',
+  // Only the Playwright entrypoint(s); lib/*.test.js are vitest unit tests (Playwright's default
+  // testMatch would otherwise also collect them and fail on the missing `vi` global).
+  testMatch: '**/*.spec.js',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers: 1,
-  timeout: 60_000,
+  // Long multi-turn scenarios against a deployed backend (cold Cloud Run + real Gemini latency)
+  // can exceed the 60s local default — the remote wrapper raises this via the env var.
+  timeout: Number(process.env.COACH_QUALITY_TEST_TIMEOUT_MS) || 60_000,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.INTEGRATION_BASE_URL ?? 'http://localhost:5174',
