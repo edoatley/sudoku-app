@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: ['src/test-setup.js'],
-      include: ['src/**/*.test.{js,jsx,ts,tsx}'],
+      include: ['src/**/*.test.{js,jsx,ts,tsx}', 'tests/coach-quality/lib/**/*.test.js'],
       reporters: ['default', ['junit', { outputFile: 'test-results/unit-results.xml' }]],
       coverage: {
         provider: 'v8',

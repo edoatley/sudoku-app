@@ -1,8 +1,11 @@
 /**
- * Reads structured log lines straight from the backend container's stdout via
- * `docker compose logs` — the local equivalent of scripts/logs/download-puzzle-logs.sh /
- * download-coach-logs.sh, which pull the same lines from CloudWatch for a deployed
- * environment. Running locally means no CloudWatch propagation delay.
+ * Reads structured log lines for the backend, selecting the source by target: the local
+ * container's stdout via `docker compose logs` by default, or GCP Cloud Logging
+ * (cloudLoggingClient.js) when COACH_QUALITY_API_URL points at a deployed Cloud Run backend.
+ * Both are the harness equivalent of scripts/logs/download-puzzle-logs.sh /
+ * download-coach-logs.sh, which pull the same lines from CloudWatch for AWS. Running against
+ * the local stack means no propagation delay; the remote GCP path does have ingestion lag,
+ * which waitForCoachPair compensates for with a longer default timeout.
  *
  * Every structured event (NUMBER, NUMBER_RESULT, NUMBER_CLEAR, UNDO, HINT_REQUEST,
  * HINT_RESPONSE, COACH_REQUEST, COACH_RESPONSE) shares a `pid` (gameId) — see
@@ -20,14 +23,24 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fetchLogLinesGcp, isRemoteLogSource } from './cloudLoggingClient.js';
+import { parseStructuredLine } from './logParse.js';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const COMPOSE_ARGS = ['compose', '-f', 'docker-compose.test.yml', '-f', 'docker-compose.coach-quality.yml'];
 
 const COACH_TYPES = new Set(['COACH_REQUEST', 'COACH_RESPONSE']);
 
-// @spec CQ-LOG-002
+// Remote (Cloud Logging) defaults for waitForCoachPair: ingestion lag makes the local 15s/500ms
+// too tight. Overridable so a slow/backed-up project can be given more headroom without a code change.
+const REMOTE_TIMEOUT_MS = Number(process.env.COACH_QUALITY_LOG_TIMEOUT_MS) || 90_000;
+const REMOTE_POLL_MS = Number(process.env.COACH_QUALITY_LOG_POLL_MS) || 5_000;
+
+// @spec CQ-LOG-002, CQ-LOG-003
 function fetchLogLines(since) {
+  // Deployed GCP backend → read from Cloud Logging instead of the local container's stdout.
+  if (isRemoteLogSource()) return fetchLogLinesGcp(since);
+
   const args = [...COMPOSE_ARGS, 'logs', 'backend', '--no-color'];
   if (since) args.push('--since', since);
   const raw = execFileSync('docker', args, {
@@ -37,16 +50,10 @@ function fetchLogLines(since) {
   });
   const lines = [];
   for (const line of raw.split('\n')) {
-    // Each line is "container-name | <timestamp> <LEVEL> [logger] (thread) {json}" —
-    // take everything from the first '{' onward, same technique as the download-*.sh
-    // scripts, rather than assuming the line is bare JSON.
-    const start = line.indexOf('{');
-    if (start === -1) continue;
-    try {
-      lines.push(JSON.parse(line.slice(start)));
-    } catch {
-      // Not a JSON log line (e.g. a stack trace) — skip.
-    }
+    // Each line is "container-name | <timestamp> <LEVEL> [logger] (thread) {json}" — take
+    // everything from the first '{' onward (same technique as the download-*.sh scripts).
+    const parsed = parseStructuredLine(line);
+    if (parsed) lines.push(parsed);
   }
   return lines;
 }
@@ -81,15 +88,22 @@ function coachPairsForGame(pid, since) {
 /**
  * Polls backend logs until the (turnIndex + 1)th COACH_REQUEST/COACH_RESPONSE pair for
  * `pid` has appeared, then returns it. Coach log lines are written synchronously inside
- * the HTTP request (see BedrockCoachClient.call), so by the time the frontend's
- * `POST /ai/coach` response resolves the pair is already in the container's log stream —
- * this poll only needs to cover `docker compose logs`' own read latency.
+ * the HTTP request (see BedrockCoachClient.call / VertexCoachClient.call), so by the time the
+ * frontend's `POST /ai/coach` response resolves the pair is already emitted. Locally the poll
+ * only needs to cover `docker compose logs`' read latency; against a deployed GCP backend it
+ * must also cover Cloud Logging's ingestion lag, so the remote defaults are larger.
  *
  * @param {string} pid gameId
  * @param {number} turnIndex 0-based index of the coach turn within the scenario
- * @param {{timeoutMs?: number, pollIntervalMs?: number, since?: string}} [opts]
+ * @param {{timeoutMs?: number, pollIntervalMs?: number, since?: string}} [opts] — timeoutMs /
+ *   pollIntervalMs default to 15s/500ms locally and REMOTE_TIMEOUT_MS/REMOTE_POLL_MS against a
+ *   deployed backend.
  */
-export async function waitForCoachPair(pid, turnIndex, { timeoutMs = 15_000, pollIntervalMs = 500, since } = {}) {
+export async function waitForCoachPair(pid, turnIndex, opts = {}) {
+  const remote = isRemoteLogSource();
+  const timeoutMs = opts.timeoutMs ?? (remote ? REMOTE_TIMEOUT_MS : 15_000);
+  const pollIntervalMs = opts.pollIntervalMs ?? (remote ? REMOTE_POLL_MS : 500);
+  const { since } = opts;
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const pairs = coachPairsForGame(pid, since);
