@@ -26,6 +26,9 @@
 #   AWS_PROFILE=sandbox RUNS=10 LABEL=haiku-4-5-baseline bash scripts/local/coach-quality-repeat.sh
 #   AWS_PROFILE=sandbox COACH_BEDROCK_MODEL_ID=eu.anthropic.claude-sonnet-4-6-... \
 #     RUNS=10 LABEL=sonnet-4-6 bash scripts/local/coach-quality-repeat.sh
+#   # InvokeModel-vs-Converse A/B (docs/todo/coach-quality-invoke-converse-ab.md):
+#   AWS_PROFILE=sandbox COACH_BEDROCK_API_MODE=invoke   RUNS=10 LABEL=api-invoke   bash scripts/local/coach-quality-repeat.sh
+#   AWS_PROFILE=sandbox COACH_BEDROCK_API_MODE=converse RUNS=10 LABEL=api-converse bash scripts/local/coach-quality-repeat.sh
 #
 # EXTRA_COMPOSE_FILE stacks one more overlay on top of the two above — e.g.
 # docker-compose.coach-quality-vertex.yml to compare the AI coach's Vertex AI provider against

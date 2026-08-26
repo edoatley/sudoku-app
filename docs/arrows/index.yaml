@@ -248,7 +248,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: sudoku-coach.md
-    next: "SC-GCP-007 (Vertex AI cutover — see docs/todo/vertex-ai-coach-cutover.md)"
+    next: "Bedrock invoke-vs-converse A/B resolved 2026-08-26 (tie; invoke retained, see application.properties + docs/todo/coach-quality-invoke-converse-ab.md). Remaining: optimise Bedrock model selection (docs/todo/optimise-ai-coach-bedrock-model.md, backlog #2)."
     drift: ~
 
 # Items found during mapping that don't yet belong to a segment. Empty — the orphan-artifacts
