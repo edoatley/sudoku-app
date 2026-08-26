@@ -11,7 +11,7 @@ the change is easy to spot, then removed.
 
 | Priority | Description | Reference | Status |
 |---|---|---|---|
-| 1 | Coach-quality invoke/converse A/B | [coach-quality-invoke-converse-ab.md](todo/coach-quality-invoke-converse-ab.md) | Active |
+| 1 | Coach-quality invoke/converse A/B — tie (2026-08-26); `invoke` retained as default | [coach-quality-invoke-converse-ab.md](todo/coach-quality-invoke-converse-ab.md) | Done |
 | 2 | Optimise AI coach Bedrock model selection (Haiku 4.5 vs Sonnet) | [optimise-ai-coach-bedrock-model.md](todo/optimise-ai-coach-bedrock-model.md) | Active |
 | 3 | Admin log browser (CloudWatch viewer in the admin menu) | [add-log-browser-to-developer-menu.md](todo/add-log-browser-to-developer-menu.md) | Active |
 | 4 | Terraform CI/testing review (validate `infra/gcp` in the pre-push suite; tflint) | [terraform-ci-testing-review.md](todo/terraform-ci-testing-review.md) | Active |

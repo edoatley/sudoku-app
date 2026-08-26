@@ -56,6 +56,12 @@ services:
       # would treat as a present-but-empty override rather than falling back to the
       # default model — breaking baseline (no-override) runs.
       COACH_BEDROCK_MODEL_ID:
+      # Same bare-key passthrough for the InvokeModel-vs-Converse A/B: set
+      # COACH_BEDROCK_API_MODE=invoke|converse on the host to override
+      # application.properties's ${COACH_BEDROCK_API_MODE:invoke} default, or leave it
+      # unset for the baseline. An empty-string default here would be treated as a
+      # present-but-empty override, so omit the value (see COACH_BEDROCK_MODEL_ID above).
+      COACH_BEDROCK_API_MODE:
     depends_on:
       dynamodb-setup-coach-quality:
         condition: service_completed_successfully

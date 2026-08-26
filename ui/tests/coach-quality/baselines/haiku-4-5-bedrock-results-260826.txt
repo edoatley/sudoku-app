@@ -1,0 +1,97 @@
+==================================================================
+Bedrock coach-quality baseline — model=haiku-4-5 (eu.anthropic.claude-haiku-4-5-20251001-v1:0)
+date=2026-08-26  runs-per-mode=10
+Backlog item 1: coach.bedrock.api-mode InvokeModel vs Converse A/B
+==================================================================
+
+############## MODE: invoke (incumbent default) ##################
+
+Overall — /Users/edoatley/source/sudoku-app/ui/tests/coach-quality/reports/api-invoke-260826
+  n=107 fallbackRate=0.9%
+  latencyMs: mean=2000 p50=1917 p90=2336
+  tokens: input=44217 output=10251 cacheRead=518544 cacheWrite=9972 total=54468
+  fallbacks (1):
+    - stuck-single-turn [ApiCallTimeoutException] Client execution did not complete before the specified timeout configuration: 6000 millis
+
+  deep-escalation-ladder
+  n=40 fallbackRate=0.0%
+  latencyMs: mean=1900 p50=1917 p90=2151
+  tokens: input=19610 output=4197 cacheRead=199440 cacheWrite=0 total=23807
+
+  explicit-answer-request
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1972 p50=1851 p90=2500
+  tokens: input=3660 output=887 cacheRead=44874 cacheWrite=4986 total=4547
+
+  naked-single-conversation
+  n=18 fallbackRate=0.0%
+  latencyMs: mean=2062 p50=1916 p90=2630
+  tokens: input=7105 output=1608 cacheRead=84762 cacheWrite=4986 total=8713
+
+  off-topic-message
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1990 p50=1888 p90=2198
+  tokens: input=3640 output=920 cacheRead=49860 cacheWrite=0 total=4560
+
+  stuck-single-turn
+  n=9 fallbackRate=11.1%
+  latencyMs: mean=2222 p50=1930 p90=6016
+  tokens: input=2872 output=629 cacheRead=39888 cacheWrite=0 total=3501
+  fallbacks (1):
+    - stuck-single-turn [ApiCallTimeoutException] Client execution did not complete before the specified timeout configuration: 6000 millis
+
+  technique-explanation-ask
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=2181 p50=2091 p90=2267
+  tokens: input=3620 output=1119 cacheRead=49860 cacheWrite=0 total=4739
+
+  wrong-guess-acknowledgment
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1943 p50=1812 p90=2236
+  tokens: input=3710 output=891 cacheRead=49860 cacheWrite=0 total=4601
+
+############## MODE: converse ####################################
+
+Overall — /Users/edoatley/source/sudoku-app/ui/tests/coach-quality/reports/api-converse-260826
+  n=110 fallbackRate=0.9%
+  latencyMs: mean=1975 p50=1865 p90=2243
+  tokens: input=45467 output=10668 cacheRead=543474 cacheWrite=0 total=56135
+  fallbacks (1):
+    - technique-explanation-ask [ThrottlingException] Too many requests, please wait before trying again. (Service: BedrockRuntime, Status Code: 429, Request ID: e83e039d-305a-479b-b389-8682e5396d09) (SDK Attempt Count: 4)
+
+  deep-escalation-ladder
+  n=40 fallbackRate=0.0%
+  latencyMs: mean=2074 p50=1859 p90=2077
+  tokens: input=19721 output=4307 cacheRead=199440 cacheWrite=0 total=24028
+
+  explicit-answer-request
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1929 p50=1892 p90=2151
+  tokens: input=3660 output=931 cacheRead=49860 cacheWrite=0 total=4591
+
+  naked-single-conversation
+  n=20 fallbackRate=0.0%
+  latencyMs: mean=1867 p50=1847 p90=2053
+  tokens: input=7888 output=1777 cacheRead=99720 cacheWrite=0 total=9665
+
+  off-topic-message
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1922 p50=1826 p90=2127
+  tokens: input=3640 output=1012 cacheRead=49860 cacheWrite=0 total=4652
+
+  stuck-single-turn
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1765 p50=1707 p90=1936
+  tokens: input=3590 output=808 cacheRead=49860 cacheWrite=0 total=4398
+
+  technique-explanation-ask
+  n=10 fallbackRate=10.0%
+  latencyMs: mean=2225 p50=2092 p90=2324
+  tokens: input=3258 output=1018 cacheRead=44874 cacheWrite=0 total=4276
+  fallbacks (1):
+    - technique-explanation-ask [ThrottlingException] Too many requests, please wait before trying again. (Service: BedrockRuntime, Status Code: 429, Request ID: e83e039d-305a-479b-b389-8682e5396d09) (SDK Attempt Count: 4)
+
+  wrong-guess-acknowledgment
+  n=10 fallbackRate=0.0%
+  latencyMs: mean=1857 p50=1758 p90=1915
+  tokens: input=3710 output=815 cacheRead=49860 cacheWrite=0 total=4525
