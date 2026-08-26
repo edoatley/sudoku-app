@@ -2,7 +2,8 @@
 
 **Summary:** The structured-output/caching work shipped both Bedrock API modes
 (`coach.bedrock.api-mode` = `invoke` | `converse`) without ever comparing them in practice. Run the
-existing coach-quality harness in both modes and pick a default based on the data. Backlog priority 3.
+existing coach-quality harness in both modes and pick a default based on the data. Priority lives in
+[`docs/backlog.md`](../backlog.md) (the source of truth); don't hardcode it here.
 
 **Tracking:** noted on the `sudoku-coach` arrow's `next` field in `docs/arrows/index.yaml`; not tied
 to a single spec ID.
