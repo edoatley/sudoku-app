@@ -15,7 +15,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.38.3</quarkus.platform.version>
+        <quarkus.platform.version>3.39.1</quarkus.platform.version>
         <quarkus-amazon-services-bom.version>3.21.2</quarkus-amazon-services-bom.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.6</surefire-plugin.version>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>io.quarkiverse.googlecloudservices</groupId>
             <artifactId>quarkus-google-cloud-firestore</artifactId>
-            <version>2.23.1</version>
+            <version>2.24.0</version>
         </dependency>
         <!-- Vertex AI (Gemini) for the GCP-native coach provider; ADC via a hand-rolled CDI
              producer (no keys, no Quarkiverse extension exists for this SDK yet).
@@ -72,7 +72,7 @@
         <dependency>
             <groupId>com.google.genai</groupId>
             <artifactId>google-genai</artifactId>
-            <version>1.67.0</version>
+            <version>1.68.0</version>
         </dependency>
         <!-- google-genai pulls google-auth-library-oauth2-http:1.33.0 directly, which Maven's
              nearest-wins mediation picks over the 1.48.0 every other GCP extension (Firestore
@@ -82,7 +82,7 @@
         <dependency>
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
-            <version>1.50.0</version>
+            <version>1.51.0</version>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
