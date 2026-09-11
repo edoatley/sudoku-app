@@ -17,6 +17,7 @@ lint:
 	@echo "==> Formatting Terraform..."
 	cd infra/aws && terraform fmt
 	cd infra/gcp && terraform fmt
+	cd infra/gcp && uv run ruff check . && uv run ruff format .
 
 secure:
 	@echo "==> Scanning codebase for vulnerabilities with Trivy..."

@@ -1,0 +1,10 @@
+name: sudoku-gcp-bootstrap
+runtime:
+  name: python
+  options:
+    toolchain: uv
+    virtualenv: ../.venv
+description: >-
+  Sudoku GCP bootstrap — the project, its APIs, Pulumi state, KMS, Artifact Registry, service
+  accounts, IAM, Workload Identity Federation and the billing budget. Run from a developer
+  machine with human credentials; see docs/planning/gcp-pulumi-phase-2-bootstrap.md.

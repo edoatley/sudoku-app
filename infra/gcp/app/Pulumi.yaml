@@ -1,0 +1,10 @@
+name: sudoku-gcp-app
+runtime:
+  name: python
+  options:
+    toolchain: uv
+    virtualenv: ../.venv
+description: >-
+  Sudoku GCP application resources — Cloud Run, Firestore, Identity Platform, Firebase Hosting
+  and Cloud DNS. Run by CI as the Workload-Identity-federated deploy service account, which
+  holds no IAM-admin, WIF-admin or billing permission.
