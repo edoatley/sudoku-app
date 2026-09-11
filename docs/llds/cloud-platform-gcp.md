@@ -306,15 +306,46 @@ sanitised stack name), applied as provider default labels. Values are lowercase 
 
 ## Manual Setup
 
-The manual surface shrinks from five areas to two:
+**There is no bash prelude.** The `bootstrap` stack creates the project, links billing, enables
+the APIs, and creates the state bucket and KMS key — everything the old `bootstrap.sh` and
+`github-bootstrap.sh` did. It is run from a developer machine, and it is the only thing that is.
+
+What remains manual is **inputs and one cross-cloud record**, not resources:
 
 | Step | Why it cannot be code |
 | --- | --- |
-| Create the project, link billing, create the state bucket and KMS key | Pulumi cannot bootstrap its own state backend. Mitigated by running the first `pulumi up` on the local filesystem backend and migrating the state into the bucket the stack itself created. |
-| OAuth consent screen + OAuth 2.0 client | No GCP API exists to create OAuth client IDs. |
+| `gcloud auth application-default login` as a principal able to create projects and attach the billing account | Authenticating is an action, not a resource. Pulumi has to run *as* somebody. |
+| Supply the billing account id as stack config (`gcp:billingAccount`) | An input value. The account already exists and is not managed here. |
+| OAuth consent screen + OAuth 2.0 client | **No GCP API creates OAuth client IDs.** Irreducible on both clouds. (`CP-PUL-032`, deferred permanently.) |
+| One NS record delegating `gcp.edoatley.co.uk` in the Route53 parent zone | The parent zone lives in another cloud and is deliberately out of scope. One record, once. |
+| The Identity Platform smoke-test user | No IaC resource exists for it. (`CP-PUL-031`, deferred.) |
 
-Everything else — APIs, service accounts, IAM, WIF, Artifact Registry, Identity Platform, the
-prod invoker, DNS — is code. Six bash scripts are deleted.
+Everything else — APIs, service accounts, IAM, WIF, Artifact Registry, Identity Platform config,
+the prod invoker, DNS records — is code. Six bash scripts are deleted.
+
+### Bootstrapping Pulumi's own state
+
+Pulumi cannot store state in a bucket that does not exist yet. Rather than create that bucket by
+hand, `bootstrap`'s **first** run uses the local filesystem backend and then migrates into the
+bucket it just created, which keeps "100% Pulumi-built" literally true:
+
+```bash
+cd infra/gcp/bootstrap
+pulumi login --local
+pulumi stack init prod --secrets-provider=passphrase
+pulumi up                    # project, billing link, APIs, state bucket, KMS, SAs, WIF, budget
+
+pulumi stack export --file bootstrap-state-backup.json
+pulumi login gs://sudoku-pulumi-state-<suffix>
+pulumi stack init prod --secrets-provider=passphrase
+pulumi stack import --file bootstrap-state-backup.json
+pulumi refresh               # MUST report no changes
+```
+
+This is a one-time procedure, not a standing manual step: every later `pulumi up` runs straight
+against the GCS backend. The bucket has object versioning from birth, so the migration is
+recoverable; the documented fallback if export/import misbehaves is to create the bucket with
+three `gcloud` commands and `pulumi import` it.
 
 ## CI/CD
 

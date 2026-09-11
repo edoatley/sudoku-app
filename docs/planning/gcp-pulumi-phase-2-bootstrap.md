@@ -42,10 +42,24 @@ Two interactions to keep in mind rather than act on:
   existing project under a new Firestore database and Hosting site — which **forfeits the "100%
   Pulumi-built" property**. Not needed here.
 
-## 3. The state chicken-and-egg
+## 3. Running it — this stack IS the prerequisites
 
-Pulumi cannot bootstrap its own state backend. Start on the local filesystem backend and migrate
-into the bucket the stack itself created — this keeps "100% Pulumi-built" literally true:
+There is **no bash prelude and no `gcloud` setup script**. This stack creates the project, links
+billing, enables the APIs, and creates the state bucket and KMS key, as well as the service
+accounts, IAM, WIF, Artifact Registry and budget. You run it from your own machine, authenticated
+as yourself:
+
+```bash
+gcloud auth application-default login     # a principal that can create projects + attach billing
+```
+
+The only inputs it needs that it does not create are the billing account id and the desired
+project id, both stack config.
+
+The one wrinkle is that Pulumi cannot store state in a bucket that does not exist yet. Rather
+than create that bucket by hand, the **first** run uses the local filesystem backend and then
+migrates into the bucket it just created — a one-time procedure, after which every later
+`pulumi up` runs straight against GCS. This keeps "100% Pulumi-built" literally true:
 
 ```bash
 cd infra/gcp/bootstrap
@@ -138,8 +152,10 @@ across every project on that account.
       `PULUMI_KMS_KEY` (vars — neither is sensitive). The `_NEXT` suffix means the existing
       `deploy-gcp.yml` keeps working against the old project until Phase 8 renames them.
 - [ ] **2h. Rewrite `docs/runbooks/gcp-manual-setup.md`** around the two stacks. The manual-steps
-      table shrinks from five rows to two: the project/billing/state prelude, and the OAuth
-      consent screen + client (Phase 4).
+      table stops listing resource creation entirely — the bootstrap stack does all of it. What
+      remains is inputs and one cross-cloud record: authenticating, the billing account id, the
+      OAuth consent screen + client (Phase 4), the Route53 NS delegation (Phase 3), and the
+      Identity Platform smoke user.
 - [ ] **2i. A throwaway federation-check workflow** proving the WIF chain works and the privilege
       boundary holds (§6).
 
