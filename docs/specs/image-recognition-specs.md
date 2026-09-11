@@ -54,4 +54,25 @@ Gateway provides on AWS. Frontend reaches it via `VITE_IMAGE_RECOGNITION_URL` (s
 - [x] **IR-GCP-002**: On GCP the system shall validate the caller's Firebase (Identity Platform) JWT in-app on POST /ai/image-to-puzzle (RS256 against the securetoken JWKS, issuer https://securetoken.google.com/{project_id}, audience {project_id}, email_verified true), rejecting missing/invalid tokens with 401/403 — the endpoint is Bedrock-backed, so it is never left unauthenticated.
 - [x] **IR-GCP-003**: On GCP the system shall apply CORS in-app from CORS_ALLOWED_ORIGINS (the workspace's Hosting origin and localhost for RC workspaces), answering preflight OPTIONS without invoking recognition.
 - [x] **IR-GCP-004**: The warmup probe (GET /ai/image-to-puzzle/warmup) shall be reachable without a token and shall never invoke Bedrock, so the frontend can warm the service before sign-in.
-- [x] **IR-GCP-005**: On GCP the image-recognition service shall invoke AWS Bedrock cross-cloud using the Secret Manager credentials wired when enable_coach = true (shared with the coach; CP-GCP-085).
+- [x] **IR-GCP-005**: ~~On GCP the image-recognition service shall invoke AWS Bedrock cross-cloud using the Secret Manager credentials wired when enable_coach = true (shared with the coach; CP-GCP-085).~~ Superseded by `IR-AI-002`: GCP inference moves to Vertex AI Gemini vision authenticated by the runtime service account, retiring the cross-cloud AWS credential (`CP-GCP-085`) and removing Secret Manager from the GCP project.
+
+---
+
+## AI Provider Selection
+
+Mirrors the coach's `CoachAiClient` port (`docs/specs/sudoku-coach-specs.md` SC-GCP-001..003):
+one seam, two adapters, chosen at runtime by configuration. Bedrock is retained for the AWS
+Lambda deployment; Vertex is the GCP path.
+
+- [ ] **IR-AI-001**: The system shall select the vision inference provider at runtime from IMAGE_AI_PROVIDER (bedrock | vertex), defaulting to bedrock when unset, and shall fail loudly on an unrecognised value rather than silently falling back.
+- [ ] **IR-AI-002**: Where the provider is vertex, the system shall perform recognition via Vertex AI Gemini vision, authenticated by Application Default Credentials (the Cloud Run runtime service account), with no AWS credential present.
+- [ ] **IR-AI-003**: The system shall import only the selected provider's SDK, so the AWS Lambda image never loads the Vertex client and the Cloud Run service never constructs a Bedrock client.
+- [ ] **IR-AI-004**: The system shall use byte-identical system and user prompts across both providers, held in one shared module, so a provider change cannot alter recognition behaviour by altering the prompt.
+- [ ] **IR-AI-005**: Each provider adapter shall wrap its SDK's failures in a single provider-neutral error type, so the existing multi-model retry and cross-check scoring loop is unchanged by the provider in use.
+- [ ] **IR-AI-006**: The system shall read its candidate model list per provider (BEDROCK_MODELS, VERTEX_MODELS), preserving the existing AWS variable name so the AWS infrastructure needs no change.
+
+## Provider Accuracy Verification
+
+- [ ] **IR-TEST-001**: The system shall provide a fixture-based accuracy harness scoring a provider over the existing e2e image fixtures, reporting per-fixture cell accuracy, exact-grid match, puzzle validity, and whether deliberately-empty coloured cells were respected.
+- [ ] **IR-TEST-002**: The harness shall compare a run against a committed per-provider baseline rather than an absolute threshold, so model non-determinism does not produce flaky failures.
+- [ ] **IR-TEST-003**: The accuracy harness shall be opt-in by test marker and shall be excluded from both CI and the mandatory pre-push suite, because it requires live provider credentials and incurs per-run cost.

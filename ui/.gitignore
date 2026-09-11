@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Local env files. *.local above catches .env.local only incidentally; be explicit so a
+# .env or .env.production can never be committed. Tracked env files are allow-listed.
+.env*
+!.env.example
+!.env.test
+!.env.hint-demos
 playwright-report
 test-results
 coverage

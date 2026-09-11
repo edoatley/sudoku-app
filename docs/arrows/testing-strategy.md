@@ -224,6 +224,48 @@ deployed environment" section.
 
 ---
 
+## Layer 2d — Image Recognition Accuracy Harness (opt-in, real provider credentials)
+
+Mirrors Layer 2c in shape and intent: a credential-bearing, cost-incurring, non-deterministic
+diagnostic runner used to make a provider decision, **not** a pass/fail gate in CI.
+
+Scores a vision provider over the seven ground-truth fixtures already declared in
+`image_recognition/tests/e2e_config.json`, reporting per-fixture cell accuracy, exact-grid match,
+puzzle validity, and whether deliberately-empty coloured cells were respected (the trap that
+motivated `IR-PROC-013`). Compares a run against a committed **per-provider baseline** rather
+than an absolute threshold, so model non-determinism does not produce flaky failures.
+
+- Marker: `accuracy` (declared in `image_recognition/pyproject.toml` alongside `real_images` and `e2e`)
+- Runner: `scripts/local/image-accuracy-compare.sh` — N runs per provider, side-by-side summary
+- **Excluded from CI and from the mandatory pre-push suite**, exactly like `e2e` and
+  coach-quality. Suite 1's marker expression carries the exclusion.
+- Output: the summary is pasted into the PR that flips `IMAGE_AI_PROVIDER`, the same practice used
+  for the coach's invoke/converse A/B.
+
+@spec IR-TEST-001, IR-TEST-002, IR-TEST-003
+
+## Layer 2e — Infrastructure Component Tests (Pulumi mock runtime)
+
+The **first infrastructure test layer in this repository.** The AWS facet has recorded "no
+infrastructure tests exist (no Terratest or equivalent)" as an accepted gap since inception,
+because HCL offers no cheap unit-test seam. Pulumi does: `pulumi.runtime.set_mocks()` lets every
+`ComponentResource` be instantiated and asserted on with no cloud contact and no credentials.
+
+- Location: `infra/gcp/tests/`
+- Runner: `cd infra/gcp && uv run pytest`
+- What to assert: resource arguments that encode a decision — Cloud Run `min_instance_count=0`,
+  the `allUsers` invoker present only when `public=True`, prod Firestore carrying deletion
+  protection, the naming rule capping at the Firebase `site_id` limit and stripping trailing
+  hyphens.
+- `test_no_authoritative_iam.py` is a **structural guardrail**, not a behaviour test: it scans the
+  component sources and fails if `IAMPolicy` or `IAMBinding` appears, because an authoritative
+  IAM resource would silently delete every other binding on the project.
+- Gated in CI (`ci-pulumi`, path-filtered to `infra/gcp/**`) and in the pre-push suite (Suite 8).
+
+This layer covers the GCP facet only. AWS remains on Terraform and its gap stands.
+
+@spec CP-PUL-013, CP-PUL-081, CP-PUL-082
+
 ## Layer 3 — Backend Unit Tests (JUnit 5)
 
 **Status: in place**

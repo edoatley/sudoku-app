@@ -14,7 +14,8 @@ The GCP facet of the Cloud Platform, at behavioural parity with `infra/aws/`, on
 ```text
 GitHub ──WIF──> Cloud Run (backend: Quarkus)  ──> Firestore (Native)
                 Cloud Run (image-recognition)  ──> (Bedrock cross-cloud, interim)
-Firebase Hosting (React SPA) ── Cloud DNS (sudoku-gcp.edoatley.co.uk) + Google-managed TLS
+Firebase Hosting (React SPA) ── custom domain sudoku-gcp.edoatley.co.uk + Google-managed TLS
+                               (CNAME in the parent Route53 zone; no Cloud DNS zone)
 Identity Platform (Google IdP) ── manual
 Cloud Billing budget ── Pub/Sub alerts
 ```
@@ -26,7 +27,7 @@ Cloud Billing budget ── Pub/Sub alerts
 | API Gateway + JWT authorizer | Cloud Run direct + in-app JWT                     |
 | Cognito                      | Identity Platform (manual)                        |
 | Amplify                      | Firebase Hosting                                  |
-| Route53 + ACM                | Cloud DNS + Google-managed TLS                    |
+| Route53 + ACM                | Route53 CNAME + Google-managed TLS                |
 | AWS Budgets                  | Cloud Billing budget + Pub/Sub                    |
 | S3 backend / ECR             | GCS backend / Artifact Registry                   |
 | GitHub OIDC → IAM role       | Workload Identity Federation → deploy SA (manual) |
@@ -38,12 +39,12 @@ Cloud Billing budget ── Pub/Sub alerts
 | `terraform.tf`         | `google` / `google-beta` providers, GCS backend, `default_labels`         |
 | `main.tf`              | Workspace locals (`is_default` / `is_rc` / `suffix`), project data source |
 | `variables.tf`         | All input variables                                                       |
-| `outputs.tf`           | Service URLs, Firestore db, Hosting site, DNS name servers                |
+| `outputs.tf`           | Service URLs, Firestore db, Hosting site                                  |
 | `cloud_run.tf`         | Backend Cloud Run service                                                 |
 | `image_recognition.tf` | Image-recognition Cloud Run service                                       |
 | `firestore.tf`         | Firestore database (named per workspace) + TTL                            |
 | `firebase_hosting.tf`  | Firebase project, Hosting site, custom domain                             |
-| `dns.tf`               | Cloud DNS managed zone                                                    |
+| `coach.tf`             | Documentation only — explains the cross-cloud Bedrock design (no resources) |
 | `budgets.tf`           | Billing budget + Pub/Sub alert topic                                      |
 
 **No `iam.tf` and no `identity_platform.tf`** — service accounts, IAM bindings, Workload Identity
@@ -83,10 +84,9 @@ manually triggered (`workflow_dispatch`). It authenticates via WIF (no long-live
 
 - `deploy_cloud_run` — apply the Cloud Run services. Off until container images exist in Artifact
   Registry (Strategy C builds them with the app adapters). With it off, an apply stands up
-  Firestore + Firebase Hosting + Cloud DNS + budget only.
-- `enable_custom_domain` — create the Cloud DNS managed zone **and** attach the Firebase Hosting
-  custom domain. Off by default: the managed zone is the only standing charge (~$0.20/zone/month)
-  and isn't needed until the domain is set up, so the default apply is genuinely $0.
+  Firestore + Firebase Hosting + budget only.
+- `enable_custom_domain` — attach the Firebase Hosting custom domain. Off by default until the
+  CNAME exists in the parent Route53 zone (`scripts/infra/gcp/set-custom-domain-cname.sh`).
 
 ## Workspaces
 
@@ -98,5 +98,6 @@ load is bounded by Cloud Run max-instances × concurrency (see the LLD's deliber
 ## Cost
 
 Everything targets the free tier: Cloud Run scale-to-zero, Firestore free daily quota (per-project
-— shared across named databases), Firebase Hosting free tier, Cloud DNS (one zone). The billing
+— shared across named databases), Firebase Hosting free tier. There is no Cloud DNS zone, so
+there is no standing charge at all. The billing
 budget (default workspace, when a billing account is supplied) alerts at 80% actual / 100% forecast.

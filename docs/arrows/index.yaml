@@ -1,5 +1,5 @@
 schema_version: 2
-last_updated: 2026-08-19
+last_updated: 2026-09-11
 
 # Organizational only; arrow-maintenance logic doesn't depend on taxonomy placement.
 taxonomy:
@@ -113,7 +113,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: image-recognition.md
-    next: "Re-evaluate IR-PROC-001-005 (PIL preprocessing) only after solving colour-cell desaturation problem; multi-model cascade tested and rejected (2026-04-20)"
+    next: "De-Bedrock the GCP path (IR-AI-001..006, IR-TEST-001..003) — Phase 5 of docs/planning/gcp-pulumi-replatform.md; last AWS runtime dependency on GCP. IR-PROC-001-005 (PIL) still blocked on colour-cell desaturation."
     drift: ~
 
   cloud-platform:
@@ -125,7 +125,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: cloud-platform.md
-    next: "CP-GCP-090 (Vertex AI coach) — rollout var + local validation done (see docs/todo/vertex-ai-coach-cutover.md); deployed-path validation + default flip still open."
+    next: "GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phase 0 (docs + drift) done; Phase 1 (Pulumi scaffolding + component unit tests, no cloud) is next. New spec blocks CP-PUL-* and CP-CD-*; CP-GCP-014/031/050/081/082/083 superseded. HLD manual-identity tenet revised to a two-stack privilege split."
     drift: ~
 
   react-frontend:

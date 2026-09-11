@@ -11,14 +11,16 @@ the change is easy to spot, then removed.
 
 | Priority | Description | Reference | Status |
 |---|---|---|---|
-| 1 | Coach-quality invoke/converse A/B — tie (2026-08-26); `invoke` retained as default | [coach-quality-invoke-converse-ab.md](todo/coach-quality-invoke-converse-ab.md) | Done |
+| 1 | **GCP re-platform to Pulumi** — clean-room project, Python + uv, two-stack privilege split, de-Bedrock image recognition, `DEPLOY_TARGET` switch. Ten phases, one PR each. | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) | Active |
 | 2 | Optimise AI coach Bedrock model selection (Haiku 4.5 vs Sonnet) | [optimise-ai-coach-bedrock-model.md](todo/optimise-ai-coach-bedrock-model.md) | Active |
 | 3 | Admin log browser (CloudWatch viewer in the admin menu) | [add-log-browser-to-developer-menu.md](todo/add-log-browser-to-developer-menu.md) | Active |
-| 4 | Terraform CI/testing review (validate `infra/gcp` in the pre-push suite; tflint) | [terraform-ci-testing-review.md](todo/terraform-ci-testing-review.md) | Active |
-| 5 | Integrate hint output into the AI coach chat window (needs full HLD→LLD→EARS pass) | [integrate-hint-output-into-coach-chat.md](todo/integrate-hint-output-into-coach-chat.md) | Active |
+| 4 | Repoint AWS Cognito's Google IdP at its own OAuth client — prerequisite for deleting the old GCP project, since the current client is shared and lives there | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) §6 R2 | Active |
+| 5 | Terraform CI/testing review — **AWS half only** (tflint, `terraform test`). The `infra/gcp` half is resolved by the Pulumi re-platform, which brings its own lint + unit-test gate. | [terraform-ci-testing-review.md](todo/terraform-ci-testing-review.md) | Active |
+| 6 | Integrate hint output into the AI coach chat window (needs full HLD→LLD→EARS pass) | [integrate-hint-output-into-coach-chat.md](todo/integrate-hint-output-into-coach-chat.md) | Active |
 | — | GCP budget hard-cap (needs a Pub/Sub-triggered function; alert-only today) | `CP-GCP-061` (cloud-platform-specs.md) | Deferred |
 | — | Private VPC egress to Firestore | `CP-GCP-091` (cloud-platform-specs.md) | Deferred |
 | — | Single-active-game invariant as a Firestore transaction | `GL-GCP-006` (game-lifecycle-specs.md) | Deferred |
 | — | GCP admin authorization (Identity Platform has no group concept) | `UM-GCP-008` (user-management-specs.md) | Deferred |
 | — | PIL image preprocessing before Bedrock (blocked on colour-cell desaturation) | `IR-PROC-001..005` (image-recognition-specs.md) | Deferred |
-| — | GCP Cloud Logging support for the coach-quality harness — deployed-path log correlation validated against a live rcg-* Vertex workspace (`CQ-LOG-003`) | [coach-quality-gcp-cloud-logging.md](todo/coach-quality-gcp-cloud-logging.md) | Done |
+| — | Delete the old GCP project `sudoku-app-eo` — 30-day rollback window after cutover. **Blocked by** row 4 (the shared OAuth client lives in it) | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) §4 | Deferred |
+| — | Image recognition on Vertex Gemini vision (`CP-GCP-089`, `IR-AI-001..006`) — tracked as Phase 5 of row 1, listed here because it is the last AWS runtime dependency on GCP | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) | Active |
