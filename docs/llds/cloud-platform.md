@@ -5,11 +5,13 @@
 
 ## Context and Current State
 
-The Cloud Platform component is the infrastructure substrate that provisions, wires, and delivers all runtime services. It contains no domain logic — its job is to make everything else accessible and connected. The platform is realised on two clouds at behavioural parity: **AWS** (Terraform in `infra/aws/`) and **GCP** (Terraform in `infra/gcp/`). The sections below are organised as two facets — the AWS facet (spec prefix `CP-INFRA-*`) and the GCP facet (spec prefix `CP-GCP-*`). Shared multi-cloud intent (parity, one-cloud-at-a-time / cutover-not-active-active, the AWS→GCP service mapping) lives in the HLD's *Multi-Cloud Deployment* section; cross-cloud identity continuity is detailed under *GCP Resources → Cross-Cloud Identity Continuity* below.
+The Cloud Platform component is the infrastructure substrate that provisions, wires, and delivers all runtime services. It contains no domain logic — its job is to make everything else accessible and connected. The platform is realised on two clouds at behavioural parity, with a different IaC tool on each: **AWS** (Terraform in `infra/aws/`) and **GCP** (Pulumi, Python + `uv`, in `infra/gcp/`). The split is by cloud and never within one cloud.
 
-The React frontend is a separate component; see `docs/llds/react-frontend.md`. The coupling point between the two is the set of `VITE_*` environment variables that Terraform injects into the frontend build (Amplify on AWS, Firebase Hosting on GCP) — documented in both LLDs.
+**This document owns the AWS facet** (spec prefix `CP-INFRA-*`) **and the cloud-general material** — workspace strategy, naming, tagging, the CI trigger matrix and integrity rules, deploy-target selection (`CP-CD-*`), and cross-cloud identity continuity. The GCP facet has its own LLD: **`docs/llds/cloud-platform-gcp.md`** (spec prefixes `CP-GCP-*` and `CP-PUL-*`). Shared multi-cloud intent (parity, cutover-not-active-active, the AWS→GCP service mapping) lives in the HLD's *Multi-Cloud Deployment* section.
 
-Files: all `infra/aws/*.tf` and `infra/gcp/*.tf`.
+The React frontend is a separate component; see `docs/llds/react-frontend.md`. The coupling point between the two is the set of `VITE_*` environment variables injected into the frontend build — by Terraform into Amplify on AWS, by CI into the Vite build for Firebase Hosting on GCP. `VITE_AUTH_PROVIDER` (`ui/src/auth/session.js`) is the switch that selects the auth SDK at build time: unset (defaulting to `cognito`) for the AWS build, `firebase` for the GCP build.
+
+Files: all `infra/aws/*.tf`. (GCP's files are listed in `docs/llds/cloud-platform-gcp.md`.)
 
 ## Terraform Workspace Strategy
 
@@ -394,214 +396,56 @@ Reusable workflow called after every deploy. Also dispatchable via `workflow_dis
 
 ## GCP Resources
 
-The GCP facet provisions the same runtime platform as the AWS facet, on GCP-native services, in region `us-central1` (chosen for free-tier coverage). It reuses the AWS workspace model: the same `is_default` / `is_rc` / `suffix` locals drive per-workspace naming, and workspace state is isolated by GCS backend prefix rather than S3 key.
+The GCP facet is **being re-platformed from Terraform to Pulumi** (Python, `uv`) in a clean-room
+GCP project, and its design now lives in its own LLD:
 
-Two parts of the AWS facet are **deliberately absent from GCP Terraform** and provisioned by hand instead — see *GCP Manual Setup* below: (a) all identity/IAM (service accounts, role bindings, Workload Identity Federation) and (b) the Identity Platform auth config. Terraform references the runtime service accounts and the Identity Platform issuer/audience by variable.
+> **`docs/llds/cloud-platform-gcp.md`**
 
-**Scope of the GCP facet: infrastructure scaffolding.** This facet provisions the GCP platform (Cloud Run, Firestore, Firebase Hosting, DNS, budget) and makes it `terraform validate`/`plan`-clean and CI-wired. It does **not** make the application run end-to-end on GCP: the Java backend persists to DynamoDB and authenticates against Cognito today, and the React frontend uses the Cognito/Amplify auth SDK. Running on GCP additionally requires, as **separate per-segment arrows** (not owned here): a backend Firestore persistence profile (Game Lifecycle, User Management, League Table, AI Coach), a frontend Firebase Auth path (React Frontend, User Management), and cross-cloud Bedrock credential wiring (AI Coach, Image Recognition). Until those land, the GCP-facet specs are `[ ]` gaps and the `deploy-gcp` CI path is provisioning-only. The custom domain is `sudoku-gcp.edoatley.co.uk` (distinct from the AWS `sudoku.edoatley.co.uk` / `sudoku-beta.edoatley.co.uk`), and GCP has no `rc-shared` equivalent — Identity Platform is a single manual per-project config and Firestore isolates per workspace by named database.
+That document owns the two-stack privilege model, the Pulumi component library, stack strategy,
+and every GCP-native resource (Cloud Run, Firestore, Identity Platform, Firebase Hosting, Cloud
+DNS, cost guardrails). The plan driving the migration is
+`docs/planning/gcp-pulumi-replatform.md`.
 
-### GCP Workspace Strategy
+What stays in *this* document is the AWS facet plus the cloud-general material both facets share:
+the Terraform workspace strategy, naming and tagging conventions, the CI trigger matrix and
+integrity rules, **Deploy Target Selection**, and cross-cloud identity continuity.
 
-Identical `terraform.workspace` model to AWS. Firestore is isolated per workspace by **named database**: `(default)` database on the `default` workspace, a `sudoku{suffix}` named database otherwise. Cloud Run services, the Firebase Hosting site, and Cloud DNS records all carry `local.suffix`. Labels (see *Tagging*) replace AWS tags.
+### Deploy Target Selection (cloud-general)
 
-### Compute (Cloud Run)
+Which cloud a deployment goes to is decided in one place, in `.github/workflows/ci-deploy.yml`'s
+`select-target` job, in this order:
 
-**Backend service (`sudoku{suffix}`):**
+1. A `workflow_dispatch` `target` input other than `auto` wins outright.
+2. Branch `rc-*` → AWS; branch `rcg-*` → GCP. The branch convention is absolute and does **not**
+   consult the repository variable, so RC environments behave exactly as they always have.
+3. Branch `main` → the repository variable `DEPLOY_TARGET` (`aws` | `gcp` | `both`), defaulting
+   to `aws` when unset.
 
-| Property | Value |
-| --- | --- |
-| Image | Artifact Registry container of the Quarkus app (`var.backend_image`) |
-| CPU / Memory | 1 vCPU / 512 MiB |
-| Timeout | 8 seconds |
-| Concurrency | container concurrency capped (throttle guard) |
-| Scaling | `min_instance_count = 0` (scale to zero); `max_instance_count` capped (throttle / cost guard) |
-| Runtime SA | referenced by `var.run_service_account_email` (created manually) |
-| Ingress | all (public); public invocation via `roles/run.invoker` for `allUsers` granted manually |
+`DEPLOY_TARGET` is a **production** control, not a global switch — that is what keeps it
+least-surprising. It selects *deploys*, not traffic: each cloud keeps its own stable hostname
+(`sudoku.edoatley.co.uk` on AWS, `sudoku.gcp.edoatley.co.uk` on GCP), so flipping it is not a DNS
+failover. Where the target is `both`, each cloud deploys independently and the run is red if
+either deployment or smoke fails.
 
-The Quarkus backend runs as a container (parity with the AWS Lambda's Quarkus app, packaged for Cloud Run instead of the Lambda runtime), pushed to an Artifact Registry `sudoku-backend` repository (created by the bootstrap script, alongside `sudoku-image-recognition`). It validates Identity Platform JWTs **in-app** rather than at an API-gateway edge — issuer `https://securetoken.google.com/{project_id}`, audience `{project_id}`. Note: Firebase/Identity Platform ID tokens are **not** fully standard OIDC (JWKS served from `https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com`, no OIDC discovery document, `sub` = Firebase UID with the Google identity under `firebase.identities`). The backend therefore needs explicit key/issuer/audience configuration, not Quarkus OIDC auto-discovery — verified in the code phase (tracked in *Open Questions*). CORS is applied in-app via the same `CORS_ALLOWED_ORIGINS` env var as AWS.
-
-**Image-recognition service (`sudoku-image-recognition{suffix}`):**
-
-| Property | Value |
-| --- | --- |
-| Image | Artifact Registry `sudoku-image-recognition:{branch}-{sha}` (`var.image_recognition_image_uri`) |
-| CPU / Memory | 1 vCPU / 512 MiB |
-| Timeout | 60 seconds |
-| Scaling | `min_instance_count = 0`; `max_instance_count` capped |
-| Runtime SA | `var.image_recognition_service_account_email` (created manually) |
-
-### Edge / Auth / Throttle
-
-There is **no API Gateway** on GCP. Clients call the Cloud Run service URLs directly. This replaces three AWS responsibilities:
-
-- **Routing:** Cloud Run serves all application paths from the container; there is no gateway route table. The two services have distinct URLs; the frontend targets the backend URL and (for imports) the image-recognition URL.
-- **Auth:** the JWT is validated in-app by the Quarkus backend (Identity Platform issuer/audience above), not by an edge authorizer. The `administrators` group used for `/admin/data/*` on AWS has no Identity Platform group equivalent — admin authorization is enforced in-app via a custom claim or configured allowlist (see `docs/llds/user-management.md`; tracked in *Open Questions*).
-- **Throttle / DoS guard:** enforced by Cloud Run `max_instance_count` × `container_concurrency` (a hard ceiling on concurrent work) plus the per-request timeout, rather than an API-Gateway request-rate throttle. This is a **deliberate deviation** from the AWS facet's per-request rate limit (`security-standards.md`: 25 rps / 50 burst). Cloud Run exposes no native request-rate throttle; a true one would require an external HTTPS load balancer + Cloud Armor (ongoing, non-free-tier cost), contradicting the near-zero-cost goal. The accepted GCP guard is layered: (a) `max_instance_count × container_concurrency × timeout` caps the maximum compute burn rate, and scale-to-zero keeps idle cost at zero; (b) the only per-call-costly path, the AI coach, is rate-limited **in-app per user** (monthly token budget + per-user/per-minute limiter in the `coachRateLimits` Firestore collection — identical to the AWS DynamoDB guard, independent of the edge); (c) the billing budget alert (below) is the backstop. What this gives up: no per-client edge rate limit, so a burst of cheap requests could erode free-tier request quota faster than a 25 rps cap would. Cloud Armor is the documented unbuilt escape hatch if real abuse appears.
-
-### Storage (Firestore)
-
-Firestore in **Native mode**, one database per workspace (see *Workspace Strategy*). Collections mirror the DynamoDB tables:
-
-| Collection | Document key | Notes |
-| --- | --- | --- |
-| `games` | `userId` + `gameId` (composite doc path) | mirrors `SudokuGames` |
-| `players` | `userId` | mirrors `SudokuPlayers` |
-| `leaderboard` | `userId` | mirrors `SudokuLeaderboard` |
-| `coachRateLimits` | `userId` + `window` | TTL policy on `expiresAt`; mirrors `SudokuCoachRateLimits` |
-
-Location `us-central1` (single-region, cheapest, free-tier eligible). Delete protection / point-in-time recovery enabled on the `default` database only, mirroring the AWS PITR split. No composite indexes are required for the current single-key access patterns; add `google_firestore_index` if a query needs one.
-
-**Free-tier caveat:** Firestore's free daily quota is per-project, not per-database, so many `rc-*` named databases share one quota. This is acceptable at this project's traffic, but a burst of concurrent RC environments could erode the free tier — a reason the *project-per-environment* alternative (rejected above for billing simplicity) exists.
-
-### Identity (Identity Platform) — MANUAL, not Terraform
-
-Identity Platform with a Google sign-in provider is the Cognito equivalent (social-only Google login). It is **provisioned by hand** (runbook or bootstrap script), not Terraform, for the same reason IAM is manual — it is the primary learning surface. Terraform consumes the resulting issuer and audience via variables and injects the frontend `VITE_*` auth config. The AWS smoke-test username/password client has an Identity Platform equivalent (a test user); its creation is also manual.
-
-### Frontend Hosting (Firebase Hosting)
-
-`google_firebase_hosting_site` (`sudoku{suffix}`) with a single-page-app rewrite (`ui/firebase.json`: all paths → `/index.html`). As on AWS, the frontend is **not** auto-deployed on push: CI runs `firebase deploy` for `ui/dist` **after** `terraform apply`, because the `VITE_*` values (backend URL, Identity Platform config) are baked into the Vite bundle at build time and must reflect the just-applied infrastructure.
-
-`VITE_*` variables mirror the AWS set, retargeted: `VITE_API_URL` → backend Cloud Run URL + `/api/v1`; the `VITE_COGNITO_*` trio → Identity Platform equivalents; `VITE_MOCK_API` / `VITE_DEV_TOOLS` / `VITE_AI_COACH` unchanged.
-
-### DNS & TLS
-
-Cloud DNS managed zone for `sudoku-gcp.edoatley.co.uk`, created once in the `default` workspace (parity with the Route53 zone). Records point the custom domain at Firebase Hosting (or a Cloud Run domain mapping). TLS is Google-managed — no manual certificate handling. NS delegation from the parent zone `edoatley.co.uk` is a manual one-time step, as on AWS.
-
-### Cost Guardrail (Billing Budget)
-
-`google_billing_budget` sets a monthly cap with threshold alerts delivered to a Pub/Sub topic (parity with AWS Budgets + Cost Anomaly alerts). **Alert-only:** unlike the AWS budget action that auto-attaches a Bedrock-deny IAM policy, GCP budgets cannot enforce a hard cap directly. Automated enforcement (e.g. a Cloud Function on the budget Pub/Sub topic that disables billing or scales services to zero) is deferred — see *Open Questions*.
+@spec CP-CD-001, CP-CD-002, CP-CD-003, CP-CD-004
 
 ### Cross-Cloud Identity Continuity
 
-For `bob@gmail.com` to retain profile, games, and leaderboard across an AWS→GCP cutover, user data must be keyed on a cloud-independent identifier. The stable choice is the **Google OAuth `sub`**, identical across both IdPs because both federate the same Google OAuth client:
+The canonical user identity is the **Google OAuth `sub`**. `UserIdentityResolver` returns the raw
+Google `sub` for `google.com` sign-ins on GCP — not the Firebase UID — which is what allows a user
+to keep their profile, games, and leaderboard position across an Identity Platform tenant change,
+and is why the clean-room rebuild does not strand existing accounts. AWS still returns the Cognito
+subject; unifying it awaits a one-time re-key migration (deferred).
 
-- Cognito ID token: exposed in the `identities` claim (`{providerName:"Google", userId:<google-sub>}`).
-- Identity Platform ID token: exposed in `firebase.identities["google.com"][0]`.
-
-The AWS deployment currently keys user data on the Cognito subject (a Cognito UUID), so adopting the Google `sub` as the canonical `userId` requires a one-time re-key migration on the AWS side. Continuity follows the **cutover model** (one-time DynamoDB→Firestore export keyed by the Google `sub`); there is no live cross-cloud replication. The canonical-`userId` decision and its migration are cross-segment (they touch User Management and Game Lifecycle) and are **not** implemented by this LLD — recorded as an *Open Question* pending its own arrow.
-
-## GCP Manual Setup (not Terraform-managed)
-
-The following are provisioned by hand from `docs/runbooks/gcp-manual-setup.md` (some optionally by `scripts/infra/gcp/bootstrap.sh`), not by `infra/gcp/*.tf`:
-
-| Item | What | Why manual |
-| --- | --- | --- |
-| Service accounts | `sudoku-run@`, `sudoku-image-recognition-run@` (runtime), `sudoku-github-deploy@` (CI) | **Now created by the bootstrap script** (once the pattern was understood); listed here for reference |
-| IAM role bindings | `roles/datastore.user` (runtime → Firestore) **is scripted in bootstrap**; `roles/run.invoker` (public invoke), `roles/secretmanager.secretAccessor` (Bedrock credential), and the deploy-SA project roles remain hand-run | Least privilege authored by hand for the sensitive/broad grants; the narrow runtime Firestore grant is automated |
-| Workload Identity Federation | Pool + OIDC provider for `token.actions.githubusercontent.com`, attribute condition on `repository == edoatley/sudoku-app`, impersonation binding to the deploy SA | GCP-native external-identity trust; the counterpart to the AWS GitHub OIDC provider |
-| Identity Platform | Auth config + Google IdP + smoke-test user | primary learning surface |
-| Networking (optional) | VPC + Serverless VPC Access connector for private Firestore/egress | unbuilt; Cloud Run uses Google's managed public API |
-
-Terraform depends on these only by value: runtime SA emails, Identity Platform issuer/audience, and (path A) the Bedrock credential in Secret Manager are passed as variables. Rationale: keeping identity/network out of automation is a project tenet (HLD *Tenets*).
-
-## GCP Terraform Project Structure
-
-### File Organisation
-
-| File | Contents |
-| --- | --- |
-| `terraform.tf` | `google` + `google-beta` providers (region `us-central1`), GCS backend (`bucket = "sudoku-tf-state-gcp"`, `prefix = "sudoku"`), `default_labels` |
-| `main.tf` | `local` values (`is_default` / `is_rc` / `suffix`, sanitized workspace label), project data source |
-| `variables.tf` | All input variables (project id, region, SA emails, image URIs, Identity Platform issuer/audience, budget, AI env) |
-| `outputs.tf` | Backend/image-recognition URLs, Hosting URL, Firestore database name, DNS name servers |
-| `cloud_run.tf` | Backend Cloud Run service |
-| `image_recognition.tf` | Image-recognition Cloud Run service |
-| `firestore.tf` | Firestore database (named per workspace) + any indexes |
-| `firebase_hosting.tf` | Firebase Hosting site |
-| `dns.tf` | Cloud DNS zone, records, custom-domain mapping |
-| `budgets.tf` | Billing budget + Pub/Sub alert topic |
-| `README.md` | Architecture, file map, link to the manual runbook, bootstrap + workspace + cost notes |
-
-**No `iam.tf` and no `identity_platform.tf`** — those live in the manual runbook.
-
-### Naming & Labels
-
-Resource names use `local.suffix`, as on AWS. Labels replace tags and must be lowercase (`[a-z0-9_-]`, ≤63 chars); the workspace name is sanitized before use as a label value:
-
-```hcl
-provider "google" {
-  region = "us-central1"
-  default_labels = {
-    project     = "sudoku"
-    managed_by  = "terraform"
-    environment = local.is_default ? "prod" : local.workspace_label
-  }
-}
-```
-
-## GCP CI/CD
-
-The GCP facet extends the existing pipeline in tiers.
-
-**Live (infrastructure-scaffolding arrow):**
-
-- **Validate gate:** the `terraform-validate` action is parameterised by `working-directory` and `ci.yml`'s `ci-infra` job runs it as a matrix over `infra/aws` and `infra/gcp`; `ci.yml`'s path filter adds `infra/gcp/**` (CP-GCP-081).
-- **Bootstrap:** `scripts/infra/gcp/bootstrap.sh` (project + billing, GCS state bucket, API enablement, two Artifact Registry repos, runtime + deploy SAs with `roles/datastore.user`) and `scripts/infra/gcp/github-bootstrap.sh` (Workload Identity Federation pool/provider, deploy-SA project roles, the three GitHub secrets).
-- **Deploy pipeline:** the **`deploy-gcp` workflow** (`.github/workflows/deploy-gcp.yml`, `workflow_dispatch`) authenticates via WIF (`GCP_WIF_PROVIDER` impersonating `GCP_DEPLOY_SA_EMAIL`, no keys — the counterpart to `configure-aws-oidc`). It runs three jobs: **build-image** (build the HTTP fast-jar, `docker build` `Dockerfile.jvm-lwa`, push to Artifact Registry `sudoku-backend`), **terraform** (`apply` on `infra/gcp`, passing `backend_image`), and **deploy-frontend** (build the Firebase-provider UI, `firebase deploy --only hosting`). Phased flags `deploy_cloud_run` / `deploy_frontend` / `enable_custom_domain` (default off) let it stand up Firestore + Firebase Hosting + Cloud DNS before the app container and DNS delegation exist. Because `workflow_dispatch` requires the workflow on the default branch, `deploy-gcp.yml` is also on `main` (dispatch-only, inert); runs target the working branch via `--ref`.
-
-**Games-slice arrow (landed):**
-
-- **Unified backend image:** the Quarkus backend builds as a plain HTTP fast-jar (the only Maven build — the `aws-lambda` profile that used to produce `quarkus-amazon-lambda-rest`'s zip has been retired) and is containerised via hand-written `Dockerfile.jvm-lwa` with the AWS Lambda Web Adapter baked in — the identical image runs on Cloud Run (HTTP) and AWS Lambda (container, via `AWS_LWA_READINESS_CHECK_PATH`). Persistence is selected at **runtime** by the `sudoku.persistence` property (CDI producer over `@LookupIfProperty` adapters); the `%gcp` profile (`QUARKUS_PROFILE=gcp`, parent `prod`) flips it to Firestore and carries the Firebase issuer/audience (in-app JWT validation) plus `CORS_ALLOWED_ORIGINS`. `deploy_cloud_run=true` then has Terraform create the Cloud Run service pointing at the pushed image.
-- **Smoke-test auth:** Identity Platform has no Cognito `USER_PASSWORD_AUTH`; the GCP smoke test obtains a token via the Identity Platform REST endpoint (`identitytoolkit … :signInWithPassword`) using the admin-provisioned test user (runbook §5).
-
-**Parity history:** leaderboard + coach-rate-limit Firestore I/O, the admin-data Firestore adapter, AI coach on GCP (cross-cloud Bedrock, with a Vertex AI adapter now built), and the image-recognition Cloud Run service have all landed since this was written — see `docs/planning/old/gcp-aws-parity.md` for the work log and `docs/backlog.md` for any current gaps.
-
-**Secrets:** `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA_EMAIL` (set by `scripts/infra/gcp/github-bootstrap.sh`); the existing `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` are reused for the Identity Platform Google provider.
-
-## GCP Design Decisions
-
-| Decision | Chosen | Alternatives Considered | Rationale |
-| --- | --- | --- | --- |
-| Backend compute | Cloud Run (container) | Cloud Functions 2nd gen | Container parity with the Quarkus app; full control; scale-to-zero keeps cost near zero |
-| Persistence | Firestore (Native) | Keep DynamoDB cross-cloud; Cloud SQL | Managed serverless NoSQL parity; free-tier eligible; no server to run |
-| Workspace isolation | Named Firestore database per workspace, single project | Project-per-environment | One project keeps billing/free-tier simple; project-per-env documented as the heavier alternative |
-| Edge | Cloud Run direct + in-app JWT validation | GCP API Gateway; external HTTPS load balancer | Gateway adds cost/complexity; Quarkus already validates OIDC JWTs; throttle achieved via instance/concurrency caps |
-| IAM / SA / WIF / Identity Platform | Manual (runbook), not Terraform | Terraform-managed | Deliberate learning surface; least-privilege authored by hand (HLD tenet) |
-| AI inference | Bedrock cross-cloud via Secret Manager, default; `coach_ai_provider` Terraform var (default `bedrock`) opts a workspace into Vertex AI (Gemini) | Flip the default to `vertex` directly | Prod is live; validate via the `test:coach-quality` harness on an `rcg-*` workspace with `-var coach_ai_provider=vertex` before ever changing the default (SC-GCP-007) |
-| Region | `us-central1` | `europe-west2` (London, AWS-parity) | Maximises free-tier coverage; residency shift acceptable under one-cloud-at-a-time |
-| Budget enforcement | Alert-only (Pub/Sub) | Hard-cap auto-disable | GCP budgets cannot attach a deny action; automated enforcement deferred to a Pub/Sub Cloud Function |
-
-## Observed Design Decisions
-
-| Decision | Chosen | Alternatives Considered | Rationale |
-| --- | --- | --- | --- |
-| API Gateway CORS fully Terraform-managed | Static custom-domain origins set directly in `api_gateway.tf` | Post-apply tighten step (former design) | Avoids the Amplify-URL-unknown-at-apply-time cycle by simply not supporting the raw `*.amplifyapp.com` origin |
-| Cognito callback URLs two-step | Baseline URL list + post-apply add | Terraform-only | Amplify branch URL unknown at apply time; circular dependency resolved by post-apply script |
-| Amplify auto-build disabled | CI triggers `amplify start-job` manually | Amplify webhook auto-build | `VITE_*` vars baked at build time; auto-build uses stale values |
-| Java Lambda package type | Container image (parity with GCP Cloud Run) | Zip + SnapStart | Single artifact across both clouds outweighs SnapStart's cold-start benefit, which container images can't use anyway (AWS doesn't support SnapStart for container-image Lambdas) |
-| RC Cognito pool sharing | Single `sudoku-rc` pool via `rc-shared` workspace | Per-branch Cognito pool | Google OAuth requires fixed redirect URIs; one pool = one set of URIs |
-| Pay-per-request DynamoDB | `BILLING_MODE = "PAY_PER_REQUEST"` | Provisioned throughput | Personal project; bursty/low traffic; cheaper at this scale |
-| Lambda `live` alias | API GW targets alias, not function directly | Direct function invocation | Alias enables zero-downtime version promotion and rollback without API GW changes |
-| ECR outside Terraform | Bootstrap script creates repository | Terraform manages ECR | Avoids chicken-and-egg: Terraform needs the image URI to create the Lambda, but the image can't exist without a repository |
-
-## Technical Debt & Inconsistencies
-
-- CloudWatch has no alarms or metric filters on Lambda errors — no automated notification when either Lambda starts returning 5xx responses. (Deferred — separate feature work.)
-
-## Behavioral Quirks
-
-- The Amplify branch name defaults to `terraform.workspace` if `var.git_branch` is not set. If the workspace name does not match the actual git branch (e.g., workspace `rc-v2` but branch `release/v2`), Amplify will target the wrong branch.
-- RC workspaces share one Cognito pool but each has its own API Gateway and Lambda. A user authenticated against one RC environment's Cognito can present that token to any other RC environment's API — the JWT is valid across all RC APIs.
-- The `$default` API Gateway route sends all unmatched paths to the Java Lambda. Unrecognised routes return Java's 404/405, not API Gateway's native response.
-- `ignore_changes` on Cognito callback/logout URLs means Terraform state drifts from actual configuration after every post-apply addition. `terraform plan` will always show these values as "no changes" even when the live config differs from the baseline.
-
-## Open Questions & Future Decisions (GCP facet)
-
-| Area | Question / gap | Notes |
-| --- | --- | --- |
-| Cross-cloud identity | Adopt Google `sub` as canonical `userId` + migrate AWS data | Cross-segment (User Management, Game Lifecycle); needs its own arrow before any cutover; not implemented here |
-| Admin authorization | Identity Platform has no group concept | `/admin/data/*` group check must move to a custom claim or allowlist in-app — see `docs/llds/user-management.md` |
-| Firebase JWT verification | Firebase ID tokens are non-standard OIDC | Backend needs explicit JWKS/issuer/audience config, not Quarkus OIDC auto-discovery; verify in code phase |
-| Bedrock credential | Long-lived AWS access key in Secret Manager (path A) | Security tension (WIF avoids long-lived keys) + cross-region latency; accepted interim, resolved by the Vertex AI migration |
-| Budget enforcement | Alert-only; no hard cap | Automated enforcement (Pub/Sub → Cloud Function disabling billing / scaling to zero) deferred |
-| AI provider | Bedrock cross-cloud interim | `VertexCoachClient` is built and merged; only the rollout — flipping `coach_ai_provider`'s default to `vertex` after harness validation — remains |
-| Private networking | Cloud Run → Firestore over public managed API | VPC + Serverless VPC Access connector documented but unbuilt |
+Google's `sub` is stable per Google account **across OAuth clients**, so issuing a new OAuth
+client for the new GCP project does not change any `userId`. That property is load-bearing and is
+verified empirically during the migration rather than assumed.
 
 ## References
 
 - AWS facet: `infra/aws/main.tf`, `infra/aws/terraform.tf`, `infra/aws/variables.tf`, `infra/aws/outputs.tf`, `infra/aws/lambda.tf`, `infra/aws/api_gateway.tf`, `infra/aws/dynamodb.tf`, `infra/aws/cognito.tf`, `infra/aws/cognito-rc-shared.tf`, `infra/aws/amplify.tf`, `infra/aws/domain.tf`, `infra/aws/iam.tf`, `infra/aws/image_recognition_lambda.tf`
-- GCP facet: `infra/gcp/terraform.tf`, `infra/gcp/main.tf`, `infra/gcp/variables.tf`, `infra/gcp/outputs.tf`, `infra/gcp/cloud_run.tf`, `infra/gcp/image_recognition.tf`, `infra/gcp/firestore.tf`, `infra/gcp/firebase_hosting.tf`, `infra/gcp/dns.tf`, `infra/gcp/budgets.tf`
-- GCP manual setup runbook: `docs/runbooks/gcp-manual-setup.md`; bootstrap: `scripts/infra/gcp/bootstrap.sh`
+- GCP facet: `docs/llds/cloud-platform-gcp.md`
+- Migration plan: `docs/planning/gcp-pulumi-replatform.md`
 - See also: `docs/llds/react-frontend.md` (frontend app delivered by Amplify on AWS, Firebase Hosting on GCP)
 - Depends on: nothing (provisions all other components)
 - Depended on by: all components (runtime environment)

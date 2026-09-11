@@ -1,5 +1,11 @@
 # AWS ↔ GCP: how the two working deployments differ
 
+> **Changing:** the GCP target is being re-platformed from Terraform to Pulumi in a clean-room
+> project, which also removes the last AWS runtime dependencies (cross-cloud Bedrock for image
+> recognition; the Route53 CNAME). This document describes the two deployments **as they run
+> today** and is updated as each phase lands. Intent lives in
+> `docs/llds/cloud-platform-gcp.md`; the migration is `docs/planning/gcp-pulumi-replatform.md`.
+
 One codebase, one container image, two clouds. This is a side-by-side of the **AWS** and **GCP**
 deployments now that both run the games + player-profile slice end-to-end, so the differences are
 about *platform wiring*, not application logic. It was written after finishing the GCP parity work

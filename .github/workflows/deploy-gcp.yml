@@ -43,12 +43,12 @@ on:
         type: boolean
         default: false
       coach_ai_provider:
-        description: "Coach AI provider on the backend: bedrock (cross-cloud, default) or vertex (Gemini via ADC, no keys — suppresses the backend's Bedrock mount; image-rec keeps Bedrock regardless)"
+        description: "Coach AI provider on the backend: vertex (Gemini via ADC, no keys — default; suppresses the backend's Bedrock mount) or bedrock (cross-cloud). Image-rec keeps Bedrock regardless."
         type: choice
         options:
-          - bedrock
           - vertex
-        default: bedrock
+          - bedrock
+        default: vertex
       deploy_frontend:
         description: "Build and deploy the frontend to Firebase Hosting (needs the backend deployed)"
         type: boolean

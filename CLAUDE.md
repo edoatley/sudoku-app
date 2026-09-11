@@ -56,7 +56,8 @@ A serverless Sudoku app with a Java/Quarkus backend deployed to AWS Lambda, Reac
 
 - `backend/` — Java 25 + Quarkus REST API (Lambda-optimized)
 - `ui/` — React 19 + Vite frontend with MUI (Material UI)
-- `infra/aws/` — Terraform IaC for AWS (resources TBD)
+- `infra/aws/` — Terraform IaC for AWS
+- `infra/gcp/` — IaC for GCP; being re-platformed from Terraform to Pulumi (Python + `uv`) — see `docs/planning/gcp-pulumi-replatform.md`
 - `image_recognition` - Python based AWS lambda
 
 ## Backend (Java/Quarkus)
@@ -105,7 +106,9 @@ npm run preview
 
 Test framework: Vitest + jsdom + React Testing Library (unit/component tests); Playwright for E2E.
 
-## Infrastructure (Terraform)
+## Infrastructure
+
+**AWS — Terraform** (`infra/aws/`, provider region `eu-west-2`):
 
 ```bash
 cd infra/aws
@@ -114,7 +117,16 @@ terraform plan
 terraform apply
 ```
 
-Provider configured for AWS `eu-west-2`.
+**GCP — Pulumi** (`infra/gcp/`, Python + `uv`, region `us-central1`). Two stacks: `bootstrap`
+(run locally with human credentials — project, IAM, WIF, KMS) and `app` (run by CI as the
+federated deploy service account). Currently mid-migration from Terraform; the outgoing `.tf`
+files remain live until cutover. See `docs/llds/cloud-platform-gcp.md`.
+
+```bash
+cd infra/gcp && uv sync
+uv run pytest tests          # component unit tests, no cloud contact
+cd app && pulumi preview
+```
 
 ## Pre-Push Testing (MANDATORY)
 

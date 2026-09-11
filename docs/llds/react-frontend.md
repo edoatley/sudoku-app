@@ -9,7 +9,23 @@ The React Frontend is the browser-side application: all the UI, state management
 
 Files: all `ui/src/` files, `ui/package.json`, `ui/vite.config.js`.
 
-The infrastructure that hosts and configures this app is documented separately in `docs/llds/cloud-platform.md`. The key coupling point is a set of `VITE_*` environment variables that Terraform injects into the Amplify build at deploy time.
+The infrastructure that hosts and configures this app is documented separately in `docs/llds/cloud-platform.md` (AWS) and `docs/llds/cloud-platform-gcp.md` (GCP). The key coupling point is a set of `VITE_*` environment variables injected into the build at deploy time — by Terraform into Amplify on AWS, by CI into the Vite build for Firebase Hosting on GCP.
+
+**The auth provider is chosen at build time.** `ui/src/auth/session.js` reads
+`VITE_AUTH_PROVIDER`, defaulting to `cognito`; the GCP pipeline sets it to `firebase`. Every
+provider SDK is loaded by dynamic `import()`, so only the selected cloud's SDK is bundled —
+`App.jsx` top-level-awaits `@aws-amplify/ui-react` only on the Cognito path and renders
+`<FirebaseAuthGate>` on the Firebase path, and `main.jsx` calls `Amplify.configure` only on the
+Cognito path (the Firebase SDK self-initialises lazily). `FirebaseAuthGate` mirrors Amplify's
+`<Authenticator>` render-prop API and normalises the Firebase user into the Cognito shape the
+rest of the app expects, so no component below the gate is cloud-aware. `getAdminGroups()`
+returns `[]` on Firebase — Identity Platform has no group concept (see `UM-GCP-008`).
+
+The AWS build relies on the `|| 'cognito'` default rather than setting the variable explicitly;
+`ui/.env.test` pins it to `cognito` so a developer's gitignored `.env.local` cannot leak the
+Firebase path into the unit suite.
+
+@spec CP-GCP-042
 
 ## Environment Feature Flags
 

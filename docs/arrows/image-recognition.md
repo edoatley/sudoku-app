@@ -53,8 +53,11 @@ Photo-to-grid extraction via Amazon Bedrock (single Haiku 4.5 model), two-stage 
 | Grid Parsing | IR-PROC-020 to 023 | 4 | 0 | 0 |
 | Validation & Scoring | IR-PROC-030 to 033 | 4 | 0 | 0 |
 | Response | IR-API-010 to 012 | 3 | 0 | 0 |
+| Multi-Cloud Deployment (GCP) | IR-GCP-001 to 005 | 5 (005 superseded by IR-AI-002) | 0 | 0 |
+| AI Provider Selection | IR-AI-001 to 006 | 0 | 0 | 6 |
+| Provider Accuracy Verification | IR-TEST-001 to 003 | 0 | 0 | 3 |
 
-**Summary:** 20 of 25 specs implemented; 5 deferred (IR-PROC-001–005, PIL preprocessing); 0 gaps.
+**Summary:** 25 of 39 specs implemented; 5 deferred (IR-PROC-001–005, PIL preprocessing); **9 gaps** — the `IR-AI-*` / `IR-TEST-*` block that moves GCP inference off cross-cloud Bedrock onto Vertex Gemini vision (`docs/planning/gcp-pulumi-replatform.md` Phase 5).
 
 ## Key Findings
 
@@ -67,9 +70,29 @@ Photo-to-grid extraction via Amazon Bedrock (single Haiku 4.5 model), two-stage 
 
 ## Work Required
 
-None — all active specs are implemented and tested.
+### Active — de-Bedrock the GCP path (Phase 5 of the GCP Pulumi re-platform)
+
+GCP image recognition is the **last AWS runtime dependency** in the GCP deployment: it calls
+Bedrock unconditionally using a long-lived AWS access key held in GCP Secret Manager. The coach
+escaped to Vertex in PR #212; image recognition did not, so `CP-GCP-085` cannot be retired.
+
+1. Extract the provider seam from `handler.py` (`_recognize_with_bedrock` / `_invoke_model`) into
+   a `providers/` package with a `VisionProvider` protocol, mirroring the backend's
+   `CoachAiClient` port. Everything around the seam — the multi-model retry, cross-check scoring,
+   and grid parsing — is provider-agnostic and must stay untouched. (`IR-AI-001`, `IR-AI-005`)
+2. Add a Vertex adapter using `google-genai` with `gemini-2.5-flash`, authenticated by ADC.
+   Full `flash`, not the coach's `flash-lite`: grid OCR is materially harder than text generation.
+   (`IR-AI-002`, `IR-AI-006`)
+3. Extract the system and user prompts into a shared module so both adapters are byte-identical.
+   (`IR-AI-004`)
+4. Build the accuracy harness over the existing seven `tests/e2e_config.json` fixtures and gate
+   the cutover on Vertex scoring at least as well as Bedrock Haiku. (`IR-TEST-001..003`)
+
+**If Vertex loses the comparison**, the switch defaults to `bedrock` and the work still merges —
+but the AWS key survives and `bedrock-cross-cloud.sh` cannot be deleted. That partial outcome is
+stated rather than assumed away.
 
 ### Deferred
 
-- **IR-PROC-001–005 (PIL preprocessing)** — Re-enable only after solving the colour-cell desaturation problem. Options: skip desaturation step (resize + alpha only), or detect colour-highlighted cells and preserve them before greyscaling. Static colour-cell hint (IR-PROC-013) is the current mitigation.
+- **`IR-PROC-001–005` (PIL preprocessing)** — Re-enable only after solving the colour-cell desaturation problem. Options: skip desaturation step (resize + alpha only), or detect colour-highlighted cells and preserve them before greyscaling. Static colour-cell hint (IR-PROC-013) is the current mitigation.
 - **Warmup exact path match** — `endswith("/warmup")` is functionally equivalent given the routing, but an exact match would be more explicit.

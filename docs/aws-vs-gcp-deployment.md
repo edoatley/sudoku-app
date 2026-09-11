@@ -1,5 +1,11 @@
 # AWS ↔ GCP: deploying and choosing a target
 
+> **Changing:** the GCP target is being re-platformed from Terraform to Pulumi in a clean-room
+> project, and the branch-name-decides-the-cloud model below is being replaced by a single
+> `DEPLOY_TARGET` repository variable. This document describes the pipelines **as they run
+> today** and is updated as each phase lands. Intent lives in
+> `docs/llds/cloud-platform-gcp.md`; the migration is `docs/planning/gcp-pulumi-replatform.md`.
+
 How the one codebase is deployed to each cloud, and **how you control which cloud a change goes to**.
 This is the *operational / pipeline* comparison — for the *architectural* differences (auth edge,
 persistence, CORS, Bedrock, identity derivation) see [`aws-vs-gcp-comparison.md`](aws-vs-gcp-comparison.md).
@@ -53,7 +59,7 @@ runs, so prod can be brought up in stages:
 | `deploy_cloud_run` | `false` | Build + deploy the backend service |
 | `deploy_image_recognition` | `false` | Build + deploy the image-rec service |
 | `enable_coach` | `false` | Mount the cross-cloud Bedrock secrets (needs runbook §6) |
-| `coach_ai_provider` | `bedrock` | Backend coach LLM: `bedrock` (cross-cloud) or `vertex` (Gemini via ADC, no AWS keys — suppresses the backend Bedrock mount; image-rec keeps Bedrock regardless) |
+| `coach_ai_provider` | `vertex` | Backend coach LLM: `vertex` (Gemini via ADC, no AWS keys — suppresses the backend Bedrock mount) or `bedrock` (cross-cloud). Image-rec keeps Bedrock regardless. |
 | `deploy_frontend` | `false` | Build + `firebase deploy` the SPA (needs `VITE_FIREBASE_API_KEY`) |
 | `enable_custom_domain` | `false` | Attach the Firebase custom domain (then add the parent-zone CNAME) |
 | `run_smoke` | `true` | Post-deploy smoke; assert the env serves (needs the invoker granted) |
