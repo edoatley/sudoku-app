@@ -18,16 +18,29 @@ This is the phase that **replaces `scripts/infra/gcp/bootstrap.sh` and `github-b
 (they are deleted in Phase 9, once nothing references them). It is also the phase that proves the
 tenet revision: after it, CI can deploy but cannot grant itself privilege.
 
-## 2. Hard prerequisite — check the project quota first
+## 2. Project quota — checked, cleared
 
-**Do this before writing the PR.** A personal, no-organisation billing account allows only a
-small number of projects, and a deleted project's ID is unusable for 30 days. Check
-Console → IAM & Admin → Quotas, metric `Projects`. If the headroom is zero, request an increase
-immediately — turnaround is multi-day, and the whole clean-room approach depends on it.
+**Verified 2026-09-11: 20 projects remaining.** Peak usage during this migration is 6 (five
+existing plus the new one), so there is ample headroom. This prerequisite is **satisfied**; no
+increase request is needed.
 
-If the increase is refused, the documented fallback is to rebuild inside the existing project
-under a new Firestore database and Hosting site. That **forfeits the "100% Pulumi-built"
-property**, and is a decision to take deliberately rather than discover.
+How it was checked, for the record: project-creation quota is **not** exposed by any API or
+`gcloud` command, and for a consumer account (no organisation — confirmed via
+`gcloud organizations list` returning zero) it does not appear on the IAM & Admin → Quotas page
+either, since that page serves *organisation* quotas. The reliable check is the
+**New Project page** (`console.cloud.google.com/projectcreate`), which displays
+"You have N projects remaining in your quota" **before** anything is created — and only when
+fewer than 30 remain.
+
+Two interactions to keep in mind rather than act on:
+
+- A deleted project sits in `DELETE_REQUESTED` and **keeps consuming quota for 30 days**. Since
+  the old project is retained 30 days post-cutover and then deleted, roughly two months elapse
+  before its slot returns. Irrelevant at 20 free, but it is why deleting a dormant project is not
+  a same-day way to free capacity.
+- If quota ever did run out and an increase were refused, the fallback is to rebuild inside the
+  existing project under a new Firestore database and Hosting site — which **forfeits the "100%
+  Pulumi-built" property**. Not needed here.
 
 ## 3. The state chicken-and-egg
 
@@ -104,7 +117,7 @@ across every project on that account.
 
 ## 5. Work items
 
-- [ ] **2a. Run the quota check** (§2) and record the result in the PR description.
+- [x] **2a. Run the quota check** (§2) — done 2026-09-11, 20 projects remaining. Prerequisite cleared.
 - [ ] **2b. Flesh out `bootstrap/__main__.py`** wiring `ProjectFoundation`, `ArtifactRegistry`,
       `ServiceIdentity` × 3, `WorkloadIdentityFederation`, and `CostGuardrails`.
       @spec CP-PUL-001, CP-PUL-002, CP-PUL-003, CP-PUL-010, CP-PUL-011, CP-PUL-060
