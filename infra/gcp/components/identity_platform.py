@@ -27,7 +27,7 @@ class IdentityPlatform(pulumi.ComponentResource):
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:IdentityPlatform", name, None, opts)
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.config = gcp.identityplatform.Config(
             f"{name}-config",
@@ -52,7 +52,9 @@ class IdentityPlatform(pulumi.ComponentResource):
             client_id=google_client_id,
             client_secret=google_client_secret,
             enabled=True,
-            opts=pulumi.ResourceOptions(parent=self, depends_on=[self.config]),
+            opts=pulumi.ResourceOptions.merge(
+                opts, pulumi.ResourceOptions(parent=self, depends_on=[self.config])
+            ),
         )
 
         # Firebase ID tokens are not OIDC-discoverable, so the backend needs issuer and audience

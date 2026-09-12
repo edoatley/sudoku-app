@@ -55,7 +55,7 @@ class ArtifactRegistry(pulumi.ComponentResource):
             ],
             # Policies must actually delete, not just report what they would delete.
             cleanup_policy_dry_run=False,
-            opts=pulumi.ResourceOptions(parent=self),
+            opts=pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self)),
         )
 
         # Host prefix is knowable, but the repository id is a resource attribute — build the URL

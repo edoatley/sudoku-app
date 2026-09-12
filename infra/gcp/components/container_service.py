@@ -49,7 +49,7 @@ class ContainerService(pulumi.ComponentResource):
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:ContainerService", name, None, opts)
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.service = gcp.cloudrunv2.Service(
             f"{name}-service",

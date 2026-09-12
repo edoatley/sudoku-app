@@ -46,8 +46,16 @@ foundation = ProjectFoundation(
 )
 project = foundation.project_id
 
+# Everything below needs an API that ProjectFoundation enables, and a Service produces no value
+# these resources consume — so Pulumi would otherwise create them in parallel with the
+# enablements and lose the race (cloudkms is not on by default; the KeyRing fails).
+#
+# Pulumi does NOT inherit depends_on from parent to child, so passing this to a component is not
+# enough on its own: each component merges the caller's opts into its children's opts.
+after_apis = pulumi.ResourceOptions(depends_on=foundation.services)
+
 # ── Container images ──────────────────────────────────────────────────────────
-registry = ArtifactRegistry("sudoku", project=project, region=region)
+registry = ArtifactRegistry("sudoku", project=project, region=region, opts=after_apis)
 
 # ── Runtime identities ────────────────────────────────────────────────────────
 # Both runtime accounts hold aiplatform.user: the backend for the Vertex coach, and
@@ -59,6 +67,7 @@ backend_sa = ServiceIdentity(
     account_id="sudoku-run",
     display_name="Sudoku backend (Cloud Run)",
     project_roles=["roles/datastore.user", "roles/aiplatform.user"],
+    opts=after_apis,
 )
 
 image_recognition_sa = ServiceIdentity(
@@ -67,6 +76,7 @@ image_recognition_sa = ServiceIdentity(
     account_id="sudoku-image-recognition-run",
     display_name="Sudoku image recognition (Cloud Run)",
     project_roles=["roles/datastore.user", "roles/aiplatform.user"],
+    opts=after_apis,
 )
 
 # ── CI deploy identity ────────────────────────────────────────────────────────
@@ -91,6 +101,7 @@ deploy_sa = ServiceIdentity(
     account_id="sudoku-deploy",
     display_name="Sudoku CI deploy (GitHub Actions via WIF)",
     project_roles=DEPLOY_ROLES,
+    opts=after_apis,
 )
 
 # Scoped grants, kept flat rather than wrapped in a component: this is a single-use list, and a
@@ -117,6 +128,7 @@ federation = WorkloadIdentityFederation(
     project=project,
     github_repo=github_repo,
     service_account_name=deploy_sa.account.name,
+    opts=after_apis,
 )
 
 # ── Cost guardrail ────────────────────────────────────────────────────────────
@@ -129,6 +141,7 @@ guardrails = CostGuardrails(
     billing_account=billing_account,
     alert_email=alert_email,
     amount_usd=budget_amount_usd,
+    opts=after_apis,
 )
 
 # ── Outputs ───────────────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@ class ServiceIdentity(pulumi.ComponentResource):
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:ServiceIdentity", name, None, opts)
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.account = gcp.serviceaccount.Account(
             f"{name}-sa",

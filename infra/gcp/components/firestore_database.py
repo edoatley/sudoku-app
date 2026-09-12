@@ -64,10 +64,9 @@ class FirestoreDatabase(pulumi.ComponentResource):
         # `protect` is strictly stronger than Terraform's deletion_policy=ABANDON: it blocks
         # replacement as well as deletion, so a forced-new property change also fails loudly
         # rather than recreating the production database.
-        db_opts = pulumi.ResourceOptions(
-            parent=self,
-            protect=is_prod,
-            retain_on_delete=is_prod,
+        db_opts = pulumi.ResourceOptions.merge(
+            opts,
+            pulumi.ResourceOptions(parent=self, protect=is_prod, retain_on_delete=is_prod),
         )
 
         self.database = gcp.firestore.Database(
@@ -86,7 +85,7 @@ class FirestoreDatabase(pulumi.ComponentResource):
             opts=db_opts,
         )
 
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.ttl_fields = [
             gcp.firestore.Field(

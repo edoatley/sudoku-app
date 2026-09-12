@@ -26,7 +26,7 @@ class StaticSite(pulumi.ComponentResource):
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:StaticSite", name, None, opts)
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.firebase_project = gcp.firebase.Project(
             f"{name}-firebase",
@@ -38,7 +38,9 @@ class StaticSite(pulumi.ComponentResource):
             f"{name}-site",
             project=project,
             site_id=site_id,
-            opts=pulumi.ResourceOptions(parent=self, depends_on=[self.firebase_project]),
+            opts=pulumi.ResourceOptions.merge(
+                opts, pulumi.ResourceOptions(parent=self, depends_on=[self.firebase_project])
+            ),
         )
 
         self.custom_domain_resource = None
@@ -53,7 +55,9 @@ class StaticSite(pulumi.ComponentResource):
                 # before it completes. Waiting on the first apply would hang the pipeline, so
                 # this is false for the initial bring-up and true thereafter.
                 wait_dns_verification=wait_dns_verification,
-                opts=pulumi.ResourceOptions(parent=self, protect=True),
+                opts=pulumi.ResourceOptions.merge(
+                    opts, pulumi.ResourceOptions(parent=self, protect=True)
+                ),
             )
             self.custom_domain_url = pulumi.Output.from_input(f"https://{custom_domain}")
 
