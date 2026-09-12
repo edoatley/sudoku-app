@@ -32,7 +32,8 @@ class CostGuardrails(pulumi.ComponentResource):
         project_number: pulumi.Input[str],
         billing_account: str,
         alert_email: str,
-        amount_usd: str,
+        amount: str,
+        currency_code: str | None = None,
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:CostGuardrails", name, None, opts)
@@ -62,9 +63,12 @@ class CostGuardrails(pulumi.ComponentResource):
                 projects=[pulumi.Output.concat("projects/", project_number)],
             ),
             amount=gcp.billing.BudgetAmountArgs(
+                # The currency MUST match the billing account's own, or the API rejects the
+                # request with a bare "400: Request contains an invalid argument". Omitting it
+                # inherits the account's currency, which is the portable default.
                 specified_amount=gcp.billing.BudgetAmountSpecifiedAmountArgs(
-                    currency_code="USD",
-                    units=amount_usd,
+                    currency_code=currency_code,
+                    units=amount,
                 ),
             ),
             threshold_rules=[

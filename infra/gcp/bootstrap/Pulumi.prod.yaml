@@ -4,14 +4,6 @@ config:
   gcp:project: sudoku-eo-2026
   gcp:region: us-central1
 
-  # Required for gcp.billing.Budget when running under a human's Application Default
-  # Credentials. The Cloud Billing Budgets API demands a quota project, and user ADC does not
-  # supply one — the call is attributed to Google's default client project, which has the API
-  # disabled, producing a misleading SERVICE_DISABLED 403. These two make the provider send an
-  # explicit user-project header instead. Service-account credentials (how CI authenticates)
-  # carry an implicit quota project and do not need this.
-  gcp:userProjectOverride: "true"
-  gcp:billingProject: sudoku-eo-2026
   sudoku:projectId: sudoku-eo-2026
   sudoku:projectName: Sudoku
   sudoku:region: us-central1
@@ -27,5 +19,8 @@ config:
   # Alerts at 80% actual and 100% forecast. Steady-state spend is expected to be ~$0.20/month
   # (the Cloud DNS zone) plus Vertex AI calls, so this only fires on something genuinely wrong.
   sudoku:alertEmail: edoatley@gmail.com
-  sudoku:budgetAmountUsd: "20"
+  # Must match the billing account's currency (EDO Billing Account is GBP) — a mismatch
+  # is rejected as a bare "400: Request contains an invalid argument".
+  sudoku:budgetAmount: "20"
+  sudoku:budgetCurrency: GBP
 encryptionsalt: v1:5QkoyaDz/NI=:v1:/LeGCMDvfH46bQT8:bUTX/zel7h2LodAxo144VlU2yKkR0A==
