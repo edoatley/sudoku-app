@@ -163,7 +163,7 @@ across every project on that account.
       @spec CP-PUL-012, CP-PUL-013
 - [x] **2d. `bootstrap/Pulumi.prod.yaml`** — project id, region, billing account, alert email,
       budget amount, GitHub repo.
-- [ ] **2e. First `pulumi up` on the local backend**, then the state migration in §3.
+- [x] **2e. First `pulumi up` on the local backend**, then the state migration in §3. Done 2026-09-12 — state now in `gs://sudoku-pulumi-state-eo`; `refresh` and `up` both report 53 unchanged.
       @spec CP-PUL-040, CP-PUL-041
 - [x] **2f. `protect=True`** on the state bucket, the KMS CryptoKey, and the KeyRing. Losing the
       key makes every stack's secrets permanently unreadable.
@@ -182,20 +182,20 @@ across every project on that account.
 
 ## 6. Definition of Done
 
-- [ ] `gcloud projects describe <new-id>` succeeds; billing is linked
-- [ ] No default VPC exists (`gcloud compute networks list` is empty) — `auto_create_network=False`
-- [ ] `pulumi stack output` yields `project_id`, `project_number`, `state_bucket_url`,
+- [x] `gcloud projects describe sudoku-eo-2026` succeeds; billing is linked
+- [x] No default VPC exists — verified empty
+- [x] `pulumi stack output` yields `project_id`, `project_number`, `state_bucket_url`,
       `kms_key_uri`, `wif_provider_name`, the three SA emails, and `artifact_registry_url`
-- [ ] State lives in GCS (`pulumi login gs://… && pulumi stack ls` lists `prod`)
-- [ ] `pulumi refresh` reports **no changes**
-- [ ] A second `pulumi up` reports `0 changed`
+- [x] State lives in GCS — `gs://sudoku-pulumi-state-eo/.pulumi/stacks/sudoku-gcp-bootstrap/prod.json`
+- [x] `pulumi refresh` reports **no changes** (53 unchanged)
+- [x] A second `pulumi up` reports `0 changed` (53 unchanged)
 - [ ] A throwaway GitHub Actions job authenticating with `google-github-actions/auth@v3` and the
       `_NEXT` secrets **can** `gcloud storage ls gs://<state bucket>` and **cannot**
       `gcloud billing budgets list` — this is the test that proves the privilege split, and it
       must actually be run, not assumed
-- [ ] `gcloud iam service-accounts keys list` shows only Google-managed keys — zero long-lived
-      credentials
-- [ ] The old project and the live production deployment are **untouched**
+- [x] `gcloud iam service-accounts keys list` shows only Google-managed keys — zero long-lived
+      credentials. Secret Manager also holds zero secrets.
+- [x] The old project and the live production deployment are **untouched** — 4 Cloud Run services still serving
 - [ ] `CP-PUL-001..003`, `-010..013`, `-040..042`, `-060` flipped to `[x]`
 - [ ] `docs/arrows/cloud-platform.md` and `docs/arrows/index.yaml` updated
 
