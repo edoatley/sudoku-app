@@ -16,7 +16,8 @@ def build(name: str, **overrides) -> CostGuardrails:
         project_number="123456789012",
         billing_account="010F10-A51056-E8EC40",
         alert_email="alerts@example.com",
-        amount_usd="20",
+        amount="20",
+        currency_code="GBP",
     )
     kwargs.update(overrides)
     return CostGuardrails(name, **kwargs)
@@ -57,6 +58,23 @@ def test_component_does_not_accept_a_deploy_identity():
     params = inspect.signature(CostGuardrails.__init__).parameters
     assert "deploy_service_account" not in params
     assert "billing_account" in params
+
+
+@pulumi.runtime.test
+def test_currency_is_caller_supplied_not_hard_coded():
+    # The budget currency MUST match the billing account's. Hard-coding USD against a GBP account
+    # is rejected with a bare "400: Request contains an invalid argument" — no mention of
+    # currency — which is what broke the first bootstrap apply.
+    return build("cur", currency_code="GBP").budget.amount.apply(
+        lambda a: _assert(a["specified_amount"]["currency_code"] == "GBP", a)
+    )
+
+
+@pulumi.runtime.test
+def test_currency_may_be_omitted_to_inherit_the_account_currency():
+    return build("inherit", currency_code=None).budget.amount.apply(
+        lambda a: _assert(a["specified_amount"].get("currency_code") is None, a)
+    )
 
 
 def test_enforcement_is_documented_as_deferred():

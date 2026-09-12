@@ -6,11 +6,33 @@
 from __future__ import annotations
 
 import pulumi
+import pytest
 
 from components.artifact_registry import ArtifactRegistry
 from components.project_foundation import REQUIRED_APIS, ProjectFoundation
 from components.service_identity import ServiceIdentity
 from components.workload_identity import WorkloadIdentityFederation
+
+
+def _apis_for(resource_kind: str) -> set[str]:
+    """APIs a given resource kind needs enabled before it can be created."""
+    return {
+        "service_account": {"iam.googleapis.com"},
+        "wif": {"iam.googleapis.com", "iamcredentials.googleapis.com", "sts.googleapis.com"},
+        "firestore": {"firestore.googleapis.com"},
+        "cloud_run": {"run.googleapis.com"},
+        "artifact_registry": {"artifactregistry.googleapis.com"},
+        "kms": {"cloudkms.googleapis.com"},
+        "dns": {"dns.googleapis.com"},
+        "budget": {
+            "billingbudgets.googleapis.com",
+            "pubsub.googleapis.com",
+            "monitoring.googleapis.com",  # required to read the channel back
+        },
+        "identity_platform": {"identitytoolkit.googleapis.com"},
+        "hosting": {"firebase.googleapis.com", "firebasehosting.googleapis.com"},
+        "vertex": {"aiplatform.googleapis.com"},
+    }[resource_kind]
 
 
 def foundation(name: str) -> ProjectFoundation:
@@ -38,11 +60,40 @@ class TestApiSurface:
         assert "cloudkms.googleapis.com" in REQUIRED_APIS
 
     def test_federation_apis_are_enabled(self):
-        # Without both, WIF fails at token-exchange time with an opaque error.
-        assert {"iamcredentials.googleapis.com", "sts.googleapis.com"} <= set(REQUIRED_APIS)
+        # Without all three, WIF and every serviceaccount IAM binding fail with SERVICE_DISABLED.
+        # iam.googleapis.com is NOT on by default in a new project — its omission broke the first
+        # bootstrap apply.
+        assert {
+            "iam.googleapis.com",
+            "iamcredentials.googleapis.com",
+            "sts.googleapis.com",
+        } <= set(REQUIRED_APIS)
 
     def test_no_duplicate_apis(self):
         assert len(REQUIRED_APIS) == len(set(REQUIRED_APIS))
+
+    @pytest.mark.parametrize(
+        "kind",
+        [
+            "service_account",
+            "wif",
+            "firestore",
+            "cloud_run",
+            "artifact_registry",
+            "kms",
+            "dns",
+            "budget",
+            "identity_platform",
+            "hosting",
+            "vertex",
+        ],
+    )
+    def test_every_resource_kind_has_its_api_enabled(self, kind):
+        # A missing enablement does not fail at plan time — only mid-apply, with a
+        # SERVICE_DISABLED that reads like a permissions problem. iam.googleapis.com was missing
+        # and broke the first real bootstrap.
+        missing = _apis_for(kind) - set(REQUIRED_APIS)
+        assert not missing, f"{kind} needs {missing}, which REQUIRED_APIS does not enable"
 
 
 class TestProjectFoundation:

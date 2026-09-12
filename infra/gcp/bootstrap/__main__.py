@@ -33,7 +33,8 @@ state_bucket_name = config.require("stateBucketName")
 region = config.get("region") or "us-central1"
 github_repo = config.get("githubRepo") or "edoatley/sudoku-app"
 alert_email = config.require("alertEmail")
-budget_amount_usd = config.get("budgetAmountUsd") or "20"
+budget_amount = config.get("budgetAmount") or "20"
+budget_currency = config.get("budgetCurrency")  # None inherits the billing account's
 
 # ── Project, APIs, state and KMS ───────────────────────────────────────────────
 foundation = ProjectFoundation(
@@ -132,6 +133,25 @@ federation = WorkloadIdentityFederation(
 )
 
 # ── Cost guardrail ────────────────────────────────────────────────────────────
+# The Cloud Billing Budgets API demands a quota project, and human ADC supplies none — the call
+# is attributed to Google's default client project, which has the API disabled, producing a
+# misleading SERVICE_DISABLED 403.
+#
+# The override is applied through a DEDICATED PROVIDER rather than stack-wide config. Set
+# globally it makes every call send a user-project header, which then requires
+# serviceusage.googleapis.com on the target project — breaking gcp.projects.Service before it can
+# enable anything. Scope it to the resources that actually need it.
+#
+# CI is unaffected either way: service-account credentials carry an implicit quota project.
+billing_provider = gcp.Provider(
+    "gcp-billing",
+    project=project_id,
+    region=region,
+    user_project_override=True,
+    billing_project=project_id,
+)
+
+
 # In this stack, not the app stack: gcp.billing.Budget is scoped to the BILLING ACCOUNT, so a
 # repo-federated CI identity must never hold billing.budgets.*. @spec CP-PUL-060
 guardrails = CostGuardrails(
@@ -140,8 +160,11 @@ guardrails = CostGuardrails(
     project_number=foundation.project_number,
     billing_account=billing_account,
     alert_email=alert_email,
-    amount_usd=budget_amount_usd,
-    opts=after_apis,
+    amount=budget_amount,
+    currency_code=budget_currency,
+    opts=pulumi.ResourceOptions.merge(
+        after_apis, pulumi.ResourceOptions(provider=billing_provider)
+    ),
 )
 
 # ── Outputs ───────────────────────────────────────────────────────────────────

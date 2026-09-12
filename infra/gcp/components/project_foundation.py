@@ -23,6 +23,14 @@ REQUIRED_APIS: tuple[str, ...] = (
     "dns.googleapis.com",
     "billingbudgets.googleapis.com",
     "pubsub.googleapis.com",
+    # Needed to READ back the budget's notification channel. Creation succeeds without it,
+    # so the gap only surfaces on `pulumi refresh` — silent until then.
+    "monitoring.googleapis.com",
+    # iam.googleapis.com is NOT enabled by default on a new project, and without it the WIF
+    # provider and every serviceaccount IAM binding fail with SERVICE_DISABLED. The old
+    # bootstrap.sh omitted it too and got away with it only because its project predated the
+    # default-API changes.
+    "iam.googleapis.com",
     "iamcredentials.googleapis.com",  # Workload Identity Federation
     "sts.googleapis.com",  # Workload Identity Federation
     "aiplatform.googleapis.com",  # Vertex AI — coach and image recognition
