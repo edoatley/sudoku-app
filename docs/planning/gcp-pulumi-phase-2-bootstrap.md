@@ -132,26 +132,26 @@ across every project on that account.
 ## 5. Work items
 
 - [x] **2a. Run the quota check** (§2) — done 2026-09-11, 20 projects remaining. Prerequisite cleared.
-- [ ] **2b. Flesh out `bootstrap/__main__.py`** wiring `ProjectFoundation`, `ArtifactRegistry`,
+- [x] **2b. Flesh out `bootstrap/__main__.py`** wiring `ProjectFoundation`, `ArtifactRegistry`,
       `ServiceIdentity` × 3, `WorkloadIdentityFederation`, and `CostGuardrails`.
       @spec CP-PUL-001, CP-PUL-002, CP-PUL-003, CP-PUL-010, CP-PUL-011, CP-PUL-060
-- [ ] **2c. Deploy privileges** as a flat list of `gcp.projects.IAMMember`,
+- [x] **2c. Deploy privileges** as a flat list of `gcp.projects.IAMMember`,
       `gcp.storage.BucketIAMMember` and `gcp.kms.CryptoKeyIAMMember` directly in `__main__.py` —
       **not** a component. It is a single-use list, and a component over one use is an
       abstraction for its own sake (Rule 2).
       @spec CP-PUL-012, CP-PUL-013
-- [ ] **2d. `bootstrap/Pulumi.prod.yaml`** — project id, region, billing account, alert email,
+- [x] **2d. `bootstrap/Pulumi.prod.yaml`** — project id, region, billing account, alert email,
       budget amount, GitHub repo.
 - [ ] **2e. First `pulumi up` on the local backend**, then the state migration in §3.
       @spec CP-PUL-040, CP-PUL-041
-- [ ] **2f. `protect=True`** on the state bucket, the KMS CryptoKey, and the KeyRing. Losing the
+- [x] **2f. `protect=True`** on the state bucket, the KMS CryptoKey, and the KeyRing. Losing the
       key makes every stack's secrets permanently unreadable.
       @spec CP-PUL-042
 - [ ] **2g. Add the transition GitHub secrets and vars** — `GCP_PROJECT_ID_NEXT`,
       `GCP_WIF_PROVIDER_NEXT`, `GCP_DEPLOY_SA_EMAIL_NEXT` (secrets), `PULUMI_STATE_BUCKET`,
       `PULUMI_KMS_KEY` (vars — neither is sensitive). The `_NEXT` suffix means the existing
       `deploy-gcp.yml` keeps working against the old project until Phase 8 renames them.
-- [ ] **2h. Rewrite `docs/runbooks/gcp-manual-setup.md`** around the two stacks. The manual-steps
+- [x] **2h. Rewrite `docs/runbooks/gcp-manual-setup.md`** around the two stacks. The manual-steps
       table stops listing resource creation entirely — the bootstrap stack does all of it. What
       remains is inputs and one cross-cloud record: authenticating, the billing account id, the
       OAuth consent screen + client (Phase 4), the Route53 NS delegation (Phase 3), and the

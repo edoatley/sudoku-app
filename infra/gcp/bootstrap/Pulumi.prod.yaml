@@ -1,0 +1,26 @@
+# Bootstrap stack config. Secret-free by design — this stack holds no credentials, which is why
+# it can use the passphrase secrets provider rather than the KMS key it is itself creating.
+config:
+  gcp:project: sudoku-eo-2026
+  gcp:region: us-central1
+
+  sudoku:projectId: sudoku-eo-2026
+  sudoku:projectName: Sudoku
+  sudoku:region: us-central1
+
+  # The billing account the new project is linked to. Not sensitive: it is an account
+  # identifier, not a credential, and it appears in every budget resource.
+  sudoku:billingAccount: 010F10-A51056-E8EC40
+
+  # Globally unique across all of Cloud Storage. Created by this stack, then this stack's own
+  # state is migrated into it — see docs/planning/gcp-pulumi-phase-2-bootstrap.md §3.
+  sudoku:stateBucketName: sudoku-pulumi-state-eo
+
+  # Restricts Workload Identity Federation to this repository. THE security boundary: without
+  # it any repository, including a fork, could mint a token and impersonate the deploy SA.
+  sudoku:githubRepo: edoatley/sudoku-app
+
+  # Alerts at 80% actual and 100% forecast. Steady-state spend is expected to be ~$0.20/month
+  # (the Cloud DNS zone) plus Vertex AI calls, so this only fires on something genuinely wrong.
+  sudoku:alertEmail: edoatley@gmail.com
+  sudoku:budgetAmountUsd: "20"
