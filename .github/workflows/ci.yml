@@ -22,6 +22,7 @@ jobs:
       npm_changed: ${{ steps.filter.outputs.npm }}
       maven_changed: ${{ steps.filter.outputs.maven }}
       terraform_changed: ${{ steps.filter.outputs.terraform }}
+      pulumi_changed: ${{ steps.filter.outputs.pulumi }}
     steps:
       - uses: actions/checkout@v7
       - name: Set actor metadata
@@ -42,6 +43,9 @@ jobs:
               - 'backend/**'
             terraform:
               - 'infra/aws/**'
+              - 'infra/gcp/**'
+              - '.github/**'
+            pulumi:
               - 'infra/gcp/**'
               - '.github/**'
 
@@ -143,6 +147,32 @@ jobs:
       - uses: ./.github/actions/terraform-validate
         with:
           working-directory: ${{ matrix.directory }}
+
+  # Pulumi components for the GCP facet. Deliberately credential-free: these are mock-runtime
+  # unit tests, so this job must never need cloud access. @spec CP-PUL-081
+  ci-pulumi:
+    name: Infra — Pulumi lint & component tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: detect-changes
+    if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.pulumi_changed == 'true'
+    defaults:
+      run:
+        working-directory: infra/gcp
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: infra/gcp/uv.lock
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Component tests
+        run: uv run pytest tests --cov
 
   integration:
     name: Integration — Native Servers + Playwright

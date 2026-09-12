@@ -3,7 +3,7 @@
 # Usage:
 #   bash scripts/local/local-alltests.sh [--skip-image-recognition] [--skip-lint] [--skip-audit]
 #                                        [--skip-e2e] [--skip-backend] [--skip-integration]
-#                                        [--skip-infra]
+#                                        [--skip-infra] [--skip-pulumi]
 #
 # Exits 0 if all suites pass, 1 if any suite fails.
 
@@ -26,6 +26,7 @@ SKIP_E2E=false
 SKIP_BACKEND=false
 SKIP_INTEGRATION=false
 SKIP_INFRA=false
+SKIP_PULUMI=false
 
 for arg in "$@"; do
   case $arg in
@@ -36,6 +37,7 @@ for arg in "$@"; do
     --skip-backend)           SKIP_BACKEND=true ;;
     --skip-integration)       SKIP_INTEGRATION=true ;;
     --skip-infra)             SKIP_INFRA=true ;;
+    --skip-pulumi)            SKIP_PULUMI=true ;;
     --help|-h)
       sed -n '2,10p' "$0" | sed 's/^# \?//'
       exit 0 ;;
@@ -353,6 +355,38 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Suite 8: Infra (Pulumi — GCP components)
+# ─────────────────────────────────────────────────────────────────────────────
+SUITE="Infra (Pulumi lint + component tests)"
+header "$SUITE"
+
+if [[ "${SKIP_PULUMI}" == "true" ]]; then
+  # Warn if Pulumi sources changed — skipping then is almost always wrong, mirroring --skip-infra
+  if git -C "${REPO_ROOT}" diff --name-only HEAD 2>/dev/null | grep -qE '^infra/gcp/.*\.py$'; then
+    echo -e "${RED}ERROR: --skip-pulumi passed but infra/gcp Python files are modified. Run without --skip-pulumi.${RESET}" >&2
+    RESULTS["$SUITE"]="FAIL"
+    DURATIONS["$SUITE"]="—"
+    OVERALL=1
+  else
+    skip "$SUITE" "--skip-pulumi"
+  fi
+elif ! command -v uv >/dev/null 2>&1; then
+  skip "$SUITE" "uv not found"
+else
+  # Mock-runtime component tests: no cloud credentials, no Pulumi CLI, no network.
+  t=$(date +%s)
+  rc=0
+  (
+    cd "${REPO_ROOT}/infra/gcp"
+    uv sync --frozen --quiet
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run pytest tests --cov -q
+  ) || rc=$?
+  record "$SUITE" "$rc" $t
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "\n${BOLD}${CYAN}════════════════════════════════════════${RESET}"
@@ -367,6 +401,7 @@ SUITE_ORDER=(
   "Backend (Maven verify + JaCoCo)"
   "Integration (Docker Compose + Playwright)"
   "Infra (Terraform fmt + validate)"
+  "Infra (Pulumi lint + component tests)"
 )
 
 for suite in "${SUITE_ORDER[@]}"; do

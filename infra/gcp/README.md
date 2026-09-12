@@ -1,4 +1,35 @@
-# Sudoku — GCP Infrastructure (Terraform)
+# Sudoku — GCP Infrastructure
+
+> **Mid-migration.** This directory holds **both** the outgoing Terraform (`*.tf`, live against
+> the current project until cutover) and the incoming **Pulumi** program (Python + `uv`) that
+> replaces it. The two do not interact; Phase 9 deletes the Terraform. Design:
+> `docs/llds/cloud-platform-gcp.md`. Plan: `docs/planning/gcp-pulumi-replatform.md`.
+
+## Pulumi (incoming)
+
+```
+components/   reusable ComponentResources, shared by both programs
+bootstrap/    project, APIs, state bucket, KMS, Artifact Registry, SAs, IAM, WIF, budget
+              -> run locally, with human credentials
+app/          Firestore, Cloud Run x2, Identity Platform, Hosting, Cloud DNS
+              -> run by CI as the WIF-federated deploy service account
+tests/        component unit tests against Pulumi's mock runtime (no cloud, no credentials)
+```
+
+The two-stack split is the privilege boundary: the CI identity holds no IAM-admin, WIF-admin or
+billing permission, so it cannot grant itself anything.
+
+```bash
+cd infra/gcp
+uv sync                       # once
+uv run pytest tests --cov     # component tests — no cloud contact
+uv run ruff check . && uv run ruff format --check .
+cd app && pulumi preview      # needs credentials + a stack
+```
+
+`uv.lock` is committed, so provider versions are pinned in CI — unlike the Terraform lock files,
+which are gitignored.
+
 
 The GCP facet of the Cloud Platform, at behavioural parity with `infra/aws/`, on the GCP free tier
 (`us-central1`). See the design in `docs/llds/cloud-platform.md` (GCP Resources) and

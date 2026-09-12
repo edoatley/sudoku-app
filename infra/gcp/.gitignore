@@ -1,3 +1,18 @@
+# --- Terraform (outgoing; removed with the .tf files at Phase 9) ---
 .terraform
 tplan
 .terraform.lock.hcl
+
+# --- Pulumi / Python ---
+# uv-managed virtualenv (each Pulumi.yaml points at ../.venv)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Pulumi local state from the bootstrap stack's first run, and its state export.
+# Neither belongs in git — see docs/planning/gcp-pulumi-phase-2-bootstrap.md §3.
+.pulumi/
+bootstrap-state-backup.json
