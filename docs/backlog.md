@@ -17,6 +17,7 @@ the change is easy to spot, then removed.
 | 4 | Repoint AWS Cognito's Google IdP at its own OAuth client — prerequisite for deleting the old GCP project, since the current client is shared and lives there | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) §6 R2 | Active |
 | 5 | Terraform CI/testing review — **AWS half only** (tflint, `terraform test`). The `infra/gcp` half is resolved by the Pulumi re-platform, which brings its own lint + unit-test gate. | [terraform-ci-testing-review.md](todo/terraform-ci-testing-review.md) | Active |
 | 6 | Integrate hint output into the AI coach chat window (needs full HLD→LLD→EARS pass) | [integrate-hint-output-into-coach-chat.md](todo/integrate-hint-output-into-coach-chat.md) | Active |
+| — | GCP IAM drift detection — Pulumi grants additively, so a hand-granted role is invisible to it and never removed | [gcp-iam-drift-detection.md](todo/gcp-iam-drift-detection.md) | Deferred |
 | — | GCP budget hard-cap (needs a Pub/Sub-triggered function; alert-only today) | `CP-GCP-061` (cloud-platform-specs.md) | Deferred |
 | — | Private VPC egress to Firestore | `CP-GCP-091` (cloud-platform-specs.md) | Deferred |
 | — | Single-active-game invariant as a Firestore transaction | `GL-GCP-006` (game-lifecycle-specs.md) | Deferred |
