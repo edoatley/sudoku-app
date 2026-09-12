@@ -57,10 +57,12 @@ class DnsZone(pulumi.ComponentResource):
             name=zone_name,
             dns_name=dns_name,
             description="Sudoku GCP deployment target",
-            opts=pulumi.ResourceOptions(parent=self, protect=True),
+            opts=pulumi.ResourceOptions.merge(
+                opts, pulumi.ResourceOptions(parent=self, protect=True)
+            ),
         )
 
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
         self.records = [
             gcp.dns.RecordSet(
                 f"{name}-rr-{spec.type.lower()}-{spec.name.rstrip('.').replace('.', '-')}",

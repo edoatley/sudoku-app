@@ -25,7 +25,7 @@ class WorkloadIdentityFederation(pulumi.ComponentResource):
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:WorkloadIdentityFederation", name, None, opts)
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.pool = gcp.iam.WorkloadIdentityPool(
             f"{name}-pool",

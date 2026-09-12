@@ -36,7 +36,7 @@ class CostGuardrails(pulumi.ComponentResource):
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:CostGuardrails", name, None, opts)
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.topic = gcp.pubsub.Topic(
             f"{name}-topic",

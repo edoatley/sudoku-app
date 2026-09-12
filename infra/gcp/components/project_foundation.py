@@ -52,7 +52,7 @@ class ProjectFoundation(pulumi.ComponentResource):
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:ProjectFoundation", name, None, opts)
-        child = pulumi.ResourceOptions(parent=self)
+        child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
         self.project = gcp.organizations.Project(
             f"{name}-project",
@@ -67,6 +67,11 @@ class ProjectFoundation(pulumi.ComponentResource):
             opts=child,
         )
 
+        # Everything below must wait for these. Pulumi infers dependencies from data flow, and
+        # a Service produces no value the other resources consume — so without an explicit
+        # depends_on, Pulumi creates the API enablements *in parallel with* the resources that
+        # require them. cloudkms in particular is not enabled by default on a new project, so
+        # the KeyRing loses that race and the first `up` fails.
         self.services = [
             gcp.projects.Service(
                 f"{name}-api-{api.split('.')[0]}",
@@ -89,7 +94,10 @@ class ProjectFoundation(pulumi.ComponentResource):
             versioning=gcp.storage.BucketVersioningArgs(enabled=True),
             uniform_bucket_level_access=True,
             public_access_prevention="enforced",
-            opts=pulumi.ResourceOptions(parent=self, protect=True),
+            opts=pulumi.ResourceOptions.merge(
+                opts,
+                pulumi.ResourceOptions(parent=self, protect=True, depends_on=self.services),
+            ),
         )
 
         self.key_ring = gcp.kms.KeyRing(
@@ -97,7 +105,10 @@ class ProjectFoundation(pulumi.ComponentResource):
             name="sudoku-pulumi",
             project=self.project.project_id,
             location=region,
-            opts=pulumi.ResourceOptions(parent=self, protect=True),
+            opts=pulumi.ResourceOptions.merge(
+                opts,
+                pulumi.ResourceOptions(parent=self, protect=True, depends_on=self.services),
+            ),
         )
 
         # Losing this key makes every app-stack secret permanently unreadable. KMS keys cannot be
@@ -108,7 +119,9 @@ class ProjectFoundation(pulumi.ComponentResource):
             name="pulumi-secrets",
             key_ring=self.key_ring.id,
             purpose="ENCRYPT_DECRYPT",
-            opts=pulumi.ResourceOptions(parent=self, protect=True),
+            opts=pulumi.ResourceOptions.merge(
+                opts, pulumi.ResourceOptions(parent=self, protect=True)
+            ),
         )
 
         self.project_id: pulumi.Output[str] = self.project.project_id
