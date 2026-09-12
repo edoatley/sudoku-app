@@ -18,11 +18,32 @@ This is the phase that **replaces `scripts/infra/gcp/bootstrap.sh` and `github-b
 (they are deleted in Phase 9, once nothing references them). It is also the phase that proves the
 tenet revision: after it, CI can deploy but cannot grant itself privilege.
 
-## 2. Project quota — checked, cleared
+## 2. Project quota — check BOTH limits
 
-**Verified 2026-09-11: 20 projects remaining.** Peak usage during this migration is 6 (five
-existing plus the new one), so there is ample headroom. This prerequisite is **satisfied**; no
-increase request is needed.
+There are **two** quotas here, and checking only the first is not enough — that mistake cost an
+apply on 2026-09-12.
+
+**(a) Project creation** — how many projects you may create. *Verified 2026-09-11: 20 remaining.*
+
+**(b) Billing-account linkage** — how many projects may be linked to one billing account. **The
+limit is 5.** With all five in use, `pulumi up` created the project and then failed attaching
+billing:
+
+```
+Error setting billing account ... googleapi: Error 400: Precondition check failed.
+Cloud billing quota exceeded
+```
+
+Check it before applying:
+
+```bash
+gcloud billing projects list --billing-account=010F10-A51056-E8EC40 --format='value(projectId)' | wc -l
+```
+
+If it is at the limit, free a slot with `gcloud billing projects unlink <dormant-project>`. That
+is **reversible and deletes nothing** — relink with `gcloud billing projects link`. The
+alternative is an increase at support.google.com/code/contact/billing_quota_increase, which takes
+days.
 
 How it was checked, for the record: project-creation quota is **not** exposed by any API or
 `gcloud` command, and for a consumer account (no organisation — confirmed via
@@ -131,7 +152,7 @@ across every project on that account.
 
 ## 5. Work items
 
-- [x] **2a. Run the quota check** (§2) — done 2026-09-11, 20 projects remaining. Prerequisite cleared.
+- [x] **2a. Run BOTH quota checks** (§2) — project creation cleared 2026-09-11 (20 remaining); billing linkage hit its limit of 5 on 2026-09-12 and was resolved by unlinking a dormant project.
 - [x] **2b. Flesh out `bootstrap/__main__.py`** wiring `ProjectFoundation`, `ArtifactRegistry`,
       `ServiceIdentity` × 3, `WorkloadIdentityFederation`, and `CostGuardrails`.
       @spec CP-PUL-001, CP-PUL-002, CP-PUL-003, CP-PUL-010, CP-PUL-011, CP-PUL-060

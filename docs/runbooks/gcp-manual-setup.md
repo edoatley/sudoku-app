@@ -54,6 +54,21 @@ open https://console.cloud.google.com/projectcreate
 
 *Checked 2026-09-11: 20 remaining, against a peak need of 6.*
 
+**Check the billing-account quota too — it is a different limit.** How many projects may be
+*linked* to one billing account is capped separately from how many you may *create*, and it is
+the one that bites: on 2026-09-12 `pulumi up` created the project and then failed attaching
+billing with `Cloud billing quota exceeded`, because all 5 slots were in use.
+
+```bash
+gcloud billing projects list --billing-account=010F10-A51056-E8EC40 \
+  --format='value(projectId)' | wc -l          # limit is 5
+```
+
+If it is full, free a slot: `gcloud billing projects unlink <dormant-project>`. That is
+**reversible and deletes nothing** — relink with `gcloud billing projects link <id>
+--billing-account=<account>`. An increase can be requested at
+support.google.com/code/contact/billing_quota_increase, but takes days.
+
 ---
 
 ## 2. Bootstrap stack — the project itself

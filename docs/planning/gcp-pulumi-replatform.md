@@ -164,7 +164,7 @@ cloud state.
 
 **Hard gates**:
 
-- ~~Phase 2 is gated on the **GCP project-quota check**~~ — **cleared 2026-09-11**, 20 projects remaining (§6, R1). Phase 2 is unblocked.
+- Phase 2 is gated on **two** quota checks (§6, R1): project creation (cleared — 20 remaining) and **billing-account linkage** (limit 5; hit on first apply, resolved by unlinking a dormant project).
 - Phase 4 is gated on the manual OAuth consent screen + client, and on the **`sub` continuity
   verification**.
 - Phase 6's `IMAGE_AI_PROVIDER=vertex` is gated on Phase 5's **accuracy comparison**.
@@ -208,7 +208,7 @@ untouched by this plan.
 
 | # | Risk | Mitigation |
 | --- | --- | --- |
-| R1 | ~~**GCP project quota blocks Phase 2.**~~ **CLEARED 2026-09-11** — 20 projects remaining against a peak need of 6. | Checked on the New Project page (`console.cloud.google.com/projectcreate`), which reports remaining quota before creating anything; it is the only reliable source, as the limit is exposed by no API and the IAM & Admin → Quotas page serves *organisation* quotas (this is a consumer account — `gcloud organizations list` returns zero). Residual note: a deleted project keeps consuming quota for 30 days, so the old project's slot returns ~2 months after cutover — immaterial at this headroom. |
+| R1 | **Two separate quotas gate Phase 2, not one.** (a) *Project creation* — how many projects you may create. (b) *Billing-account linkage* — how many projects may be linked to one billing account. They have different limits and different increase forms. | (a) **cleared 2026-09-11**, 20 remaining, checked on the New Project page. (b) **hit on 2026-09-12**: the limit is **5 linked projects** and all five were in use, so `pulumi up` failed at the billing-link step with `Cloud billing quota exceeded` — *after* creating the project. Resolved by unlinking billing from a dormant project (`gcloud billing projects unlink <id>` — reversible, deletes nothing). Check both before a rebuild: `gcloud billing projects list --billing-account <id> \| wc -l`. Increase form: support.google.com/code/contact/billing_quota_increase. |
 | R2 | **The Google OAuth client is shared with AWS Cognito and lives in the old project.** Deleting that project at day 30 breaks AWS federation. | There is no API to create OAuth client IDs — irreducibly manual on both clouds. Google's `sub` is stable per account across clients, so `userId` is unaffected — but **verify empirically in Phase 4**. Create a second client for Cognito and repoint `infra/aws/cognito.tf` (Phase 8b), tracked as a backlog row blocking the deletion. |
 | R3 | **Identity Platform may not be initialisable as code.** `gcp.identityplatform.Config` claims it can enable the entitlement; the current script walks the user through a console click. | Test against the fresh project in Phase 4 — a clean room is the ideal place to find out. Fallbacks in order: one documented click, or a `pulumi_command.local.Command` wrapping the same `curl`. Do not design assuming the optimistic answer. |
 | R4 | **Firebase custom-domain cert issuance is asynchronous** (minutes to ~24h) and the resource returns before it completes. | A `sudoku:waitForDomain` config flag — false on the first prod apply, true thereafter — plus a polling smoke step with generous retries that does not fail the pipeline on the first apply. |
