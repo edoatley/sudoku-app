@@ -3,6 +3,15 @@
 config:
   gcp:project: sudoku-eo-2026
   gcp:region: us-central1
+
+  # Required for gcp.billing.Budget when running under a human's Application Default
+  # Credentials. The Cloud Billing Budgets API demands a quota project, and user ADC does not
+  # supply one — the call is attributed to Google's default client project, which has the API
+  # disabled, producing a misleading SERVICE_DISABLED 403. These two make the provider send an
+  # explicit user-project header instead. Service-account credentials (how CI authenticates)
+  # carry an implicit quota project and do not need this.
+  gcp:userProjectOverride: "true"
+  gcp:billingProject: sudoku-eo-2026
   sudoku:projectId: sudoku-eo-2026
   sudoku:projectName: Sudoku
   sudoku:region: us-central1

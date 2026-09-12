@@ -91,6 +91,20 @@ holds no secrets, so the blast radius is limited to needing a re-import, but sto
 If the export/import misbehaves, the documented fallback is to create the bucket with three
 `gcloud` commands and `pulumi import` it — see the plan, §7.
 
+### If the Budget fails with SERVICE_DISABLED
+
+```
+The billingbudgets.googleapis.com API requires a quota project, which is not set by default
+... "consumer": "projects/764086051850"
+```
+
+That consumer is Google's default client project, not yours. The Cloud Billing Budgets API
+demands a quota project and human ADC does not supply one, so the call is attributed there and
+the error reads as if the API were disabled. `Pulumi.prod.yaml` already sets
+`gcp:userProjectOverride` and `gcp:billingProject` to fix this — if you hit it, confirm those two
+are present. Service-account credentials (how CI authenticates) carry an implicit quota project
+and are unaffected.
+
 ### Verify
 
 ```bash
