@@ -85,7 +85,7 @@ escaped to Vertex in PR #212; image recognition did not, so `CP-GCP-085` cannot 
    (`IR-AI-002`, `IR-AI-006`)
 3. Extract the system and user prompts into a shared module so both adapters are byte-identical.
    (`IR-AI-004`)
-4. Build the accuracy harness over the existing seven `tests/e2e_config.json` fixtures and gate
+4. Build the accuracy harness over the existing five `tests/e2e_config.json` fixtures and gate
    the cutover on Vertex scoring at least as well as Bedrock Haiku. (`IR-TEST-001..003`)
 
 **If Vertex loses the comparison**, the switch defaults to `bedrock` and the work still merges —

@@ -65,7 +65,7 @@ permanently. The split is by cloud, never within one cloud.
 | Budgets | In **`bootstrap`**, not `app`. `gcp.billing.Budget` is scoped to the *billing account*, so granting a repo-federated CI identity budget write access would span every project on that account. |
 | DNS | Pulumi owns a Cloud DNS zone for `gcp.edoatley.co.uk`; one manual NS delegation in Route53. New host `sudoku.gcp.edoatley.co.uk`; `sudoku-gcp.edoatley.co.uk` retired. |
 | Image recognition | `IMAGE_AI_PROVIDER=bedrock\|vertex` mirroring the coach's `CoachAiClient` port; `gemini-2.5-flash` on Vertex; Bedrock retained for the AWS Lambda. |
-| Cutover gate | A fixture-based accuracy harness over the existing seven `tests/e2e_config.json` fixtures, Vertex ≥ Bedrock Haiku on mean cell accuracy and exact-grid count. |
+| Cutover gate | A fixture-based accuracy harness over the existing five `tests/e2e_config.json` fixtures, Vertex ≥ Bedrock Haiku on mean cell accuracy and exact-grid count. |
 | Deploy target | Repo variable `DEPLOY_TARGET` (`aws`\|`gcp`\|`both`, default `aws`) governs `main` only. `rc-*`/`rcg-*` keep their branch convention. A `workflow_dispatch` `target` input overrides both. |
 | Deploy-target semantics | Deploy **selection** only. Each cloud keeps its own stable hostname; this is not a DNS failover. |
 | Old project | Retained 30 days after cutover as rollback, then deleted — **blocked by** the Cognito OAuth-client migration (§6). |
@@ -104,7 +104,7 @@ The layered acceptance checks are:
 | Plan-time | `pulumi preview` clean on every PR touching `infra/gcp/**` |
 | Idempotence | A second `pulumi up` reports `0 changed` — a drift signal Terraform never gave this facet |
 | Runtime | The existing smoke scripts (`scripts/github/gcp-smoke-token.sh`, `api-smoke-tests.sh`) against each phase's deployed surface |
-| Accuracy | `pytest -m accuracy` over the seven image fixtures, compared against a committed per-provider baseline |
+| Accuracy | `pytest -m accuracy` over the five image fixtures, compared against a committed per-provider baseline |
 
 The accuracy harness is **credential-bearing and costs money per run**, so like the existing
 `e2e` and `coach-quality` suites it stays out of both CI and the mandatory pre-push gate. It is

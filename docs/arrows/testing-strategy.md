@@ -229,7 +229,7 @@ deployed environment" section.
 Mirrors Layer 2c in shape and intent: a credential-bearing, cost-incurring, non-deterministic
 diagnostic runner used to make a provider decision, **not** a pass/fail gate in CI.
 
-Scores a vision provider over the seven ground-truth fixtures already declared in
+Scores a vision provider over the five ground-truth fixtures already declared in
 `image_recognition/tests/e2e_config.json`, reporting per-fixture cell accuracy, exact-grid match,
 puzzle validity, and whether deliberately-empty coloured cells were respected (the trap that
 motivated `IR-PROC-013`). Compares a run against a committed **per-provider baseline** rather
