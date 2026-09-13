@@ -131,8 +131,18 @@ class TestProjectFoundation:
 
     @pulumi.runtime.test
     def test_kms_key_uri_is_a_usable_secrets_provider(self):
+        # This asserted "gcp-kms://" and so confirmed the bug rather than catching it: Pulumi
+        # only accepts `gcpkms://` and rejects anything else with "unknown secrets provider
+        # type". The assertion is now pinned to the scheme Pulumi actually parses.
         return foundation("kms").kms_key_uri.apply(
-            lambda u: _assert(u.startswith("gcp-kms://projects/"), u)
+            lambda u: _assert(u.startswith("gcpkms://projects/"), u)
+        )
+
+    @pulumi.runtime.test
+    def test_kms_key_uri_uses_a_scheme_pulumi_accepts(self):
+        valid = ("default", "passphrase", "awskms", "azurekeyvault", "gcpkms", "hashivault")
+        return foundation("kms-scheme").kms_key_uri.apply(
+            lambda u: _assert(u.split("://")[0] in valid, u)
         )
 
     @pulumi.runtime.test
