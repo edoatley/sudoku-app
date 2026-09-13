@@ -14,5 +14,8 @@ config:
   sudoku:dnsZoneDomain: gcp.edoatley.co.uk
   # Declared now, attached in Phase 8 — cert issuance needs DNS already answering.
   sudoku:customDomain: sudoku.gcp.edoatley.co.uk
+  sudoku:googleOauthClientId: 633423842545-eqopv61tfscor3a4oed05eji16da9tdr.apps.googleusercontent.com
+  sudoku:googleOauthClientSecret:
+    secure: v1:C7sj8S6QXDDlwhHa:E6HEOHcFtx6xW7jODew30Wz1V5HlbB4NB2V6cDeddmNVHdlPPlFXj3+qz9vjRoHIWAD5
 secretsprovider: gcpkms://projects/sudoku-eo-2026/locations/us-central1/keyRings/sudoku-pulumi/cryptoKeys/pulumi-secrets
 encryptedkey: CiQAZe3KJzT70C/lKFNV9Ee97ZqRbTLyZhqzxItJRjwXmj+qNBUSSQBcMz4bv7yWy8n2S39+2xw/5ouQaTDckLRGmEiFcW+tX7tiaoP7nbQ+PgUwMvGJJXmsnPz6Qa7YQ6Kada26cs7Lu1YT5lk1fpY=
