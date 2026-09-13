@@ -1,0 +1,111 @@
+# Proves the two-stack privilege split on the new GCP project.
+#
+# The split is the security argument for revising the HLD's original "manual identity on GCP"
+# tenet: the CI deploy identity owns application resources and cannot grant itself anything.
+# That claim is only worth making if it is tested, and it can ONLY be tested from here —
+# `sudoku-deploy` is impersonable by GitHub Actions via Workload Identity Federation and by
+# nothing else, so running the same gcloud commands locally proves nothing (as project owner,
+# every one of them succeeds).
+#
+# Dispatch-only and creates nothing. Delete once Phase 7 folds GCP into the unified deploy
+# workflow, by which time the same federation is exercised on every deploy.
+#
+# @spec CP-PUL-011, CP-PUL-012
+name: GCP — Federation & Privilege Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  federation-check:
+    name: Verify WIF and the privilege boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Authenticate via Workload Identity Federation
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID_NEXT }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Confirm we are the deploy service account, not a human
+        run: |
+          set -euo pipefail
+          ACTIVE="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
+          echo "Authenticated as: ${ACTIVE}"
+          case "${ACTIVE}" in
+            sudoku-deploy@*) echo "OK — federated as the deploy service account" ;;
+            *) echo "FAIL — expected sudoku-deploy@*, got '${ACTIVE}'"; exit 1 ;;
+          esac
+
+      # ── What the deploy identity MUST be able to do ──────────────────────────
+      - name: CAN read the Pulumi state bucket
+        run: |
+          set -euo pipefail
+          gcloud storage ls "${{ vars.PULUMI_STATE_BUCKET }}" >/dev/null
+          echo "OK — state bucket readable"
+
+      - name: CAN list Cloud Run services
+        run: |
+          set -euo pipefail
+          gcloud run services list --project "${{ secrets.GCP_PROJECT_ID_NEXT }}" \
+            --region us-central1 >/dev/null
+          echo "OK — run.admin effective"
+
+      # ── What it MUST NOT be able to do ───────────────────────────────────────
+      # Each of these is a privilege the split deliberately withholds. A success here is a
+      # FAILURE of the boundary, so the sense of the assertion is inverted on purpose.
+      - name: CANNOT read billing budgets
+        run: |
+          set -euo pipefail
+          if gcloud billing budgets list \
+               --billing-account="${{ vars.GCP_BILLING_ACCOUNT }}" >/dev/null 2>&1; then
+            echo "FAIL — the deploy identity can read billing. It holds no billing role by design."
+            exit 1
+          fi
+          echo "OK — billing refused"
+
+      - name: CANNOT grant itself a project role
+        run: |
+          set -euo pipefail
+          if gcloud projects add-iam-policy-binding "${{ secrets.GCP_PROJECT_ID_NEXT }}" \
+               --member="serviceAccount:${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}" \
+               --role="roles/owner" --condition=None >/dev/null 2>&1; then
+            echo "FAIL — the deploy identity granted itself roles/owner. The split is broken."
+            exit 1
+          fi
+          echo "OK — self-escalation refused"
+
+      - name: CANNOT modify Workload Identity Federation
+        run: |
+          set -euo pipefail
+          if gcloud iam workload-identity-pools create probe-should-fail \
+               --project="${{ secrets.GCP_PROJECT_ID_NEXT }}" --location=global \
+               --display-name="probe" >/dev/null 2>&1; then
+            echo "FAIL — the deploy identity can create WIF pools, so it can mint new trust."
+            gcloud iam workload-identity-pools delete probe-should-fail \
+              --project="${{ secrets.GCP_PROJECT_ID_NEXT }}" --location=global --quiet || true
+            exit 1
+          fi
+          echo "OK — WIF administration refused"
+
+      - name: CANNOT read Secret Manager
+        run: |
+          set -euo pipefail
+          if gcloud secrets list --project "${{ secrets.GCP_PROJECT_ID_NEXT }}" >/dev/null 2>&1; then
+            echo "FAIL — the deploy identity can reach Secret Manager, which should not be enabled."
+            exit 1
+          fi
+          echo "OK — Secret Manager refused"
+
+      - name: Summary
+        run: echo "Privilege split verified — CP-PUL-011, CP-PUL-012"

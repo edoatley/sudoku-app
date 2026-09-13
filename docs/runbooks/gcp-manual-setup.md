@@ -151,16 +151,33 @@ gh variable set PULUMI_KMS_KEY      --body "$(pulumi stack output kms_key_uri)"
 
 ### Verify the privilege split
 
-The point of the two-stack model is that CI **cannot** grant itself anything. Prove it rather
-than assume it — a federated job should reach the state bucket and be refused billing:
+The point of the two-stack model is that CI **cannot** grant itself anything, and that is the
+security argument for revising the HLD's original manual-identity tenet. It is only worth making
+if it is tested.
+
+**This can only be checked from GitHub Actions.** Run the workflow:
 
 ```bash
-gcloud storage ls "$(pulumi stack output state_bucket_url)"   # expected: succeeds
-gcloud billing budgets list --billing-account 010F10-A51056-E8EC40   # expected: PERMISSION_DENIED
+gh workflow run "GCP — Federation & Privilege Check"
+gh run watch
 ```
 
-Run these **as the deploy service account**, not as yourself — impersonate it, or run the
-throwaway federation-check workflow. As yourself both will succeed and prove nothing.
+It federates as `sudoku-deploy` and asserts, in both directions:
+
+| Must succeed | Must be refused |
+| --- | --- |
+| read the Pulumi state bucket | read billing budgets |
+| list Cloud Run services | grant itself `roles/owner` |
+| | create a Workload Identity pool |
+| | list Secret Manager secrets |
+
+The negative assertions are the load-bearing half — a *success* there is a failure of the
+boundary, so their sense is deliberately inverted.
+
+**Do not try to check this locally.** Nothing grants you `roles/iam.serviceAccountTokenCreator`
+on `sudoku-deploy`, so impersonation fails; and run as yourself, every one of those commands
+succeeds because you are project owner. That proves nothing about what CI can do. (An earlier
+version of this runbook suggested impersonating — it was wrong.)
 
 ---
 

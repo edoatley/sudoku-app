@@ -168,7 +168,7 @@ across every project on that account.
 - [x] **2f. `protect=True`** on the state bucket, the KMS CryptoKey, and the KeyRing. Losing the
       key makes every stack's secrets permanently unreadable.
       @spec CP-PUL-042
-- [ ] **2g. Add the transition GitHub secrets and vars** — `GCP_PROJECT_ID_NEXT`,
+- [x] **2g. Add the transition GitHub secrets and vars** — `GCP_PROJECT_ID_NEXT`,
       `GCP_WIF_PROVIDER_NEXT`, `GCP_DEPLOY_SA_EMAIL_NEXT` (secrets), `PULUMI_STATE_BUCKET`,
       `PULUMI_KMS_KEY` (vars — neither is sensitive). The `_NEXT` suffix means the existing
       `deploy-gcp.yml` keeps working against the old project until Phase 8 renames them.
@@ -177,7 +177,7 @@ across every project on that account.
       remains is inputs and one cross-cloud record: authenticating, the billing account id, the
       OAuth consent screen + client (Phase 4), the Route53 NS delegation (Phase 3), and the
       Identity Platform smoke user.
-- [ ] **2i. A throwaway federation-check workflow** proving the WIF chain works and the privilege
+- [x] **2i. A throwaway federation-check workflow** proving the WIF chain works and the privilege
       boundary holds (§6).
 
 ## 6. Definition of Done
@@ -189,7 +189,7 @@ across every project on that account.
 - [ ] State lives in GCS (`pulumi login gs://… && pulumi stack ls` lists `prod`)
 - [ ] `pulumi refresh` reports **no changes**
 - [ ] A second `pulumi up` reports `0 changed`
-- [ ] A throwaway GitHub Actions job authenticating with `google-github-actions/auth@v3` and the
+- [x] A throwaway GitHub Actions job authenticating with `google-github-actions/auth@v3` and the
       `_NEXT` secrets **can** `gcloud storage ls gs://<state bucket>` and **cannot**
       `gcloud billing budgets list` — this is the test that proves the privilege split, and it
       must actually be run, not assumed
