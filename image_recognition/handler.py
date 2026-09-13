@@ -10,13 +10,11 @@ which is essential for structured JSON output.
 from __future__ import annotations
 
 import base64
-import os
-import re
 import json
 import logging
+import re
 
-import boto3
-from botocore.exceptions import ClientError
+from providers import ProviderError, VisionProvider, get_provider
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -26,58 +24,18 @@ if not logger.handlers:
     logger.addHandler(_handler)
 
 # ---------------------------------------------------------------------------
-# Model — populated from the BEDROCK_MODELS env var (comma-separated) injected
-# by Terraform, which also generates the matching IAM policy from the same list.
-# The fallback keeps local/test runs working without any env configuration.
-# ---------------------------------------------------------------------------
-_MODELS_DEFAULT = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
-_MODELS = [
-    m.strip()
-    for m in os.environ.get("BEDROCK_MODELS", _MODELS_DEFAULT).split(",")
-    if m.strip()
-]
+# The candidate model list and region belong to the provider — see providers/. The
+# recognition loop below is deliberately provider-agnostic. @spec IR-AI-006
 
-# A valid Sudoku has at least 17 clues.  We use a lower threshold so that
-# very sparse / near-empty grids trigger a retry with the next model.
+# Recognition logic, not provider config: the scoring threshold below which a grid is
+# treated as a mis-read rather than a sparse puzzle.
 _MIN_PLAUSIBLE_CLUES = 10
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-_DEFAULT_REGION = "eu-west-2"
-_AWS_REGION = os.environ.get("AWS_REGION_NAME", _DEFAULT_REGION)
 
 # ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
 
-# @spec IR-PROC-013
-_SYSTEM_PROMPT = (
-    "You are a precise Sudoku digit extractor. You specialize in spatial mapping. "
-    "You count columns from left to right (1-9) and rows from top to bottom (1-9). "
-    "You never skip a cell, even if it is empty. You use visual anchors to stay aligned. "
-    "Some puzzles have coloured or shaded cell backgrounds (orange, yellow, tan, grey). "
-    "Ignore background colour entirely — read only the digit if one is printed in the cell; "
-    "if no digit is visible, the cell is empty regardless of its background colour. "
-    "A cell is empty if and only if there is no large printed digit inside it. "
-    "Background shading, highlight colour, and small pencil-mark numbers do NOT count as digits."
-)
-
-# @spec IR-PROC-012
-_USER_PROMPT = (
-    "Analyze the image of the Sudoku puzzle.\n\n"
-    "IMPORTANT: Many cells have coloured or shaded backgrounds (orange, tan, grey, yellow). "
-    "Background shading does NOT mean a cell contains a digit — it is purely decorative. "
-    "A cell is EMPTY (output 0) unless it contains a large, clearly printed digit inside it. "
-    "Shaded cells occupy their full grid position — do NOT skip them when counting columns.\n\n"
-    "1. In <scratchpad>, transcribe the grid using a pipe-delimited table. Use '.' for empty cells.\n"
-    "   Write every cell, including shaded-but-empty ones. Each row must have exactly 9 '|'-separated values.\n"
-    "   Example: | 5 | . | . | . | 2 | . | . | . | 8 |\n"
-    "2. Verify each row has exactly 9 cells. Count carefully — shaded cells still count.\n"
-    "3. Output the final result as JSON in <json> tags with the key 'originalGrid'.\n\n"
-    "CRITICAL: You MUST wrap your final JSON in <json> and </json> tags. Do not use standard markdown code blocks. Output 0 for empty cells."
-)
+# Prompts live in prompts.py, shared verbatim by every provider. @spec IR-AI-004
 
 # ---------------------------------------------------------------------------
 # Lambda entry point
@@ -132,8 +90,8 @@ def handler(event: dict, context: object) -> dict:
         if len(image_bytes) > 8 * 1024 * 1024:
             return _error(400, "Image too large — maximum size is 8 MB.")
 
-        client = boto3.client("bedrock-runtime", region_name=_AWS_REGION)
-        grid, valid, model_name = _recognize_with_bedrock(client, image_bytes)
+        provider = get_provider()
+        grid, valid, model_name = _recognize(provider, image_bytes)
 
         if not valid:
             logger.warning(
@@ -166,10 +124,10 @@ def handler(event: dict, context: object) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _recognize_with_bedrock(
-    client: object, image_bytes: bytes
+def _recognize(
+    provider: VisionProvider, image_bytes: bytes
 ) -> tuple[list[list[int]], bool, str]:
-    """Try each model in _MODELS; return (best_grid, valid, model_name).
+    """Try each of the provider's models; return (best_grid, valid, model_name).
 
     Scoring (higher is better):
       +2  no duplicate digits in any row/col/box
@@ -199,11 +157,11 @@ def _recognize_with_bedrock(
     last_error: Exception | None = None
 
     model_index = 0
-    while model_index < len(_MODELS):
-        model_id = _MODELS[model_index]
+    while model_index < len(provider.models):
+        model_id = provider.models[model_index]
         try:
             logger.info("Trying model %s (index %d)", model_id, model_index)
-            grid = _invoke_model(client, model_id, image_bytes)
+            grid = _parse_grid(provider.recognise(image_bytes, model_id))
             clues = sum(v != 0 for row in grid for v in row)
             if clues < _MIN_PLAUSIBLE_CLUES:
                 raise ValueError(
@@ -235,15 +193,17 @@ def _recognize_with_bedrock(
                 best_model_name = model_id
 
             # When a model returns a valid result, always cross-check with the next model
-            if not has_dupe and clues >= 17 and model_index + 1 < len(_MODELS):
-                next_model_id = _MODELS[model_index + 1]
+            if not has_dupe and clues >= 17 and model_index + 1 < len(provider.models):
+                next_model_id = provider.models[model_index + 1]
                 logger.info(
                     "Model %s produced acceptable result; cross-checking with next model %s",
                     model_id,
                     next_model_id,
                 )
                 try:
-                    next_grid = _invoke_model(client, next_model_id, image_bytes)
+                    next_grid = _parse_grid(
+                        provider.recognise(image_bytes, next_model_id)
+                    )
                     if next_grid != grid:
                         next_clues = sum(v != 0 for row in next_grid for v in row)
                         next_has_dupe = _has_row_col_box_duplicate(next_grid)
@@ -277,7 +237,7 @@ def _recognize_with_bedrock(
                             next_model_id,
                             model_id,
                         )
-                except (ValueError, ClientError) as exc:
+                except (ValueError, ProviderError) as exc:
                     logger.warning(
                         "Cross-check model %s failed: %s; keeping result from %s",
                         next_model_id,
@@ -290,7 +250,7 @@ def _recognize_with_bedrock(
 
             model_index += 1
 
-        except (ValueError, ClientError) as exc:
+        except (ValueError, ProviderError) as exc:
             logger.warning("Model %s failed: %s", model_id, exc)
             last_error = exc
             model_index += 1
@@ -310,59 +270,8 @@ def _recognize_with_bedrock(
     )
 
 
-def _detect_image_format(image_bytes: bytes) -> str:
-    """Detect image format from magic bytes. Returns a Bedrock-compatible format string.
-
-    @spec IR-PROC-006
-    """
-    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
-        return "png"
-    if image_bytes[:3] == b"\xff\xd8\xff":
-        return "jpeg"
-    if image_bytes[:6] in (b"GIF87a", b"GIF89a"):
-        return "gif"
-    if image_bytes[:4] == b"RIFF" and image_bytes[8:12] == b"WEBP":
-        return "webp"
-    return "jpeg"  # default fallback
-
-
-def _invoke_model(
-    client: object,
-    model_id: str,
-    image_bytes: bytes,
-) -> list[list[int]]:
-    """
-    Invoke a Bedrock model via the Converse API.
-
-    The Converse API is used (rather than InvokeModel) because it supports a
-    system prompt for all model families, which is critical for reliable JSON
-    output from Nova models.
-
-    @spec IR-PROC-010, IR-PROC-011
-    """
-    image_format = _detect_image_format(image_bytes)
-    response = client.converse(
-        modelId=model_id,
-        system=[{"text": _SYSTEM_PROMPT}],
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "image": {
-                            "format": image_format,
-                            "source": {"bytes": image_bytes},
-                        }
-                    },
-                    {"text": _USER_PROMPT},
-                ],
-            }
-        ],
-        inferenceConfig={"maxTokens": 2048, "temperature": 0},
-    )
-
-    text = response["output"]["message"]["content"][0]["text"]
-    return _parse_grid(text)
+# _detect_image_format moved to providers/ — each adapter needs it in its own
+# vocabulary (Bedrock a bare format name, Vertex a MIME type). @spec IR-AI-002
 
 
 # ---------------------------------------------------------------------------
