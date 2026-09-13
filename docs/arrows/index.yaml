@@ -1,5 +1,5 @@
 schema_version: 2
-last_updated: 2026-09-11
+last_updated: 2026-09-13
 
 # Organizational only; arrow-maintenance logic doesn't depend on taxonomy placement.
 taxonomy:
@@ -125,7 +125,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: cloud-platform.md
-    next: "GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phase 0 (docs + drift) done; Phase 1 (Pulumi scaffolding + component unit tests, no cloud) is next. New spec blocks CP-PUL-* and CP-CD-*; CP-GCP-014/031/050/081/082/083 superseded. HLD manual-identity tenet revised to a two-stack privilege split."
+    next: "GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phases 0-2 done: component library + unit tests (CP-PUL-013/070/081/082), and the bootstrap stack applied to the clean-room project sudoku-eo-2026 with state in gs://sudoku-pulumi-state-eo. Privilege split verified by a federated CI job. Phase 3 (Firestore, Hosting site, Cloud DNS zone + one manual NS delegation) is next."
     drift: ~
 
   react-frontend:

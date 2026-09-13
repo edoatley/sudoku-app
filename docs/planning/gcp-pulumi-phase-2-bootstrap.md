@@ -1,6 +1,6 @@
 # Implementation Plan: GCP Pulumi — Phase 2, Bootstrap Stack
 
-**Status**: Approved — ready to implement
+**Status**: Complete — 2026-09-13
 **Created**: 2026-09-11
 **Origin**: `docs/planning/gcp-pulumi-replatform.md` §4
 **Arrow**: `cloud-platform` (`docs/arrows/cloud-platform.md`) — GCP facet
@@ -177,9 +177,10 @@ across every project on that account.
       remains is inputs and one cross-cloud record: authenticating, the billing account id, the
       OAuth consent screen + client (Phase 4), the Route53 NS delegation (Phase 3), and the
       Identity Platform smoke user.
-- [ ] **2i. A throwaway federation-check workflow** proving the WIF chain works and the privilege
-      boundary holds (§6). Written (`.github/workflows/gcp-federation-check.yml`); this item is
-      ticked only once it has actually run green — writing a check is not proving a boundary.
+- [x] **2i. A throwaway federation-check workflow** proving the WIF chain works and the privilege
+      boundary holds (§6). Ran green 2026-09-13 (run 34756074366): federated as `sudoku-deploy`;
+      state bucket and Cloud Run readable; billing, self-escalation to `roles/owner`, WIF
+      administration and Secret Manager all refused.
 
 ## 6. Definition of Done
 
@@ -190,10 +191,9 @@ across every project on that account.
 - [x] State lives in GCS — `gs://sudoku-pulumi-state-eo/.pulumi/stacks/sudoku-gcp-bootstrap/prod.json`
 - [x] `pulumi refresh` reports **no changes** (53 unchanged)
 - [x] A second `pulumi up` reports `0 changed` (53 unchanged)
-- [ ] A throwaway GitHub Actions job authenticating with `google-github-actions/auth@v3` and the
-      `_NEXT` secrets **can** `gcloud storage ls gs://<state bucket>` and **cannot**
-      `gcloud billing budgets list` — this is the test that proves the privilege split, and it
-      must actually be run, not assumed
+- [x] A GitHub Actions job federating with the `_NEXT` secrets **can** read the state bucket and
+      list Cloud Run, and **cannot** read billing, grant itself `roles/owner`, create a WIF pool,
+      or list Secret Manager secrets. Run green 2026-09-13 — actually run, not assumed.
 - [x] `gcloud iam service-accounts keys list` shows only Google-managed keys — zero long-lived
       credentials. Secret Manager also holds zero secrets.
 - [x] The old project and the live production deployment are **untouched** — 4 Cloud Run services still serving
