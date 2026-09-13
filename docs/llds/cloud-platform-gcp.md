@@ -110,6 +110,23 @@ Every component subclasses `pulumi.ComponentResource`, parents its children with
 | `StaticSite` | app | `firebase.Project`, `firebase.HostingSite`, `firebase.HostingCustomDomain` | `site_id`, `default_url`, `custom_domain_url` |
 | `DnsZone` | app | `dns.ManagedZone`, `dns.RecordSet` ×N | `name_servers` |
 
+### Removing a binding
+
+The additive model can express "this grant exists", never "this grant must not". Removing a
+Google-created default is therefore an imperative, one-off act — there is no `IAMMember` that
+means absent, and reaching for `IAMPolicy` to get one would delete the operator's Owner grant and
+every service agent along with it.
+
+Done once, 2026-09-13: `roles/editor` on the **default compute service account**
+(`<project-number>-compute@developer.gserviceaccount.com`). Google creates that binding; nothing
+here uses the account — Cloud Run always runs as `sudoku-run`, asserted by a test — so it was
+standing broad privilege on an unused identity. Removed with
+`gcloud projects remove-iam-policy-binding`.
+
+Because the removal is not codified, nothing stops it returning. `scripts/infra/gcp/inventory.sh`
+is what notices: it classifies that account separately from the per-API service agents precisely
+so a reappearance stands out rather than blending into expected noise.
+
 ### IAM: additive only
 
 **Use `gcp.projects.IAMMember`. Never `IAMBinding` (authoritative for a role) and never

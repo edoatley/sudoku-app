@@ -26,6 +26,10 @@ secure:
 	checkov -d infra/aws/ --framework terraform
 	checkov -d infra/gcp/ --framework terraform
 
+gcp-inventory:
+	@echo "==> GCP inventory + IAM drift..."
+	bash scripts/infra/gcp/inventory.sh
+
 check-all: lint secure
 	@echo "==> Running backend validation tests..."
 	cd backend && ./mvnw verify -DskipITs=false
