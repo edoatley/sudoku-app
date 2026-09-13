@@ -177,9 +177,9 @@ across every project on that account.
       remains is inputs and one cross-cloud record: authenticating, the billing account id, the
       OAuth consent screen + client (Phase 4), the Route53 NS delegation (Phase 3), and the
       Identity Platform smoke user.
-- [~] **2i. A throwaway federation-check workflow**  *(written; ticked once it has actually run green)*
-      **2i-orig.** proving the WIF chain works and the privilege
-      boundary holds (§6).
+- [ ] **2i. A throwaway federation-check workflow** proving the WIF chain works and the privilege
+      boundary holds (§6). Written (`.github/workflows/gcp-federation-check.yml`); this item is
+      ticked only once it has actually run green — writing a check is not proving a boundary.
 
 ## 6. Definition of Done
 
