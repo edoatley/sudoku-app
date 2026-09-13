@@ -168,7 +168,7 @@ across every project on that account.
 - [x] **2f. `protect=True`** on the state bucket, the KMS CryptoKey, and the KeyRing. Losing the
       key makes every stack's secrets permanently unreadable.
       @spec CP-PUL-042
-- [ ] **2g. Add the transition GitHub secrets and vars** — `GCP_PROJECT_ID_NEXT`,
+- [x] **2g. Add the transition GitHub secrets and vars** — `GCP_PROJECT_ID_NEXT`,
       `GCP_WIF_PROVIDER_NEXT`, `GCP_DEPLOY_SA_EMAIL_NEXT` (secrets), `PULUMI_STATE_BUCKET`,
       `PULUMI_KMS_KEY` (vars — neither is sensitive). The `_NEXT` suffix means the existing
       `deploy-gcp.yml` keeps working against the old project until Phase 8 renames them.
@@ -178,7 +178,8 @@ across every project on that account.
       OAuth consent screen + client (Phase 4), the Route53 NS delegation (Phase 3), and the
       Identity Platform smoke user.
 - [ ] **2i. A throwaway federation-check workflow** proving the WIF chain works and the privilege
-      boundary holds (§6).
+      boundary holds (§6). Written (`.github/workflows/gcp-federation-check.yml`); this item is
+      ticked only once it has actually run green — writing a check is not proving a boundary.
 
 ## 6. Definition of Done
 
