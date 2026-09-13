@@ -1,0 +1,18 @@
+# Application stack config. Secrets use the Cloud KMS key the bootstrap stack created — see
+# docs/planning/gcp-pulumi-phase-3-data-hosting-dns.md §3 for the `pulumi stack init` invocation.
+config:
+  gcp:project: sudoku-eo-2026
+  gcp:region: us-central1
+  sudoku:projectId: sudoku-eo-2026
+  sudoku:region: us-central1
+  # DIY backends place every project under a virtual organization named by the literal constant
+  # "organization". Not an account name, and not the bare stack name `pulumi stack ls` shows.
+  sudoku:bootstrapStack: organization/sudoku-gcp-bootstrap/prod
+  # The zone delegated from the Route53 parent (Z055000739D7L0ZGFAMC1, AWS `backups` profile).
+  # That zone already delegates sudoku. and sudoku-beta. by NS, so this is its established
+  # pattern rather than a new one.
+  sudoku:dnsZoneDomain: gcp.edoatley.co.uk
+  # Declared now, attached in Phase 8 — cert issuance needs DNS already answering.
+  sudoku:customDomain: sudoku.gcp.edoatley.co.uk
+secretsprovider: gcpkms://projects/sudoku-eo-2026/locations/us-central1/keyRings/sudoku-pulumi/cryptoKeys/pulumi-secrets
+encryptedkey: CiQAZe3KJzT70C/lKFNV9Ee97ZqRbTLyZhqzxItJRjwXmj+qNBUSSQBcMz4bv7yWy8n2S39+2xw/5ouQaTDckLRGmEiFcW+tX7tiaoP7nbQ+PgUwMvGJJXmsnPz6Qa7YQ6Kada26cs7Lu1YT5lk1fpY=

@@ -139,9 +139,10 @@ class ProjectFoundation(pulumi.ComponentResource):
         )
         # The secrets-provider URI cannot be known until the key exists; the app stack consumes
         # it as `pulumi stack init --secrets-provider`.
-        self.kms_key_uri: pulumi.Output[str] = pulumi.Output.concat(
-            "gcp-kms://", self.crypto_key.id
-        )
+        # The scheme is `gcpkms://`, NOT `gcp-kms://` — Pulumi rejects the latter with
+        # "unknown secrets provider type". Valid schemes: default, passphrase, awskms,
+        # azurekeyvault, gcpkms, hashivault.
+        self.kms_key_uri: pulumi.Output[str] = pulumi.Output.concat("gcpkms://", self.crypto_key.id)
 
         self.register_outputs(
             {

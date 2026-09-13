@@ -56,21 +56,21 @@ Verified 2026-09-13: the backend uses the project-scoped layout this requires
 
 ## 4. Work items
 
-- [ ] **3a. Initialise the `app` stack** with the KMS secrets provider (§3), and
+- [x] **3a. Initialise the `app` stack** with the KMS secrets provider (§3), and
       `infra/gcp/app/Pulumi.prod.yaml` carrying `projectId`, `region`, `customDomain`,
       `dnsZoneDomain`, and `bootstrapStack`.
       @spec CP-PUL-041
-- [ ] **3b. Wire the `StackReference`** and export a stack output for every bootstrap value the
+- [x] **3b. Wire the `StackReference`** and export a stack output for every bootstrap value the
       later phases consume, so Phase 6 does not have to re-derive them.
       @spec CP-PUL-021
-- [ ] **3c. `FirestoreDatabase`** — `(default)` database, `FIRESTORE_NATIVE`, `us-central1`, PITR
+- [x] **3c. `FirestoreDatabase`** — `(default)` database, `FIRESTORE_NATIVE`, `us-central1`, PITR
       and delete protection on (prod), the `coachRateLimits.expiresAt` TTL, and the
       `games(userId ASC, status ASC, endedAt DESC)` composite index. `protect=True`.
       @spec CP-GCP-020, CP-GCP-022, CP-GCP-023, CP-GCP-024, CP-PUL-022
-- [ ] **3d. `StaticSite`** — Firebase project enrolment and the Hosting site
+- [x] **3d. `StaticSite`** — Firebase project enrolment and the Hosting site
       (`sudoku-eo-2026`). **No custom domain yet** (`custom_domain=None`).
       @spec CP-GCP-040
-- [ ] **3e. `DnsZone`** — managed zone for `gcp.edoatley.co.uk.`, no records yet. Export
+- [x] **3e. `DnsZone`** — managed zone for `gcp.edoatley.co.uk.`, no records yet. Export
       `name_servers`.
       @spec CP-PUL-050
 - [ ] **3f. Delegate the subdomain** — take `pulumi stack output name_servers` and add the NS
@@ -79,25 +79,27 @@ Verified 2026-09-13: the backend uses the project-scoped layout this requires
       `scripts/infra/shared/delegate-dns.sh` rather than writing a new script.
 - [ ] **3g. Verify propagation** — `dig +trace NS gcp.edoatley.co.uk` returns the four Google
       name servers. This can take minutes to hours; it does not block the rest of the phase.
-- [ ] **3h. Unit tests** for the app stack's wiring, following the bootstrap pattern: assert the
+- [x] **3h. Unit tests** for the app stack's wiring, following the bootstrap pattern: assert the
       Firestore database is protected in prod and disposable otherwise, that the Hosting site id
       respects the 30-char cap, and that no custom domain is attached at this phase.
       @spec CP-PUL-081
 
 ## 5. Definition of Done
 
-- [ ] `pulumi up` on `sudoku-gcp-app/prod` succeeds
-- [ ] `pulumi refresh` reports **no changes** — the check that caught the missing `monitoring` API
-- [ ] A second `pulumi up` reports `0 changed`
-- [ ] Firestore `(default)` exists, `FIRESTORE_NATIVE`, `us-central1`, PITR + delete protection on
-- [ ] The TTL field and composite index both report `READY`
-      (`gcloud firestore indexes composite list --project sudoku-eo-2026`)
-- [ ] `https://sudoku-eo-2026.web.app` serves the Firebase default page
+- [x] `pulumi up` on `sudoku-gcp-app/prod` succeeds
+- [x] `pulumi refresh` reports **no changes** (11 unchanged)
+- [x] A second `pulumi up` reports `0 changed` (10 unchanged)
+- [x] Firestore `(default)` exists, `FIRESTORE_NATIVE`, `us-central1`, PITR + delete protection on
+- [x] Composite index `READY`; the `coachRateLimits.expiresAt` TTL is `ACTIVE`. (Read the TTL
+      from `pulumi stack export` — `gcloud firestore indexes fields list` returns the wildcard
+      field config, not the specific one, and looks empty.)
+- [x] `https://sudoku-eo-2026.web.app` responds — Firebase's **"Site Not Found"** page, which
+      is the correct state for a site with no release. The frontend deploy is Phase 6.
 - [ ] `dig NS gcp.edoatley.co.uk @8.8.8.8` returns four `*.googledomains.com.` servers
-- [ ] `make gcp-inventory` shows no unexpected unmanaged IAM bindings
+- [x] `make gcp-inventory` shows no unexpected unmanaged IAM bindings
 - [ ] `CP-GCP-020`, `-022`, `-023`, `-024`, `-040`, `CP-PUL-022`, `-050` flipped to `[x]`
-- [ ] The **old project keeps serving production** — unchanged throughout
-- [ ] Bootstrap stack untouched: `cd ../bootstrap && pulumi preview` still reports no changes
+- [x] The **old project keeps serving production** — unchanged throughout
+- [x] Bootstrap stack untouched — `pulumi preview` reports 53 unchanged
 
 ## 6. Risks specific to this phase
 
