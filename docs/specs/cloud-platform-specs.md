@@ -153,22 +153,22 @@ tool-specific ones (`CP-PUL-*`) is what let the Terraform specs be struck throug
 
 ## Pulumi — Project Foundation & Bootstrap
 
-- [ ] **CP-PUL-001**: The system's bootstrap stack shall create the GCP project, link its billing account, and enable the required GCP APIs, with API enablement configured not to disable those APIs when the stack is destroyed.
-- [ ] **CP-PUL-002**: The system's bootstrap stack shall create the project with automatic default-network creation disabled, so no default VPC or its firewall rules exist.
-- [ ] **CP-PUL-003**: The system's bootstrap stack shall create a single Artifact Registry Docker repository with cleanup policies retaining the ten most recent versions and deleting untagged versions older than thirty days.
+- [x] **CP-PUL-001**: The system's bootstrap stack shall create the GCP project, link its billing account, and enable the required GCP APIs, with API enablement configured not to disable those APIs when the stack is destroyed.
+- [x] **CP-PUL-002**: The system's bootstrap stack shall create the project with automatic default-network creation disabled, so no default VPC or its firewall rules exist.
+- [x] **CP-PUL-003**: The system's bootstrap stack shall create a single Artifact Registry Docker repository with cleanup policies retaining the ten most recent versions and deleting untagged versions older than thirty days.
 
 ## Pulumi — Identity, Federation & Privilege Split
 
-- [ ] **CP-PUL-010**: The system shall provision the backend, image-recognition, and deploy service accounts as code, granting the backend and image-recognition runtime accounts roles/datastore.user and roles/aiplatform.user.
-- [ ] **CP-PUL-011**: The system shall provision Workload Identity Federation for GitHub Actions as code, with an attribute condition restricting token exchange to the edoatley/sudoku-app repository.
-- [ ] **CP-PUL-012**: The system shall grant the CI deploy service account only the roles needed to manage application resources, and shall grant it no IAM-administration, Workload-Identity-administration, Secret Manager, or billing-account permission.
-- [ ] **CP-PUL-013**: The system shall express every IAM grant as an additive per-member binding, and shall never use a role-authoritative or project-authoritative IAM resource; a build-time check shall fail if one is introduced.
+- [x] **CP-PUL-010**: The system shall provision the backend, image-recognition, and deploy service accounts as code, granting the backend and image-recognition runtime accounts roles/datastore.user and roles/aiplatform.user.
+- [x] **CP-PUL-011**: The system shall provision Workload Identity Federation for GitHub Actions as code, with an attribute condition restricting token exchange to the edoatley/sudoku-app repository.
+- [x] **CP-PUL-012**: The system shall grant the CI deploy service account only the roles needed to manage application resources, and shall grant it no IAM-administration, Workload-Identity-administration, Secret Manager, or billing-account permission.
+- [x] **CP-PUL-013**: The system shall express every IAM grant as an additive per-member binding, and shall never use a role-authoritative or project-authoritative IAM resource; a build-time check shall fail if one is introduced.
 
 ## Pulumi — Application Stack
 
 - [ ] **CP-PUL-020**: The system shall deploy both Cloud Run services from a single reusable component, parameterised by image, runtime service account, environment, instance cap and concurrency.
-- [ ] **CP-PUL-021**: The system shall derive environment names, resource suffixes, label values and the Firebase Hosting site id from a single shared implementation used by both the Pulumi program and CI, so the two cannot drift.
-- [ ] **CP-PUL-022**: The system shall protect the production Firestore database, Hosting site, DNS zone, KMS key and state bucket against deletion and replacement.
+- [x] **CP-PUL-021**: The system shall derive environment names, resource suffixes, label values and the Firebase Hosting site id from a single shared implementation used by both the Pulumi program and CI, so the two cannot drift.
+- [x] **CP-PUL-022**: The system shall protect the production Firestore database, Hosting site, DNS zone, KMS key and state bucket against deletion and replacement.
 - [ ] **CP-PUL-023**: The system shall grant roles/run.invoker to allUsers on both Cloud Run services in every environment including production, granting network reachability only; each service continues to validate the caller's JWT in-app. (Supersedes `CP-GCP-014`.)
 
 ## Pulumi — Identity Platform
@@ -179,21 +179,21 @@ tool-specific ones (`CP-PUL-*`) is what let the Terraform specs be struck throug
 
 ## Pulumi — State & Secrets
 
-- [ ] **CP-PUL-040**: The system shall store Pulumi state in a Cloud Storage bucket with object versioning, uniform bucket-level access, and public access prevention enforced.
-- [ ] **CP-PUL-041**: The system shall encrypt application-stack secrets with a Cloud KMS key, and shall grant the CI deploy service account decrypt access to that key.
-- [ ] **CP-PUL-042**: The system shall commit its dependency lock file so provider versions are pinned in CI.
+- [x] **CP-PUL-040**: The system shall store Pulumi state in a Cloud Storage bucket with object versioning, uniform bucket-level access, and public access prevention enforced.
+- [x] **CP-PUL-041**: The system shall encrypt application-stack secrets with a Cloud KMS key, and shall grant the CI deploy service account decrypt access to that key.
+- [x] **CP-PUL-042**: The system shall commit its dependency lock file so provider versions are pinned in CI.
 
 ## Pulumi — DNS
 
-- [ ] **CP-PUL-050**: The system shall provision a Cloud DNS managed zone for gcp.edoatley.co.uk and serve the frontend at sudoku.gcp.edoatley.co.uk from a record in that zone, with the parent zone requiring only a one-time NS delegation. (Supersedes `CP-GCP-050`.)
+- [x] **CP-PUL-050**: The system shall provision a Cloud DNS managed zone for gcp.edoatley.co.uk and serve the frontend at sudoku.gcp.edoatley.co.uk from a record in that zone, with the parent zone requiring only a one-time NS delegation. (Supersedes `CP-GCP-050`.)
 
 ## Pulumi — Cost Guardrail
 
-- [ ] **CP-PUL-060**: The system shall provision the billing budget in the bootstrap stack rather than the application stack, because a billing budget is scoped to the billing account and the CI identity must hold no billing permission.
+- [x] **CP-PUL-060**: The system shall provision the billing budget in the bootstrap stack rather than the application stack, because a billing budget is scoped to the billing account and the CI identity must hold no billing permission.
 
 ## Pulumi — Packaging & CI
 
-- [ ] **CP-PUL-070**: The system shall manage the Pulumi program's Python dependencies with uv, declared in pyproject.toml and resolved by the Pulumi runtime toolchain.
+- [x] **CP-PUL-070**: The system shall manage the Pulumi program's Python dependencies with uv, declared in pyproject.toml and resolved by the Pulumi runtime toolchain.
 - [ ] **CP-PUL-080**: The system shall deploy GCP from a reusable workflow invoked by the single deploy entry point, with no push or workflow_dispatch trigger of its own.
-- [ ] **CP-PUL-081**: The system shall unit-test every Pulumi component against the Pulumi mock runtime, with no cloud credentials, and shall run those tests plus a linter in CI when files under infra/gcp/ change.
-- [ ] **CP-PUL-082**: The system shall include the Pulumi lint and unit-test suite in the mandatory pre-push test script.
+- [x] **CP-PUL-081**: The system shall unit-test every Pulumi component against the Pulumi mock runtime, with no cloud credentials, and shall run those tests plus a linter in CI when files under infra/gcp/ change.
+- [x] **CP-PUL-082**: The system shall include the Pulumi lint and unit-test suite in the mandatory pre-push test script.

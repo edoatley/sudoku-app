@@ -1,6 +1,6 @@
 # Implementation Plan: GCP Pulumi — Phase 3, App Stack (Data, Hosting, DNS)
 
-**Status**: Approved — ready to implement
+**Status**: Complete — 2026-09-13
 **Created**: 2026-09-13
 **Origin**: `docs/planning/gcp-pulumi-replatform.md` §4
 **Arrow**: `cloud-platform` (`docs/arrows/cloud-platform.md`) — GCP facet
@@ -73,11 +73,11 @@ Verified 2026-09-13: the backend uses the project-scoped layout this requires
 - [x] **3e. `DnsZone`** — managed zone for `gcp.edoatley.co.uk.`, no records yet. Export
       `name_servers`.
       @spec CP-PUL-050
-- [ ] **3f. Delegate the subdomain** — take `pulumi stack output name_servers` and add the NS
+- [x] **3f. Delegate the subdomain** — take `pulumi stack output name_servers` and add the NS
       record in the Route53 `edoatley.co.uk` zone (`Z055000739D7L0ZGFAMC1`, AWS `backups`
       profile). **Manual, one-time, and the only AWS touch in this phase.** Extend
       `scripts/infra/shared/delegate-dns.sh` rather than writing a new script.
-- [ ] **3g. Verify propagation** — `dig +trace NS gcp.edoatley.co.uk` returns the four Google
+- [x] **3g. Verify propagation** — `dig +trace NS gcp.edoatley.co.uk` returns the four Google
       name servers. This can take minutes to hours; it does not block the rest of the phase.
 - [x] **3h. Unit tests** for the app stack's wiring, following the bootstrap pattern: assert the
       Firestore database is protected in prod and disposable otherwise, that the Hosting site id
@@ -95,9 +95,11 @@ Verified 2026-09-13: the backend uses the project-scoped layout this requires
       field config, not the specific one, and looks empty.)
 - [x] `https://sudoku-eo-2026.web.app` responds — Firebase's **"Site Not Found"** page, which
       is the correct state for a site with no release. The frontend deploy is Phase 6.
-- [ ] `dig NS gcp.edoatley.co.uk @8.8.8.8` returns four `*.googledomains.com.` servers
+- [x] `dig NS gcp.edoatley.co.uk @8.8.8.8` returns four `*.googledomains.com.` servers, and
+      `dig +trace` shows the handoff (TTL 300 from Route53, 21600 from Cloud DNS). Cloud DNS
+      answers with the `aa` flag and its own SOA.
 - [x] `make gcp-inventory` shows no unexpected unmanaged IAM bindings
-- [ ] `CP-GCP-020`, `-022`, `-023`, `-024`, `-040`, `CP-PUL-022`, `-050` flipped to `[x]`
+- [x] `CP-PUL-022` and `-050` flipped to `[x]`, along with the rest satisfied by Phases 1-3
 - [x] The **old project keeps serving production** — unchanged throughout
 - [x] Bootstrap stack untouched — `pulumi preview` reports 53 unchanged
 

@@ -4,9 +4,22 @@ Cloud infrastructure across two facets, each with its own IaC tool: **AWS** (Ter
 
 ## Status
 
-**IN_PROGRESS** - 2026-09-11. The GCP facet is live end-to-end on the `sudoku-app-eo` project (backend + image-rec on Cloud Run, Firestore, Firebase Hosting, custom domain, automated post-deploy smoke) and is now being **re-platformed from Terraform to Pulumi** (Python + `uv`) into a clean-room GCP project. That migration also removes the last two AWS dependencies from the GCP path (cross-cloud Bedrock for image recognition; the Route53 CNAME) and introduces a single `DEPLOY_TARGET` repository variable selecting which cloud a merge to `main` deploys. Design: `docs/llds/cloud-platform-gcp.md`. Plan: `docs/planning/gcp-pulumi-replatform.md`.
+**IN_PROGRESS** - 2026-09-13. The GCP facet is being re-platformed from Terraform to Pulumi
+(Python + `uv`) into a clean-room project. **Phases 0-3 are complete and applied**: the component
+library with 118 unit tests, the human-run `bootstrap` stack (project `sudoku-eo-2026`, APIs,
+GCS state, KMS, Artifact Registry, three service accounts, IAM, Workload Identity Federation,
+billing budget), and the CI-run `app` stack (Firestore with its TTL and composite index, the
+Firebase Hosting site, and a Cloud DNS zone for `gcp.edoatley.co.uk` delegated from Route53).
 
-The HLD's "manual identity on GCP" tenet is **deliberately revised** by this work — identity becomes IaC, with the privilege concern met by splitting the deploying identity across a human-run `bootstrap` stack and a CI-run `app` stack.
+The two-stack privilege split is **verified, not asserted**: a federated CI job confirms the
+deploy identity can reach the state bucket and Cloud Run, and is refused billing, self-escalation
+to `roles/owner`, WIF administration and Secret Manager. That evidence is what justifies revising
+the HLD's original manual-identity tenet.
+
+The old `sudoku-app-eo` project keeps serving production untouched throughout; cutover is Phase 8.
+Next: Phase 4 (Identity Platform + a new OAuth client) and Phase 5 (de-Bedrock image recognition,
+which runs in parallel). Design: `docs/llds/cloud-platform-gcp.md`. Plan:
+`docs/planning/gcp-pulumi-replatform.md`.
 
 **AWS facet: OK** - 2026-07-09. Admin data-browser JWT routes added (`/admin/data/games`, `/admin/data/players`); `administrators` Cognito group provisioned. All 19 findings from `docs/planning/old/infra-review.md` (H1-H4, M1-M7, L1-L5) fixed and verified via live CI/Deploy against the `rc-terraform-review` workspace — see that doc for full detail. All Terraform files read and documented. No apply/drift audit performed (no Terratest or equivalent exists). **Unaffected by the Pulumi migration** — AWS stays on Terraform.
 
@@ -90,16 +103,19 @@ The HLD's "manual identity on GCP" tenet is **deliberately revised** by this wor
 
 | Category | Spec IDs | Implemented | Deferred | Gaps |
 | --- | --- | --- | --- | --- |
-| Project Foundation & Bootstrap | CP-PUL-001 to 003 | 0 | 0 | 3 |
-| Identity, Federation & Privilege Split | CP-PUL-010 to 013 | 0 | 0 | 4 |
-| Application Stack | CP-PUL-020 to 023 | 0 | 0 | 4 |
-| Identity Platform | CP-PUL-030 to 032 | 0 | 2 (031, 032) | 1 |
-| State & Secrets | CP-PUL-040 to 042 | 0 | 0 | 3 |
-| DNS | CP-PUL-050 | 0 | 0 | 1 |
-| Cost Guardrail | CP-PUL-060 | 0 | 0 | 1 |
-| Packaging & CI | CP-PUL-070, 080 to 082 | 0 | 0 | 4 |
+| Project Foundation & Bootstrap | CP-PUL-001 to 003 | 3 | 0 | 0 |
+| Identity, Federation & Privilege Split | CP-PUL-010 to 013 | 4 | 0 | 0 |
+| Application Stack | CP-PUL-020 to 023 | 2 (021, 022) | 0 | 2 (020, 023 — Cloud Run, Phase 6) |
+| Identity Platform | CP-PUL-030 to 032 | 0 | 2 (031, 032) | 1 (030 — Phase 4) |
+| State & Secrets | CP-PUL-040 to 042 | 3 | 0 | 0 |
+| DNS | CP-PUL-050 | 1 | 0 | 0 |
+| Cost Guardrail | CP-PUL-060 | 1 | 0 | 0 |
+| Packaging & CI | CP-PUL-070, 080 to 082 | 3 | 0 | 1 (080 — Phase 7) |
 
-**Summary (Pulumi realisation):** 0 of 21 active specs implemented (all gaps — implementation is phased); 2 deferred (`CP-PUL-031` no IaC resource for an Identity Platform user; `CP-PUL-032` no API creates OAuth client IDs).
+**Summary (Pulumi realisation):** 17 of 21 active specs implemented and verified against the live
+project `sudoku-eo-2026`; 4 gaps, each owned by a later phase (Cloud Run ×2, Identity Platform,
+unified deploy workflow); 2 deferred (`CP-PUL-031` no IaC resource for an Identity Platform user;
+`CP-PUL-032` no API creates OAuth client IDs).
 
 ### EARS Coverage — CP-CD (deploy-target selection)
 

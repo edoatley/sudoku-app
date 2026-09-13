@@ -125,7 +125,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: cloud-platform.md
-    next: "GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phases 0-2 done: component library + unit tests (CP-PUL-013/070/081/082), and the bootstrap stack applied to the clean-room project sudoku-eo-2026 with state in gs://sudoku-pulumi-state-eo. Privilege split verified by a federated CI job. Phase 3 (Firestore, Hosting site, Cloud DNS zone + one manual NS delegation) is next."
+    next: "GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phases 0-3 complete and applied to the clean-room project sudoku-eo-2026: component library, bootstrap stack (privilege split verified by a federated CI job), and app stack (Firestore, Hosting site, Cloud DNS zone delegated from Route53). 17 of 21 CP-PUL specs [x]. Next: Phase 4 (Identity Platform + new OAuth client) and Phase 5 (de-Bedrock image recognition, parallel)."
     drift: ~
 
   react-frontend:
