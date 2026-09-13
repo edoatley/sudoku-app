@@ -125,7 +125,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: cloud-platform.md
-    next: "GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phase 0 (docs + drift) done; Phase 1 (Pulumi scaffolding + component unit tests, no cloud) is next. New spec blocks CP-PUL-* and CP-CD-*; CP-GCP-014/031/050/081/082/083 superseded. HLD manual-identity tenet revised to a two-stack privilege split."
+    next: "TEST GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phase 0 (docs + drift) done; Phase 1 (Pulumi scaffolding + component unit tests, no cloud) is next. New spec blocks CP-PUL-* and CP-CD-*; CP-GCP-014/031/050/081/082/083 superseded. HLD manual-identity tenet revised to a two-stack privilege split."
     drift: ~
 
   react-frontend:
