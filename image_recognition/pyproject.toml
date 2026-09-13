@@ -5,6 +5,7 @@ pythonpath = ["."]
 markers = [
     "real_images: tests that use real puzzle images (may require network access)",
     "e2e: end-to-end tests that call AWS Bedrock (require AWS credentials)",
+    "accuracy: fixture-based recognition accuracy scoring (live provider credentials, costs money per run)",
 ]
 
 [tool.coverage.run]
