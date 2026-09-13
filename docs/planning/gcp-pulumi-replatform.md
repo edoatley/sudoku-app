@@ -230,8 +230,7 @@ Flagged rather than guessed. Each is cheap to settle in Phase 1 or 2.
 
 - `runtime.options.toolchain: uv` minimum Pulumi CLI version, and whether `virtualenv:` resolves
   relative to `Pulumi.yaml`. Fallback: explicit `uv venv && uv sync` in CI.
-- `StackReference` name format on a self-managed GCS backend (`organization/<project>/<stack>`
-  vs bare `<stack>`) — confirm with `pulumi stack ls --all` against the real bucket.
+- ~~`StackReference` name format on a self-managed GCS backend.~~ **Resolved 2026-09-13**: `organization/<project>/<stack>`, with `organization` a literal constant. `pulumi stack ls` displays the bare name, which is misleading.
 - Whether `pulumi up -c/--config` (non-persisting, per-run) exists on the pinned CLI.
 - `gcp.artifactregistry.Repository` cleanup-policy Python arg classes, and whether
   `cleanup_policy_dry_run=False` must be set explicitly.

@@ -421,6 +421,11 @@ as a drift signal; and the existing smoke scripts at runtime. @spec CP-PUL-082
 
 ## Open Questions
 
+- ~~The `StackReference` name format on a self-managed GCS backend.~~ **Resolved 2026-09-13**:
+  DIY backends place every project under a virtual organization named by the literal constant
+  `organization`, so the form is `organization/<project>/<stack>` — not an account name, and not
+  the bare stack name that `pulumi stack ls` displays. Requires the project-scoped state layout,
+  which this backend uses (`.pulumi/stacks/<project>/<stack>.json`).
 - Whether `gcp.identityplatform.Config` can *initialise* the Identity Platform entitlement, or
   whether one console click remains. Tested against the fresh project during the migration;
   fallback is a `pulumi_command.local.Command` wrapping the same REST call the script uses.
