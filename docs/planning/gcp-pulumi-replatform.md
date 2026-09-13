@@ -120,9 +120,9 @@ new project while the **old project keeps serving production**, so none of them 
 
 | # | Phase | Leaves behind | Depends on |
 | --- | --- | --- | --- |
-| 0 | Documentation & drift fixes | This plan; revised HLD/LLD/EARS/arrows; three drift corrections | — |
-| 1 | Pulumi scaffolding + validation gate | The component library, unit-tested. **No cloud resources.** | 0 |
-| 2 | Bootstrap stack | The new GCP project, GCS state, KMS, Artifact Registry, 3 SAs, WIF, budget | 1 |
+| 0 | Documentation & drift fixes ✅ | This plan; revised HLD/LLD/EARS/arrows; three drift corrections | — |
+| 1 | Pulumi scaffolding + validation gate ✅ | The component library, unit-tested. **No cloud resources.** | 0 |
+| 2 | Bootstrap stack ✅ | The new GCP project `sudoku-eo-2026`, GCS state, KMS, Artifact Registry, 3 SAs, WIF, budget | 1 |
 | 3 | App stack — data, hosting, DNS | Firestore, Firebase Hosting site, Cloud DNS zone + NS delegation | 2 |
 | 4 | Identity Platform | Google sign-in works on the new project; smoke user mints tokens | 3 |
 | 5 | De-Bedrock image recognition | `IMAGE_AI_PROVIDER` switch + Vertex adapter + accuracy harness | 0 (**parallel**) |
