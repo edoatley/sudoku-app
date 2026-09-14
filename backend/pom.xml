@@ -15,8 +15,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.39.2</quarkus.platform.version>
-        <quarkus-amazon-services-bom.version>3.21.3</quarkus-amazon-services-bom.version>
+        <quarkus.platform.version>3.39.3</quarkus.platform.version>
+        <quarkus-amazon-services-bom.version>3.22.1</quarkus-amazon-services-bom.version>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
     </properties>
@@ -82,7 +82,7 @@
         <dependency>
             <groupId>com.google.auth</groupId>
             <artifactId>google-auth-library-oauth2-http</artifactId>
-            <version>1.51.0</version>
+            <version>1.52.0</version>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
