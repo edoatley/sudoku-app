@@ -426,9 +426,33 @@ as a drift signal; and the existing smoke scripts at runtime. @spec CP-PUL-082
   `organization`, so the form is `organization/<project>/<stack>` — not an account name, and not
   the bare stack name that `pulumi stack ls` displays. Requires the project-scoped state layout,
   which this backend uses (`.pulumi/stacks/<project>/<stack>.json`).
-- Whether `gcp.identityplatform.Config` can *initialise* the Identity Platform entitlement, or
-  whether one console click remains. Tested against the fresh project during the migration;
-  fallback is a `pulumi_command.local.Command` wrapping the same REST call the script uses.
+- ~~Whether `gcp.identityplatform.Config` can *initialise* the Identity Platform entitlement.~~
+  **Resolved 2026-09-13: yes.** Applied to a project that had never had Identity Platform
+  enabled, and it created the config, the Google IdP and the authorised-domain list without any
+  console step. The "Enable Identity Platform" click in the old runbook is gone, and
+  `scripts/infra/gcp/identity-platform-bootstrap.sh` is redundant.
+
+  Two caveats found while doing it. `identitytoolkit.googleapis.com` **requires a quota project**,
+  so under human ADC the call 403s with a misleading `SERVICE_DISABLED` — the second API to need
+  the scoped-provider treatment after the billing budget, which makes it a pattern rather than a
+  one-off (see *Quota-project APIs* below). And the server populates `signIn.phoneNumber` whether
+  or not it is declared, so omitting it makes `pulumi refresh` report drift on every run; it is
+  declared explicitly for that reason.
+
+### Quota-project APIs
+
+Some Google APIs refuse a call that carries no quota project. Service-account credentials supply
+one implicitly, so **CI never sees this** — it appears only when a human runs a stack with their
+own Application Default Credentials, and the error names `SERVICE_DISABLED` rather than the
+actual cause, pointing at an API that is in fact enabled.
+
+Known so far: `billingbudgets.googleapis.com`, `identitytoolkit.googleapis.com`.
+
+The fix is a **dedicated `gcp.Provider`** with `user_project_override=True` and `billing_project`,
+attached to those resources alone. Do **not** set it stack-wide: a global override makes every
+call send the user-project header, which then requires `serviceusage.googleapis.com` on the target
+project and breaks `gcp.projects.Service` before it can enable anything. That mistake cost an
+apply during Phase 2.
 - Whether Firebase custom-domain verification for this subdomain wants a CNAME or A+TXT records.
   The known-working CNAME is hard-coded; driving records off `required_dns_updates` is an
   elegant-but-fragile follow-up.

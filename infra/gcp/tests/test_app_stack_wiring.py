@@ -23,8 +23,13 @@ APP_MAIN = pathlib.Path(__file__).resolve().parent.parent / "app" / "__main__.py
 PROJECT_ID = "sudoku-eo-2026"
 
 
-class TestPhase3Scope:
-    """Phase 3 stands up data, hosting and the DNS zone — and deliberately nothing else."""
+class TestStackScope:
+    """What the app stack does and does not yet contain.
+
+    These guards exist so scope cannot drift silently. When a phase lands, the corresponding
+    assertion flips rather than being deleted — Identity Platform moved from "not yet" to
+    "wired" at Phase 4.
+    """
 
     def test_no_custom_domain_is_attached_yet(self):
         # Attaching it is Phase 8. Google-managed cert issuance is asynchronous and needs DNS
@@ -37,8 +42,8 @@ class TestPhase3Scope:
     def test_no_cloud_run_services_yet(self):
         assert "ContainerService" not in APP_MAIN.read_text(), "Cloud Run is Phase 6"
 
-    def test_no_identity_platform_yet(self):
-        assert "IdentityPlatform" not in APP_MAIN.read_text(), "Identity Platform is Phase 4"
+    def test_identity_platform_landed_in_phase_4(self):
+        assert "IdentityPlatform" in APP_MAIN.read_text()
 
     def test_stack_reference_uses_the_diy_backend_form(self):
         # DIY backends place every project under a virtual organization named by the literal
@@ -110,3 +115,63 @@ class TestDns:
 
 def _assert(condition, detail="") -> None:
     assert condition, detail
+
+
+class TestIdentityPlatform:
+    """@spec CP-GCP-011, CP-GCP-030, CP-PUL-030"""
+
+    def test_identity_platform_is_wired(self):
+        assert "IdentityPlatform(" in APP_MAIN.read_text()
+
+    def test_all_four_sign_in_origins_are_authorised(self):
+        # A missing origin fails only at runtime, with redirect_uri_mismatch. Build the list from
+        # the same values Hosting uses rather than typing them out again.
+        src = APP_MAIN.read_text()
+        for origin in ("localhost", ".web.app", ".firebaseapp.com", "custom_domain"):
+            assert origin in src, origin
+
+    def test_client_secret_comes_from_encrypted_config(self):
+        # require_secret, not require — otherwise the value lands in state in plaintext.
+        assert 'config.require_secret("googleOauthClientSecret")' in APP_MAIN.read_text()
+
+    def test_client_secret_is_never_exported(self):
+        src = APP_MAIN.read_text()
+        assert "googleOauthClientSecret" not in src.split("# ── Outputs")[-1]
+
+    def test_issuer_and_audience_are_exported_for_phase_6(self):
+        # The backend's %gcp profile hard-codes these shapes; a mismatch 401s every request.
+        src = APP_MAIN.read_text()
+        assert 'pulumi.export("identity_platform_issuer"' in src
+        assert 'pulumi.export("identity_platform_audience"' in src
+
+    @pulumi.runtime.test
+    def test_issuer_matches_the_shape_the_backend_expects(self):
+        from components.identity_platform import IdentityPlatform
+
+        idp = IdentityPlatform(
+            "issuer-shape",
+            project=PROJECT_ID,
+            authorized_domains=["localhost"],
+            google_client_id="cid",
+            google_client_secret="sec",
+        )
+        return idp.issuer.apply(
+            lambda i: _assert(i == f"https://securetoken.google.com/{PROJECT_ID}", i)
+        )
+
+    @pulumi.runtime.test
+    def test_phone_number_is_declared_even_though_disabled(self):
+        # The server populates this block regardless. Omitting it made `pulumi refresh` report
+        # drift on every run, and a check that always fires masks the drift it exists to catch.
+        from components.identity_platform import IdentityPlatform
+
+        idp = IdentityPlatform(
+            "phone-decl",
+            project=PROJECT_ID,
+            authorized_domains=["localhost"],
+            google_client_id="cid",
+            google_client_secret="sec",
+        )
+        return idp.config.sign_in.apply(
+            lambda s: _assert(s.get("phone_number", {}).get("enabled") is False, s)
+        )

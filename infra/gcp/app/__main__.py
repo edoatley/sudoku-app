@@ -12,10 +12,12 @@ here has days to propagate before anything depends on it.
 from __future__ import annotations
 
 import pulumi
+import pulumi_gcp as gcp
 
 from components import naming
 from components.dns_zone import DnsZone
 from components.firestore_database import FirestoreDatabase
+from components.identity_platform import IdentityPlatform
 from components.static_site import StaticSite
 
 config = pulumi.Config("sudoku")
@@ -60,6 +62,42 @@ site = StaticSite(
     site_id=naming.hosting_site_id(stack, config.require("projectId")),
 )
 
+# ── Authentication ────────────────────────────────────────────────────────────
+# Authorised domains must cover every origin a sign-in can be initiated from. One missing entry
+# fails only at runtime, with redirect_uri_mismatch — so the list is built from the same values
+# Hosting uses rather than typed out again.
+authorized_domains = pulumi.Output.all(site.site_id, project).apply(
+    lambda args: [
+        "localhost",
+        f"{args[0]}.web.app",
+        f"{args[1]}.firebaseapp.com",
+        custom_domain,
+    ]
+)
+
+# Second API to need this, after the billing budget: identitytoolkit demands a quota project,
+# which human ADC does not supply, so the call lands on Google's default client project and 403s.
+# Scoped to a dedicated provider rather than set stack-wide — a global user-project override
+# makes every call send the header, which then requires serviceusage on the target project and
+# breaks gcp.projects.Service. Harmless in CI, where service-account credentials carry an
+# implicit quota project.
+quota_provider = gcp.Provider(
+    "gcp-quota-project",
+    project=config.require("projectId"),
+    region=region,
+    user_project_override=True,
+    billing_project=config.require("projectId"),
+)
+
+identity = IdentityPlatform(
+    "sudoku",
+    project=project,
+    authorized_domains=authorized_domains,
+    google_client_id=config.require("googleOauthClientId"),
+    google_client_secret=config.require_secret("googleOauthClientSecret"),
+    opts=pulumi.ResourceOptions(provider=quota_provider),
+)
+
 # ── DNS ───────────────────────────────────────────────────────────────────────
 # Only the production stack owns the zone; ephemeral rcg-* stacks serve from their own
 # *.web.app origin and never touch DNS.
@@ -82,6 +120,10 @@ pulumi.export("run_service_account_email", run_sa)
 pulumi.export("image_recognition_service_account_email", image_recognition_sa)
 pulumi.export("artifact_registry_url", artifact_registry_url)
 pulumi.export("custom_domain", custom_domain)
+# The backend's %gcp profile hard-codes these shapes; a mismatch 401s every request. Exported so
+# Phase 6 wires the Cloud Run environment from the stack rather than by hand. @spec CP-GCP-011
+pulumi.export("identity_platform_issuer", identity.issuer)
+pulumi.export("identity_platform_audience", identity.audience)
 # Read with `pulumi stack output name_servers` to create the one-time NS delegation in the
 # Route53 parent zone. Null on non-prod stacks, which own no zone.
 pulumi.export("name_servers", dns.name_servers if dns else None)

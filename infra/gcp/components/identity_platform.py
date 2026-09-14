@@ -41,6 +41,14 @@ class IdentityPlatform(pulumi.ComponentResource):
                     enabled=True,
                     password_required=True,
                 ),
+                # Declared explicitly although disabled. The server populates this block
+                # regardless, so omitting it makes `pulumi refresh` report drift on every single
+                # run — and a drift check that always fires is one nobody reads, which would
+                # mask the real drift it exists to catch.
+                phone_number=gcp.identityplatform.ConfigSignInPhoneNumberArgs(
+                    enabled=False,
+                    test_phone_numbers={},
+                ),
             ),
             opts=child,
         )
