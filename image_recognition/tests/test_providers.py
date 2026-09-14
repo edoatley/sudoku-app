@@ -60,12 +60,20 @@ class TestModelLists:
         ):
             assert providers.get_provider("vertex").models == ["gemini-x"]
 
-    def test_vertex_defaults_to_full_flash_not_flash_lite(self):
-        # Grid OCR is materially harder than text generation, so this deliberately differs from
-        # the coach's flash-lite. Changing it must be a decision, not a drift.
+    def test_vertex_defaults_to_the_model_that_passed_the_accuracy_gate(self):
+        # gemini-3.8-flash scores 100% / 5-of-5, matching Bedrock. gemini-2.5-flash managed
+        # 92.6% / 0-of-5 on the identical prompt. Downgrading this is a measurable regression,
+        # so it must be a decision rather than a drift.
         with patch.dict(os.environ, {"GCP_PROJECT_ID": "p"}, clear=False):
             os.environ.pop("VERTEX_MODELS", None)
-            assert providers.get_provider("vertex").models == ["gemini-2.5-flash"]
+            assert providers.get_provider("vertex").models == ["gemini-3.8-flash"]
+
+    def test_vertex_defaults_to_the_global_endpoint(self):
+        # Gemini 3.x is served only from `global`; a regional endpoint 404s with a message that
+        # blames the model name rather than the location.
+        with patch.dict(os.environ, {"GCP_PROJECT_ID": "p"}, clear=False):
+            os.environ.pop("GCP_REGION", None)
+            assert providers.get_provider("vertex")._location == "global"
 
 
 class TestSharedPrompts:

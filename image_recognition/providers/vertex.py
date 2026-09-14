@@ -19,8 +19,15 @@ from prompts import SYSTEM_PROMPT, USER_PROMPT
 
 from . import ProviderError, mime_type
 
-DEFAULT_MODEL = "gemini-2.5-flash"
-DEFAULT_LOCATION = "us-central1"
+DEFAULT_MODEL = "gemini-3.8-flash"
+"""Scores 100% / 5-of-5 exact on the fixture set, matching Bedrock's Claude Haiku. gemini-2.5-flash
+reached only 92.6% / 0-of-5 on the same prompt, so the gap was the model generation, not the
+prompt — no Gemini-specific prompt tuning was needed."""
+
+DEFAULT_LOCATION = "global"
+"""Gemini 3.x is served ONLY from the `global` endpoint. Requesting one from a regional endpoint
+returns a 404 whose message suggests the model does not exist or is not permitted, which reads as
+a naming or access problem rather than a location one."""
 MAX_OUTPUT_TOKENS = 2048
 """Matches the Bedrock path, so the accuracy comparison is like-for-like."""
 
