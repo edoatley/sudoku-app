@@ -1,0 +1,22 @@
+{
+  "_comment": [
+    "Recorded 2026-09-14 over the five fixtures in e2e_config.json.",
+    "Regression baselines, not targets. A run below these is a regression to investigate;",
+    "a run above them should be promoted here so the bar ratchets up rather than drifting."
+  ],
+  "bedrock": {
+    "model": "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "mean_cell_accuracy": 1.0,
+    "exact_grids": 5,
+    "valid_puzzles": 5,
+    "total": 5
+  },
+  "vertex": {
+    "model": "gemini-2.5-flash",
+    "_note": "Fails the cutover gate. Recorded so a future improvement is measurable.",
+    "mean_cell_accuracy": 0.926,
+    "exact_grids": 0,
+    "valid_puzzles": 3,
+    "total": 5
+  }
+}
