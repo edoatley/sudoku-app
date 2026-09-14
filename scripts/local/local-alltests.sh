@@ -150,7 +150,7 @@ else
   (
     cd "${IR_DIR}"
     source "${VENV}/bin/activate"
-    python -m pytest --cov --cov-report=term-missing -m "not real_images and not e2e"
+    python -m pytest --cov --cov-report=term-missing -m "not real_images and not e2e and not accuracy"
   ) || rc=$?
   record "$SUITE" "$rc" $t
 fi

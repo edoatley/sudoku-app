@@ -1,0 +1,7 @@
+# Vertex AI vision path (IMAGE_AI_PROVIDER=vertex).
+#
+# Pinned deliberately: google-genai moves fast, and the backend's coach already hit a
+# deprecation-forced migration mid-flight. The API surface this adapter uses —
+# Part.from_bytes(data=, mime_type=), Part.from_text(text=), and GenerateContentConfig's
+# system_instruction / temperature / max_output_tokens — was verified against this exact version.
+google-genai==2.23.0

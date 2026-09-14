@@ -3,8 +3,8 @@ Unit tests for handler.py — pure Python, no AWS calls required.
 
 Tests cover:
   - _parse_grid: valid JSON, markdown fences, embedded JSON, error cases, pipe fallback
-  - _recognize_with_bedrock: model scoring, error handling (boto3 client mocked)
-  - _invoke_model: Bedrock Converse API call (boto3 client mocked)
+  - _recognize: model scoring and error handling (fake provider)
+  - providers.bedrock: the Converse API call (boto3 client mocked)
   - handler(): request validation, success path, 422 and 500 error paths
 """
 
@@ -15,12 +15,12 @@ import io
 import json
 from unittest.mock import MagicMock, patch
 
+import handler
+import prompts
+import providers
 import pytest
 from botocore.exceptions import ClientError
 from PIL import Image
-
-import handler
-
 
 # ---------------------------------------------------------------------------
 # _parse_grid
@@ -158,7 +158,7 @@ class TestSystemPrompt:
     # @spec IR-PROC-013
     def test_system_prompt_contains_colour_hint(self):
         """System prompt must instruct the model to ignore cell background colour."""
-        prompt_lower = handler._SYSTEM_PROMPT.lower()
+        prompt_lower = prompts.SYSTEM_PROMPT.lower()
         assert "colour" in prompt_lower or "color" in prompt_lower, (
             "_SYSTEM_PROMPT must contain a colour/color hint for shaded-cell puzzles"
         )
@@ -169,19 +169,19 @@ class TestSystemPrompt:
 
 class TestDetectImageFormat:
     def test_jpeg_bytes_detected(self):
-        assert handler._detect_image_format(_make_jpeg(10, 10)) == "jpeg"
+        assert providers.detect_image_format(_make_jpeg(10, 10)) == "jpeg"
 
     def test_png_bytes_detected(self):
-        assert handler._detect_image_format(_make_png()) == "png"
+        assert providers.detect_image_format(_make_png()) == "png"
 
     def test_unknown_bytes_default_to_jpeg(self):
-        assert handler._detect_image_format(b"\x00\x01\x02\x03") == "jpeg"
+        assert providers.detect_image_format(b"\x00\x01\x02\x03") == "jpeg"
 
     def test_gif_bytes_detected(self):
-        assert handler._detect_image_format(b"GIF89a\x00\x00") == "gif"
+        assert providers.detect_image_format(b"GIF89a\x00\x00") == "gif"
 
     def test_webp_bytes_detected(self):
-        assert handler._detect_image_format(b"RIFF\x00\x00\x00\x00WEBP") == "webp"
+        assert providers.detect_image_format(b"RIFF\x00\x00\x00\x00WEBP") == "webp"
 
 
 # ---------------------------------------------------------------------------
@@ -242,10 +242,12 @@ class TestHandlerWarmup:
         response = handler.handler({"rawPath": "/api/v1/puzzles/import/warmup"}, None)
         assert response["statusCode"] == 200
 
-    def test_warmup_does_not_invoke_bedrock(self):
-        with patch("handler.boto3") as mock_boto3:
+    def test_warmup_does_not_invoke_any_provider(self):
+        """Warmup must not call a model. Patching the seam rather than boto3 makes this
+        assertion provider-agnostic: it now holds for Vertex too."""
+        with patch("handler.get_provider") as mock_get_provider:
             handler.handler({"rawPath": "/api/v1/puzzles/import/warmup"}, None)
-            mock_boto3.client.assert_not_called()
+            mock_get_provider.assert_not_called()
 
     def test_non_warmup_path_not_intercepted(self):
         """A path that doesn't end with /warmup falls through to normal validation."""
@@ -292,13 +294,12 @@ class TestHandlerRequestValidation:
         grid = [[0] * 9 for _ in range(9)]
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
         with (
-            patch("handler.boto3") as mock_boto3,
+            patch("handler.get_provider"),
             patch(
-                "handler._recognize_with_bedrock",
+                "handler._recognize",
                 return_value=(grid, True, "us.amazon.nova-pro-v1:0"),
             ),
         ):
-            mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 200
         body = json.loads(response["body"])
@@ -307,50 +308,47 @@ class TestHandlerRequestValidation:
         assert body["modelName"] == "us.amazon.nova-pro-v1:0"
 
     def test_invalid_grid_returns_422(self):
-        """When _recognize_with_bedrock returns valid=False, handler returns 422."""
+        """When _recognize returns valid=False, handler returns 422."""
         grid = [[0] * 9 for _ in range(9)]
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
         with (
-            patch("handler.boto3") as mock_boto3,
+            patch("handler.get_provider"),
             patch(
-                "handler._recognize_with_bedrock",
+                "handler._recognize",
                 return_value=(grid, False, "mistral.magistral-small-2509"),
             ),
         ):
-            mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 422
         assert "valid Sudoku grid" in json.loads(response["body"])["error"]
 
     def test_recognize_raises_value_error_returns_422(self):
-        """When _recognize_with_bedrock raises ValueError, handler returns 422."""
+        """When _recognize raises ValueError, handler returns 422."""
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
         with (
-            patch("handler.boto3") as mock_boto3,
+            patch("handler.get_provider"),
             patch(
-                "handler._recognize_with_bedrock",
+                "handler._recognize",
                 side_effect=ValueError("no grid found"),
             ),
         ):
-            mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 422
         assert "no grid found" in json.loads(response["body"])["error"]
 
     def test_recognize_raises_unexpected_exception_returns_500(self):
-        """When _recognize_with_bedrock raises an unexpected error, handler returns 500."""
+        """When _recognize raises an unexpected error, handler returns 500."""
         image_b64 = base64.b64encode(_make_jpeg(100, 100)).decode()
         with (
-            patch("handler.boto3") as mock_boto3,
-            patch("handler._recognize_with_bedrock", side_effect=RuntimeError("boom")),
+            patch("handler.get_provider"),
+            patch("handler._recognize", side_effect=RuntimeError("boom")),
         ):
-            mock_boto3.client.return_value = MagicMock()
             response = handler.handler({"body": json.dumps({"image": image_b64})}, None)
         assert response["statusCode"] == 500
 
 
 # ---------------------------------------------------------------------------
-# _recognize_with_bedrock (boto3 client mocked)
+# _recognize (fake provider) and the Bedrock adapter (boto3 client mocked)
 # ---------------------------------------------------------------------------
 
 
@@ -413,81 +411,100 @@ _CLEAN_GRID_ALT = [
 ]
 
 
-class TestRecognizeWithBedrock:
+class _FakeProvider:
+    """Stands in for any VisionProvider. The loop under test must not care which cloud it is."""
+
+    name = "fake"
+
+    def __init__(self, responses, models=("model-a",)):
+        self.models = list(models)
+        self._responses = responses if isinstance(responses, list) else [responses]
+        self.calls = []
+
+    def recognise(self, image_bytes, model_id):
+        self.calls.append(model_id)
+        value = self._responses[min(len(self.calls) - 1, len(self._responses) - 1)]
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+
+class TestRecognize:
+    """What TestRecognizeWithBedrock asserted, now provider-agnostic. The scoring, cross-check
+    and duplicate-detection logic is unchanged — only its collaborator is."""
+
     def test_model_success_returns_valid_grid(self):
-        """A valid model response is returned."""
-        client = _make_mock_client(_grid_json(_CLEAN_GRID))
-        grid, valid, model_name = handler._recognize_with_bedrock(client, b"fake-image")
+        provider = _FakeProvider(_grid_json(_CLEAN_GRID))
+        grid, valid, model_name = handler._recognize(provider, b"fake-image")
         assert grid == _CLEAN_GRID
         assert valid is True
-        assert model_name == handler._MODELS[0]
-        assert client.converse.call_count == 1
+        assert model_name == provider.models[0]
+        assert len(provider.calls) == 1
 
     def test_model_too_few_clues_raises_value_error(self):
-        """When the only model returns too few clues, ValueError is raised (no fallback model)."""
-        client = _make_mock_client(_grid_json(_SPARSE_GRID))
+        provider = _FakeProvider(_grid_json(_SPARSE_GRID))
         with pytest.raises(ValueError, match="All models failed"):
-            handler._recognize_with_bedrock(client, b"fake-image")
+            handler._recognize(provider, b"fake-image")
 
     def test_model_returns_duplicates_returns_invalid(self):
-        """When the model returns a grid with duplicates, valid is False."""
-        client = _make_mock_client(_grid_json(_DUPE_GRID))
-        grid, valid, model_name = handler._recognize_with_bedrock(client, b"fake-image")
+        provider = _FakeProvider(_grid_json(_DUPE_GRID))
+        _grid, valid, _model = handler._recognize(provider, b"fake-image")
         assert valid is False
 
-    def test_model_fails_raises_value_error(self):
-        """When the model raises ClientError, ValueError is raised."""
-        client = MagicMock()
-        error_response = {
-            "Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}
-        }
-        client.converse.side_effect = ClientError(error_response, "Converse")
+    def test_provider_error_raises_value_error(self):
+        """A provider SDK failure is absorbed by the same loop that handled ClientError.
+        @spec IR-AI-005"""
+        provider = _FakeProvider(providers.ProviderError("throttled"))
         with pytest.raises(ValueError, match="All models failed"):
-            handler._recognize_with_bedrock(client, b"fake-image")
+            handler._recognize(provider, b"fake-image")
 
 
-# ---------------------------------------------------------------------------
-# _invoke_model (boto3 client mocked)
-# ---------------------------------------------------------------------------
+class TestBedrockAdapter:
+    """What TestInvokeModel asserted, retargeted at providers/bedrock.py. The adapter returns raw
+    model text now — parsing moved to the caller — so grid assertions go through _parse_grid."""
 
+    def _provider(self, client):
+        from providers.bedrock import BedrockVisionProvider
 
-class TestInvokeModel:
-    def test_returns_parsed_grid(self):
-        """A valid Bedrock response is parsed into the expected grid."""
+        p = BedrockVisionProvider.__new__(BedrockVisionProvider)
+        p.models = ["amazon.nova-pro-v1:0"]
+        p._client = client
+        return p
+
+    def test_returns_text_that_parses_to_the_expected_grid(self):
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
-        result = handler._invoke_model(client, "amazon.nova-pro-v1:0", b"fake-image")
-        assert result == _CLEAN_GRID
+        text = self._provider(client).recognise(b"fake-image", "amazon.nova-pro-v1:0")
+        assert handler._parse_grid(text) == _CLEAN_GRID
 
     def test_passes_correct_model_id(self):
-        """The modelId passed to _invoke_model is forwarded to client.converse."""
         model_id = "amazon.nova-lite-v1:0"
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
-        handler._invoke_model(client, model_id, b"fake-image")
-        call_kwargs = client.converse.call_args[1]
-        assert call_kwargs["modelId"] == model_id
+        self._provider(client).recognise(b"fake-image", model_id)
+        assert client.converse.call_args[1]["modelId"] == model_id
 
-    def test_raises_on_invalid_response_text(self):
-        """When the model returns malformed text, ValueError is raised."""
+    def test_malformed_text_raises_on_parse(self):
         client = _make_mock_client("This is not JSON at all")
+        text = self._provider(client).recognise(b"fake-image", "amazon.nova-pro-v1:0")
         with pytest.raises(ValueError):
-            handler._invoke_model(client, "amazon.nova-pro-v1:0", b"fake-image")
+            handler._parse_grid(text)
 
     def test_jpeg_image_uses_jpeg_format(self):
-        """JPEG magic bytes result in format='jpeg' being sent to Bedrock."""
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
-        jpeg_bytes = _make_jpeg(10, 10)
-        handler._invoke_model(client, "amazon.nova-pro-v1:0", jpeg_bytes)
-        image_content = client.converse.call_args[1]["messages"][0]["content"][0][
-            "image"
-        ]
-        assert image_content["format"] == "jpeg"
+        self._provider(client).recognise(_make_jpeg(10, 10), "amazon.nova-pro-v1:0")
+        content = client.converse.call_args[1]["messages"][0]["content"][0]["image"]
+        assert content["format"] == "jpeg"
 
     def test_png_image_uses_png_format(self):
-        """PNG magic bytes result in format='png' being sent to Bedrock."""
         client = _make_mock_client(_grid_json(_CLEAN_GRID))
-        png_bytes = _make_png()
-        handler._invoke_model(client, "amazon.nova-pro-v1:0", png_bytes)
-        image_content = client.converse.call_args[1]["messages"][0]["content"][0][
-            "image"
-        ]
-        assert image_content["format"] == "png"
+        self._provider(client).recognise(_make_png(), "amazon.nova-pro-v1:0")
+        content = client.converse.call_args[1]["messages"][0]["content"][0]["image"]
+        assert content["format"] == "png"
+
+    def test_sdk_failure_surfaces_as_provider_error(self):
+        """@spec IR-AI-005"""
+        client = MagicMock()
+        client.converse.side_effect = ClientError(
+            {"Error": {"Code": "ThrottlingException"}}, "Converse"
+        )
+        with pytest.raises(providers.ProviderError):
+            self._provider(client).recognise(b"fake-image", "amazon.nova-pro-v1:0")
