@@ -19,8 +19,17 @@ from prompts import SYSTEM_PROMPT, USER_PROMPT
 
 from . import ProviderError, mime_type
 
-DEFAULT_MODEL = "gemini-2.5-flash"
-DEFAULT_LOCATION = "us-central1"
+DEFAULT_MODEL = "gemini-3.8-flash"
+"""Scores 100% / 5-of-5 exact on the fixture set, matching Bedrock's Claude Haiku. gemini-2.5-flash
+reached only 92.6% / 0-of-5 on the same prompt, so the gap was the model generation, not the
+prompt — no Gemini-specific prompt tuning was needed."""
+
+DEFAULT_LOCATION = "global"
+"""Gemini 3.x is served ONLY from the `global` endpoint. Requesting one from a regional endpoint
+returns a 404 whose message suggests the model does not exist or is not permitted, which reads as
+a naming or access problem rather than a location one."""
+MAX_OUTPUT_TOKENS = 2048
+"""Matches the Bedrock path, so the accuracy comparison is like-for-like."""
 
 
 class VertexVisionProvider:
@@ -59,7 +68,18 @@ class VertexVisionProvider:
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
                     temperature=0,
-                    max_output_tokens=2048,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                    # Gemini 2.5 thinks by default, and thinking tokens are charged against
+                    # max_output_tokens. Left on, ~900 of a 2048 budget went to hidden reasoning
+                    # and the response was truncated mid-grid with FinishReason.MAX_TOKENS — the
+                    # parse then failed and the fixture scored 0%, which reads as a recognition
+                    # failure rather than a configuration one.
+                    #
+                    # Disabled rather than budgeted around: the prompt already asks for a
+                    # <scratchpad>, so the reasoning is meant to be visible output. This also
+                    # makes the comparison against Claude honest — both models now get the same
+                    # token budget for the same job.
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
         except Exception as exc:

@@ -1,6 +1,6 @@
 # Implementation Plan: GCP Pulumi — Phase 5, De-Bedrock Image Recognition
 
-**Status**: Approved — ready to implement
+**Status**: Complete — 2026-09-14. **Vertex passes the cutover gate on `gemini-3.8-flash`.**
 **Created**: 2026-09-13
 **Origin**: `docs/planning/gcp-pulumi-replatform.md` §4
 **Arrow**: `image-recognition` (`docs/arrows/image-recognition.md`)
@@ -106,7 +106,55 @@ never loads `google-genai`, and Cloud Run never constructs a boto3 client.
 - [ ] `IR-AI-001..006` and `IR-TEST-001..003` flipped to `[x]`
 - [ ] AWS behaviour byte-for-byte unchanged — `infra/aws` untouched, `BEDROCK_MODELS` still read
 
-## 5. If Vertex loses the comparison
+## 5. Outcome — Vertex passes, on a newer model
+
+Measured 2026-09-14 over the five fixtures:
+
+| Provider | Model | Mean cell accuracy | Exact grids |
+| --- | --- | --- | --- |
+| Bedrock | `claude-haiku-4.5` | 100% | 5/5 |
+| **Vertex** | **`gemini-3.8-flash`** | **100%** | **5/5** |
+| Vertex | `gemini-2.5-pro` | 98.8% | 3/5 |
+| Vertex | `gemini-2.5-flash` | 92.6% | 0/5 |
+
+`gemini-3.8-flash` matches Bedrock exactly and held at 100% across four runs. **The gate passes**,
+so `IMAGE_AI_PROVIDER=vertex` is viable and `CP-GCP-085` can be retired at Phase 9.
+
+### Two wrong turns on the way, both worth recording
+
+**A configuration bug nearly produced a false negative.** The first Vertex run scored 56.8% with
+two outright parse failures, which reads as a recognition problem. It was not: Gemini 2.5 thinks
+by default and charges thinking tokens against `max_output_tokens`, so the 2048 copied from the
+Bedrock path left too little for the answer and responses truncated mid-grid with
+`FinishReason.MAX_TOKENS`. Claude spends all 2048 on output; Gemini spent ~900 before writing a
+character. Disabling thinking — the prompt already asks for a visible `<scratchpad>`, so hidden
+reasoning is redundant — moved it to 92.6%. Only that number was ever a fair comparison.
+
+**The remaining gap was the model generation, not the prompt.** The plan's first remedy was
+Gemini-specific prompt tuning, accepting an `IR-AI-004` exception. That would have been wasted
+work: the identical prompt scores 100% on `gemini-3.8-flash`. Listing the published models first
+cost one API call and removed the need for any prompt change. `IR-AI-004`'s byte-identical rule
+stands unmodified.
+
+**Gemini 3.x is served only from the `global` endpoint.** A regional request 404s with a message
+blaming the model name or project access, which reads as a naming problem rather than a location
+one. The adapter defaults to `global` for that reason.
+
+### Consequences
+
+- GCP image recognition can stop calling AWS Bedrock.
+- The cross-cloud AWS access key, `CP-GCP-085`, and `scripts/infra/gcp/bedrock-cross-cloud.sh` can
+  all be retired at Phase 9.
+- "GCP is independent of AWS" becomes true once Phase 6 deploys with `IMAGE_AI_PROVIDER=vertex`.
+- The new project keeps its "zero long-lived credentials" property — Secret Manager stays
+  unenabled.
+
+### Still worth doing
+
+Five fixtures at 100% leaves **no headroom to detect regression** in either provider. A larger
+fixture set would make the baseline meaningful rather than saturated. Worth a backlog row.
+
+## 5b. Original guidance (retained)
 
 **The work still merges.** The switch defaults to `bedrock`, so nothing regresses. But say the
 consequence plainly rather than discovering it at Phase 9: GCP keeps calling Bedrock, the
