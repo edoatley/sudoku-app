@@ -149,6 +149,41 @@ one. The adapter defaults to `global` for that reason.
 - The new project keeps its "zero long-lived credentials" property — Secret Manager stays
   unenabled.
 
+### Cost, measured
+
+Token usage over the five fixtures, one run each:
+
+| | Input | Output |
+| --- | --- | --- |
+| Bedrock `claude-haiku-4.5` | 7,941 | 4,451 |
+| Vertex `gemini-3.8-flash` | 7,302 | 6,253 (2,531 answer + 3,722 thinking) |
+
+| Configuration | Per image | Per 1,000 |
+| --- | --- | --- |
+| Bedrock, `eu-west-2` (+10% regional premium) | $0.00664 | $6.64 |
+| **Vertex `gemini-3.8-flash`, promo to 2026-12-31** | **$0.00545** | **$5.45** |
+| Vertex, standard from 2027-01-01 | $0.01091 | $10.91 |
+
+Vertex is ~18% cheaper today and roughly 64% *more* expensive from January, when the
+introductory rate doubles. **That reversal is a calendar event, not a decision** — worth a
+diarised review rather than a surprise on a bill.
+
+Older flash generations are not an option: `gemini-3.5-flash` missed the promotional pricing and
+costs 2.3x `3.8-flash` while being three generations older. `3.6` and `3.7` are priced identically
+to `3.8`, which outperforms both.
+
+### Thinking tokens cannot be switched off
+
+Roughly 60% of Vertex's output spend is reasoning tokens, and **no setting recovers it**:
+
+- `MINIMAL` is rejected outright — *"Thinking level is unsupported"*
+- `thinking_budget=0` is **silently ignored** on 3.x; it is the 2.x dialect
+- `thinking_level=LOW` is the floor, saving ~5% with accuracy unchanged
+
+The two dialects are mutually exclusive — each generation rejects the other's field with a 400 —
+so the adapter picks by model prefix. The hypothesis that suppressing thinking would make Vertex
+55% cheaper than Bedrock is **disproved**; the real figure is 18%.
+
 ### Still worth doing
 
 Five fixtures at 100% leaves **no headroom to detect regression** in either provider. A larger

@@ -31,6 +31,33 @@ a naming or access problem rather than a location one."""
 MAX_OUTPUT_TOKENS = 2048
 """Matches the Bedrock path, so the accuracy comparison is like-for-like."""
 
+THINKING_LEVEL = "LOW"
+"""Gemini 3.x controls reasoning with `thinking_level`; 2.x uses `thinking_budget`. The two are
+mutually exclusive — each generation rejects the other's field with a 400.
+
+Thinking **cannot be switched off** on gemini-3.8-flash. `MINIMAL` is rejected as unsupported and
+`thinking_budget=0` is silently ignored, so `LOW` is the floor. Measured over the fixture set it
+saves ~5% against leaving it unset, with accuracy unchanged at 100% / 5-of-5.
+
+That matters for cost forecasting: thinking bills as output, and it is roughly 60% of this
+model's output spend. No setting recovers it."""
+
+
+def _thinking_config(types, model_id: str):
+    """Minimise reasoning tokens, in whichever dialect this model generation speaks.
+
+    Gemini 2.x charges thinking against max_output_tokens, so leaving it unconstrained truncated
+    responses mid-grid with FinishReason.MAX_TOKENS — a configuration failure that scored 0% and
+    read as a recognition failure. Gemini 3.x reasons outside that budget but still bills it as
+    output.
+
+    Either way the prompt already asks for a visible <scratchpad>, so hidden reasoning duplicates
+    work we are paying for twice.
+    """
+    if model_id.startswith("gemini-2"):
+        return types.ThinkingConfig(thinking_budget=0)
+    return types.ThinkingConfig(thinking_level=THINKING_LEVEL)
+
 
 class VertexVisionProvider:
     name = "vertex"
@@ -69,17 +96,7 @@ class VertexVisionProvider:
                     system_instruction=SYSTEM_PROMPT,
                     temperature=0,
                     max_output_tokens=MAX_OUTPUT_TOKENS,
-                    # Gemini 2.5 thinks by default, and thinking tokens are charged against
-                    # max_output_tokens. Left on, ~900 of a 2048 budget went to hidden reasoning
-                    # and the response was truncated mid-grid with FinishReason.MAX_TOKENS — the
-                    # parse then failed and the fixture scored 0%, which reads as a recognition
-                    # failure rather than a configuration one.
-                    #
-                    # Disabled rather than budgeted around: the prompt already asks for a
-                    # <scratchpad>, so the reasoning is meant to be visible output. This also
-                    # makes the comparison against Claude honest — both models now get the same
-                    # token budget for the same job.
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    thinking_config=_thinking_config(types, model_id),
                 ),
             )
         except Exception as exc:

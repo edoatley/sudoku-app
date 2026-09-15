@@ -22,6 +22,7 @@ the change is easy to spot, then removed.
 | — | Private VPC egress to Firestore | `CP-GCP-091` (cloud-platform-specs.md) | Deferred |
 | — | Single-active-game invariant as a Firestore transaction | `GL-GCP-006` (game-lifecycle-specs.md) | Deferred |
 | — | GCP admin authorization (Identity Platform has no group concept) | `UM-GCP-008` (user-management-specs.md) | Deferred |
+| — | Review the Vertex image-recognition cost when Gemini promotional pricing ends 2026-12-31 — rates double, flipping Vertex from ~18% cheaper than Bedrock to ~64% more expensive | [gcp-pulumi-phase-5-image-recognition-vertex.md](planning/gcp-pulumi-phase-5-image-recognition-vertex.md) §5 | Deferred |
 | — | Expand the image-recognition fixture set — five puzzles at 100% for both providers leaves no headroom to detect a regression, so the accuracy baseline is saturated | [gcp-pulumi-phase-5-image-recognition-vertex.md](planning/gcp-pulumi-phase-5-image-recognition-vertex.md) §5 | Deferred |
 | — | PIL image preprocessing before Bedrock (blocked on colour-cell desaturation) | `IR-PROC-001..005` (image-recognition-specs.md) | Deferred |
 | — | Delete the old GCP project `sudoku-app-eo` — 30-day rollback window after cutover. **Blocked by** row 4 (the shared OAuth client lives in it) | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) §4 | Deferred |
