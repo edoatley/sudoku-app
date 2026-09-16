@@ -41,8 +41,17 @@ class _Mocks(pulumi.runtime.Mocks):
             outputs["email"] = f"{account_id}@test-project.iam.gserviceaccount.com"
         return f"{args.name}_id", outputs
 
-    def call(self, args: pulumi.runtime.MockCallArgs) -> tuple[dict, list | None]:
-        return {}, None
+    def call(self, args: pulumi.runtime.MockCallArgs) -> tuple[dict, list]:
+        # Data sources, not resources. Returning {} makes the caller unpack None and fail with an
+        # opaque TypeError, so stub the shapes the components actually read.
+        if args.token == "gcp:firebase/getWebAppConfig:getWebAppConfig":
+            return {
+                "apiKey": "AIzaSyMOCK-web-api-key",
+                "authDomain": "sudoku-test.firebaseapp.com",
+                "projectId": "sudoku-test",
+                "storageBucket": "sudoku-test.appspot.com",
+            }, []
+        return {}, []
 
 
 pulumi.runtime.set_mocks(_Mocks(), project="sudoku-test", stack="test", preview=False)

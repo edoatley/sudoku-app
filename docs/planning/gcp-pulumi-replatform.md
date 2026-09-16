@@ -124,8 +124,8 @@ new project while the **old project keeps serving production**, so none of them 
 | 1 | Pulumi scaffolding + validation gate ✅ | The component library, unit-tested. **No cloud resources.** | 0 |
 | 2 | Bootstrap stack ✅ | The new GCP project `sudoku-eo-2026`, GCS state, KMS, Artifact Registry, 3 SAs, WIF, budget | 1 |
 | 3 | App stack — data, hosting, DNS ✅ | Firestore, Firebase Hosting site, Cloud DNS zone + NS delegation | 2 |
-| 4 | Identity Platform | Google sign-in works on the new project; smoke user mints tokens | 3 |
-| 5 | De-Bedrock image recognition | `IMAGE_AI_PROVIDER` switch + Vertex adapter + accuracy harness | 0 (**parallel**) |
+| 4 | Identity Platform ✅ | Google sign-in works; smoke user mints tokens; **identity continuity verified — existing users keep their data** | 3 |
+| 5 | De-Bedrock image recognition ✅ | `IMAGE_AI_PROVIDER` switch + Vertex adapter + accuracy harness; Vertex passes at 100% on gemini-3.8-flash | 0 (**parallel**) |
 | 6 | App stack — compute + frontend | A full end-to-end env on an ephemeral `rcg-*` stack | 4, 5 |
 | 7 | Unified deploy workflow | `DEPLOY_TARGET`; `deploy-gcp.yml` becomes `workflow_call`-only | 6 |
 | 8 | **Production cutover** | `sudoku.gcp.edoatley.co.uk` served from the new project | 7 |
@@ -165,8 +165,7 @@ cloud state.
 **Hard gates**:
 
 - Phase 2 is gated on **two** quota checks (§6, R1): project creation (cleared — 20 remaining) and **billing-account linkage** (limit 5; hit on first apply, resolved by unlinking a dormant project).
-- Phase 4 is gated on the manual OAuth consent screen + client, and on the **`sub` continuity
-  verification**.
+- ~~Phase 4 is gated on the manual OAuth consent screen + client, and on the **`sub` continuity verification**.~~ **Cleared 2026-09-16** — continuity verified, MATCH.
 - Phase 6's `IMAGE_AI_PROVIDER=vertex` is gated on Phase 5's **accuracy comparison**.
 - Phase 8 is gated on **NS delegation propagation** and **Google-managed cert issuance**.
 - Deleting the old project is gated on **Phase 8b**.

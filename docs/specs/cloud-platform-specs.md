@@ -173,7 +173,7 @@ tool-specific ones (`CP-PUL-*`) is what let the Terraform specs be struck throug
 
 ## Pulumi — Identity Platform
 
-- [ ] **CP-PUL-030**: The system shall provision the Identity Platform configuration, its Google sign-in provider, and its authorized-domain list as code, with the Google OAuth client secret held as an encrypted stack configuration value. (Supersedes `CP-GCP-031`.)
+- [x] **CP-PUL-030**: The system shall provision the Identity Platform configuration, its Google sign-in provider, and its authorized-domain list as code, with the Google OAuth client secret held as an encrypted stack configuration value. (Supersedes `CP-GCP-031`.)
 - [D] **CP-PUL-031**: The system shall provision the Identity Platform smoke-test user as code. (Deferred — no IaC resource exists for an Identity Platform user; `scripts/infra/gcp/create-smoke-user.sh` is retained. A custom dynamic provider calling accounts:signUp is a possible future option.)
 - [D] **CP-PUL-032**: The system shall provision the OAuth consent screen and OAuth 2.0 client as code. (Deferred permanently — no GCP API creates OAuth client IDs.)
 
