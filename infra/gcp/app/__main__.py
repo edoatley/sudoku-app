@@ -42,8 +42,12 @@ bootstrap = pulumi.StackReference(
 
 project = bootstrap.require_output("project_id")
 region = config.get("region") or "us-central1"
-custom_domain = config.require("customDomain")
-dns_zone_domain = config.require("dnsZoneDomain")
+
+# Required on production, absent on ephemeral stacks. Those serve from their own *.web.app origin,
+# own no DNS, and share the project's single Identity Platform tenant — so a new stack needs no
+# configuration file of its own beyond the defaults in Pulumi.yaml.
+custom_domain = config.require("customDomain") if is_prod else None
+dns_zone_domain = config.require("dnsZoneDomain") if is_prod else None
 
 # Pass through for the phases that follow, so Phase 6 does not re-derive what bootstrap already
 # exported and the two cannot drift.
@@ -69,43 +73,57 @@ site = StaticSite(
     "sudoku",
     project=project,
     site_id=naming.hosting_site_id(stack, config.require("projectId")),
+    # Both are once-per-project concerns that production owns. An ephemeral stack creates its own
+    # site and web app inside the enrolment production already made.
+    enroll_firebase=is_prod,
+    abandon_web_app=is_prod,
 )
 
 # ── Authentication ────────────────────────────────────────────────────────────
-# Authorised domains must cover every origin a sign-in can be initiated from. One missing entry
-# fails only at runtime, with redirect_uri_mismatch — so the list is built from the same values
-# Hosting uses rather than typed out again.
-authorized_domains = pulumi.Output.all(site.site_id, project).apply(
-    lambda args: [
-        "localhost",
-        f"{args[0]}.web.app",
-        f"{args[1]}.firebaseapp.com",
-        custom_domain,
-    ]
-)
+# Identity Platform is configured once per *project*, not per stack: the tenant, its authorised
+# domains and the Google IdP are all project-level singletons. Production owns them; an ephemeral
+# stack signs in against the same tenant rather than declaring a second one that cannot exist.
+#
+# The consequence is that an RC stack's own *.web.app origin is not an authorised sign-in origin.
+# `localhost` is, on every stack, which is why a locally-served UI pointed at the RC backend is
+# the supported way to exercise a real Google sign-in against an ephemeral environment. The
+# password-based smoke user is unaffected — authorised domains gate the OAuth redirect only.
+identity = None
+if is_prod:
+    # Authorised domains must cover every origin a sign-in can be initiated from. One missing
+    # entry fails only at runtime, with redirect_uri_mismatch — so the list is built from the same
+    # values Hosting uses rather than typed out again.
+    authorized_domains = pulumi.Output.all(site.site_id, project).apply(
+        lambda args: [
+            "localhost",
+            f"{args[0]}.web.app",
+            f"{args[1]}.firebaseapp.com",
+            custom_domain,
+        ]
+    )
 
-# Second API to need this, after the billing budget: identitytoolkit demands a quota project,
-# which human ADC does not supply, so the call lands on Google's default client project and 403s.
-# Scoped to a dedicated provider rather than set stack-wide — a global user-project override
-# makes every call send the header, which then requires serviceusage on the target project and
-# breaks gcp.projects.Service. Harmless in CI, where service-account credentials carry an
-# implicit quota project.
-quota_provider = gcp.Provider(
-    "gcp-quota-project",
-    project=config.require("projectId"),
-    region=region,
-    user_project_override=True,
-    billing_project=config.require("projectId"),
-)
+    # Second API to need this, after the billing budget: identitytoolkit demands a quota project,
+    # which human ADC does not supply, so the call lands on Google's default client project and
+    # 403s. Scoped to a dedicated provider rather than set stack-wide — a global user-project
+    # override makes every call send the header, which then requires serviceusage on the target
+    # project and breaks gcp.projects.Service. Harmless in CI, where service-account credentials
+    # carry an implicit quota project.
+    quota_provider = gcp.Provider(
+        "gcp-quota-project",
+        project=config.require("projectId"),
+        region=region,
+        user_project_override=True,
+        billing_project=config.require("projectId"),
+    )
 
-identity = IdentityPlatform(
-    "sudoku",
-    project=project,
-    authorized_domains=authorized_domains,
-    google_client_id=config.require("googleOauthClientId"),
-    google_client_secret=config.require_secret("googleOauthClientSecret"),
-    opts=pulumi.ResourceOptions(provider=quota_provider),
-)
+    identity = IdentityPlatform(
+        "sudoku",
+        project=project,
+        authorized_domains=authorized_domains,
+        google_client_id=config.require("googleOauthClientId"),
+        google_client_secret=config.require_secret("googleOauthClientSecret"),
+        opts=pulumi.ResourceOptions(provider=quota_provider),
+    )
 
 # ── Compute ───────────────────────────────────────────────────────────────────
 # Both services are created only when an image tag is configured. That gates them on the presence
@@ -184,8 +202,8 @@ pulumi.export("artifact_registry_url", artifact_registry_url)
 pulumi.export("custom_domain", custom_domain)
 # The backend's %gcp profile hard-codes these shapes; a mismatch 401s every request. Exported so
 # Phase 6 wires the Cloud Run environment from the stack rather than by hand. @spec CP-GCP-011
-pulumi.export("identity_platform_issuer", identity.issuer)
-pulumi.export("identity_platform_audience", identity.audience)
+pulumi.export("identity_platform_issuer", identity.issuer if identity else None)
+pulumi.export("identity_platform_audience", identity.audience if identity else None)
 # Read with `pulumi stack output name_servers` to create the one-time NS delegation in the
 # Route53 parent zone. Null on non-prod stacks, which own no zone.
 pulumi.export("name_servers", dns.name_servers if dns else None)

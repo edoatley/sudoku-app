@@ -69,6 +69,22 @@ class TestStackScope:
     def test_identity_platform_landed_in_phase_4(self):
         assert "IdentityPlatform" in APP_MAIN.read_text()
 
+    def test_project_level_singletons_are_production_only(self):
+        # The Identity Platform tenant, its authorised domains and the Google IdP are configured
+        # once per project. A second stack declaring them collides on resources that already
+        # exist, so an ephemeral stack signs in against the tenant production owns.
+        src = APP_MAIN.read_text()
+        identity_block = src.split("# ── Authentication")[1].split("# ── Compute")[0]
+        assert "if is_prod:" in identity_block
+        assert "enroll_firebase=is_prod" in src
+
+    def test_ephemeral_stacks_need_no_config_file_of_their_own(self):
+        # A fresh stack is created by CI with no Pulumi.<stack>.yaml. Anything require()d
+        # unconditionally would fail before a single resource was touched.
+        src = APP_MAIN.read_text()
+        for key in ("customDomain", "dnsZoneDomain"):
+            assert f'config.require("{key}") if is_prod else None' in src, key
+
     def test_stack_reference_uses_the_diy_backend_form(self):
         # DIY backends place every project under a virtual organization named by the literal
         # constant "organization". The bare stack name that `pulumi stack ls` shows does not

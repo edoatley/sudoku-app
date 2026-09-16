@@ -42,6 +42,28 @@ class TestStaticSite:
             lambda v: _assert(v is False, v)
         )
 
+    def test_production_owns_the_firebase_enrolment(self):
+        # Enrolling a project in Firebase is once per project, not once per site.
+        assert StaticSite("enrol", project="p", site_id="s").firebase_project is not None
+
+    def test_ephemeral_stacks_do_not_re_enrol(self):
+        # A second enrolment collides on a resource that already exists — an ephemeral stack
+        # creates its site inside the enrolment production already made.
+        site = StaticSite("no-enrol", project="p", site_id="s", enroll_firebase=False)
+        assert site.firebase_project is None
+
+    @pulumi.runtime.test
+    def test_production_abandons_the_web_app_on_destroy(self):
+        # Deleting it invalidates the API key an already-built frontend bundle has baked in.
+        site = StaticSite("abandon", project="p", site_id="s")
+        return site.web_app.deletion_policy.apply(lambda d: _assert(d == "ABANDON", d))
+
+    @pulumi.runtime.test
+    def test_ephemeral_stacks_delete_the_web_app_on_destroy(self):
+        # Otherwise every RC teardown leaves a web app behind, and "zero residue" is not true.
+        site = StaticSite("delete", project="p", site_id="s", abandon_web_app=False)
+        return site.web_app.deletion_policy.apply(lambda d: _assert(d == "DELETE", d))
+
 
 class TestDnsZone:
     def test_rejects_an_unqualified_dns_name(self):

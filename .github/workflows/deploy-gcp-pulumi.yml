@@ -173,8 +173,11 @@ jobs:
             || pulumi stack init "${{ steps.stack.outputs.stack }}" \
                  --secrets-provider "${{ vars.PULUMI_KMS_KEY }}"
 
-      # Image tags are passed per run and never committed. `-c` persists them on the stack, so a
-      # later infrastructure-only run redeploys the same images rather than reverting to none.
+      # Image tags are passed per run and never committed. `-c` writes them to the stack config
+      # file in this checkout, which is discarded with the runner — every run supplies both tags,
+      # so there is no state in which a service is configured with a stale one. Everything else a
+      # stack needs comes from the committed project-level defaults in app/Pulumi.yaml, which is
+      # why an ephemeral stack needs no Pulumi.<stack>.yaml of its own.
       - name: Pulumi up
         working-directory: infra/gcp/app
         env:
