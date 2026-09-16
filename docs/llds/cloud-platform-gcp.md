@@ -365,7 +365,14 @@ the prod invoker, DNS records — is code. Six bash scripts are deleted.
 
 Pulumi cannot store state in a bucket that does not exist yet. Rather than create that bucket by
 hand, `bootstrap`'s **first** run uses the local filesystem backend and then migrates into the
-bucket it just created, which keeps "100% Pulumi-built" literally true:
+bucket it just created, which keeps "100% Pulumi-built" literally true.
+
+The same ordering applies to its secrets: `bootstrap` is created under a passphrase because it is
+creating the KMS key, then re-keyed onto that key once it exists. Leaving it on the passphrase
+does not stay a local concern — the `app` stack reads `bootstrap` by `StackReference`, which
+constructs that stack's secrets manager, so every CI run would need the passphrase and the
+project would have acquired exactly the kind of long-lived shared credential it exists to avoid.
+Both stacks therefore end on KMS, which the deploy service account can already use.
 
 ```bash
 cd infra/gcp/bootstrap

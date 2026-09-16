@@ -61,7 +61,7 @@ permanently. The split is by cloud, never within one cloud.
 | Stack layout | Two Pulumi projects: `sudoku-gcp-bootstrap` (human credentials) and `sudoku-gcp-app` (CI, WIF deploy SA), linked by a `StackReference` |
 | Environments | Pulumi stacks replace Terraform workspaces. `default` → **`prod`**; ephemeral `rcg-*` per branch. |
 | State | Self-managed GCS backend (`gs://sudoku-pulumi-state-<suffix>`) |
-| Secrets | `app` stack: Cloud KMS (`gcp-kms://…`). `bootstrap` stack: passphrase — it cannot use a key it is itself creating, and it holds no secrets. |
+| Secrets | Cloud KMS (`gcp-kms://…`) for both stacks. `bootstrap` is created under a passphrase — it cannot use a key it has not created yet — and re-keyed to KMS once the key exists, so no passphrase is needed to read either stack. CI reads `bootstrap`'s outputs by `StackReference`, which constructs that stack's secrets manager, so a passphrase there would have to be shared with CI. |
 | Budgets | In **`bootstrap`**, not `app`. `gcp.billing.Budget` is scoped to the *billing account*, so granting a repo-federated CI identity budget write access would span every project on that account. |
 | DNS | Pulumi owns a Cloud DNS zone for `gcp.edoatley.co.uk`; one manual NS delegation in Route53. New host `sudoku.gcp.edoatley.co.uk`; `sudoku-gcp.edoatley.co.uk` retired. |
 | Image recognition | `IMAGE_AI_PROVIDER=bedrock\|vertex` mirroring the coach's `CoachAiClient` port; `gemini-2.5-flash` on Vertex; Bedrock retained for the AWS Lambda. |
