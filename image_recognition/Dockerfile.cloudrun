@@ -5,10 +5,14 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-COPY requirements.txt requirements-cloudrun.txt ./
+# requirements-cloudrun.txt includes both of the others by reference, so all three must be
+# present before pip runs.
+COPY requirements.txt requirements-cloudrun.txt requirements-vertex.txt ./
 RUN pip install --no-cache-dir -r requirements-cloudrun.txt
 
-COPY handler.py app.py ./
+# handler.py imports the providers package, and each provider imports the shared prompts.
+COPY handler.py app.py prompts.py ./
+COPY providers/ ./providers/
 
 # Non-root for the Cloud Run path (least privilege).
 RUN useradd --uid 1001 --create-home appuser
