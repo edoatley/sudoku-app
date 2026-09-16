@@ -11,7 +11,8 @@ the change is easy to spot, then removed.
 
 | Priority | Description | Reference | Status |
 |---|---|---|---|
-| 1 | **GCP re-platform to Pulumi** — clean-room project, Python + uv, two-stack privilege split, de-Bedrock image recognition, `DEPLOY_TARGET` switch. Ten phases, one PR each. | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) | Active |
+| 1 | **GCP re-platform to Pulumi** — Phases 0-5 complete and applied; Phase 6 (compute + frontend) next. **Start at the handoff doc.** | [gcp-pulumi-handoff.md](planning/gcp-pulumi-handoff.md) | Active |
+| — | ↳ full plan and per-phase detail behind the handoff above | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) | Active |
 | 2 | Optimise AI coach Bedrock model selection (Haiku 4.5 vs Sonnet) | [optimise-ai-coach-bedrock-model.md](todo/optimise-ai-coach-bedrock-model.md) | Active |
 | 3 | Admin log browser (CloudWatch viewer in the admin menu) | [add-log-browser-to-developer-menu.md](todo/add-log-browser-to-developer-menu.md) | Active |
 | 4 | Repoint AWS Cognito's Google IdP at its own OAuth client — prerequisite for deleting the old GCP project, since the current client is shared and lives there | [gcp-pulumi-replatform.md](planning/gcp-pulumi-replatform.md) §6 R2 | Active |

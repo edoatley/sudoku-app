@@ -125,7 +125,7 @@ arrows:
     blocks: []
     blockedBy: []
     detail: cloud-platform.md
-    next: "GCP Pulumi re-platform — docs/planning/gcp-pulumi-replatform.md. Phases 0-3 complete and applied to the clean-room project sudoku-eo-2026: component library, bootstrap stack (privilege split verified by a federated CI job), and app stack (Firestore, Hosting site, Cloud DNS zone delegated from Route53). 17 of 21 CP-PUL specs [x]. Next: Phase 4 (Identity Platform + new OAuth client) and Phase 5 (de-Bedrock image recognition, parallel)."
+    next: "GCP Pulumi re-platform — START AT docs/planning/gcp-pulumi-handoff.md. Phases 0-5 complete and applied to sudoku-eo-2026: component library, bootstrap and app stacks, Identity Platform with identity continuity verified, and Vertex passing the image-recognition accuracy gate. Phase 6 (Cloud Run + frontend on an ephemeral rcg-* stack) is next and unblocked. The old project still serves production."
     drift: ~
 
   react-frontend:
