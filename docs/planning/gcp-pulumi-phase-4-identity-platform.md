@@ -1,6 +1,6 @@
 # Implementation Plan: GCP Pulumi — Phase 4, Identity Platform
 
-**Status**: Approved — ready to implement
+**Status**: Complete — 2026-09-16
 **Created**: 2026-09-13
 **Origin**: `docs/planning/gcp-pulumi-replatform.md` §4
 **Arrow**: `cloud-platform` (`docs/arrows/cloud-platform.md`) — GCP facet
@@ -67,7 +67,7 @@ design around the optimistic answer.** Fallbacks, in order:
 - [x] **4f. Create the smoke-test user** — retarget `scripts/infra/gcp/create-smoke-user.sh` at
       the new project. CI authenticates it via `signInWithPassword`.
       @spec CP-GCP-032
-- [ ] **4g. Verify identity continuity** *(see §5 — the load-bearing check)*
+- [x] **4g. Verify identity continuity** *(see §5)* — **verified 2026-09-16, MATCH.**
 - [D] **4h. Delete `scripts/infra/gcp/identity-platform-bootstrap.sh`** — **deferred to Phase 9.**
       It is superseded by 4d, but `scripts/infra/gcp/bootstrap.sh` and
       `scripts/infra/shared/setup-local-secrets.sh` still call it, and both belong to the
@@ -78,7 +78,27 @@ design around the optimistic answer.** Fallbacks, in order:
       secret and never exported.
       @spec CP-PUL-081
 
-## 5. The check that actually matters
+## 5. The check that actually matters — VERIFIED
+
+**Result, 2026-09-16: MATCH.** Signing in as a real Google user against the new tenant returned
+`google.com` sub `112098963340592508392`, identical to the `userId` already stored in the old
+project's Firestore. Existing users keep their profile, games and leaderboard across the cutover.
+
+The same token confirmed two further things Phase 6 depends on, which were assumptions until now:
+
+- `iss` = `https://securetoken.google.com/sudoku-eo-2026` and `aud` = `sudoku-eo-2026` — exactly
+  what the stack exports and what the backend's `%gcp` profile interpolates from `GCP_PROJECT_ID`.
+  A mismatch here 401s every request.
+- `sign_in_provider` = `google.com`, which is on `UserIdentityResolver`'s strict allow-list.
+
+**How it was run, and a flaw in this plan.** The check below says to sign in at
+`https://sudoku-eo-2026.web.app`. That URL serves "Site Not Found" until Phase 6 deploys a
+frontend — so as written, the check that *gates* Phase 6 could only be done *after* it. Circular.
+It was instead driven from a throwaway page served on `localhost`, which works because
+`localhost` is in the authorised-domain list and Firebase routes the OAuth popup through
+`<project>.firebaseapp.com/__/auth/handler`. Any future clean-room rebuild should do the same.
+
+### Original procedure (retained)
 
 The whole clean-room approach rests on one claim: **a Google user signing into a brand-new
 Identity Platform tenant keeps the same canonical `userId`**, because `UserIdentityResolver`
@@ -100,10 +120,22 @@ continuity is automatic" premise is wrong — which would change the cutover sto
 
 - [x] `pulumi up` on the `app` stack succeeds with Identity Platform configured
 - [x] `pulumi refresh` reports no changes; a second `up` reports `0 changed` (15 unchanged)
-- [ ] A browser Google sign-in against `https://sudoku-eo-2026.web.app` completes without
-      `redirect_uri_mismatch`
+- [x] A browser Google sign-in completes without `redirect_uri_mismatch`. Note the method: the
+      Hosting site serves "Site Not Found" until Phase 6 deploys a frontend, so the sign-in was
+      driven from a throwaway `localhost` page instead. `localhost` is in the authorised-domain
+      list and Firebase routes the popup via `<project>.firebaseapp.com/__/auth/handler`, so no
+      deploy is needed. **This plan originally specified the `.web.app` URL, which does not exist
+      until the phase this check is meant to gate — a circular dependency.**
 - [x] `signInWithPassword` against the smoke user returns an `idToken`
-- [ ] **Identity continuity verified** per §5, with the two `userId` values recorded in the PR
+- [x] **Identity continuity verified** per §5:
+
+      ```
+      old project Firestore players/  userId = 112098963340592508392   edoatley@gmail.com
+      new tenant token claim          google.com sub = 112098963340592508392
+      ```
+
+      The Firebase UID differs (`VpHm9wCzhreD6NU5OgQv7hBAbJd2` vs the old tenant's) exactly as
+      expected — it is tenant-scoped and nothing keys on it.
 - [x] The client secret is stored encrypted and does not appear in plaintext anywhere in the repo
 - [x] `CP-GCP-030`, `CP-GCP-032`, `CP-PUL-030` flipped to `[x]`; `CP-GCP-031` struck through
 - [x] Whether `identityplatform.Config` initialises the entitlement is recorded in the LLD —
