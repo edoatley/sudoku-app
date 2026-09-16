@@ -165,13 +165,34 @@ jobs:
           echo "stack=${STACK}" >> "$GITHUB_OUTPUT"
           echo "Deploying to stack '${STACK}'"
 
+      # A self-managed backend keeps the secrets-provider declaration in Pulumi.<stack>.yaml, not
+      # in state. Ephemeral stacks commit no such file, so a re-run on a fresh checkout would fall
+      # back to the passphrase provider and fail with an error naming PULUMI_CONFIG_PASSPHRASE —
+      # which reads as a missing secret rather than a missing file. Write it before touching the
+      # stack; Pulumi derives the wrapped data key itself on first use.
+      #
+      # Only when absent: prod's committed Pulumi.prod.yaml carries real configuration, and
+      # overwriting it would discard the OAuth client and custom domain.
+      - name: Ensure the stack declares its secrets provider
+        working-directory: infra/gcp/app
+        env:
+          STACK: ${{ steps.stack.outputs.stack }}
+          KMS_KEY: ${{ vars.PULUMI_KMS_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -f "Pulumi.${STACK}.yaml" ]; then
+            echo "Pulumi.${STACK}.yaml is committed — leaving it alone."
+          else
+            printf 'secretsprovider: %s\n' "${KMS_KEY}" > "Pulumi.${STACK}.yaml"
+            echo "Wrote Pulumi.${STACK}.yaml declaring the KMS secrets provider."
+          fi
+
       - name: Select or create the stack
         working-directory: infra/gcp/app
         run: |
           set -euo pipefail
           pulumi stack select "${{ steps.stack.outputs.stack }}" 2>/dev/null \
-            || pulumi stack init "${{ steps.stack.outputs.stack }}" \
-                 --secrets-provider "${{ vars.PULUMI_KMS_KEY }}"
+            || pulumi stack init "${{ steps.stack.outputs.stack }}"
 
       # Image tags are passed per run and never committed. `-c` writes them to the stack config
       # file in this checkout, which is discarded with the runner — every run supplies both tags,
