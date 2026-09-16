@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import time
 from datetime import UTC, datetime
 
 import handler
@@ -33,6 +34,17 @@ BASELINE = ROOT / "accuracy_baseline.json"
 REPORTS = ROOT / "reports"
 
 pytestmark = pytest.mark.accuracy
+
+THROTTLE_RETRIES = 4
+THROTTLE_BACKOFF_SECONDS = 20
+INTER_FIXTURE_SECONDS = 5
+"""Paced deliberately. These runs are infrequent and manual, so wall-clock time is cheap and a
+throttled result that masquerades as an accuracy regression is not."""
+
+
+def _is_throttling(exc: object) -> bool:
+    text = str(exc)
+    return "429" in text or "RESOURCE_EXHAUSTED" in text or "Throttling" in text
 
 
 def _fixtures() -> list[dict]:
@@ -64,20 +76,40 @@ def results() -> dict:
 
     for fixture in _fixtures():
         image = (ROOT.parent / fixture["file"]).read_bytes()
-        try:
-            grid, _valid, model = handler._recognize(provider, image)
+        grid = model = None
+        last_error: Exception | None = None
+
+        # Retry throttling, but never a recognition failure. Without this a 429 scores 0% and is
+        # indistinguishable from the model having got dramatically worse, which turns the cutover
+        # gate from a measurement into a coin toss. Quota is a property of the harness run, not
+        # of the model under test.
+        for attempt in range(THROTTLE_RETRIES):
+            try:
+                grid, _valid, model = handler._recognize(provider, image)
+                break
+            except Exception as exc:  # noqa: BLE001 — a failed read is a result, not an error
+                last_error = exc
+                grid = None
+                if _is_throttling(exc) and attempt < THROTTLE_RETRIES - 1:
+                    time.sleep(THROTTLE_BACKOFF_SECONDS * (attempt + 1))
+                    continue
+                break
+
+        if grid is not None:
             per_fixture[fixture["name"]] = {
                 **_score(fixture["expected_grid"], grid),
                 "model": model,
             }
-        except Exception as exc:  # noqa: BLE001 — a failed read is a result, not an error
+        else:
             per_fixture[fixture["name"]] = {
                 "cell_accuracy": 0.0,
                 "exact_grid": False,
                 "valid_puzzle": False,
                 "empty_cells_respected": False,
-                "error": str(exc)[:200],
+                "error": str(last_error)[:200],
+                "throttled": _is_throttling(last_error),
             }
+        time.sleep(INTER_FIXTURE_SECONDS)
 
     n = len(per_fixture) or 1
     summary = {
@@ -114,13 +146,25 @@ def test_report_the_run(results, capsys):
                 if f["exact_grid"]
                 else ("   " if f["cell_accuracy"] > 0.9 else "!! ")
             )
-            err = f"  [{f['error']}]" if "error" in f else ""
+            err = ""
+            if "error" in f:
+                err = f"  [{'THROTTLED' if f.get('throttled') else f['error'][:70]}]"
             print(f"    {flag}{name:24} {f['cell_accuracy']:6.1%}{err}")
+
+
+def _throttled(results) -> list[str]:
+    return [n for n, f in results["fixtures"].items() if f.get("throttled")]
 
 
 def test_no_regression_against_the_baseline(results):
     """A regression check, not an absolute bar — these models vary run to run even at
     temperature 0, so an absolute threshold would flake. @spec IR-TEST-002"""
+    throttled = _throttled(results)
+    if throttled:
+        pytest.skip(
+            f"throttled on {throttled} after {THROTTLE_RETRIES} attempts — a rate limit is not "
+            "an accuracy regression, so this run cannot be compared"
+        )
     if not BASELINE.exists():
         pytest.skip(f"no baseline yet — write {BASELINE.name} from a green run")
     baseline = json.loads(BASELINE.read_text()).get(results["provider"])
@@ -147,6 +191,11 @@ def test_vertex_meets_the_cutover_gate(results):
     not, the switch stays on bedrock, the cross-cloud AWS key survives, and CP-GCP-085 cannot be
     retired — see the Phase 5 plan §5.
     """
+    throttled = _throttled(results)
+    if throttled:
+        pytest.skip(
+            f"throttled on {throttled} — cannot judge the gate on a throttled run"
+        )
     if not BASELINE.exists():
         pytest.skip("no baseline to compare against")
     bedrock = json.loads(BASELINE.read_text()).get("bedrock")

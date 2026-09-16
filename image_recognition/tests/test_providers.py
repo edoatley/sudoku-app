@@ -180,3 +180,35 @@ class TestVertexAdapter:
         client = self._fake_client(text="")
         with pytest.raises(providers.ProviderError, match="empty response"):
             self._provider(client).recognise(b"\xff\xd8\xff", "gemini-2.5-flash")
+
+
+class TestThinkingConfig:
+    """Reasoning-token control differs by model generation, and the two dialects are mutually
+    exclusive — each rejects the other's field with a 400. @spec IR-AI-002"""
+
+    def _cfg(self, model_id):
+        from google.genai import types
+        from providers.vertex import _thinking_config
+
+        return _thinking_config(types, model_id)
+
+    def test_gemini_2x_uses_thinking_budget(self):
+        # 2.x charges thinking against max_output_tokens; left unconstrained it truncated
+        # responses mid-grid and scored 0%, which read as a recognition failure.
+        cfg = self._cfg("gemini-2.5-flash")
+        assert cfg.thinking_budget == 0
+        assert cfg.thinking_level is None
+
+    def test_gemini_3x_uses_thinking_level(self):
+        cfg = self._cfg("gemini-3.8-flash")
+        assert cfg.thinking_level == "LOW"
+        assert cfg.thinking_budget is None
+
+    def test_gemini_3x_does_not_request_minimal(self):
+        # gemini-3.8-flash rejects MINIMAL outright: "Thinking level is unsupported".
+        assert self._cfg("gemini-3.8-flash").thinking_level != "MINIMAL"
+
+    def test_the_default_model_gets_the_3x_dialect(self):
+        from providers.vertex import DEFAULT_MODEL
+
+        assert self._cfg(DEFAULT_MODEL).thinking_level is not None
