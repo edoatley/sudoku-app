@@ -44,33 +44,36 @@ design around the optimistic answer.** Fallbacks, in order:
 
 ## 4. Work items
 
-- [ ] **4a. Configure the OAuth consent screen** on `sudoku-eo-2026` — external, `edoatley.co.uk`
+- [x] **4a. Configure the OAuth consent screen** on `sudoku-eo-2026` — external, `edoatley.co.uk`
       as an authorised domain, email/profile scopes only. At those scopes no Google verification
       review is required. *(Manual, console.)*
-- [ ] **4b. Create a Web OAuth 2.0 client** and add
+- [x] **4b. Create a Web OAuth 2.0 client** and add
       `https://sudoku-eo-2026.firebaseapp.com/__/auth/handler` to its authorised redirect URIs.
       *(Manual, console.)*
-- [ ] **4c. Store the client secret** — `pulumi config set --secret sudoku:googleOauthClientSecret`
+- [x] **4c. Store the client secret** — `pulumi config set --secret sudoku:googleOauthClientSecret`
       in the `app` stack. This is the **first real secret** behind the KMS key, and the first
       `secure:` value in either stack.
       @spec CP-PUL-041
-- [ ] **4d. Wire `IdentityPlatform`** into `app/__main__.py`: config, Google IdP, and an
+- [x] **4d. Wire `IdentityPlatform`** into `app/__main__.py`: config, Google IdP, and an
       authorised-domain list built with `Output.all` over `localhost`,
       `<project>.firebaseapp.com`, `<project>.web.app` and the custom domain. An origin missing
       here fails sign-in at runtime with `redirect_uri_mismatch`.
       @spec CP-GCP-030, CP-PUL-030
-- [ ] **4e. Export `issuer` and `audience`** — the backend's `%gcp` profile hard-codes their
+- [x] **4e. Export `issuer` and `audience`** — the backend's `%gcp` profile hard-codes their
       shapes (`https://securetoken.google.com/<project>` and `<project>`), and a mismatch 401s
       every request. Export them so Phase 6 wires the Cloud Run env from the stack rather than
       by hand.
       @spec CP-GCP-011
-- [ ] **4f. Create the smoke-test user** — retarget `scripts/infra/gcp/create-smoke-user.sh` at
+- [x] **4f. Create the smoke-test user** — retarget `scripts/infra/gcp/create-smoke-user.sh` at
       the new project. CI authenticates it via `signInWithPassword`.
       @spec CP-GCP-032
 - [ ] **4g. Verify identity continuity** *(see §5 — the load-bearing check)*
-- [ ] **4h. Delete `scripts/infra/gcp/identity-platform-bootstrap.sh`** once 4d replaces it, and
-      update the runbook's manual-steps table.
-- [ ] **4i. Unit tests** — the authorised-domain list contains all four origins; issuer and
+- [D] **4h. Delete `scripts/infra/gcp/identity-platform-bootstrap.sh`** — **deferred to Phase 9.**
+      It is superseded by 4d, but `scripts/infra/gcp/bootstrap.sh` and
+      `scripts/infra/shared/setup-local-secrets.sh` still call it, and both belong to the
+      Terraform path that keeps the old project alive until cutover. Deleting it now would break
+      a bootstrap that is still load-bearing. It goes with the other five scripts at Phase 9.
+- [x] **4i. Unit tests** — the authorised-domain list contains all four origins; issuer and
       audience match the shapes `application.properties` expects; the client secret is marked
       secret and never exported.
       @spec CP-PUL-081
@@ -95,17 +98,18 @@ continuity is automatic" premise is wrong — which would change the cutover sto
 
 ## 6. Definition of Done
 
-- [ ] `pulumi up` on the `app` stack succeeds with Identity Platform configured
-- [ ] `pulumi refresh` reports no changes; a second `up` reports `0 changed`
+- [x] `pulumi up` on the `app` stack succeeds with Identity Platform configured
+- [x] `pulumi refresh` reports no changes; a second `up` reports `0 changed` (15 unchanged)
 - [ ] A browser Google sign-in against `https://sudoku-eo-2026.web.app` completes without
       `redirect_uri_mismatch`
-- [ ] `signInWithPassword` against the smoke user returns an `idToken`
+- [x] `signInWithPassword` against the smoke user returns an `idToken`
 - [ ] **Identity continuity verified** per §5, with the two `userId` values recorded in the PR
-- [ ] The client secret is stored encrypted and does not appear in plaintext anywhere in the repo
-- [ ] `CP-GCP-030`, `CP-GCP-032`, `CP-PUL-030` flipped to `[x]`; `CP-GCP-031` struck through
-- [ ] Whether `identityplatform.Config` initialises the entitlement is **recorded either way** in
-      the LLD, closing that open question
-- [ ] The old project still serves production, and its Cognito federation still works
+- [x] The client secret is stored encrypted and does not appear in plaintext anywhere in the repo
+- [x] `CP-GCP-030`, `CP-GCP-032`, `CP-PUL-030` flipped to `[x]`; `CP-GCP-031` struck through
+- [x] Whether `identityplatform.Config` initialises the entitlement is recorded in the LLD —
+      **it does**, so the old runbook's console click is gone
+- [x] The old project still serves production, and its Cognito federation still works — the
+      shared `SMOKE_TEST_USER_PASSWORD` secret was deliberately **not** overwritten
 
 ## 7. Risks
 
