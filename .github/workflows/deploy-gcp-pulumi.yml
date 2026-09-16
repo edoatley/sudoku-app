@@ -1,0 +1,319 @@
+name: Deploy GCP (Pulumi)
+
+# Deploys the Pulumi-built GCP project `sudoku-eo-2026`:
+#   1. builds + pushes the backend and image-recognition images to Artifact Registry,
+#   2. runs `pulumi up` on the app stack with both image tags,
+#   3. builds the Firebase-provider frontend and deploys it to that stack's Hosting site,
+#   4. smokes the result with a real Identity Platform token.
+#
+# This is the NEW project. `deploy-gcp.yml` remains the Terraform path to the OLD project
+# (`sudoku-app-eo`), which still serves production until the Phase 8 cutover — its `rcg-*` push
+# trigger is removed so the two cannot race. Phase 7 folds this workflow into `ci-deploy.yml` as
+# `workflow_call`; Phase 9 deletes the Terraform one.
+#
+# Credentials follow the `_NEXT` convention: the un-suffixed secrets serve AWS Cognito and the old
+# GCP project and must never be overwritten. Phase 8 does the rename.
+#
+# Repo variables: GCP_PULUMI_PROJECT_ID, PULUMI_STATE_BUCKET, PULUMI_KMS_KEY
+# Repo secrets:   GCP_WIF_PROVIDER_NEXT, GCP_DEPLOY_SA_EMAIL_NEXT,
+#                 SMOKE_TEST_USER_EMAIL, SMOKE_TEST_USER_PASSWORD_NEXT
+
+on:
+  push:
+    branches:
+      - "rcg-*"
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: "Pulumi stack (blank = derive from the branch name)"
+        type: string
+        default: ""
+
+env:
+  GCP_REGION: us-central1
+  AR_REPO: sudoku-backend
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  # One deploy per stack, so two runs cannot contend for a single Pulumi state lock.
+  group: deploy-gcp-pulumi-${{ github.event.inputs.stack || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # The project id is a repository VARIABLE, not a secret — it appears in every Cloud Run URL and
+  # in the Firebase config the SPA ships. That is what lets full image URIs cross job boundaries;
+  # a secret-bearing output is scrubbed by GitHub, which is why the Terraform workflow can only
+  # pass bare tags and has to reassemble URIs in every job.
+  build-backend:
+    name: Build & push backend image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - uses: ./.github/actions/setup-java
+
+      # The HTTP fast-jar is the only build; the LWA image serves it on both clouds.
+      - name: Build backend HTTP fast-jar
+        working-directory: backend
+        run: ./mvnw -B -ntp package -DskipTests
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - id: push
+        name: Build & push image
+        env:
+          PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME//\//-}-${GITHUB_SHA::7}"
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/backend:${TAG}"
+          docker build -f backend/src/main/docker/Dockerfile.jvm-lwa -t "$IMAGE" backend
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+  build-image-recognition:
+    name: Build & push image-recognition image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - id: push
+        name: Build & push image
+        env:
+          PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          # Shares the backend Artifact Registry repo under a distinct image name, rather than
+          # standing up a second repository for one image.
+          TAG="${GITHUB_REF_NAME//\//-}-${GITHUB_SHA::7}"
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/image-recognition:${TAG}"
+          docker build -f image_recognition/Dockerfile.cloudrun -t "$IMAGE" image_recognition
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+  pulumi:
+    name: Pulumi up (infra/gcp/app)
+    needs: [build-backend, build-image-recognition]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: infra/gcp
+    outputs:
+      stack: ${{ steps.stack.outputs.stack }}
+      backend_url: ${{ steps.out.outputs.backend_url }}
+      image_recognition_url: ${{ steps.out.outputs.image_recognition_url }}
+      hosting_site_id: ${{ steps.out.outputs.hosting_site_id }}
+      firebase_api_key: ${{ steps.out.outputs.firebase_api_key }}
+      firebase_auth_domain: ${{ steps.out.outputs.firebase_auth_domain }}
+    env:
+      PULUMI_BACKEND_URL: ${{ vars.PULUMI_STATE_BUCKET }}
+      PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+      - uses: pulumi/actions@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: infra/gcp/uv.lock
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # components/naming.py is the single source of truth for stack names, shared by the program
+      # and by CI so the two cannot drift. @spec CP-PUL-021
+      - id: stack
+        name: Derive the stack name
+        env:
+          BRANCH: ${{ github.ref_name }}
+          STACK_INPUT: ${{ github.event.inputs.stack }}
+        run: |
+          set -euo pipefail
+          if [ -n "${STACK_INPUT}" ]; then
+            STACK="${STACK_INPUT}"
+          else
+            STACK="$(uv run python -c 'import os; from components import naming; print(naming.stack_name_for_branch(os.environ["BRANCH"], os.environ["PROJECT_ID"]))')"
+          fi
+          echo "stack=${STACK}" >> "$GITHUB_OUTPUT"
+          echo "Deploying to stack '${STACK}'"
+
+      - name: Select or create the stack
+        working-directory: infra/gcp/app
+        run: |
+          set -euo pipefail
+          pulumi stack select "${{ steps.stack.outputs.stack }}" 2>/dev/null \
+            || pulumi stack init "${{ steps.stack.outputs.stack }}" \
+                 --secrets-provider "${{ vars.PULUMI_KMS_KEY }}"
+
+      # Image tags are passed per run and never committed. `-c` persists them on the stack, so a
+      # later infrastructure-only run redeploys the same images rather than reverting to none.
+      - name: Pulumi up
+        working-directory: infra/gcp/app
+        env:
+          BACKEND_IMAGE: ${{ needs.build-backend.outputs.image }}
+          IR_IMAGE: ${{ needs.build-image-recognition.outputs.image }}
+        run: |
+          set -euo pipefail
+          pulumi up --yes --non-interactive --stack "${{ steps.stack.outputs.stack }}" \
+            -c "sudoku:backendImageTag=${BACKEND_IMAGE##*:}" \
+            -c "sudoku:imageRecognitionImageTag=${IR_IMAGE##*:}"
+
+      - id: out
+        name: Capture stack outputs
+        working-directory: infra/gcp/app
+        run: |
+          set -euo pipefail
+          for o in backend_url image_recognition_url hosting_site_id firebase_api_key firebase_auth_domain; do
+            echo "${o}=$(pulumi stack output "${o}" --stack "${{ steps.stack.outputs.stack }}")" >> "$GITHUB_OUTPUT"
+          done
+
+  # @spec CP-GCP-041, CP-GCP-042, CP-GCP-043
+  deploy-frontend:
+    name: Build & deploy frontend (Firebase Hosting)
+    needs: [pulumi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+      - uses: ./.github/actions/setup-node
+
+      # Fail loud rather than ship a broken SPA. Without the backend URL the build bakes a hostless
+      # "/api/v1" and every API call breaks; without the Firebase API key the app cannot initialise
+      # Firebase Auth and no one can sign in. Both are silent at build time.
+      - name: Verify frontend deploy prerequisites
+        env:
+          BACKEND_URL: ${{ needs.pulumi.outputs.backend_url }}
+          API_KEY: ${{ needs.pulumi.outputs.firebase_api_key }}
+          SITE_ID: ${{ needs.pulumi.outputs.hosting_site_id }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in BACKEND_URL API_KEY SITE_ID; do
+            if [ -z "${!v}" ]; then
+              echo "::error::stack output for ${v} is empty — the app stack did not export it."
+              missing=1
+            fi
+          done
+          [ "${missing}" -eq 0 ] || exit 1
+
+      - name: Build frontend (Firebase provider)
+        working-directory: ui
+        env:
+          VITE_AUTH_PROVIDER: firebase
+          VITE_API_URL: ${{ needs.pulumi.outputs.backend_url }}/api/v1
+          # Image recognition is its own Cloud Run service on GCP — there is no shared gateway.
+          VITE_IMAGE_RECOGNITION_URL: ${{ needs.pulumi.outputs.image_recognition_url }}
+          VITE_FIREBASE_API_KEY: ${{ needs.pulumi.outputs.firebase_api_key }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ needs.pulumi.outputs.firebase_auth_domain }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          VITE_AI_COACH: "true"
+          VITE_MOCK_API: "false"
+          # @spec CP-GCP-043 — dev tools off in production, on everywhere else.
+          VITE_DEV_TOOLS: ${{ needs.pulumi.outputs.stack != 'prod' }}
+        run: npm run build
+
+      # Name the Hosting site explicitly. Without this, `firebase deploy` goes to the project's
+      # default site and every ephemeral stack's frontend overwrites production's — the site
+      # resource exists per stack, but nothing pointed the deploy at it.
+      #
+      # `site` rather than `target:apply`: a target would need a `hosting.target` key in the
+      # committed firebase.json, which would break the old project's still-live deploy job.
+      - name: Point the deploy at this stack's Hosting site
+        working-directory: ui
+        env:
+          SITE_ID: ${{ needs.pulumi.outputs.hosting_site_id }}
+        run: |
+          set -euo pipefail
+          jq --arg site "${SITE_ID}" '.hosting.site = $site' firebase.json > firebase.json.tmp
+          mv firebase.json.tmp firebase.json
+          jq -e --arg site "${SITE_ID}" '.hosting.site == $site' firebase.json >/dev/null
+          echo "Deploying to Hosting site '${SITE_ID}'"
+
+      # WIF ADC from the auth step authorises the deploy; roles/firebase.admin on the deploy SA
+      # covers Hosting.
+      - name: Deploy to Firebase Hosting
+        working-directory: ui
+        run: |
+          npx --yes firebase-tools@13 deploy --only hosting \
+            --project "${{ vars.GCP_PULUMI_PROJECT_ID }}" --non-interactive
+
+  # Prove the deployed environment actually serves before the run goes green. Mints a real
+  # Identity Platform token with no browser. @spec CP-GCP-032
+  smoke:
+    name: Post-deploy smoke (auth + games)
+    needs: [pulumi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Mint a token and assert the environment serves
+        env:
+          BACKEND_URL: ${{ needs.pulumi.outputs.backend_url }}
+          VITE_FIREBASE_API_KEY: ${{ needs.pulumi.outputs.firebase_api_key }}
+          SMOKE_TEST_USER_EMAIL: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
+          SMOKE_TEST_USER_PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD_NEXT }}
+        run: |
+          set -euo pipefail
+          for v in BACKEND_URL VITE_FIREBASE_API_KEY SMOKE_TEST_USER_EMAIL SMOKE_TEST_USER_PASSWORD; do
+            [ -n "${!v}" ] || { echo "::error::${v} is empty — required for the GCP smoke test."; exit 1; }
+          done
+
+          fail=0
+          check() { # check <label> <expected-status> <curl args...>
+            local label="$1" expect="$2"; shift 2
+            local code; code="$(curl -s -o /tmp/resp.json -w '%{http_code}' "$@")"
+            echo "${label} -> ${code}"
+            if [ "${code}" != "${expect}" ]; then
+              echo "::error::${label} expected ${expect}, got ${code}"; cat /tmp/resp.json || true; fail=1
+            fi
+          }
+
+          # Reachability before auth is in play — a 403 here means the allUsers invoker binding is
+          # missing, not that the token is bad.
+          check "GET  /q/health/ready" 200 "${BACKEND_URL}/api/v1/q/health/ready"
+
+          echo "Minting an Identity Platform token for ${SMOKE_TEST_USER_EMAIL}…"
+          TOKEN="$(bash scripts/github/gcp-smoke-token.sh)"
+          [ -n "${TOKEN}" ] || { echo "::error::token mint failed"; exit 1; }
+          AUTH=(-H "Authorization: Bearer ${TOKEN}")
+
+          check "GET  /players/me" 200 "${AUTH[@]}" "${BACKEND_URL}/api/v1/players/me"
+          check "POST /games" 201 "${AUTH[@]}" -X POST \
+            -H "Content-Type: application/json" -d '{"difficulty":"easy"}' \
+            "${BACKEND_URL}/api/v1/games"
+
+          [ "${fail}" -eq 0 ] || { echo "::error::smoke failed — the deployed environment is not serving correctly."; exit 1; }
+          echo "✓ ${BACKEND_URL} serves: health, auth and games verified."

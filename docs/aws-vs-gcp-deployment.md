@@ -38,7 +38,7 @@ other cloud's workflow (`ci-deploy.yml` watches `main`/`rc-*`; `deploy-gcp.yml` 
 |---|---|---|
 | Trigger | push `main`, `rc-*` | push `rcg-*`; `workflow_dispatch` (any workspace) |
 | Prod deploy | automatic on `main` | manual dispatch, `workspace=default` |
-| RC env | Terraform workspace per `rc-*` branch | Terraform workspace per `rcg-*` branch (name via `scripts/github/gcp-workspace-name.sh`, ≤30-char site id) |
+| RC env | Terraform workspace per `rc-*` branch | Pulumi stack per `rcg-*` branch (name via `infra/gcp/components/naming.py`, ≤30-char site id) |
 | Auth to cloud | GitHub OIDC → assume-role | Workload Identity Federation → impersonate deploy SA |
 | Backend build | container image → ECR | container image → Artifact Registry |
 | What deploys | backend Lambda + image-rec Lambda + Amplify build (Terraform) | backend Cloud Run + image-rec Cloud Run + Firestore/Hosting (Terraform); frontend + smoke are separate jobs |

@@ -4,9 +4,9 @@ Firestore, the two Cloud Run services, Identity Platform, Firebase Hosting and C
 CI as the Workload-Identity-federated deploy service account, which holds no IAM-admin,
 WIF-admin or billing permission — see docs/llds/cloud-platform-gcp.md, The Two-Stack Model.
 
-Phase 3 scope: data, hosting and the DNS zone. Cloud Run lands in Phase 6, Identity Platform in
-Phase 4, and the Hosting custom domain in Phase 8 — deliberately, so the NS delegation created
-here has days to propagate before anything depends on it.
+The Hosting custom domain is attached in Phase 8 rather than here, deliberately: Google-managed
+certificate issuance is asynchronous and needs the NS delegation created by this stack to have
+already propagated.
 """
 
 from __future__ import annotations
@@ -15,10 +15,19 @@ import pulumi
 import pulumi_gcp as gcp
 
 from components import naming
+from components.container_service import ContainerService
 from components.dns_zone import DnsZone
 from components.firestore_database import FirestoreDatabase
 from components.identity_platform import IdentityPlatform
+from components.service_env import backend_env, image_recognition_env
 from components.static_site import StaticSite
+
+BACKEND_MAX_INSTANCES = 4
+BACKEND_CONCURRENCY = 40
+IMAGE_RECOGNITION_MAX_INSTANCES = 2
+IMAGE_RECOGNITION_CONCURRENCY = 4
+"""GCP has no API-Gateway-style request-rate throttle. These caps, multiplied together and
+bounded by the per-request timeout, ARE the spend and load bound. @spec CP-GCP-013"""
 
 config = pulumi.Config("sudoku")
 stack = pulumi.get_stack()
@@ -98,6 +107,51 @@ identity = IdentityPlatform(
     opts=pulumi.ResourceOptions(provider=quota_provider),
 )
 
+# ── Compute ───────────────────────────────────────────────────────────────────
+# Both services are created only when an image tag is configured. That gates them on the presence
+# of a built artefact rather than on a feature toggle — a toggle is what allowed a manual deploy
+# dispatch to silently revert the Vertex cutover on the Terraform path, and it also lets an
+# infrastructure-only `pulumi up` run against a stack that has never had an image pushed.
+backend_image_tag = config.get("backendImageTag")
+image_recognition_image_tag = config.get("imageRecognitionImageTag")
+
+# Known ahead of apply from the site id, so it seeds the backend without a dependency cycle — the
+# equivalent AWS wiring needs a post-apply `update-user-pool-client` call because the Amplify URL
+# is not. @spec CP-GCP-012
+cors_origins = naming.cors_allowed_origins(stack, config.require("projectId"), custom_domain)
+
+backend = None
+if backend_image_tag:
+    backend = ContainerService(
+        "backend",
+        project=project,
+        location=region,
+        service_name=f"sudoku{naming.suffix(stack)}",
+        image=pulumi.Output.concat(artifact_registry_url, "/backend:", backend_image_tag),
+        service_account_email=run_sa,
+        env=backend_env(project=project, region=region, cors_origins=cors_origins),
+        max_instances=BACKEND_MAX_INSTANCES,
+        concurrency=BACKEND_CONCURRENCY,
+        deletion_protection=is_prod,
+    )
+
+image_recognition = None
+if image_recognition_image_tag:
+    image_recognition = ContainerService(
+        "image-recognition",
+        project=project,
+        location=region,
+        service_name=f"sudoku-image-recognition{naming.suffix(stack)}",
+        image=pulumi.Output.concat(
+            artifact_registry_url, "/image-recognition:", image_recognition_image_tag
+        ),
+        service_account_email=image_recognition_sa,
+        env=image_recognition_env(project=project, cors_origins=cors_origins),
+        max_instances=IMAGE_RECOGNITION_MAX_INSTANCES,
+        concurrency=IMAGE_RECOGNITION_CONCURRENCY,
+        deletion_protection=is_prod,
+    )
+
 # ── DNS ───────────────────────────────────────────────────────────────────────
 # Only the production stack owns the zone; ephemeral rcg-* stacks serve from their own
 # *.web.app origin and never touch DNS.
@@ -120,6 +174,10 @@ pulumi.export("hosting_default_url", site.default_url)
 pulumi.export("firebase_web_app_id", site.web_app_id)
 pulumi.export("firebase_api_key", site.web_api_key)
 pulumi.export("firebase_auth_domain", site.web_auth_domain)
+# Null until an image tag is configured. The frontend build fails loud on an empty backend URL
+# rather than shipping a hostless "/api/v1" into the SPA bundle.
+pulumi.export("backend_url", backend.url if backend else None)
+pulumi.export("image_recognition_url", image_recognition.url if image_recognition else None)
 pulumi.export("run_service_account_email", run_sa)
 pulumi.export("image_recognition_service_account_email", image_recognition_sa)
 pulumi.export("artifact_registry_url", artifact_registry_url)

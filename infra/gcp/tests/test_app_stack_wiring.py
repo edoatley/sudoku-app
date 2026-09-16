@@ -39,8 +39,32 @@ class TestStackScope:
             "StaticSite must not receive custom_domain in Phase 3 — see the phase plan §1"
         )
 
-    def test_no_cloud_run_services_yet(self):
-        assert "ContainerService" not in APP_MAIN.read_text(), "Cloud Run is Phase 6"
+    def test_cloud_run_landed_in_phase_6(self):
+        assert "ContainerService" in APP_MAIN.read_text()
+
+    def test_services_are_conditional_on_an_image_tag(self):
+        # The prod stack carries no image tags and must keep previewing clean. Presence of a
+        # built artefact gates the service, not a feature toggle — a toggle is what let a manual
+        # dispatch silently revert the Vertex cutover on the Terraform path.
+        src = APP_MAIN.read_text()
+        assert 'config.get("backendImageTag")' in src
+        assert 'config.get("imageRecognitionImageTag")' in src
+
+    def test_image_uris_are_built_from_the_registry_output(self):
+        # Hand-assembling the registry host would desync silently if the repository were renamed.
+        src = APP_MAIN.read_text()
+        assert "docker.pkg.dev" not in src, "registry host must come from the bootstrap output"
+        assert "artifact_registry_url" in src
+
+    def test_environments_come_from_the_shared_helpers(self):
+        src = APP_MAIN.read_text()
+        assert "backend_env(" in src and "image_recognition_env(" in src
+
+    def test_no_aws_or_bedrock_anywhere_in_the_program(self):
+        # The whole point of the re-platform: zero long-lived credentials on GCP. @spec CP-GCP-089
+        src = APP_MAIN.read_text().upper()
+        for token in ("AWS_", "BEDROCK", "SECRET_KEY_REF"):
+            assert token not in src, token
 
     def test_identity_platform_landed_in_phase_4(self):
         assert "IdentityPlatform" in APP_MAIN.read_text()

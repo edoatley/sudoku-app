@@ -5,13 +5,9 @@ name: Deploy GCP
 #   2. applies infra/gcp via Terraform (Cloud Run wired to that image),
 #   3. builds the Firebase-provider frontend and deploys it to Firebase Hosting.
 #
-# Two triggers:
-#   - push to an rcg-* branch  → full auto-deploy to a per-branch Terraform workspace
-#     (workspace name derived by scripts/github/gcp-workspace-name.sh). The frontend is
-#     deployed only when the repo variable GCP_DEPLOY_FRONTEND == 'true' (needs the
-#     VITE_FIREBASE_API_KEY secret + Identity Platform setup); the backend always deploys.
-#     Teardown of an rcg-* environment is handled by teardown-gcp.yml on branch delete.
-#   - workflow_dispatch → manual, phased bring-up with explicit inputs (e.g. workspace=default).
+# Dispatch only. `rcg-*` branches deploy to the Pulumi-built project via deploy-gcp-pulumi.yml;
+# this workflow exists solely to keep the incumbent project redeployable until the Phase 8
+# cutover, after which it is deleted along with infra/gcp/*.tf.
 #
 # The backend Cloud Run service (deploy_cloud_run) is the games+player slice; the
 # image-recognition service is gated separately (deploy_image_recognition, default off).
@@ -21,9 +17,6 @@ name: Deploy GCP
 #   VITE_FIREBASE_API_KEY   — Firebase Web API key (public client id), for deploy_frontend
 
 on:
-  push:
-    branches:
-      - "rcg-*"
   workflow_dispatch:
     inputs:
       workspace:
@@ -71,12 +64,12 @@ permissions:
   contents: read
 
 concurrency:
-  # One deploy per target environment: dispatch → its workspace; push → the branch.
-  group: deploy-gcp-${{ github.event.inputs.workspace || github.ref_name }}
+  # One deploy per target workspace.
+  group: deploy-gcp-${{ github.event.inputs.workspace }}
   cancel-in-progress: false
 
 jobs:
-  # Resolve the effective settings for both triggers into a single source of truth.
+  # Resolve the dispatch inputs into a single source of truth for the jobs below.
   config:
     name: Resolve deploy config
     runs-on: ubuntu-latest
@@ -93,34 +86,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: resolve
-        env:
-          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            WS="$(bash scripts/github/gcp-workspace-name.sh "${GITHUB_REF_NAME}")"
-            {
-              echo "workspace=${WS}"
-              echo "deploy_cloud_run=true"
-              echo "deploy_image_recognition=true"
-              echo "enable_coach=true"
-              echo "coach_ai_provider=vertex"
-              echo "deploy_frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
-              echo "enable_custom_domain=false"
-              echo "run_smoke=${{ vars.GCP_RUN_SMOKE == 'true' }}"
-            } >> "$GITHUB_OUTPUT"
-            echo "rcg-* push → workspace '${WS}', backend + image-rec + coach, frontend=${{ vars.GCP_DEPLOY_FRONTEND == 'true' }}"
-          else
-            {
-              echo "workspace=${{ inputs.workspace }}"
-              echo "deploy_cloud_run=${{ inputs.deploy_cloud_run }}"
-              echo "deploy_image_recognition=${{ inputs.deploy_image_recognition }}"
-              echo "enable_coach=${{ inputs.enable_coach }}"
-              echo "coach_ai_provider=${{ inputs.coach_ai_provider }}"
-              echo "deploy_frontend=${{ inputs.deploy_frontend }}"
-              echo "enable_custom_domain=${{ inputs.enable_custom_domain }}"
-              echo "run_smoke=${{ inputs.run_smoke }}"
-            } >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "workspace=${{ inputs.workspace }}"
+            echo "deploy_cloud_run=${{ inputs.deploy_cloud_run }}"
+            echo "deploy_image_recognition=${{ inputs.deploy_image_recognition }}"
+            echo "enable_coach=${{ inputs.enable_coach }}"
+            echo "coach_ai_provider=${{ inputs.coach_ai_provider }}"
+            echo "deploy_frontend=${{ inputs.deploy_frontend }}"
+            echo "enable_custom_domain=${{ inputs.enable_custom_domain }}"
+            echo "run_smoke=${{ inputs.run_smoke }}"
+          } >> "$GITHUB_OUTPUT"
 
   build-image:
     name: Build & push backend image
