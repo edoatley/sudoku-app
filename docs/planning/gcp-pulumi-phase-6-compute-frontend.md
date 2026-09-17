@@ -167,7 +167,7 @@ same assertion at the stack level.
       `firebase_auth_domain`, `hosting_site_id`, `backend_url`, `image_recognition_url`, with
       `VITE_AUTH_PROVIDER=firebase`.
       @spec CP-GCP-041, CP-GCP-042, CP-GCP-043
-- [~] **6e. Ephemeral `rcg-*` stack** — create, deploy, smoke, `pulumi destroy`, `pulumi stack rm`.
+- [x] **6e. Ephemeral `rcg-*` stack** — create, deploy, smoke, `pulumi destroy`, `pulumi stack rm`.
       **`--force` is prohibited**; it orphans live resources.
 - [x] **6f. Target the Hosting site explicitly** per D4 — closes gap G3.
 - [x] **6g. Delete `scripts/github/gcp-workspace-name.sh`.** `components/naming.py` is
@@ -216,7 +216,7 @@ converting `deploy-gcp.yml` in place and accepting that GCP production cannot be
 between now and the Phase 8 cutover. Everything else in this plan is a recommendation I am
 confident in.
 
-## 9. Outcome — verified 2026-09-16
+## 9. Outcome — verified 2026-09-17
 
 Deployed to stack `rcg-phase6` by `deploy-gcp-pulumi.yml`, run 35125095131, all five jobs green.
 
@@ -228,6 +228,8 @@ Deployed to stack `rcg-phase6` by `deploy-gcp-pulumi.yml`, run 35125095131, all 
 | **D1 holds live** | image recognition has no `GCP_REGION`; the global endpoint default is what makes the import above succeed |
 | G3 closed | RC frontend served from `sudoku-eo-2026-rcg-phase6.web.app`; `sudoku-eo-2026.web.app` still returns Site Not Found |
 | Production untouched | `pulumi preview` on app prod: 15 unchanged, throughout |
+| Teardown leaves nothing | `pulumi destroy` + `stack rm`: 14 deleted, then zero Cloud Run services, only the `(default)` Firestore database, only the `DEFAULT_SITE`, and only production's web app — the RC web app was deleted rather than abandoned, as `abandon_web_app=is_prod` intends |
+| A from-scratch deploy works | Stack `rcg-p6v2` created from nothing: all five jobs green, health/auth/games 200/200/201, image import 200 on `gemini-3.8-flash`, no AWS variable on either service, frontend on its own site, `sudoku-eo-2026.web.app` still Site Not Found |
 
 ### What the first three runs cost, and why
 
@@ -252,3 +254,35 @@ Platform tenant and its Google IdP. A second stack declaring them collides. They
 production-only, which means an RC stack's own `*.web.app` origin is not an authorised OAuth
 origin; `localhost` is, on every stack, and that is the supported way to exercise a real Google
 sign-in against an RC backend — the same method Phase 4's continuity check used.
+
+## 10. Open item — Hosting site names are not reusable
+
+`pulumi destroy` removes a Firebase Hosting site, but Firebase **tombstones its name**:
+
+```
+Error creating Site: Invalid name: `sudoku-eo-2026-rcg-phase6` is reserved by another
+project; try something like `sudoku-eo-2026-rcg-phase6-52aba` instead
+```
+
+The message says *another project*; the name is in fact held by our own deleted site. So a stack
+that has been torn down cannot be recreated under the same name, and an `rcg-*` branch recreated
+after its teardown deploys everything up to the Hosting site and then fails — leaving a partial
+environment that needs destroying by hand.
+
+This is a property of Firebase Hosting, not of anything this phase introduced; it was simply
+never reachable before, because no earlier phase exercised teardown followed by redeploy. It cost
+the first clean-deploy attempt, which is why `rcg-p6v2` exists alongside `rcg-phase6`.
+
+`hosting_site_id` is `{project_id}-{stack}` and the Firebase cap is 30 characters, so with
+`sudoku-eo-2026` there are 15 left for the stack and none spare for a uniquifying suffix. Three
+ways out, in the order they are worth considering:
+
+| Option | Effect | Cost |
+| --- | --- | --- |
+| Drop `project_id` from the non-production site id — `sudoku-{stack}` | Frees 8 characters, enough for a suffix | Non-production site ids change; production's stays `sudoku-eo-2026` |
+| Add a `random.RandomId` suffix, held in stack state | Stable for a stack's life, fresh on recreation — fixes the problem outright | Needs the freed budget above; adds a provider |
+| Accept it and fail early with a legible message | No naming change | Redeploying a torn-down branch name stays impossible; the operator must pick a new one |
+
+The first two compose: free the budget, then suffix. Deferred rather than decided, because it
+changes `naming.py` — the shared source of truth for CI and both programs — and the `rcg-*`
+branch-naming convention with it.
