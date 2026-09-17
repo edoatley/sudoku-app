@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "pulumi>=3.150,<4.0.0",
     "pulumi-gcp>=9.0,<10.0.0",
+    "pulumi-random>=4.0,<5.0.0",
 ]
 
 [dependency-groups]

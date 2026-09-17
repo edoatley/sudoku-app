@@ -255,7 +255,7 @@ production-only, which means an RC stack's own `*.web.app` origin is not an auth
 origin; `localhost` is, on every stack, and that is the supported way to exercise a real Google
 sign-in against an RC backend — the same method Phase 4's continuity check used.
 
-## 10. Open item — Hosting site names are not reusable
+## 10. Resolved — Hosting site names are not reusable
 
 `pulumi destroy` removes a Firebase Hosting site, but Firebase **tombstones its name**:
 
@@ -283,6 +283,16 @@ ways out, in the order they are worth considering:
 | Add a `random.RandomId` suffix, held in stack state | Stable for a stack's life, fresh on recreation — fixes the problem outright | Needs the freed budget above; adds a provider |
 | Accept it and fail early with a legible message | No naming change | Redeploying a torn-down branch name stays impossible; the operator must pick a new one |
 
-The first two compose: free the budget, then suffix. Deferred rather than decided, because it
-changes `naming.py` — the shared source of truth for CI and both programs — and the `rcg-*`
-branch-naming convention with it.
+**Resolved 2026-09-17** by composing the first two: non-production site ids became
+`sudoku-dev-<stack>-<4 hex>`, with the suffix a `random.RandomId` held in stack state. Production
+keeps `sudoku-eo-2026`.
+
+A git-derived suffix was considered first and rejected on evidence. The two branches this phase
+produced, `rcg-phase6` and `rcg-p6v2`, share a first commit off `main` — `602ace4b` — because the
+second was cut from the first, so they would have derived the *same* site id. Beyond that, it
+needed `fetch-depth: 0` in CI, and since `site_id` is immutable a rebase or amend would rewrite
+the hash, replace the site, change its URL and burn the old name. State is the only source both
+stable across history rewrites and fresh on recreation.
+
+The stack-name budget moved from 15 characters to 14, and `stack_name_for_branch` no longer takes
+a `project_id` — non-production ids do not contain one.

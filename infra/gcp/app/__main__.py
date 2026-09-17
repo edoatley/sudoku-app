@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pulumi
 import pulumi_gcp as gcp
+import pulumi_random as random
 
 from components import naming
 from components.container_service import ContainerService
@@ -42,6 +43,7 @@ bootstrap = pulumi.StackReference(
 
 project = bootstrap.require_output("project_id")
 region = config.get("region") or "us-central1"
+project_id = config.require("projectId")
 
 # Required on production, absent on ephemeral stacks. Those serve from their own *.web.app origin,
 # own no DNS, and share the project's single Identity Platform tenant — so a new stack needs no
@@ -69,10 +71,27 @@ firestore = FirestoreDatabase(
 # ── Frontend hosting ──────────────────────────────────────────────────────────
 # No custom domain in this phase. Attaching it is Phase 8, after the NS delegation below has
 # propagated — Google-managed cert issuance is asynchronous and needs DNS already answering.
+# Firebase **tombstones a deleted site's name**, so a non-production id must never be reused: a
+# torn-down stack redeployed under the same id fails part-way through, at the Hosting site,
+# leaving the rest of the environment to clean up by hand. The suffix lives in Pulumi state, so
+# it is fixed for this stack's life and fresh whenever a stack is created.
+#
+# Not derived from git: branches cut from the same base share a first commit, and a rebase
+# rewrites the hash — which, site_id being immutable, would replace the site, change its URL and
+# burn the old name. Production has no suffix; its site is long-lived and never deleted.
+site_unique = None
+if is_prod:
+    site_id: pulumi.Input[str] = naming.hosting_site_id(stack, project_id)
+else:
+    site_unique = random.RandomId(
+        "sudoku-site-unique", byte_length=naming.SITE_UNIQUE_SUFFIX_LEN // 2
+    )
+    site_id = site_unique.hex.apply(lambda hex_: naming.hosting_site_id(stack, project_id, hex_))
+
 site = StaticSite(
     "sudoku",
     project=project,
-    site_id=naming.hosting_site_id(stack, config.require("projectId")),
+    site_id=site_id,
     # Both are once-per-project concerns that production owns. An ephemeral stack creates its own
     # site and web app inside the enrolment production already made.
     enroll_firebase=is_prod,
@@ -110,10 +129,10 @@ if is_prod:
     # carry an implicit quota project.
     quota_provider = gcp.Provider(
         "gcp-quota-project",
-        project=config.require("projectId"),
+        project=project_id,
         region=region,
         user_project_override=True,
-        billing_project=config.require("projectId"),
+        billing_project=project_id,
     )
 
     identity = IdentityPlatform(
@@ -133,10 +152,16 @@ if is_prod:
 backend_image_tag = config.get("backendImageTag")
 image_recognition_image_tag = config.get("imageRecognitionImageTag")
 
-# Known ahead of apply from the site id, so it seeds the backend without a dependency cycle — the
-# equivalent AWS wiring needs a post-apply `update-user-pool-client` call because the Amplify URL
-# is not. @spec CP-GCP-012
-cors_origins = naming.cors_allowed_origins(stack, config.require("projectId"), custom_domain)
+# Derived from the same function that names the Hosting site, so the origin the backend allows and
+# the origin the frontend is served from cannot disagree. The equivalent AWS wiring needs a
+# post-apply `update-user-pool-client` call because the Amplify URL is not knowable here.
+# @spec CP-GCP-012
+if is_prod:
+    cors_origins: pulumi.Input[str] = naming.cors_allowed_origins(stack, project_id, custom_domain)
+else:
+    cors_origins = site_unique.hex.apply(
+        lambda hex_: naming.cors_allowed_origins(stack, project_id, unique_suffix=hex_)
+    )
 
 backend = None
 if backend_image_tag:

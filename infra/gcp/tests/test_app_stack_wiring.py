@@ -120,14 +120,27 @@ class TestHosting:
 
     def test_site_id_stays_within_the_firebase_limit_for_real_branches(self):
         for branch in ("rcg-parity", "rcg-some-long-feature-branch", "rcg-a"):
-            stack = naming.stack_name_for_branch(branch, PROJECT_ID)
-            site = naming.hosting_site_id(stack, PROJECT_ID)
+            stack = naming.stack_name_for_branch(branch)
+            site = naming.hosting_site_id(stack, PROJECT_ID, "a1b2")
             assert len(site) <= naming.FIREBASE_SITE_ID_MAX, (branch, site, len(site))
 
     @pulumi.runtime.test
     def test_default_url_matches_the_site_id(self):
         site = StaticSite("host-check", project="p", site_id=PROJECT_ID)
         return site.default_url.apply(lambda u: _assert(u == f"https://{PROJECT_ID}.web.app", u))
+
+    def test_the_site_id_carries_a_state_held_suffix_outside_production(self):
+        # Firebase tombstones a deleted site's name, so a redeployed stack must not reuse one.
+        src = APP_MAIN.read_text()
+        assert "random.RandomId(" in src
+        assert "SITE_UNIQUE_SUFFIX_LEN" in src
+
+    def test_production_gets_no_suffix_resource(self):
+        # An extra resource in prod state would break the "production is untouched" guarantee.
+        src = APP_MAIN.read_text()
+        suffix_block = src.split("site_unique = None")[1].split("site = StaticSite")[0]
+        assert "if is_prod:" in suffix_block
+        assert "random.RandomId(" in suffix_block.split("else:")[1]
 
 
 class TestDns:

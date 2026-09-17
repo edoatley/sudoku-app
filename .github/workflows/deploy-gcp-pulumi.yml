@@ -132,7 +132,6 @@ jobs:
       firebase_auth_domain: ${{ steps.out.outputs.firebase_auth_domain }}
     env:
       PULUMI_BACKEND_URL: ${{ vars.PULUMI_STATE_BUCKET }}
-      PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v7
       - uses: google-github-actions/auth@v3
@@ -160,7 +159,7 @@ jobs:
           if [ -n "${STACK_INPUT}" ]; then
             STACK="${STACK_INPUT}"
           else
-            STACK="$(uv run python -c 'import os; from components import naming; print(naming.stack_name_for_branch(os.environ["BRANCH"], os.environ["PROJECT_ID"]))')"
+            STACK="$(uv run python -c 'import os; from components import naming; print(naming.stack_name_for_branch(os.environ["BRANCH"]))')"
           fi
           echo "stack=${STACK}" >> "$GITHUB_OUTPUT"
           echo "Deploying to stack '${STACK}'"

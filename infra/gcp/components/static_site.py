@@ -20,7 +20,7 @@ class StaticSite(pulumi.ComponentResource):
         name: str,
         *,
         project: pulumi.Input[str],
-        site_id: str,
+        site_id: pulumi.Input[str],
         web_app_display_name: str = "Sudoku",
         custom_domain: str | None = None,
         wait_dns_verification: bool = False,

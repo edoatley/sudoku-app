@@ -184,18 +184,20 @@ image = pulumi.Output.concat(
 The frontend origin the backend must allow through CORS is the contrasting case, and the contrast
 is the point. On AWS the equivalent value — the Amplify URL — is genuinely unknown until apply,
 and closing the loop needs a post-apply `aws cognito-idp update-user-pool-client` call, with the
-dependency living outside state. On GCP the Hosting origin is `https://{site_id}.web.app`, and
-`site_id` is derived by `naming.py` from the stack name, so the whole list is computable before
-anything is created:
+dependency living outside state. On GCP the origin is `https://{site_id}.web.app` and `site_id`
+comes from `naming.py`, so the same function names the Hosting site and builds the origin list the
+backend allows — the two cannot disagree:
 
 ```python
-cors = naming.cors_allowed_origins(stack, project_id, custom_domain)
+cors = site_unique.hex.apply(
+    lambda hex_: naming.cors_allowed_origins(stack, project_id, unique_suffix=hex_)
+)
 backend = ContainerService(..., env=backend_env(..., cors_origins=cors))
 ```
 
-No `Output` is needed, no post-apply step exists, and CI derives the identical string from the
-identical function. The circular dependency does not resolve more elegantly here — it never
-forms.
+Production needs no `Output` at all — its site id is the project id, so the list is a plain string.
+Either way there is no post-apply step: the circular dependency the AWS facet resolves after the
+fact never forms here.
 
 The `app` stack reads `bootstrap`'s outputs by `StackReference`:
 
@@ -220,10 +222,30 @@ Pulumi stacks replace Terraform workspaces one-for-one, with one rename: **`defa
 | `rcg-<branch>` | Ephemeral per-branch environment. Named `sudoku-<stack>` Firestore database, own Hosting site, `-<stack>` suffix throughout. |
 
 Stack-name derivation lives in `components/naming.py` and is shared by CI and the Pulumi program,
-so the two cannot drift: lowercase, `/.` → `-`, strip to `[a-z0-9-]`, cap at
-`30 - len(project_id) - 1`, strip any trailing hyphen. The 30-character cap is the Firebase
-Hosting `site_id` limit — a Firebase constraint, not a Terraform one, so it survives the move.
-`naming.py` is the sole implementation; CI shells into it rather than reimplementing it in bash.
+so the two cannot drift: lowercase, `/.` → `-`, strip to `[a-z0-9-]`, cap at 14 characters, strip
+any trailing hyphen. `naming.py` is the sole implementation; CI shells into it rather than
+reimplementing it in bash.
+
+That 14 is what remains of the 30-character Firebase Hosting `site_id` limit — a Firebase
+constraint, not a Terraform one — once the non-production id shape is accounted for:
+
+| Stack | `site_id` |
+| --- | --- |
+| `prod` | `sudoku-eo-2026` — the project id, long-lived, never deleted |
+| everything else | `sudoku-dev-<stack>-<4 hex>` |
+
+**A non-production site id is never reused.** Firebase tombstones a deleted site's name: a
+torn-down stack redeployed under the same id fails part-way through, at the Hosting site, leaving
+the rest of the environment to be cleaned up by hand. The suffix is a `random.RandomId` held in
+stack state, so it is fixed for a stack's life and fresh whenever a stack is created.
+
+The suffix is deliberately **not** derived from git. Branches cut from the same base share a first
+commit, so two concurrent environments would collide; and because `site_id` is immutable, a rebase
+would rewrite the hash, replace the site, change its URL and burn the old name. State is the only
+source that is both stable across history rewrites and fresh on recreation.
+
+Dropping the project id from non-production ids is what makes room for the suffix. It cost 14 of
+the 30 characters and distinguished nothing — every stack lives in the same project.
 
 Per-run values are passed non-persistently rather than committed:
 
