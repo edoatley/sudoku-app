@@ -40,6 +40,31 @@ class TestStackSecretsProvider:
         assert 'if [ -f "Pulumi.${STACK}.yaml" ]' in workflow
 
 
+class TestStackCreation:
+    """`pulumi stack init` ignores the secretsprovider key in an existing config file.
+
+    The declaration covers `stack select` on later runs; only the flag covers `stack init` on the
+    first. Dropping either one breaks exactly one of the two paths, and the surviving path hides
+    it — the first run passes and the second fails, or the reverse.
+    """
+
+    def test_init_passes_the_secrets_provider_flag(self):
+        lines = DEPLOY.read_text().splitlines()
+        commands = [
+            i
+            for i, line in enumerate(lines)
+            if "pulumi stack init" in line and not line.lstrip().startswith("#")
+        ]
+        assert commands, "no `pulumi stack init` command found"
+        for i in commands:
+            following = " ".join(lines[i : i + 3])
+            assert "--secrets-provider" in following, following
+
+    def test_teardown_only_selects(self):
+        # Teardown has nothing to create, so it needs no flag — but if it ever inits, it does.
+        assert "stack init" not in TEARDOWN.read_text()
+
+
 class TestCredentialConvention:
     """The un-suffixed secrets serve AWS Cognito and the incumbent GCP project.
 

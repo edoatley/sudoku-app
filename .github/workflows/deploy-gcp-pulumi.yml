@@ -191,8 +191,13 @@ jobs:
         working-directory: infra/gcp/app
         run: |
           set -euo pipefail
+          # --secrets-provider is required even though the step above declares it in the config
+          # file: `pulumi stack init` does not read that key, and without the flag it builds a
+          # passphrase manager and fails. The file covers `select` on later runs, the flag covers
+          # `init` on the first — both are needed.
           pulumi stack select "${{ steps.stack.outputs.stack }}" 2>/dev/null \
-            || pulumi stack init "${{ steps.stack.outputs.stack }}"
+            || pulumi stack init "${{ steps.stack.outputs.stack }}" \
+                 --secrets-provider "${{ vars.PULUMI_KMS_KEY }}"
 
       # Image tags are passed per run and never committed. `-c` writes them to the stack config
       # file in this checkout, which is discarded with the runner — every run supplies both tags,
