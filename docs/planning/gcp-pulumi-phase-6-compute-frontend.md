@@ -296,3 +296,26 @@ stable across history rewrites and fresh on recreation.
 
 The stack-name budget moved from 15 characters to 14, and `stack_name_for_branch` no longer takes
 a `project_id` — non-production ids do not contain one.
+
+**Proven end to end.** Stack `rcg-p6v2` was deployed, torn down, and redeployed on the same
+branch — the sequence that was impossible before. The suffix regenerated from `53c6` to `ce41`,
+the new site served, and production stayed untouched.
+
+### A second, milder reservation: Firestore database ids
+
+The redeploy surfaced one more, which is **not** the same problem:
+
+```
+Error creating Database: Database ID 'sudoku-rcg-p6v2' is not available in project
+'sudoku-eo-2026'. Please retry in 152 seconds.
+```
+
+Firestore also holds a deleted id, but only briefly and it says for how long — so unlike Hosting
+this is self-healing and needs no naming change. Re-running the job after the cooldown succeeded
+with no other change.
+
+The practical consequence is narrow: tearing a stack down and redeploying it **within about five
+minutes** fails at Firestore, part-way through, and needs a re-run. Left as documented behaviour
+rather than code — a retry loop around `pulumi up` would obscure genuine failures to save one
+re-run in an operation that is already rare, and Firestore's error names both the cause and the
+wait.
