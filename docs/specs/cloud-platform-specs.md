@@ -166,10 +166,10 @@ tool-specific ones (`CP-PUL-*`) is what let the Terraform specs be struck throug
 
 ## Pulumi — Application Stack
 
-- [ ] **CP-PUL-020**: The system shall deploy both Cloud Run services from a single reusable component, parameterised by image, runtime service account, environment, instance cap and concurrency.
+- [x] **CP-PUL-020**: The system shall deploy both Cloud Run services from a single reusable component, parameterised by image, runtime service account, environment, instance cap and concurrency.
 - [x] **CP-PUL-021**: The system shall derive environment names, resource suffixes, label values and the Firebase Hosting site id from a single shared implementation used by both the Pulumi program and CI, so the two cannot drift.
 - [x] **CP-PUL-022**: The system shall protect the production Firestore database, Hosting site, DNS zone, KMS key and state bucket against deletion and replacement.
-- [ ] **CP-PUL-023**: The system shall grant roles/run.invoker to allUsers on both Cloud Run services in every environment including production, granting network reachability only; each service continues to validate the caller's JWT in-app. (Supersedes `CP-GCP-014`.)
+- [x] **CP-PUL-023**: The system shall grant roles/run.invoker to allUsers on both Cloud Run services in every environment including production, granting network reachability only; each service continues to validate the caller's JWT in-app. (Supersedes `CP-GCP-014`.)
 
 ## Pulumi — Identity Platform
 

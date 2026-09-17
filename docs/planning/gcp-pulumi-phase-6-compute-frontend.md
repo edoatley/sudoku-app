@@ -1,6 +1,6 @@
 # Implementation Plan: GCP Pulumi — Phase 6, Compute and Frontend
 
-**Status**: Draft — awaiting approval
+**Status**: Complete — 2026-09-16
 **Created**: 2026-09-16
 **Origin**: `docs/planning/gcp-pulumi-replatform.md` §4, `gcp-pulumi-handoff.md` §4
 **Arrow**: `cloud-platform` (`docs/arrows/cloud-platform.md`) — GCP facet
@@ -167,7 +167,7 @@ same assertion at the stack level.
       `firebase_auth_domain`, `hosting_site_id`, `backend_url`, `image_recognition_url`, with
       `VITE_AUTH_PROVIDER=firebase`.
       @spec CP-GCP-041, CP-GCP-042, CP-GCP-043
-- [ ] **6e. Ephemeral `rcg-*` stack** — create, deploy, smoke, `pulumi destroy`, `pulumi stack rm`.
+- [~] **6e. Ephemeral `rcg-*` stack** — create, deploy, smoke, `pulumi destroy`, `pulumi stack rm`.
       **`--force` is prohibited**; it orphans live resources.
 - [x] **6f. Target the Hosting site explicitly** per D4 — closes gap G3.
 - [x] **6g. Delete `scripts/github/gcp-workspace-name.sh`.** `components/naming.py` is
@@ -175,7 +175,7 @@ same assertion at the stack level.
       One doc reference in `docs/aws-vs-gcp-deployment.md` updates with it.
       @spec CP-PUL-021
 - [x] **6h. Unit tests** (written first) — §6.
-- [ ] **6i. Doc cascade** — LLD fixes C1–C3; flip `CP-PUL-020` and `CP-PUL-023`; update the
+- [x] **6i. Doc cascade** — LLD fixes C1–C3; flip `CP-PUL-020` and `CP-PUL-023`; update the
       handoff and the umbrella plan's phase table.
 
 ## 6. Tests, written before the code
@@ -215,3 +215,40 @@ variables.
 converting `deploy-gcp.yml` in place and accepting that GCP production cannot be redeployed
 between now and the Phase 8 cutover. Everything else in this plan is a recommendation I am
 confident in.
+
+## 9. Outcome — verified 2026-09-16
+
+Deployed to stack `rcg-phase6` by `deploy-gcp-pulumi.yml`, run 35125095131, all five jobs green.
+
+| Claim | Evidence |
+| --- | --- |
+| Both services serve | `/api/v1/q/health/ready` 200, `/players/me` 200, `POST /games` 201 |
+| Image import works on Vertex | `POST /ai/image-to-puzzle` 200 in 23s — `modelName: gemini-3.8-flash`, `validPuzzle: true`, 9x9 grid |
+| No AWS anywhere | `gcloud run services describe` on both: zero `AWS_*`/`BEDROCK_*`, zero secret-sourced vars |
+| **D1 holds live** | image recognition has no `GCP_REGION`; the global endpoint default is what makes the import above succeed |
+| G3 closed | RC frontend served from `sudoku-eo-2026-rcg-phase6.web.app`; `sudoku-eo-2026.web.app` still returns Site Not Found |
+| Production untouched | `pulumi preview` on app prod: 15 unchanged, throughout |
+
+### What the first three runs cost, and why
+
+Each failure was invisible to every local check, and each error message named something other
+than the cause. They are recorded because the next clean-room rebuild meets all three.
+
+1. **`requirements-vertex.txt` not copied into the Cloud Run image.** A Phase 5 gap: the provider
+   split landed without updating `Dockerfile.cloudrun`, and nothing rebuilt that image until now.
+   The AWS Lambda `Dockerfile` has the same omission and is **not** fixed here.
+2. **`bootstrap` still on the passphrase secrets provider.** The app stack reads it by
+   `StackReference`, which constructs the referenced stack's secrets manager — so CI needed a
+   passphrase it must never hold. Re-keyed onto the KMS key `bootstrap` itself created. Invisible
+   locally because a developer shell exports `PULUMI_CONFIG_PASSPHRASE`.
+3. **Ephemeral stacks lost their secrets-provider declaration between runs.** A self-managed
+   backend keeps it in `Pulumi.<stack>.yaml`, which ephemeral stacks do not commit, so run two
+   fell back to the passphrase provider. Both workflows now write that file when absent — and
+   only when absent, so a prod dispatch cannot overwrite production's committed configuration.
+
+A fourth trap was caught before it reached CI: `pulumi preview` on a fresh `rcg-*` stack showed
+the prod stack owns three **project-level singletons** — the Firebase enrolment, the Identity
+Platform tenant and its Google IdP. A second stack declaring them collides. They are now
+production-only, which means an RC stack's own `*.web.app` origin is not an authorised OAuth
+origin; `localhost` is, on every stack, and that is the supported way to exercise a real Google
+sign-in against an RC backend — the same method Phase 4's continuity check used.

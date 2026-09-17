@@ -126,7 +126,7 @@ new project while the **old project keeps serving production**, so none of them 
 | 3 | App stack — data, hosting, DNS ✅ | Firestore, Firebase Hosting site, Cloud DNS zone + NS delegation | 2 |
 | 4 | Identity Platform ✅ | Google sign-in works; smoke user mints tokens; **identity continuity verified — existing users keep their data** | 3 |
 | 5 | De-Bedrock image recognition ✅ | `IMAGE_AI_PROVIDER` switch + Vertex adapter + accuracy harness; Vertex passes at 100% on gemini-3.8-flash | 0 (**parallel**) |
-| 6 | App stack — compute + frontend | A full end-to-end env on an ephemeral `rcg-*` stack | 4, 5 |
+| 6 | App stack — compute + frontend ✅ | A full end-to-end env on an ephemeral `rcg-*` stack | 4, 5 |
 | 7 | Unified deploy workflow | `DEPLOY_TARGET`; `deploy-gcp.yml` becomes `workflow_call`-only | 6 |
 | 8 | **Production cutover** | `sudoku.gcp.edoatley.co.uk` served from the new project | 7 |
 | 8b | Cognito OAuth-client migration | AWS federation on its own OAuth client | 4 (**parallel**) |
