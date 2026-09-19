@@ -43,7 +43,10 @@ concurrency:
   # `cancel-in-progress: false` while the caller sets it true, deliberately: killing a `pulumi up`
   # leaves a held lock and a half-applied stack, which is strictly worse than a queued run. A
   # called workflow's own concurrency group governs its jobs.
-  group: deploy-gcp-pulumi-${{ inputs.stack || github.ref_name }}
+  # github.ref_name, not inputs.stack: the `inputs` context is not available in a workflow-level
+  # concurrency key. They are equivalent in practice — the stack is derived from the branch when
+  # the input is empty, which is every call.
+  group: deploy-gcp-pulumi-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
