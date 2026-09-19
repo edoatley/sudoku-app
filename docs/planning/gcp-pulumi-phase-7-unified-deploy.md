@@ -1,6 +1,6 @@
 # Implementation Plan: GCP Pulumi — Phase 7, Unified Deploy Workflow
 
-**Status**: Draft — awaiting approval
+**Status**: Approved — ready to implement
 **Created**: 2026-09-19
 **Origin**: `docs/planning/gcp-pulumi-replatform.md` §4, `gcp-pulumi-handoff.md` §5
 **Arrow**: `cloud-platform` (`docs/arrows/cloud-platform.md`) — cloud-general + GCP facets
@@ -47,7 +47,9 @@ GCP" without editing a workflow, and no way to see both paths at once.
 ```
 push main, rc-*, rcg-*  ──┐
 workflow_dispatch(target) ─┴▶ ci-deploy.yml
-                                ├─ gate-ui, gate-backend          (always)
+                                ├─ gate-ui, gate-backend,
+                                │  gate-infra, gate-pulumi,
+                                │  gate-integration               (always — D2)
                                 ├─ select-target                  (the only decision)
                                 ├─ AWS jobs, inline               if aws
                                 └─ deploy-gcp-pulumi.yml          if gcp   (workflow_call)
@@ -76,12 +78,36 @@ a called GCP workflow compose fine: each is gated on a `select-target` output.
 
 Revisit at Phase 9, when the Terraform GCP workflow is deleted and the file count drops anyway.
 
-### D2 — `rcg-*` pushes gain the UI and backend gates
+### D2 — `rc-*` and `rcg-*` get an identical gate set
 
-They currently have none: `deploy-gcp-pulumi.yml` builds and deploys without running a single test.
-Routing them through `ci-deploy.yml` puts `gate-ui` and `gate-backend` in front, which is a
-straight improvement, at the cost of a few minutes per RC deploy. Accepted rather than worked
-around — an RC environment built from untested code is not worth having faster.
+The gap is **gating, not coverage**, and it runs the opposite way to what the file layout suggests.
+`ci.yml` fires on `['**', '!main', '!rc-*']`, so `rcg-*` already runs the full suite — including the
+Terraform, Pulumi and integration jobs that `rc-*` never sees. What it does not do is *block the
+deploy*: `deploy-gcp-pulumi.yml` builds and ships while those checks are still running.
+
+| | `rc-*` today | `rcg-*` today | Both, after this phase |
+| --- | --- | --- | --- |
+| UI lint + unit | gate, blocking | `ci.yml`, parallel | gate, blocking |
+| Backend unit | gate, blocking | `ci.yml`, parallel | gate, blocking |
+| Terraform fmt + validate | — | `ci.yml`, parallel | gate, blocking |
+| Pulumi lint + component tests | — | `ci.yml`, parallel | gate, blocking |
+| Integration (compose + Playwright) | — | `ci.yml`, parallel | gate, blocking |
+| Post-deploy smoke | `smoke-test` job | own job in the GCP workflow | unchanged, per cloud |
+
+So the parity set is the **union**, gated: `ci-deploy.yml` gains `gate-infra`, `gate-pulumi` and
+`gate-integration` mirroring `ci.yml`'s equivalents, and `ci.yml` adds `!rcg-*` to its push
+exclusions. One rule results — deploying branches are gated by `ci-deploy.yml`, everything else is
+checked by `ci.yml` — with no branch running both and no check lost.
+
+Taking the union rather than the intersection means `main` and `rc-*` gain three gates they do not
+have today. That is a deliberate widening of the regression bar in §8: the *deploy* behaves
+identically, but a broken Terraform plan or a failing Pulumi component test will now stop a
+production deploy that previously proceeded. Worth having, and it can only ever block a deploy that
+should have been blocked.
+
+Cost: `gate-integration` needs Docker and is the slowest job in the repo, so it adds a few minutes
+to every deploy. Reuse `ci.yml`'s job definitions rather than retyping them — two copies of an
+integration harness would drift.
 
 ### D3 — `cancel-in-progress` must not apply to the GCP deploy
 
@@ -94,7 +120,7 @@ and a called workflow's own concurrency group still applies — so the GCP side 
 needs proving, not assuming**: a called workflow inheriting the caller's cancellation semantics is
 exactly the kind of thing that behaves differently from the documentation. Work item 7f.
 
-### D4 — where the selection logic lives *(needs your call — see §9)*
+### D4 — where the selection logic lives
 
 `select-target` is a three-level precedence over four cases whose failure mode is deploying the
 wrong cloud — silently, since both deploys look healthy. It deserves real tests, and there is no
@@ -107,8 +133,15 @@ cloud-general.
 | **Tested Python helper** in `scripts/github/`, a new pytest root, a `ci-scripts` job in `ci.yml` | Real unit tests over all cases; adds one small CI job and a pytest config |
 | Helper under `infra/gcp/components/` | Free to test, but files the cloud-general decision under the GCP facet, where nobody will look for it |
 
-Recommendation: the **tested helper**. `naming.py` already proves the "shared Python, shelled into
-from CI" pattern in this repo, and this is higher-consequence logic than stack naming.
+**Decided: the tested helper.** `naming.py` already proves the "shared Python, shelled into from
+CI" pattern in this repo, and this is higher-consequence logic than stack naming.
+
+- `scripts/github/select_deploy_target.py` — a pure function over `(event_name, ref_name,
+  dispatch_target, deploy_target_var)` returning the set of targets, raising on an unrecognised
+  value.
+- `scripts/github/tests/` with a `pyproject.toml` or `pytest.ini` alongside it.
+- A `ci-scripts` job in `ci.yml` mirroring `ci-pulumi`'s shape (`setup-uv`, `uv sync --frozen`,
+  `ruff`, `pytest`), and a line in `scripts/local/local-alltests.sh` so it is covered pre-push.
 
 ## 6. Work items
 
@@ -119,6 +152,9 @@ from CI" pattern in this repo, and this is higher-consequence logic than stack n
       @spec CP-CD-001, CP-CD-002, CP-CD-003
 - [ ] **7c. Gate the AWS jobs** on `needs.select-target.outputs.aws == 'true'`, preserving their
       existing `if:` conditions rather than replacing them.
+- [ ] **7c2. Bring the gate sets to parity** per D2 — add `gate-infra`, `gate-pulumi` and
+      `gate-integration` to `ci-deploy.yml`, reusing `ci.yml`'s definitions, and add `!rcg-*` to
+      `ci.yml`'s push exclusions so no branch runs both and no check is lost.
 - [ ] **7d. Convert `deploy-gcp-pulumi.yml` to `workflow_call`**, dropping its `push` and
       `workflow_dispatch` triggers, taking `stack` as an input and `secrets: inherit`.
       @spec CP-PUL-080
@@ -131,6 +167,8 @@ from CI" pattern in this repo, and this is higher-consequence logic than stack n
 - [ ] **7g. Tests** — §7.
 - [ ] **7h. Doc cascade** — flip `CP-CD-001..004` and `CP-PUL-080`; update `docs/llds/
       cloud-platform-gcp.md` §CI/CD, whose current text describes the pre-Phase-6 arrangement.
+      Record in `docs/llds/cloud-platform.md` that deploying branches are gated by `ci-deploy.yml`
+      and all others by `ci.yml` — the rule D2 establishes.
 
 ## 7. Tests
 
@@ -144,6 +182,11 @@ from CI" pattern in this repo, and this is higher-consequence logic than stack n
 | push `main`, `DEPLOY_TARGET=both` | both true (`CP-CD-004`) |
 | push `main`, `DEPLOY_TARGET=nonsense` | fails loudly rather than defaulting — a typo must not silently deploy to one cloud |
 | `deploy-gcp-pulumi.yml` has no `push`/`workflow_dispatch` trigger | `CP-PUL-080`, added to `test_deploy_workflows.py` |
+| no branch matches both `ci.yml` and `ci-deploy.yml` push filters | D2's single rule; a branch running both wastes CI minutes and a branch matching neither ships untested |
+| every gate in `ci.yml` has a counterpart in `ci-deploy.yml` | D2's "no check lost" claim, asserted rather than trusted to review |
+
+The first seven are unit tests over `scripts/github/select_deploy_target.py`; the last three are
+workflow-shape assertions.
 
 ## 8. Verification, and what cannot be verified here
 
@@ -161,9 +204,22 @@ are therefore verified by unit test and by reading the resolved `select-target` 
 dispatch that is then cancelled before the deploy jobs start — not by deploying. Say so in the PR
 rather than implying full coverage.
 
-## 9. Open question
+**Deferred to Phase 8, not dropped.** The cutover is the first time `main` legitimately deploys to
+GCP, so it is the natural place to exercise these paths for real. Phase 8's plan must carry three
+checks that belong to Phase 7's specs rather than its own:
 
-**D4** — whether `select-target` gets a tested Python helper (new pytest root plus a small CI job)
-or stays shell with a workflow-shape test. I recommend the helper, on the grounds that a wrong
-answer here deploys the wrong cloud and looks healthy doing it. Everything else in this plan I am
-confident in.
+| Check | Spec |
+| --- | --- |
+| `DEPLOY_TARGET=gcp` on `main` deploys GCP and **not** AWS | `CP-CD-001` |
+| `DEPLOY_TARGET=both` deploys both independently, and the run is red if either side fails | `CP-CD-004` |
+| Flipping `DEPLOY_TARGET` moves no traffic — each cloud keeps its own hostname | `CP-CD-004` |
+
+`CP-CD-001` and `CP-CD-004` therefore stay `[ ]` at the end of Phase 7 despite being implemented,
+and flip in Phase 8 once exercised. Marking them `[x]` on unit tests alone would claim a
+production behaviour nothing had run.
+
+## 9. Related todo
+
+Cancellation is handled narrowly here — D3 covers only the concurrency case. The general problem,
+that a cancelled `pulumi up` leaves a held lock and a half-applied stack however it was cancelled,
+is captured in [`docs/todo/prevent-partial-pulumi-applies.md`](../todo/prevent-partial-pulumi-applies.md).
