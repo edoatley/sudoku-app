@@ -11,6 +11,7 @@ import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.time.Clock;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -43,9 +44,21 @@ public class FirestoreCoachRateLimiter implements CoachRateLimiter {
     @ConfigProperty(name = "coach.rate-limit.per-minute")
     int perMinuteLimit;
 
+    /**
+     * The clock the window is read from. Production uses system UTC; tests pin it.
+     *
+     * <p>The counter is keyed per UTC minute and the window was previously read from the wall
+     * clock on every call, so a test whose calls straddled a boundary saw the count reset
+     * mid-assertion and failed intermittently. Injecting the clock removes that race without
+     * widening the window this limiter enforces.
+     */
+    Clock clock = Clock.systemUTC();
+
     @Override
     public boolean tryConsume(String userId) {
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        // Rendered in UTC regardless of the clock's own zone, so the window stays the UTC minute
+        // SC-RL-003 specifies even if a zoned clock is injected.
+        ZonedDateTime now = ZonedDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
         String window = now.format(WINDOW_FMT);
         // TTL = 2 minutes after the start of the current minute window (Timestamp for the TTL policy)
         Timestamp expiresAt = Timestamp.ofTimeSecondsAndNanos(
