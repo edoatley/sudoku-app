@@ -5,9 +5,25 @@ on:
     branches:
       - main
       - "rc-*"
+      - "rcg-*"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deploy target. 'auto' follows the branch convention, then DEPLOY_TARGET on main."
+        type: choice
+        options:
+          - auto
+          - aws
+          - gcp
+          - both
+        default: auto
 
 # One deploy per branch at a time. A new push cancels the in-flight run for
 # that branch so Terraform state locks don't pile up across concurrent runs.
+#
+# The GCP reusable workflow declares its own non-cancelling concurrency group, because a killed
+# `pulumi up` leaves a held lock and a half-applied stack rather than merely a queued run. See
+# docs/todo/prevent-partial-pulumi-applies.md for the general case.
 concurrency:
   group: ci-deploy-${{ github.ref }}
   cancel-in-progress: true
@@ -18,39 +34,41 @@ permissions:
   actions: write
 
 jobs:
-  gate-ui:
-    name: UI — Lint & Unit Tests
+  # The only place a deploy target is decided. The precedence lives in
+  # scripts/github/select_deploy_target.py so it can be unit-tested: its failure mode is
+  # deploying the wrong cloud, which looks entirely healthy from the run's point of view.
+  # @spec CP-CD-001, CP-CD-002, CP-CD-003, CP-CD-004
+  select-target:
+    name: Select deploy target
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: ui
+    timeout-minutes: 5
+    outputs:
+      aws: ${{ steps.select.outputs.aws }}
+      gcp: ${{ steps.select.outputs.gcp }}
     steps:
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-node
-      - name: Lint
-        run: npm run lint
-      - name: Unit tests with coverage
-        run: npm run test:coverage
+      - id: select
+        env:
+          DISPATCH_TARGET: ${{ inputs.target }}
+          DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET }}
+        run: |
+          set -euo pipefail
+          python3 scripts/github/select_deploy_target.py | tee -a "$GITHUB_OUTPUT"
 
-  gate-backend:
-    name: Backend — Unit Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-java
-      - name: Run unit and API tests with coverage
-        run: ./mvnw -B -ntp verify -T 1C
+  # The full CI suite, as the gate for every deploying branch — UI lint and unit, backend unit,
+  # Terraform fmt and validate, Pulumi lint and component tests, and integration. Called rather
+  # than copied: the two jobs this replaced were duplicates of ci-npm and ci-maven, down to their
+  # names, and a second copy of the integration harness would drift from the first.
+  gates:
+    name: Gates
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [gate-ui, gate-backend]
+    needs: [gates]
     permissions:
       contents: read
     outputs:
@@ -72,8 +90,8 @@ jobs:
     name: Build & Push Backend Image
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [gate-ui, gate-backend, changes]
-    if: needs.changes.outputs.backend == 'true'
+    needs: [select-target, gates, changes]
+    if: needs.select-target.outputs.aws == 'true' && needs.changes.outputs.backend == 'true'
     outputs:
       image_uri: ${{ steps.build.outputs.image_uri }}
     steps:
@@ -99,7 +117,8 @@ jobs:
     name: Build Image Recognition Lambda
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [gate-ui, gate-backend]
+    needs: [select-target, gates]
+    if: needs.select-target.outputs.aws == 'true'
     outputs:
       image_uri: ${{ steps.push.outputs.image_uri }}
     steps:
@@ -136,8 +155,11 @@ jobs:
     name: Terraform Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 75
-    needs: [gate-ui, gate-backend, changes, build-backend, build-image-recognition]
-    if: always() && !failure() && !cancelled()
+    needs: [select-target, gates, changes, build-backend, build-image-recognition]
+    # always() keeps a deliberately-skipped build from blocking the deploy, as before. The target
+    # gate is evaluated inside it: if select-target failed, its outputs are empty and this is
+    # false, so a bad DEPLOY_TARGET stops the deploy rather than defaulting somewhere.
+    if: always() && !failure() && !cancelled() && needs.select-target.outputs.aws == 'true'
     outputs:
       api_gateway_url: ${{ steps.outputs.outputs.api_gateway_url }}
       amplify_app_url: ${{ steps.outputs.outputs.amplify_app_url }}
@@ -316,14 +338,52 @@ jobs:
       environment_type: ${{ needs.deploy.outputs.is_main == 'true' && 'main' || 'rc' }}
       workspace: ${{ needs.deploy.outputs.workspace }}
 
+  # The GCP half. A reusable workflow rather than inline jobs (CP-PUL-080), so the deploy it
+  # performs has exactly one entry point. Its own smoke runs inside it.
+  deploy-gcp:
+    name: GCP
+    needs: [select-target, gates]
+    if: always() && !failure() && !cancelled() && needs.select-target.outputs.gcp == 'true'
+    uses: ./.github/workflows/deploy-gcp-pulumi.yml
+    secrets: inherit
+
   notify:
     name: Notify
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [deploy, smoke-test]
+    needs: [select-target, deploy, smoke-test, deploy-gcp]
     if: always()
     steps:
+      # A `both` run is red if either cloud fails. Each cloud is independent — this is deploy
+      # selection, not a failover — so neither result is allowed to mask the other.
+      # @spec CP-CD-004
+      - name: Fail the run if a selected cloud did not deploy
+        env:
+          AWS_SELECTED: ${{ needs.select-target.outputs.aws }}
+          GCP_SELECTED: ${{ needs.select-target.outputs.gcp }}
+          AWS_RESULT:   ${{ needs.deploy.result }}
+          AWS_SMOKE:    ${{ needs.smoke-test.result }}
+          GCP_RESULT:   ${{ needs.deploy-gcp.result }}
+        run: |
+          set -euo pipefail
+          fail=0
+          if [ "${AWS_SELECTED}" = "true" ]; then
+            echo "AWS: deploy=${AWS_RESULT} smoke=${AWS_SMOKE}"
+            [ "${AWS_RESULT}" = "success" ] || { echo "::error::AWS deploy ${AWS_RESULT}"; fail=1; }
+            [ "${AWS_SMOKE}" = "success" ] || { echo "::error::AWS smoke ${AWS_SMOKE}"; fail=1; }
+          fi
+          if [ "${GCP_SELECTED}" = "true" ]; then
+            echo "GCP: deploy=${GCP_RESULT}"
+            [ "${GCP_RESULT}" = "success" ] || { echo "::error::GCP deploy ${GCP_RESULT}"; fail=1; }
+          fi
+          if [ "${AWS_SELECTED}" != "true" ] && [ "${GCP_SELECTED}" != "true" ]; then
+            echo "::error::no cloud was selected — select-target should have failed already"
+            fail=1
+          fi
+          exit "${fail}"
+
       - name: Deployment summary
+        if: always()
         env:
           DEPLOY_STATUS: ${{ needs.deploy.result }}
           SMOKE_STATUS:  ${{ needs.smoke-test.result }}

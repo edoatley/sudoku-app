@@ -427,6 +427,16 @@ least-surprising. It selects *deploys*, not traffic: each cloud keeps its own st
 failover. Where the target is `both`, each cloud deploys independently and the run is red if
 either deployment or smoke fails.
 
+The precedence is implemented in `scripts/github/select_deploy_target.py` and unit-tested over
+every case, including the ones that must fail loudly: an unrecognised `DEPLOY_TARGET`, and a
+branch that matches no deploy convention. Defaulting either to `aws` would deploy a cloud nobody
+asked for and report success.
+
+Which workflow checks a branch follows from the same split: deploying branches (`main`, `rc-*`,
+`rcg-*`) are gated by `ci-deploy.yml`, which calls `ci.yml` for its gate set; every other branch is
+checked by `ci.yml` directly. The two push filters partition the branch space, so no branch runs
+the suite twice and none skips it.
+
 @spec CP-CD-001, CP-CD-002, CP-CD-003, CP-CD-004
 
 ### Cross-Cloud Identity Continuity

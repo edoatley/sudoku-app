@@ -7,9 +7,11 @@ name: Deploy GCP (Pulumi)
 #   4. smokes the result with a real Identity Platform token.
 #
 # This is the NEW project. `deploy-gcp.yml` remains the Terraform path to the OLD project
-# (`sudoku-app-eo`), which still serves production until the Phase 8 cutover — its `rcg-*` push
-# trigger is removed so the two cannot race. Phase 7 folds this workflow into `ci-deploy.yml` as
-# `workflow_call`; Phase 9 deletes the Terraform one.
+# (`sudoku-app-eo`), which still serves production until the Phase 8 cutover. Phase 9 deletes it.
+#
+# **Reusable only.** `ci-deploy.yml` is the single deploy entry point and decides which cloud a
+# push or dispatch goes to; this workflow has no trigger of its own, so there is no second way to
+# start a GCP deploy and no second place target selection can be decided. @spec CP-PUL-080
 #
 # Credentials follow the `_NEXT` convention: the un-suffixed secrets serve AWS Cognito and the old
 # GCP project and must never be overwritten. Phase 8 does the rename.
@@ -19,14 +21,12 @@ name: Deploy GCP (Pulumi)
 #                 SMOKE_TEST_USER_EMAIL, SMOKE_TEST_USER_PASSWORD_NEXT
 
 on:
-  push:
-    branches:
-      - "rcg-*"
-  workflow_dispatch:
+  workflow_call:
     inputs:
       stack:
         description: "Pulumi stack (blank = derive from the branch name)"
         type: string
+        required: false
         default: ""
 
 env:
@@ -39,7 +39,11 @@ permissions:
 
 concurrency:
   # One deploy per stack, so two runs cannot contend for a single Pulumi state lock.
-  group: deploy-gcp-pulumi-${{ github.event.inputs.stack || github.ref_name }}
+  #
+  # `cancel-in-progress: false` while the caller sets it true, deliberately: killing a `pulumi up`
+  # leaves a held lock and a half-applied stack, which is strictly worse than a queued run. A
+  # called workflow's own concurrency group governs its jobs.
+  group: deploy-gcp-pulumi-${{ inputs.stack || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -153,7 +157,7 @@ jobs:
         name: Derive the stack name
         env:
           BRANCH: ${{ github.ref_name }}
-          STACK_INPUT: ${{ github.event.inputs.stack }}
+          STACK_INPUT: ${{ inputs.stack }}
         run: |
           set -euo pipefail
           if [ -n "${STACK_INPUT}" ]; then

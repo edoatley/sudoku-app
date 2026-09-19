@@ -54,10 +54,10 @@
 Which cloud a deployment goes to. Resolved in one place — `.github/workflows/ci-deploy.yml`'s
 `select-target` job — and honoured identically by both facets.
 
-- [ ] **CP-CD-001**: The system shall select the deploy target for a push to `main` from the repository variable `DEPLOY_TARGET` (aws | gcp | both), defaulting to aws when the variable is unset.
-- [ ] **CP-CD-002**: The system shall deploy `rc-*` branches to AWS and `rcg-*` branches to GCP regardless of `DEPLOY_TARGET`, so release-candidate environments are governed by branch convention alone.
-- [ ] **CP-CD-003**: Where a workflow_dispatch supplies a `target` input other than `auto`, the system shall use it in preference to both `DEPLOY_TARGET` and the branch convention.
-- [ ] **CP-CD-004**: Where the target is both, the system shall deploy each cloud independently to its own stable hostname and shall report the run as failed if either cloud's deployment or smoke test fails. (Deploy selection only — this is not a DNS failover.)
+- [ ] **CP-CD-001**: The system shall select the deploy target for a push to `main` from the repository variable `DEPLOY_TARGET` (aws | gcp | both), defaulting to aws when the variable is unset. *(Implemented and unit-tested in Phase 7; the `gcp` and `both` values stay unverified until Phase 8, because deploying `main` to GCP is the cutover itself.)*
+- [x] **CP-CD-002**: The system shall deploy `rc-*` branches to AWS and `rcg-*` branches to GCP regardless of `DEPLOY_TARGET`, so release-candidate environments are governed by branch convention alone.
+- [x] **CP-CD-003**: Where a workflow_dispatch supplies a `target` input other than `auto`, the system shall use it in preference to both `DEPLOY_TARGET` and the branch convention.
+- [ ] **CP-CD-004**: Where the target is both, the system shall deploy each cloud independently to its own stable hostname and shall report the run as failed if either cloud's deployment or smoke test fails. (Deploy selection only — this is not a DNS failover.) *(Implemented in Phase 7; verified at Phase 8, the first run where `both` is meaningful.)*
 
 ---
 
@@ -194,6 +194,6 @@ tool-specific ones (`CP-PUL-*`) is what let the Terraform specs be struck throug
 ## Pulumi — Packaging & CI
 
 - [x] **CP-PUL-070**: The system shall manage the Pulumi program's Python dependencies with uv, declared in pyproject.toml and resolved by the Pulumi runtime toolchain.
-- [ ] **CP-PUL-080**: The system shall deploy GCP from a reusable workflow invoked by the single deploy entry point, with no push or workflow_dispatch trigger of its own.
+- [x] **CP-PUL-080**: The system shall deploy GCP from a reusable workflow invoked by the single deploy entry point, with no push or workflow_dispatch trigger of its own.
 - [x] **CP-PUL-081**: The system shall unit-test every Pulumi component against the Pulumi mock runtime, with no cloud credentials, and shall run those tests plus a linter in CI when files under infra/gcp/ change.
 - [x] **CP-PUL-082**: The system shall include the Pulumi lint and unit-test suite in the mandatory pre-push test script.

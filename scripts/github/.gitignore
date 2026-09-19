@@ -1,0 +1,7 @@
+# uv-managed virtualenv and pytest artefacts for the CI-script helpers. Mirrors
+# infra/gcp/.gitignore — this repo keeps these rules per Python root rather than in the root
+# .gitignore.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

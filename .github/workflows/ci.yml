@@ -6,6 +6,11 @@ on:
       - "**"
       - "!main"
       - "!rc-*"
+      - "!rcg-*"
+  # Called by ci-deploy.yml as the gate set for every deploying branch, so `main`, `rc-*` and
+  # `rcg-*` are checked by exactly these jobs rather than a thinner copy of two of them. The
+  # branch exclusions above are what keeps a branch from running this suite twice.
+  workflow_call:
   pull_request:
     branches: ["**"]
 
@@ -23,6 +28,7 @@ jobs:
       maven_changed: ${{ steps.filter.outputs.maven }}
       terraform_changed: ${{ steps.filter.outputs.terraform }}
       pulumi_changed: ${{ steps.filter.outputs.pulumi }}
+      scripts_changed: ${{ steps.filter.outputs.scripts }}
     steps:
       - uses: actions/checkout@v7
       - name: Set actor metadata
@@ -47,6 +53,9 @@ jobs:
               - '.github/**'
             pulumi:
               - 'infra/gcp/**'
+              - '.github/**'
+            scripts:
+              - 'scripts/github/**'
               - '.github/**'
 
   ci-npm:
@@ -173,6 +182,30 @@ jobs:
         run: uv run ruff format --check .
       - name: Component tests
         run: uv run pytest tests --cov
+
+  ci-scripts:
+    name: CI scripts — lint & unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: detect-changes
+    if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.scripts_changed == 'true'
+    defaults:
+      run:
+        working-directory: scripts/github
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: scripts/github/uv.lock
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Unit tests
+        run: uv run pytest
 
   integration:
     name: Integration — Native Servers + Playwright

@@ -3,7 +3,7 @@
 # Usage:
 #   bash scripts/local/local-alltests.sh [--skip-image-recognition] [--skip-lint] [--skip-audit]
 #                                        [--skip-e2e] [--skip-backend] [--skip-integration]
-#                                        [--skip-infra] [--skip-pulumi]
+#                                        [--skip-infra] [--skip-pulumi] [--skip-scripts]
 #
 # Exits 0 if all suites pass, 1 if any suite fails.
 
@@ -27,6 +27,7 @@ SKIP_BACKEND=false
 SKIP_INTEGRATION=false
 SKIP_INFRA=false
 SKIP_PULUMI=false
+SKIP_SCRIPTS=false
 
 for arg in "$@"; do
   case $arg in
@@ -38,6 +39,7 @@ for arg in "$@"; do
     --skip-integration)       SKIP_INTEGRATION=true ;;
     --skip-infra)             SKIP_INFRA=true ;;
     --skip-pulumi)            SKIP_PULUMI=true ;;
+    --skip-scripts)           SKIP_SCRIPTS=true ;;
     --help|-h)
       sed -n '2,10p' "$0" | sed 's/^# \?//'
       exit 0 ;;
@@ -387,6 +389,38 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Suite 9: CI scripts (deploy-target selection + workflow shape)
+# ─────────────────────────────────────────────────────────────────────────────
+SUITE="CI scripts (lint + unit tests)"
+header "$SUITE"
+
+if [[ "${SKIP_SCRIPTS}" == "true" ]]; then
+  # Skipping with changes staged is almost always wrong: a wrong deploy-target answer sends a
+  # release to the wrong cloud and the run still goes green.
+  if git -C "${REPO_ROOT}" diff --name-only HEAD 2>/dev/null | grep -qE '^(scripts/github/|\.github/workflows/)'; then
+    echo -e "${RED}ERROR: --skip-scripts passed but CI scripts or workflows are modified. Run without --skip-scripts.${RESET}" >&2
+    RESULTS["$SUITE"]="FAIL"
+    DURATIONS["$SUITE"]="—"
+    OVERALL=1
+  else
+    skip "$SUITE" "--skip-scripts"
+  fi
+elif ! command -v uv >/dev/null 2>&1; then
+  skip "$SUITE" "uv not found"
+else
+  t=$(date +%s)
+  rc=0
+  (
+    cd "${REPO_ROOT}/scripts/github"
+    uv sync --frozen --quiet
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run pytest -q
+  ) || rc=$?
+  record "$SUITE" "$rc" $t
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "\n${BOLD}${CYAN}════════════════════════════════════════${RESET}"
@@ -402,6 +436,7 @@ SUITE_ORDER=(
   "Integration (Docker Compose + Playwright)"
   "Infra (Terraform fmt + validate)"
   "Infra (Pulumi lint + component tests)"
+  "CI scripts (lint + unit tests)"
 )
 
 for suite in "${SUITE_ORDER[@]}"; do

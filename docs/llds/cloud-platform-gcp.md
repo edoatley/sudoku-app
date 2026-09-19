@@ -416,23 +416,38 @@ three `gcloud` commands and `pulumi import` it.
 
 ## CI/CD
 
-`.github/workflows/ci-deploy.yml` is the single entry point; `deploy-gcp.yml` becomes
-`on: workflow_call` only, with its `push` and `workflow_dispatch` triggers removed. Target
-selection is documented in `docs/llds/cloud-platform.md` — *Deploy Target Selection*.
+`.github/workflows/ci-deploy.yml` is the single entry point. `deploy-gcp-pulumi.yml` is
+`on: workflow_call` only — no push, no dispatch — so there is no second way to start a GCP deploy
+and no second place the target could be decided. Target selection is specified in
+`docs/llds/cloud-platform.md` — *Deploy Target Selection* — and implemented in
+`scripts/github/select_deploy_target.py`, which is unit-tested because its failure mode is
+deploying the wrong cloud while the run stays green. @spec CP-PUL-080
 
-The eight phased `workflow_dispatch` inputs (`deploy_cloud_run`, `enable_coach`,
-`coach_ai_provider`, …) are removed. They existed to bring production up in stages against an
-unbuilt project; keeping them would preserve exactly the foot-gun that let a manual dispatch
-silently revert the Vertex cutover. The GCP deploy becomes all-or-nothing, like the AWS one.
+`deploy-gcp.yml`, the Terraform path to the incumbent project, is dispatch-only and is deleted at
+Phase 9 along with `infra/gcp/*.tf`. Its eight phased inputs (`deploy_cloud_run`, `enable_coach`,
+`coach_ai_provider`, …) go with it. They existed to bring production up in stages against an
+unbuilt project, and they are exactly the foot-gun that let a manual dispatch silently revert the
+Vertex cutover; the Pulumi deploy is all-or-nothing, like the AWS one.
 
-`GCP_PROJECT_ID` moves from a **secret** to a repository **variable**. It is not sensitive — it
-appears in every public Cloud Run URL and in the Firebase config the SPA ships — and making it a
-secret is what forced the current workflow to pass only image *tags* between jobs (GitHub scrubs
-secret-bearing outputs) and reassemble full URIs in-job. That workaround disappears.
+The GCP project id is a repository **variable**, `GCP_PULUMI_PROJECT_ID`, not a secret. It is not
+sensitive — it appears in every public Cloud Run URL and in the Firebase config the SPA ships —
+and making it a secret is what forced the Terraform workflow to pass only image *tags* between
+jobs, because GitHub scrubs secret-bearing outputs, and to reassemble full URIs in every job. That
+workaround is gone. It collapses to `GCP_PROJECT_ID` at Phase 9, once the incumbent secret of that
+name is deleted.
 
-Concurrency: `ci-deploy.yml` keeps `group: ci-deploy-${{ github.ref }}`; the GCP reusable
-workflow adds `group: gcp-${{ inputs.stack }}` so two runs cannot contend for one Pulumi state
-lock.
+**Gates.** Deploying branches are gated by `ci-deploy.yml`, everything else is checked by
+`ci.yml`, and the two push filters partition the branch space so no branch runs both or neither.
+`ci-deploy.yml` reaches its gate set by *calling* `ci.yml` rather than redefining it: the two jobs
+it used to declare were duplicates of `ci-npm` and `ci-maven` down to their names, and the thinner
+copy was the one gating deploys. Every deploying branch now waits on the full suite — UI, backend,
+Terraform, Pulumi, CI scripts and integration.
+
+**Concurrency.** `ci-deploy.yml` keeps `group: ci-deploy-${{ github.ref }}` with
+`cancel-in-progress: true`. The GCP reusable workflow declares its own group, keyed by stack, with
+`cancel-in-progress: false` — deliberately the opposite. Killing a `pulumi up` mid-apply leaves a
+held lock in the state bucket and a half-applied stack, which is worse than a queued run; a called
+workflow's own concurrency group governs its jobs.
 
 ## Testing
 
