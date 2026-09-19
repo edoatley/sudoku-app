@@ -96,6 +96,27 @@ class TestGatesAreReusedNotCopied:
         assert not (ci & deploy), ci & deploy
 
 
+class TestContextAvailability:
+    """`inputs` exists only in reusable and dispatch-only workflows.
+
+    Referencing it from a workflow that can also be triggered by `push` fails the entire run at
+    validation time — no jobs, no logs, and nothing in the API that names the cause. The
+    always-defined form is `github.event.inputs`.
+    """
+
+    def test_push_triggered_workflows_use_github_event_inputs(self):
+        for name in ("ci-deploy.yml", "ci.yml"):
+            src = (WORKFLOWS / name).read_text()
+            assert "${{ inputs." not in src, (
+                f"{name} is push-triggered and must use github.event.inputs, not the inputs context"
+            )
+
+    def test_reusable_only_workflows_may_use_inputs(self):
+        # deploy-gcp-pulumi.yml has no push trigger, so the inputs context is valid there.
+        assert list(_triggers("deploy-gcp-pulumi.yml")) == ["workflow_call"]
+        assert "${{ inputs.stack }}" in (WORKFLOWS / "deploy-gcp-pulumi.yml").read_text()
+
+
 class TestGcpHasNoEntryPointOfItsOwn:
     """@spec CP-PUL-080"""
 
