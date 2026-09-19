@@ -117,6 +117,51 @@ class TestContextAvailability:
         assert "${{ inputs.stack }}" in (WORKFLOWS / "deploy-gcp-pulumi.yml").read_text()
 
 
+class TestCallerGrantsWhatCalleesRequest:
+    """A called workflow may not request more permission than its caller grants.
+
+    An omitted scope means `none`, so a callee job declaring `pull-requests: write` under a caller
+    that lists a permissions block without it fails the entire run before any job starts — no
+    jobs, no logs, no API message, and actionlint does not check it either. The only way back from
+    that symptom is to compare the two blocks by hand, so compare them here instead.
+    """
+
+    RANK = {"none": 0, "read": 1, "write": 2}
+
+    def _granted(self, name: str) -> dict[str, str]:
+        return yaml.safe_load((WORKFLOWS / name).read_text()).get("permissions") or {}
+
+    def _requested(self, name: str) -> dict[str, str]:
+        doc = yaml.safe_load((WORKFLOWS / name).read_text())
+        want = dict(doc.get("permissions") or {})
+        for job in doc["jobs"].values():
+            for scope, level in (job.get("permissions") or {}).items():
+                if self.RANK[level] > self.RANK.get(want.get(scope, "none"), 0):
+                    want[scope] = level
+        return want
+
+    @pytest.mark.parametrize(
+        "caller,callee",
+        [
+            ("ci-deploy.yml", "ci.yml"),
+            ("ci-deploy.yml", "deploy-gcp-pulumi.yml"),
+            ("ci-deploy.yml", "smoke-tests.yml"),
+        ],
+    )
+    def test_no_callee_job_escalates_beyond_its_caller(self, caller, callee):
+        granted = self._granted(caller)
+        assert granted, f"{caller} must declare a permissions block for this check to mean anything"
+        escalations = {
+            scope: level
+            for scope, level in self._requested(callee).items()
+            if self.RANK[level] > self.RANK.get(granted.get(scope, "none"), 0)
+        }
+        assert not escalations, (
+            f"{callee} requests {escalations} which {caller} does not grant — "
+            "the run will fail at startup with no diagnostic"
+        )
+
+
 class TestGcpHasNoEntryPointOfItsOwn:
     """@spec CP-PUL-080"""
 

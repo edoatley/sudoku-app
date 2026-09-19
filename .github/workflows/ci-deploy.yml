@@ -28,10 +28,17 @@ concurrency:
   group: ci-deploy-${{ github.ref }}
   cancel-in-progress: true
 
+# A called workflow may not request more than its caller grants, and an omitted scope means
+# `none`. `ci.yml`'s jobs declare `pull-requests: read` (detect-changes, for path filtering on a
+# PR) and `pull-requests: write` (report, for the PR summary comment), so both must be granted
+# here or the whole run is rejected before any job starts — with no diagnostic, because nothing
+# ever ran. Neither job does anything on a deploy: `report` is gated to `pull_request` events,
+# which this workflow never receives.
 permissions:
   id-token: write
   contents: read
   actions: write
+  pull-requests: write
 
 jobs:
   # The only place a deploy target is decided. The precedence lives in
