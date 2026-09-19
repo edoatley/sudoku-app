@@ -63,11 +63,8 @@ jobs:
   # names, and a second copy of the integration harness would drift from the first.
   gates:
     name: Gates
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - run: echo "diagnostic no-op"
-
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   changes:
     name: Detect Changes
@@ -343,11 +340,20 @@ jobs:
       environment_type: ${{ needs.deploy.outputs.is_main == 'true' && 'main' || 'rc' }}
       workspace: ${{ needs.deploy.outputs.workspace }}
 
+  # The GCP half. A reusable workflow rather than inline jobs (CP-PUL-080), so the deploy it
+  # performs has exactly one entry point. Its own smoke runs inside it.
+  deploy-gcp:
+    name: GCP
+    needs: [select-target, gates]
+    if: always() && !failure() && !cancelled() && needs.select-target.outputs.gcp == 'true'
+    uses: ./.github/workflows/deploy-gcp-pulumi.yml
+    secrets: inherit
+
   notify:
     name: Notify
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [select-target, deploy, smoke-test]
+    needs: [select-target, deploy, smoke-test, deploy-gcp]
     if: always()
     steps:
       # A `both` run is red if either cloud fails. Each cloud is independent — this is deploy
@@ -359,7 +365,7 @@ jobs:
           GCP_SELECTED: ${{ needs.select-target.outputs.gcp }}
           AWS_RESULT:   ${{ needs.deploy.result }}
           AWS_SMOKE:    ${{ needs.smoke-test.result }}
-          GCP_RESULT:   'skipped'
+          GCP_RESULT:   ${{ needs.deploy-gcp.result }}
         run: |
           set -euo pipefail
           fail=0

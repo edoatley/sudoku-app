@@ -11,6 +11,15 @@ on:
   # `rcg-*` are checked by exactly these jobs rather than a thinner copy of two of them. The
   # branch exclusions above are what keeps a branch from running this suite twice.
   workflow_call:
+    inputs:
+      # Unused, and present only so `workflow_call` has a non-null body: every other reusable
+      # workflow in this repo declares inputs, and a bare `workflow_call:` is the one difference
+      # between this file and those.
+      caller:
+        description: "Name of the calling workflow, for the run log"
+        type: string
+        required: false
+        default: ""
   pull_request:
     branches: ["**"]
 
