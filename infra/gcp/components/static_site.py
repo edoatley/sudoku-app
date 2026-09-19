@@ -20,27 +20,36 @@ class StaticSite(pulumi.ComponentResource):
         name: str,
         *,
         project: pulumi.Input[str],
-        site_id: str,
+        site_id: pulumi.Input[str],
         web_app_display_name: str = "Sudoku",
         custom_domain: str | None = None,
         wait_dns_verification: bool = False,
+        enroll_firebase: bool = True,
+        abandon_web_app: bool = True,
         opts: pulumi.ResourceOptions | None = None,
     ) -> None:
         super().__init__("sudoku:gcp:StaticSite", name, None, opts)
         child = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(parent=self))
 
-        self.firebase_project = gcp.firebase.Project(
-            f"{name}-firebase",
-            project=project,
-            opts=child,
-        )
+        # Enrolling a GCP project in Firebase is a once-per-*project* act, not once per site.
+        # Sites and web apps are many-per-project and every stack creates its own, but only one
+        # stack may own the enrolment — a second would collide on a resource that already exists.
+        self.firebase_project = None
+        if enroll_firebase:
+            self.firebase_project = gcp.firebase.Project(
+                f"{name}-firebase",
+                project=project,
+                opts=child,
+            )
+
+        enrolment = [self.firebase_project] if self.firebase_project else []
 
         self.site = gcp.firebase.HostingSite(
             f"{name}-site",
             project=project,
             site_id=site_id,
             opts=pulumi.ResourceOptions.merge(
-                opts, pulumi.ResourceOptions(parent=self, depends_on=[self.firebase_project])
+                opts, pulumi.ResourceOptions(parent=self, depends_on=enrolment)
             ),
         )
 
@@ -70,11 +79,12 @@ class StaticSite(pulumi.ComponentResource):
             f"{name}-webapp",
             project=project,
             display_name=web_app_display_name,
-            # Keep the app if the stack is destroyed: deleting it invalidates the API key that
-            # any built frontend bundle has already baked in.
-            deletion_policy="ABANDON",
+            # Production abandons the app on destroy: deleting it invalidates the API key that any
+            # already-built frontend bundle has baked in. An ephemeral stack has no such bundle in
+            # anyone's hands, and abandoning would leave a web app behind on every teardown.
+            deletion_policy="ABANDON" if abandon_web_app else "DELETE",
             opts=pulumi.ResourceOptions.merge(
-                opts, pulumi.ResourceOptions(parent=self, depends_on=[self.firebase_project])
+                opts, pulumi.ResourceOptions(parent=self, depends_on=enrolment)
             ),
         )
 

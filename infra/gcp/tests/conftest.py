@@ -36,6 +36,10 @@ class _Mocks(pulumi.runtime.Mocks):
             outputs["name"] = f"projects/123456789012/locations/global/workloadIdentityPools/{pool}"
         elif args.typ == "gcp:dns/managedZone:ManagedZone":
             outputs["nameServers"] = [f"ns-cloud-a{i}.googledomains.com." for i in range(1, 5)]
+        elif args.typ == "random:index/randomId:RandomId":
+            # `hex` is server-assigned. Without it the Hosting site id under test resolves to
+            # None and every assertion about the id becomes vacuous.
+            outputs["hex"] = "a1b2"
         elif args.typ == "gcp:serviceaccount/account:Account":
             account_id = args.inputs.get("accountId", args.name)
             outputs["email"] = f"{account_id}@test-project.iam.gserviceaccount.com"

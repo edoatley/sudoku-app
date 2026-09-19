@@ -98,6 +98,13 @@ pulumi stack init prod --secrets-provider=passphrase
 pulumi stack import --file bootstrap-state-backup.json
 pulumi refresh                     # MUST report no changes
 pulumi up                          # MUST report 0 changed
+
+# 2c. Re-key to the KMS key this stack just created, now that it exists.
+# Until this runs, reading bootstrap's outputs needs the passphrase — including from CI, which
+# reaches them by StackReference from the app stack and has no passphrase to offer.
+pulumi stack change-secrets-provider \
+  "gcpkms://projects/<project>/locations/<region>/keyRings/sudoku-pulumi/cryptoKeys/pulumi-secrets"
+env -u PULUMI_CONFIG_PASSPHRASE pulumi preview   # MUST report no changes, with no passphrase set
 ```
 
 **The passphrase is not recoverable.** Losing it makes this stack's state unreadable. The stack

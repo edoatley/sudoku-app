@@ -171,22 +171,33 @@ principal_set = pulumi.Output.concat(
 )
 ```
 
-**The CORS origin list** depends on the Hosting site, and the backend that consumes it is a
-different component:
+**The container image URI** is assembled from a *different stack's* resource attribute and a
+per-run config value, so CI never hand-builds a registry path that a repository rename could
+silently desync:
 
 ```python
-hosting = StaticSite(...)
-cors = pulumi.Output.all(hosting.default_url, custom_domain_url).apply(
-    lambda urls: ",".join([*urls, "http://localhost:5173"])
+image = pulumi.Output.concat(
+    bootstrap.require_output("artifact_registry_url"), "/backend:", config.get("backendImageTag")
 )
-backend = ContainerService(..., env={"CORS_ALLOWED_ORIGINS": cors, ...})
-pulumi.export("backend_url", backend.url)
 ```
 
-This is the same circular dependency the AWS facet documents (the Amplify URL is unknown at apply
-time, resolved by a post-apply `aws cognito-idp update-user-pool-client` call). On GCP it
-resolves *inside the program*, with no post-apply step and nothing held outside state — a genuine
-architectural improvement, not merely a tooling swap.
+The frontend origin the backend must allow through CORS is the contrasting case, and the contrast
+is the point. On AWS the equivalent value — the Amplify URL — is genuinely unknown until apply,
+and closing the loop needs a post-apply `aws cognito-idp update-user-pool-client` call, with the
+dependency living outside state. On GCP the origin is `https://{site_id}.web.app` and `site_id`
+comes from `naming.py`, so the same function names the Hosting site and builds the origin list the
+backend allows — the two cannot disagree:
+
+```python
+cors = site_unique.hex.apply(
+    lambda hex_: naming.cors_allowed_origins(stack, project_id, unique_suffix=hex_)
+)
+backend = ContainerService(..., env=backend_env(..., cors_origins=cors))
+```
+
+Production needs no `Output` at all — its site id is the project id, so the list is a plain string.
+Either way there is no post-apply step: the circular dependency the AWS facet resolves after the
+fact never forms here.
 
 The `app` stack reads `bootstrap`'s outputs by `StackReference`:
 
@@ -211,10 +222,30 @@ Pulumi stacks replace Terraform workspaces one-for-one, with one rename: **`defa
 | `rcg-<branch>` | Ephemeral per-branch environment. Named `sudoku-<stack>` Firestore database, own Hosting site, `-<stack>` suffix throughout. |
 
 Stack-name derivation lives in `components/naming.py` and is shared by CI and the Pulumi program,
-so the two cannot drift: lowercase, `/.` → `-`, strip to `[a-z0-9-]`, cap at
-`30 - len(project_id) - 1`, strip any trailing hyphen. The 30-character cap is the Firebase
-Hosting `site_id` limit — a Firebase constraint, not a Terraform one, so it survives the move.
-`scripts/github/gcp-workspace-name.sh` is deleted once `naming.py` is authoritative.
+so the two cannot drift: lowercase, `/.` → `-`, strip to `[a-z0-9-]`, cap at 14 characters, strip
+any trailing hyphen. `naming.py` is the sole implementation; CI shells into it rather than
+reimplementing it in bash.
+
+That 14 is what remains of the 30-character Firebase Hosting `site_id` limit — a Firebase
+constraint, not a Terraform one — once the non-production id shape is accounted for:
+
+| Stack | `site_id` |
+| --- | --- |
+| `prod` | `sudoku-eo-2026` — the project id, long-lived, never deleted |
+| everything else | `sudoku-dev-<stack>-<4 hex>` |
+
+**A non-production site id is never reused.** Firebase tombstones a deleted site's name: a
+torn-down stack redeployed under the same id fails part-way through, at the Hosting site, leaving
+the rest of the environment to be cleaned up by hand. The suffix is a `random.RandomId` held in
+stack state, so it is fixed for a stack's life and fresh whenever a stack is created.
+
+The suffix is deliberately **not** derived from git. Branches cut from the same base share a first
+commit, so two concurrent environments would collide; and because `site_id` is immutable, a rebase
+would rewrite the hash, replace the site, change its URL and burn the old name. State is the only
+source that is both stable across history rewrites and fresh on recreation.
+
+Dropping the project id from non-production ids is what makes room for the suffix. It cost 14 of
+the 30 characters and distinguished nothing — every stack lives in the same project.
 
 Per-run values are passed non-persistently rather than committed:
 
@@ -243,10 +274,21 @@ API Gateway's; load and spend are bounded by `max_instance_count` × container c
 is the documented, accepted substitute. Each service runs as its own runtime service account,
 never the default compute SA. @spec CP-GCP-001, CP-GCP-002, CP-GCP-003, CP-GCP-004, CP-GCP-013
 
-Backend environment: `QUARKUS_PROFILE=gcp`, `QUARKUS_CONFIG_PROFILE_PARENT=prod`,
-`GCP_PROJECT_ID`, `QUARKUS_GOOGLE_CLOUD_PROJECT_ID`, `CORS_ALLOWED_ORIGINS`,
-`COACH_AI_PROVIDER=vertex`, `GCP_REGION`. Image recognition adds `IMAGE_AI_PROVIDER=vertex`,
-`VERTEX_MODELS`. **No AWS environment variables on either service.**
+The two services carry deliberately different environments. Backend:
+`QUARKUS_PROFILE=gcp`, `QUARKUS_CONFIG_PROFILE_PARENT=prod`, `GCP_PROJECT_ID`,
+`QUARKUS_GOOGLE_CLOUD_PROJECT_ID`, `CORS_ALLOWED_ORIGINS`, `COACH_AI_PROVIDER=vertex`,
+`GCP_REGION`. Image recognition: `GCP_PROJECT_ID`, `CORS_ALLOWED_ORIGINS`,
+`IMAGE_AI_PROVIDER=vertex`. **No AWS environment variables on either service.**
+
+`GCP_REGION` is backend-only, and that asymmetry is load-bearing. Both services read it as a
+Vertex endpoint location, but they need different answers: the coach's `gemini-2.5-flash-lite` is
+regional and tracks the Cloud Run region, while image recognition's `gemini-3.8-flash` is served
+**only** from the `global` endpoint, which is what `providers/vertex.py` falls back to when the
+variable is absent. Setting it on image recognition returns a 404 whose message suggests the model
+does not exist or is not permitted — it reads as a naming or entitlement fault rather than a
+location one, so a unit test asserts the variable's absence. The model itself stays unpinned in
+infrastructure: `VERTEX_MODELS` is an override, and the default in `providers/vertex.py` is the
+value the accuracy gate cleared.
 
 ### Persistence (Firestore)
 
@@ -301,8 +343,9 @@ inside a delegated zone, so an ordinary CNAME record works and the objection doe
 ### AI Inference
 
 Vertex AI for both the coach (`gemini-2.5-flash-lite`, `VertexCoachClient`) and image recognition
-(`gemini-2.5-flash`, chosen because grid OCR is materially harder than text generation),
-authenticated by each runtime service account via ADC. **No cross-cloud Bedrock, no AWS access
+(`gemini-3.8-flash`, a full model rather than the coach's `flash-lite` because grid OCR is
+materially harder than text generation — `gemini-2.5-flash` scored 92.6% against the fixture set
+where 3.8-flash scores 100%), authenticated by each runtime service account via ADC. **No cross-cloud Bedrock, no AWS access
 key, no Secret Manager.** @spec CP-GCP-090, CP-GCP-089
 
 ### Cost Guardrail
@@ -344,7 +387,14 @@ the prod invoker, DNS records — is code. Six bash scripts are deleted.
 
 Pulumi cannot store state in a bucket that does not exist yet. Rather than create that bucket by
 hand, `bootstrap`'s **first** run uses the local filesystem backend and then migrates into the
-bucket it just created, which keeps "100% Pulumi-built" literally true:
+bucket it just created, which keeps "100% Pulumi-built" literally true.
+
+The same ordering applies to its secrets: `bootstrap` is created under a passphrase because it is
+creating the KMS key, then re-keyed onto that key once it exists. Leaving it on the passphrase
+does not stay a local concern — the `app` stack reads `bootstrap` by `StackReference`, which
+constructs that stack's secrets manager, so every CI run would need the passphrase and the
+project would have acquired exactly the kind of long-lived shared credential it exists to avoid.
+Both stacks therefore end on KMS, which the deploy service account can already use.
 
 ```bash
 cd infra/gcp/bootstrap

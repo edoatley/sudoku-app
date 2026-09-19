@@ -39,11 +39,51 @@ class TestStackScope:
             "StaticSite must not receive custom_domain in Phase 3 — see the phase plan §1"
         )
 
-    def test_no_cloud_run_services_yet(self):
-        assert "ContainerService" not in APP_MAIN.read_text(), "Cloud Run is Phase 6"
+    def test_cloud_run_landed_in_phase_6(self):
+        assert "ContainerService" in APP_MAIN.read_text()
+
+    def test_services_are_conditional_on_an_image_tag(self):
+        # The prod stack carries no image tags and must keep previewing clean. Presence of a
+        # built artefact gates the service, not a feature toggle — a toggle is what let a manual
+        # dispatch silently revert the Vertex cutover on the Terraform path.
+        src = APP_MAIN.read_text()
+        assert 'config.get("backendImageTag")' in src
+        assert 'config.get("imageRecognitionImageTag")' in src
+
+    def test_image_uris_are_built_from_the_registry_output(self):
+        # Hand-assembling the registry host would desync silently if the repository were renamed.
+        src = APP_MAIN.read_text()
+        assert "docker.pkg.dev" not in src, "registry host must come from the bootstrap output"
+        assert "artifact_registry_url" in src
+
+    def test_environments_come_from_the_shared_helpers(self):
+        src = APP_MAIN.read_text()
+        assert "backend_env(" in src and "image_recognition_env(" in src
+
+    def test_no_aws_or_bedrock_anywhere_in_the_program(self):
+        # The whole point of the re-platform: zero long-lived credentials on GCP. @spec CP-GCP-089
+        src = APP_MAIN.read_text().upper()
+        for token in ("AWS_", "BEDROCK", "SECRET_KEY_REF"):
+            assert token not in src, token
 
     def test_identity_platform_landed_in_phase_4(self):
         assert "IdentityPlatform" in APP_MAIN.read_text()
+
+    def test_project_level_singletons_are_production_only(self):
+        # The Identity Platform tenant, its authorised domains and the Google IdP are configured
+        # once per project. A second stack declaring them collides on resources that already
+        # exist, so an ephemeral stack signs in against the tenant production owns.
+        src = APP_MAIN.read_text()
+        identity_block = src.split("# ── Authentication")[1].split("# ── Compute")[0]
+        assert "if is_prod:" in identity_block
+        assert "enroll_firebase=is_prod" in src
+
+    def test_ephemeral_stacks_need_no_config_file_of_their_own(self):
+        # A fresh stack is created by CI with no Pulumi.<stack>.yaml. Anything require()d
+        # unconditionally would fail before a single resource was touched.
+        src = APP_MAIN.read_text()
+        for key in ("customDomain", "dnsZoneDomain"):
+            assert f'config.require("{key}") if is_prod else None' in src, key
 
     def test_stack_reference_uses_the_diy_backend_form(self):
         # DIY backends place every project under a virtual organization named by the literal
@@ -80,14 +120,27 @@ class TestHosting:
 
     def test_site_id_stays_within_the_firebase_limit_for_real_branches(self):
         for branch in ("rcg-parity", "rcg-some-long-feature-branch", "rcg-a"):
-            stack = naming.stack_name_for_branch(branch, PROJECT_ID)
-            site = naming.hosting_site_id(stack, PROJECT_ID)
+            stack = naming.stack_name_for_branch(branch)
+            site = naming.hosting_site_id(stack, PROJECT_ID, "a1b2")
             assert len(site) <= naming.FIREBASE_SITE_ID_MAX, (branch, site, len(site))
 
     @pulumi.runtime.test
     def test_default_url_matches_the_site_id(self):
         site = StaticSite("host-check", project="p", site_id=PROJECT_ID)
         return site.default_url.apply(lambda u: _assert(u == f"https://{PROJECT_ID}.web.app", u))
+
+    def test_the_site_id_carries_a_state_held_suffix_outside_production(self):
+        # Firebase tombstones a deleted site's name, so a redeployed stack must not reuse one.
+        src = APP_MAIN.read_text()
+        assert "random.RandomId(" in src
+        assert "SITE_UNIQUE_SUFFIX_LEN" in src
+
+    def test_production_gets_no_suffix_resource(self):
+        # An extra resource in prod state would break the "production is untouched" guarantee.
+        src = APP_MAIN.read_text()
+        suffix_block = src.split("site_unique = None")[1].split("site = StaticSite")[0]
+        assert "if is_prod:" in suffix_block
+        assert "random.RandomId(" in suffix_block.split("else:")[1]
 
 
 class TestDns:

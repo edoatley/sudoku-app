@@ -3,7 +3,6 @@
 config:
   gcp:project: sudoku-eo-2026
   gcp:region: us-central1
-
   sudoku:projectId: sudoku-eo-2026
   sudoku:projectName: Sudoku
   sudoku:region: us-central1
@@ -23,4 +22,5 @@ config:
   # is rejected as a bare "400: Request contains an invalid argument".
   sudoku:budgetAmount: "20"
   sudoku:budgetCurrency: GBP
-encryptionsalt: v1:5QkoyaDz/NI=:v1:/LeGCMDvfH46bQT8:bUTX/zel7h2LodAxo144VlU2yKkR0A==
+secretsprovider: gcpkms://projects/sudoku-eo-2026/locations/us-central1/keyRings/sudoku-pulumi/cryptoKeys/pulumi-secrets
+encryptedkey: CiQAZe3KJwaxshm3E+fdHgxf8MPqvpM1V19f04KSJ2zU4Mdd0fwSSQBcMz4b+urgG6XGqpMOpnrVvZSldw8+5w5U8f8F0AbBmSeDPI2u+saehtQWWsb2i8DjeHvdBEkG2xi3A0FfBirtt7zzXKyb5ds=

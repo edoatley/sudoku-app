@@ -1,15 +1,14 @@
 name: Teardown GCP RC Environment
 
-# Destroys the per-branch GCP Terraform workspace when an rcg-* branch is deleted — the GCP
-# counterpart of teardown-rc.yml. The shared Artifact Registry repos and bootstrap-managed
-# service accounts are NOT touched (they live outside this Terraform state).
+# Destroys a GCP Terraform workspace on the incumbent project `sudoku-app-eo`. The shared
+# Artifact Registry repos and bootstrap-managed service accounts are NOT touched (they live
+# outside this Terraform state).
 #
-# NOTE: `delete` events only run the workflow version on the default branch, so this must be
-# merged to main to be active.
+# Dispatch only. `rcg-*` branches now deploy Pulumi stacks on the new project, and
+# teardown-gcp-pulumi.yml destroys those on branch delete. This workflow remains so any workspace
+# left on the incumbent project can still be cleaned up by hand before Phase 9 deletes it.
 
 on:
-  delete:
-    # Fires for both branch and tag deletions; filtered to rcg-* branches below.
   workflow_dispatch:
     inputs:
       workspace:
@@ -26,10 +25,6 @@ jobs:
     name: Terraform Destroy (rcg-* / manual)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # On delete: only rcg-* branches. On workflow_dispatch: any (guarded below).
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.ref_type == 'branch' && startsWith(github.event.ref, 'rcg-'))
     defaults:
       run:
         working-directory: infra/gcp
@@ -50,13 +45,8 @@ jobs:
       - name: Resolve workspace
         id: workspace
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            WS="${{ inputs.workspace }}"
-            echo "Manual teardown → workspace '${WS}'"
-          else
-            WS="$(bash "${GITHUB_WORKSPACE}/scripts/github/gcp-workspace-name.sh" "${{ github.event.ref }}")"
-            echo "Branch '${{ github.event.ref }}' → workspace '${WS}'"
-          fi
+          WS="${{ inputs.workspace }}"
+          echo "Manual teardown → workspace '${WS}'"
           # Safety: never destroy production / an empty workspace.
           if [ -z "${WS}" ] || [ "${WS}" = "default" ]; then
             echo "ERROR: refusing to destroy workspace '${WS}'."

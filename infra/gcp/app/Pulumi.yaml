@@ -8,3 +8,20 @@ description: >-
   Sudoku GCP application resources — Cloud Run, Firestore, Identity Platform, Firebase Hosting
   and Cloud DNS. Run by CI as the Workload-Identity-federated deploy service account, which
   holds no IAM-admin, WIF-admin or billing permission.
+
+# Defaults shared by every stack, so an ephemeral stack can be created and deployed without a
+# configuration file of its own. Stack-specific values — the custom domain, the DNS zone and the
+# OAuth client — live in Pulumi.prod.yaml, because production is the only stack that uses them.
+config:
+  gcp:project:
+    value: sudoku-eo-2026
+  gcp:region:
+    value: us-central1
+  sudoku:projectId:
+    value: sudoku-eo-2026
+  sudoku:region:
+    value: us-central1
+  # DIY backends place every project under a virtual organization named by the literal constant
+  # "organization". Not an account name, and not the bare stack name `pulumi stack ls` shows.
+  sudoku:bootstrapStack:
+    value: organization/sudoku-gcp-bootstrap/prod

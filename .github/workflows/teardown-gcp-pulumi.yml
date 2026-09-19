@@ -1,0 +1,136 @@
+name: Teardown GCP RC Environment (Pulumi)
+
+# Destroys the per-branch Pulumi stack on the new project `sudoku-eo-2026` when an rcg-* branch is
+# deleted — the counterpart of deploy-gcp-pulumi.yml, and the Pulumi replacement for
+# teardown-gcp.yml's delete trigger.
+#
+# Bootstrap-managed resources (Artifact Registry, service accounts, KMS, WIF) are NOT touched:
+# they belong to the bootstrap stack, which this never selects.
+#
+# NOTE: `delete` events only run the workflow version on the default branch, so this must be
+# merged to main to be active.
+
+on:
+  delete:
+    # Fires for branch and tag deletions alike; filtered to rcg-* branches below.
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: "Pulumi stack to destroy (must not be 'prod')"
+        type: string
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-gcp-pulumi-${{ github.event.inputs.stack || github.event.ref }}
+  cancel-in-progress: false
+
+jobs:
+  teardown:
+    name: Pulumi destroy (rcg-* / manual)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.ref_type == 'branch' && startsWith(github.event.ref, 'rcg-'))
+    defaults:
+      run:
+        working-directory: infra/gcp
+    env:
+      PULUMI_BACKEND_URL: ${{ vars.PULUMI_STATE_BUCKET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+      - uses: pulumi/actions@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: infra/gcp/uv.lock
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # Same derivation as the deploy, from components/naming.py, so a teardown can never look for
+      # a differently-named stack than the one deployed. @spec CP-PUL-021
+      - id: stack
+        name: Resolve the stack
+        env:
+          BRANCH: ${{ github.event.ref }}
+          STACK_INPUT: ${{ github.event.inputs.stack }}
+        run: |
+          set -euo pipefail
+          if [ -n "${STACK_INPUT}" ]; then
+            STACK="${STACK_INPUT}"
+            echo "Manual teardown → stack '${STACK}'"
+          else
+            STACK="$(uv run python -c 'import os; from components import naming; print(naming.stack_name_for_branch(os.environ["BRANCH"]))')"
+            echo "Branch '${BRANCH}' → stack '${STACK}'"
+          fi
+          # Production is destroyed by nothing, ever.
+          if [ -z "${STACK}" ] || [ "${STACK}" = "prod" ]; then
+            echo "::error::refusing to destroy stack '${STACK}'."
+            exit 1
+          fi
+          echo "stack=${STACK}" >> "$GITHUB_OUTPUT"
+
+      # A self-managed backend keeps the secrets-provider declaration in Pulumi.<stack>.yaml, not
+      # in state. Ephemeral stacks commit no such file, so a re-run on a fresh checkout would fall
+      # back to the passphrase provider and fail with an error naming PULUMI_CONFIG_PASSPHRASE —
+      # which reads as a missing secret rather than a missing file. Write it before touching the
+      # stack; Pulumi derives the wrapped data key itself on first use.
+      #
+      # Only when absent: prod's committed Pulumi.prod.yaml carries real configuration, and
+      # overwriting it would discard the OAuth client and custom domain.
+      - name: Ensure the stack declares its secrets provider
+        working-directory: infra/gcp/app
+        env:
+          STACK: ${{ steps.stack.outputs.stack }}
+          KMS_KEY: ${{ vars.PULUMI_KMS_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -f "Pulumi.${STACK}.yaml" ]; then
+            echo "Pulumi.${STACK}.yaml is committed — leaving it alone."
+          else
+            printf 'secretsprovider: %s\n' "${KMS_KEY}" > "Pulumi.${STACK}.yaml"
+            echo "Wrote Pulumi.${STACK}.yaml declaring the KMS secrets provider."
+          fi
+
+      - id: select
+        name: Select the stack (skip if absent)
+        working-directory: infra/gcp/app
+        run: |
+          set -euo pipefail
+          if pulumi stack select "${{ steps.stack.outputs.stack }}" 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Stack '${{ steps.stack.outputs.stack }}' does not exist — nothing to destroy."
+          fi
+
+      # `--force` is prohibited on both commands: `pulumi stack rm --force` deletes the stack while
+      # leaving its live cloud resources running, with no state left to find them by.
+      - name: Pulumi destroy
+        if: steps.select.outputs.exists == 'true'
+        working-directory: infra/gcp/app
+        run: pulumi destroy --yes --non-interactive --stack "${{ steps.stack.outputs.stack }}"
+
+      - name: Remove the stack
+        if: steps.select.outputs.exists == 'true'
+        working-directory: infra/gcp/app
+        run: pulumi stack rm --yes "${{ steps.stack.outputs.stack }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### GCP RC environment torn down (Pulumi)"
+            echo ""
+            echo "- Stack: \`${{ steps.stack.outputs.stack }}\`"
+            echo "- Existed: \`${{ steps.select.outputs.exists }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

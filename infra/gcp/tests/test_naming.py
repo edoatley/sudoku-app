@@ -9,32 +9,27 @@ from components import naming
 
 class TestStackNameForBranch:
     def test_sanitises_and_lowercases(self):
-        assert naming.stack_name_for_branch("RCG-Parity", "sudoku-eo") == "rcg-parity"
+        assert naming.stack_name_for_branch("RCG-Parity") == "rcg-parity"
 
     def test_slashes_and_dots_become_hyphens(self):
-        assert naming.stack_name_for_branch("feat/a.b", "sudoku-eo") == "feat-a-b"
+        assert naming.stack_name_for_branch("feat/a.b") == "feat-a-b"
 
     def test_strips_disallowed_characters(self):
-        assert naming.stack_name_for_branch("rcg_foo!bar", "sudoku-eo") == "rcgfoobar"
+        assert naming.stack_name_for_branch("rcg_foo!bar") == "rcgfoobar"
 
-    def test_caps_at_the_firebase_site_id_limit(self):
-        project = "sudoku-eo-2026"  # 14 chars -> budget 30-14-1 = 15
-        stack = naming.stack_name_for_branch("rcg-" + "x" * 60, project)
-        assert len(stack) == 15
-        assert len(naming.hosting_site_id(stack, project)) <= naming.FIREBASE_SITE_ID_MAX
+    def test_caps_at_the_stack_name_budget(self):
+        stack = naming.stack_name_for_branch("rcg-" + "x" * 60)
+        assert len(stack) == naming.STACK_NAME_MAX
+        site = naming.hosting_site_id(stack, "sudoku-eo-2026", "a1b2")
+        assert len(site) <= naming.FIREBASE_SITE_ID_MAX
 
     def test_never_ends_with_a_hyphen(self):
         # Truncation can land exactly on a hyphen; a Firebase site_id may not end with one.
-        project = "sudoku-eo-2026"
-        assert not naming.stack_name_for_branch("rcg-abcdefghijk-zzz", project).endswith("-")
-
-    def test_rejects_a_project_id_leaving_no_room(self):
-        with pytest.raises(ValueError, match="no room"):
-            naming.stack_name_for_branch("rcg-x", "a" * 30)
+        assert not naming.stack_name_for_branch("rcg-abcdefgh-zzz").endswith("-")
 
     def test_rejects_a_branch_that_sanitises_to_nothing(self):
         with pytest.raises(ValueError, match="empty stack name"):
-            naming.stack_name_for_branch("___", "sudoku-eo")
+            naming.stack_name_for_branch("___")
 
 
 class TestSuffixesAndLabels:
@@ -71,7 +66,51 @@ class TestFirestoreAndHosting:
 
     def test_site_id_over_the_limit_is_rejected(self):
         with pytest.raises(ValueError, match="over the"):
-            naming.hosting_site_id("a" * 40, "sudoku-eo-2026")
+            naming.hosting_site_id("a" * 40, "sudoku-eo-2026", "a1b2")
+
+
+class TestHostingSiteUniqueness:
+    """Firebase tombstones a deleted site's name, so an id must never be reused.
+
+    A torn-down stack recreated under the same name fails at the Hosting site and leaves a
+    partial environment behind. Non-production ids therefore carry a suffix sourced from Pulumi
+    state — fixed for a stack's life, fresh on recreation — rather than from git, which collides
+    across branches sharing a base and changes under a rebase.
+    """
+
+    def test_production_id_is_the_project_id_and_carries_no_suffix(self):
+        assert naming.hosting_site_id("prod", "sudoku-eo-2026") == "sudoku-eo-2026"
+
+    def test_non_prod_ids_name_the_stack_and_the_suffix(self):
+        assert (
+            naming.hosting_site_id("rcg-p6v2", "sudoku-eo-2026", "a1b2")
+            == "sudoku-dev-rcg-p6v2-a1b2"
+        )
+
+    def test_non_prod_id_is_independent_of_the_project_id(self):
+        # The project id is what consumed the character budget; dropping it made room for the
+        # suffix, and it identified nothing — every stack lives in the same project.
+        for project in ("sudoku-eo-2026", "some-other-project"):
+            assert naming.hosting_site_id("rcg-x", project, "a1b2") == "sudoku-dev-rcg-x-a1b2"
+
+    def test_two_stacks_with_different_suffixes_never_collide(self):
+        assert naming.hosting_site_id("rcg-x", "p", "a1b2") != naming.hosting_site_id(
+            "rcg-x", "p", "c3d4"
+        )
+
+    def test_a_non_prod_id_requires_a_suffix(self):
+        # Silently omitting it would produce a reusable name and reintroduce the tombstone.
+        with pytest.raises(ValueError, match="unique_suffix"):
+            naming.hosting_site_id("rcg-x", "sudoku-eo-2026")
+
+    def test_the_longest_allowed_stack_still_fits_exactly(self):
+        stack = "a" * naming.STACK_NAME_MAX
+        site = naming.hosting_site_id(stack, "sudoku-eo-2026", "a" * 4)
+        assert len(site) == naming.FIREBASE_SITE_ID_MAX, (site, len(site))
+
+    def test_the_budget_matches_the_id_shape(self):
+        # 30 - len("sudoku-dev") - 1 - 4 - 1 = 14
+        assert naming.STACK_NAME_MAX == 14
 
 
 class TestCors:
@@ -80,15 +119,14 @@ class TestCors:
         assert origins == "https://sudoku.gcp.edoatley.co.uk,http://localhost:5173"
 
     def test_non_prod_serves_its_own_hosting_origin(self):
-        origins = naming.cors_allowed_origins("rcg-x", "sudoku-eo")
-        assert origins == "https://sudoku-eo-rcg-x.web.app,http://localhost:5173"
+        origins = naming.cors_allowed_origins("rcg-x", "sudoku-eo", unique_suffix="a1b2")
+        assert origins == "https://sudoku-dev-rcg-x-a1b2.web.app,http://localhost:5173"
 
     def test_prod_without_a_custom_domain_fails_loudly(self):
         with pytest.raises(ValueError, match="custom_domain"):
             naming.cors_allowed_origins("prod", "sudoku-eo")
 
     def test_localhost_is_always_allowed(self):
-        for stack in ("prod", "rcg-x"):
-            domain = "d.example.com" if stack == "prod" else None
-            allowed = naming.cors_allowed_origins(stack, "sudoku-eo", domain)
+        for stack, domain, suffix in (("prod", "d.example.com", None), ("rcg-x", None, "a1b2")):
+            allowed = naming.cors_allowed_origins(stack, "sudoku-eo", domain, unique_suffix=suffix)
             assert naming.LOCAL_DEV_ORIGIN in allowed
