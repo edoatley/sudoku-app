@@ -139,7 +139,7 @@ jobs:
           project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
           service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
-      - uses: pulumi/actions@v6
+      - uses: pulumi/actions@v7
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
