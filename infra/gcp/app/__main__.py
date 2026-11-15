@@ -96,13 +96,14 @@ site = StaticSite(
 
 # ── Authentication ────────────────────────────────────────────────────────────
 # Identity Platform is configured once per *project*, not per stack: the tenant, its authorised
-# domains and the Google IdP are all project-level singletons. Production owns them; an ephemeral
-# stack signs in against the same tenant rather than declaring a second one that cannot exist.
+# domains and the Google IdP are all project-level singletons. Production owns the Pulumi resource;
+# an ephemeral stack signs in against the same tenant rather than declaring a second one that
+# cannot exist.
 #
-# The consequence is that an RC stack's own *.web.app origin is not an authorised sign-in origin.
-# `localhost` is, on every stack, which is why a locally-served UI pointed at the RC backend is
-# the supported way to exercise a real Google sign-in against an ephemeral environment. The
-# password-based smoke user is unaffected — authorised domains gate the OAuth redirect only.
+# After `pulumi up` (and after `pulumi destroy` on teardown), CI runs
+# `scripts/github/sync_gcp_authorized_domains.py` to keep every live Firebase Hosting site's
+# `<site_id>.web.app` origin registered in Identity Platform's `authorizedDomains`, so Google
+# sign-in works on `rcg-*` Hosting URLs as well as production and `localhost`.
 identity = None
 if is_prod:
     # Authorised domains must cover every origin a sign-in can be initiated from. One missing

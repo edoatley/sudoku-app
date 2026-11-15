@@ -90,6 +90,10 @@ class TestCredentialConvention:
         assert "_NEXT" not in workflow
         assert "GCP_PULUMI_PROJECT_ID" not in workflow
 
+    def test_authorized_domains_are_synced_after_pulumi(self, workflow):
+        assert "sync_gcp_authorized_domains.py" in workflow
+        assert "token_format: access_token" in workflow
+
 
 class TestDestructiveFlags:
     def test_teardown_never_forces(self):

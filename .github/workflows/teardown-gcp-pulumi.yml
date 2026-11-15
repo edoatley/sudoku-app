@@ -42,11 +42,13 @@ jobs:
       PULUMI_BACKEND_URL: ${{ vars.PULUMI_STATE_BUCKET }}
     steps:
       - uses: actions/checkout@v7
-      - uses: google-github-actions/auth@v3
+      - id: auth
+        uses: google-github-actions/auth@v3
         with:
           project_id: ${{ vars.GCP_PROJECT_ID }}
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+          token_format: access_token
       - uses: pulumi/actions@v6
       - uses: astral-sh/setup-uv@v7
         with:
@@ -123,6 +125,13 @@ jobs:
         if: steps.select.outputs.exists == 'true'
         working-directory: infra/gcp/app
         run: pulumi stack rm --yes "${{ steps.stack.outputs.stack }}"
+
+      - name: Sync Identity Platform authorized domains
+        if: steps.select.outputs.exists == 'true'
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCLOUD_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: uv run python ../../scripts/github/sync_gcp_authorized_domains.py
 
       - name: Summary
         if: always()
