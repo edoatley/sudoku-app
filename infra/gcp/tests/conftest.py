@@ -7,6 +7,7 @@ where the AWS facet still records "no Terratest or equivalent" as an accepted ga
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pulumi
@@ -58,4 +59,8 @@ class _Mocks(pulumi.runtime.Mocks):
         return {}, []
 
 
+# Python 3.14+ (Ubuntu 26.04 `ubuntu-latest`) removed implicit event-loop creation in
+# `asyncio.get_event_loop()`, while Pulumi's `set_mocks()` constructs `Stack()` synchronously
+# before any `@pulumi.runtime.test` wrapper runs `_ensure_event_loop()`.
+asyncio.set_event_loop(asyncio.new_event_loop())
 pulumi.runtime.set_mocks(_Mocks(), project="sudoku-test", stack="test", preview=False)
