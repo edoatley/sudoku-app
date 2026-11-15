@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/edoatley/sudoku-app/actions/workflows/ci-deploy.yml/badge.svg)
 
-A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a React frontend on AWS Amplify.
+A dual-cloud serverless Sudoku application with a Java/Quarkus backend and a React frontend, deployable to **AWS** (Lambda + Amplify + DynamoDB + Cognito, via Terraform) or **GCP** (Cloud Run + Firebase Hosting + Firestore + Identity Platform, via Pulumi Python).
 
 ## Contents
 
@@ -17,17 +17,19 @@ A serverless Sudoku application with a Java/Quarkus backend on AWS Lambda and a 
 - [Testing](#testing)
 - [Key Files](#key-files)
 - [Infrastructure](#infrastructure)
-- [Deployment](#deployment)
+- [Deployment & Cloud Target Switching](#deployment--cloud-target-switching)
 - [Contributing](#contributing)
 
 ---
 
 ## High-Level Architecture
 
+The application supports two independent cloud deployments controlled via branch naming (`rc-*` vs `rcg-*`) or the `DEPLOY_TARGET` repository variable (`aws` | `gcp` | `both`):
+
 ```mermaid
 flowchart LR
-    subgraph aws["☁️ AWS London"]
-        amplify["🌐 Amplify"]
+    subgraph aws["☁️ AWS London (eu-west-2)"]
+        amplify["🌐 Amplify\nsudoku.edoatley.co.uk"]
         cognito["🔒 Cognito"]
         apigw["🌐 API Gateway + JWT Authorizer"]
         lambda["⚙️ Lambda\nQuarkus Java 25"]
@@ -43,9 +45,25 @@ flowchart LR
     lambda --> dynamo
     lambda --> bedrock
     imgrec --> bedrock
+
+    subgraph gcp["☁️ GCP (us-central1, sudoku-eo-2026)"]
+        fb["🌐 Firebase Hosting\nsudoku.gcp.edoatley.co.uk"]
+        idp["🔒 Identity Platform"]
+        crun["⚙️ Cloud Run\nQuarkus Java 25"]
+        crun_ir["🖼️ Image Recognition Cloud Run\nPython 3.14"]
+        vertex["🤖 Vertex AI\nGemini 2.5 Flash"]
+        firestore[("🗄️ Firestore")]
+    end
+
+    fb --> idp
+    fb --> crun
+    crun --> crun_ir
+    crun --> firestore
+    crun --> vertex
+    crun_ir --> vertex
 ```
 
-See [`infra/aws/README.md`](infra/aws/README.md) for the full deployment-level architecture diagram (DNS, Amplify branches, IAM).
+See [`infra/aws/README.md`](infra/aws/README.md) and [`infra/gcp/README.md`](infra/gcp/README.md) for the full deployment-level architecture and stack layout.
 
 ---
 
@@ -59,14 +77,15 @@ See [`infra/aws/README.md`](infra/aws/README.md) for the full deployment-level a
 
 ## Tech Stack
 
-| Layer      | Technology                                                         |
-|------------|--------------------------------------------------------------------|
-| Frontend   | React 19, Vite 8, MUI v9, aws-amplify v6                          |
-| Backend    | Java 25, Quarkus 3.36.1, quarkus-oidc                              |
-| Auth       | Amazon Cognito User Pool (Google social login via OAuth 2.0)       |
-| Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, `SudokuCoachRateLimits`) |
-| Hosting    | AWS Amplify (frontend), AWS Lambda container (backend)             |
-| IaC        | Terraform (AWS provider, eu-west-2)                                |
+| Layer      | AWS (`infra/aws/`)                                                 | GCP (`infra/gcp/`)                                                 |
+|------------|--------------------------------------------------------------------|--------------------------------------------------------------------|
+| Frontend   | React 19, Vite 8, MUI v9 (`VITE_AUTH_PROVIDER=cognito`)            | React 19, Vite 8, MUI v9 (`VITE_AUTH_PROVIDER=firebase`)           |
+| Backend    | Java 25, Quarkus 3.36.1, `quarkus-oidc` (`STORAGE_PROVIDER=dynamodb`) | Java 25, Quarkus 3.36.1, `quarkus-oidc` (`STORAGE_PROVIDER=firestore`) |
+| Auth       | Amazon Cognito User Pool (email/password + Google OAuth 2.0)       | Google Identity Platform / Firebase Auth (email/password + Google) |
+| Database   | AWS DynamoDB (`SudokuGames`, `SudokuPlayers`, `SudokuLeaderboard`, `SudokuCoachRateLimits`) | Google Cloud Firestore (`games`, `players`, `leaderboard`, `coach_rate_limits`) |
+| AI         | Amazon Bedrock (Claude Haiku)                                      | Google Cloud Vertex AI (Gemini 2.5 Flash)                          |
+| Hosting    | AWS Amplify (frontend), AWS Lambda container (backend)             | Firebase Hosting (frontend), Cloud Run v2 (backend + image recognition) |
+| IaC        | Terraform (`eu-west-2`, S3 state)                                  | Pulumi Python (`us-central1`, `gs://sudoku-pulumi-state-eo` + Cloud KMS) |
 
 ---
 
@@ -74,24 +93,28 @@ See [`infra/aws/README.md`](infra/aws/README.md) for the full deployment-level a
 
 ```
 sudoku-app/
-├── backend/          # Java 25 + Quarkus REST API (Lambda-optimized)  → backend/README.md
+├── backend/            # Java 25 + Quarkus REST API (AWS Lambda & GCP Cloud Run) → backend/README.md
 │   └── src/
-├── ui/               # React 19 + Vite frontend with MUI               → ui/README.md
+├── ui/                 # React 19 + Vite frontend with MUI                       → ui/README.md
 │   ├── src/
-│   └── e2e/          # Playwright E2E tests
-├── image_recognition/  # Python AWS Lambda for puzzle photo scanning
-├── infra/aws/        # Terraform IaC (AWS eu-west-2)                   → infra/aws/README.md
-├── scripts/          # Local dev, infra, and CI/CD helper scripts      → scripts/README.md
-├── docs/             # HLD, LLDs, EARS specs, arrows, openapi.yaml, coding standards
-├── Makefile          # Combined dev workflow
-└── CLAUDE.md         # AI assistant instructions
+│   └── e2e/            # Playwright E2E tests
+├── image_recognition/  # Python service for puzzle photo scanning (Lambda & Cloud Run)
+├── infra/
+│   ├── aws/            # Terraform IaC (AWS eu-west-2)                           → infra/aws/README.md
+│   └── gcp/            # Pulumi Python IaC (GCP sudoku-eo-2026)                  → infra/gcp/README.md
+├── scripts/            # Local dev, infra, and CI/CD helper scripts              → scripts/README.md
+├── docs/               # HLD, LLDs, EARS specs, arrows, openapi.yaml, coding standards
+├── Makefile            # Combined dev workflow & cloud target switcher
+└── CLAUDE.md           # AI assistant instructions
 ```
 
 See the component READMEs for detailed usage:
 - [`backend/README.md`](backend/README.md) — Java/Quarkus API, source structure, build profiles, testing
 - [`ui/README.md`](ui/README.md) — React/Vite frontend, env vars, component structure
-- [`infra/aws/README.md`](infra/aws/README.md) — Terraform resources, multi-env strategy, bootstrap, deploy
+- [`infra/aws/README.md`](infra/aws/README.md) — AWS Terraform resources, multi-env strategy, bootstrap, deploy
+- [`infra/gcp/README.md`](infra/gcp/README.md) — GCP Pulumi stacks (`bootstrap` + `app`), reusable components, tests
 - [`scripts/README.md`](scripts/README.md) — Local dev scripts, CI/CD helpers, secret management
+- [`scripts/infra/README.md`](scripts/infra/README.md) — Cloud bootstrap helpers and `cloud-target.sh`
 
 ---
 
@@ -112,13 +135,14 @@ This project follows a **Linked-Intent** approach, where intent flows `HLD → L
 
 ## Prerequisites
 
-| Tool          | Version  | Notes                                  |
-|---------------|----------|----------------------------------------|
-| Java          | 25       | Temurin distribution recommended       |
-| Node.js       | 22       |                                        |
-| Maven Wrapper | bundled  | Use `./mvnw` — no separate install     |
-| Terraform     | latest   | Required for infra work only           |
-| GraalVM       | optional | Required for native image builds only  |
+| Tool          | Version  | Notes                                           |
+|---------------|----------|-------------------------------------------------|
+| Java          | 25       | Temurin distribution recommended                |
+| Node.js       | 22       |                                                 |
+| Maven Wrapper | bundled  | Use `./mvnw` — no separate install              |
+| Terraform     | latest   | Required for AWS infra work (`infra/aws/`)      |
+| Pulumi + `uv` | latest   | Required for GCP infra work (`infra/gcp/`)      |
+| GraalVM       | optional | Required for native image builds only           |
 
 ---
 
@@ -242,34 +266,55 @@ CI runs all three test suites on every push. Playwright reports are uploaded as 
 | [`docs/llds/react-frontend.md`](docs/llds/react-frontend.md)         | Frontend LLD + coding standards          |
 | [`docs/arrows/security-standards.md`](docs/arrows/security-standards.md) | Security standards (IAM, throttling, IDOR) |
 | [`docs/arrows/testing-strategy.md`](docs/arrows/testing-strategy.md) | Test strategy                            |
-| [`docs/llds/user-management.md`](docs/llds/user-management.md)       | Auth standards (Cognito, JWT, OIDC)      |
-| [`docs/llds/cloud-platform.md`](docs/llds/cloud-platform.md)         | IaC standards + CI/CD pipeline           |
+| [`docs/llds/user-management.md`](docs/llds/user-management.md)       | Auth standards (Cognito / Identity Platform, JWT, OIDC) |
+| [`docs/llds/cloud-platform.md`](docs/llds/cloud-platform.md)         | AWS IaC standards + CI/CD pipeline       |
+| [`docs/llds/cloud-platform-gcp.md`](docs/llds/cloud-platform-gcp.md) | GCP Pulumi IaC design + CI/CD pipeline   |
 | [`CLAUDE.md`](CLAUDE.md)                                             | AI assistant instructions                |
 
 ---
 
 ## Infrastructure
 
-Terraform configuration lives in `infra/aws/`. Target region: `eu-west-2` (London).
-
-See [`infra/aws/README.md`](infra/aws/README.md) for the full infrastructure reference including architecture diagram, resource details, bootstrap instructions, and local operations.
+- **AWS (`infra/aws/`)**: Terraform configuration targeting `eu-west-2` (London), backed by S3 state. See [`infra/aws/README.md`](infra/aws/README.md) for architecture diagrams, resource details, bootstrap instructions, and local operations.
+- **GCP (`infra/gcp/`)**: Two-stack Pulumi Python configuration (`bootstrap/` + `app/`) targeting `us-central1` in GCP project `sudoku-eo-2026`, backed by `gs://sudoku-pulumi-state-eo` and encrypted with Cloud KMS. See [`infra/gcp/README.md`](infra/gcp/README.md) and [`docs/runbooks/gcp-manual-setup.md`](docs/runbooks/gcp-manual-setup.md).
 
 ---
 
-## Deployment
+## Deployment & Cloud Target Switching
 
-Deployment is automated via GitHub Actions on push to `main` or `rc-*` branches:
+Deployment is orchestrated by [`.github/workflows/ci-deploy.yml`](.github/workflows/ci-deploy.yml), which runs the full test gate suite (`ci.yml`) and then delegates to the target cloud workflow(s).
 
-1. Maven builds the backend HTTP fast-jar, which is containerised (`Dockerfile.jvm-lwa`) and pushed to ECR
-2. Terraform authenticates via OIDC and runs `init → plan → apply`
-3. A post-apply step tightens API Gateway CORS to the exact Amplify URL
-4. A post-apply step pins Cognito callback URLs to the exact Amplify URL
-5. Amplify build is triggered and waited on
-6. Workflow summary prints the API Gateway and Amplify URLs
+### Live Environment URLs
 
-A manual **Teardown** workflow is available via GitHub Actions (`workflow_dispatch`) for full `terraform destroy`.
+| Cloud | Branch / Stack | Frontend URL | Custom Domain |
+|-------|----------------|--------------|---------------|
+| **AWS** | `main` (`prod`) | Amplify default URL | `https://sudoku.edoatley.co.uk` |
+| **AWS** | `rc-*` (e.g. `rc-foo`) | Amplify branch URL | — |
+| **GCP** | `main` (`prod`) | `https://sudoku-prod-13b8.web.app` | `https://sudoku.gcp.edoatley.co.uk` *(requires NS delegation of `gcp.edoatley.co.uk` in parent zone)* |
+| **GCP** | `rcg-*` (e.g. `rcg-p7`) | `https://sudoku-dev-<stack>-13b8.web.app` (e.g. `https://sudoku-dev-rcg-p7-13b8.web.app`) | — |
 
-See [`infra/aws/README.md`](infra/aws/README.md) for bootstrap steps required before the first deploy.
+### Branch & Target Routing
+
+| Trigger | Cloud Deployed | Workflow |
+|---------|----------------|----------|
+| Push to `rc-*` | **AWS only** (`deploy-aws.yml`) | Builds Lambda container → ECR → Terraform `apply` → Amplify build → smoke test |
+| Push to `rcg-*` | **GCP only** (`deploy-gcp-pulumi.yml`) | Builds Cloud Run containers → Artifact Registry → `pulumi up` → Firebase Hosting deploy → Identity Platform + `/api/v1/games` smoke test |
+| Push to `main` | Controlled by GitHub repository variable **`DEPLOY_TARGET`** (`aws`, `gcp`, or `both`) | Runs `deploy-aws.yml`, `deploy-gcp-pulumi.yml`, or both in parallel |
+
+### Switching the Active Cloud Target (`DEPLOY_TARGET`)
+
+Use [`scripts/infra/shared/cloud-target.sh`](scripts/infra/shared/cloud-target.sh) or the `Makefile` target to inspect or flip which cloud `main` deploys to:
+
+```bash
+make cloud-target              # Show current DEPLOY_TARGET (aws | gcp | both)
+make cloud-target TARGET=gcp   # Flip main-branch deployments to GCP (sudoku-eo-2026)
+make cloud-target TARGET=aws   # Flip main-branch deployments to AWS
+make cloud-target TARGET=both  # Deploy main to both AWS and GCP in parallel
+```
+
+Manual **Teardown** workflows (`workflow_dispatch`) are available for both clouds:
+- AWS: `.github/workflows/teardown.yml` (`terraform destroy`)
+- GCP: `.github/workflows/teardown-gcp-pulumi.yml` (`pulumi destroy` on `infra/gcp/app`)
 
 ---
 

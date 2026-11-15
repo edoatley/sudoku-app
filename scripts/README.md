@@ -270,12 +270,24 @@ Get the nameservers from Terraform:
 cd infra/aws && AWS_PROFILE=sandbox terraform output subdomain_nameservers
 ```
 
-The **GCP** frontend domain is a Firebase Hosting *subdomain* and needs no delegation — just a CNAME
-in the parent zone. Use `scripts/infra/gcp/set-custom-domain-cname.sh` (see the GCP runbook §6b):
+The **GCP** `prod` stack (`infra/gcp/app`) manages the `gcp.edoatley.co.uk` Cloud DNS zone and its `sudoku.gcp.edoatley.co.uk` CNAME directly via Pulumi (`DnsZone` + `StaticSite`). To delegate `gcp.edoatley.co.uk` from the parent Route 53 zone once, pass the 4 Cloud DNS nameservers from the `bootstrap` stack output:
 
 ```bash
-PARENT_ZONE_ID=Z0123456789ABCDEF PROJECT_ID=<gcp-project-id> \
-bash scripts/infra/gcp/set-custom-domain-cname.sh
+PARENT_ZONE_ID=Z0123456789ABCDEF \
+bash scripts/infra/shared/delegate-dns.sh --subdomain gcp ns-cloud-d1.googledomains.com. ns-cloud-d2.googledomains.com. ns-cloud-d3.googledomains.com. ns-cloud-d4.googledomains.com.
+```
+
+---
+
+### shared/cloud-target.sh
+
+Inspects or updates the `DEPLOY_TARGET` GitHub Actions repository variable (`aws` | `gcp` | `both`) that controls which cloud(s) `ci-deploy.yml` deploys to on pushes to `main`. Also exposed as `make cloud-target`.
+
+```bash
+bash scripts/infra/shared/cloud-target.sh        # Show current DEPLOY_TARGET
+bash scripts/infra/shared/cloud-target.sh gcp    # Flip main-branch deploys to GCP (sudoku-eo-2026)
+bash scripts/infra/shared/cloud-target.sh aws    # Flip main-branch deploys to AWS
+bash scripts/infra/shared/cloud-target.sh both   # Deploy to both clouds in parallel
 ```
 
 ---
