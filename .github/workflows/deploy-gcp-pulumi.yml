@@ -6,19 +6,13 @@ name: Deploy GCP (Pulumi)
 #   3. builds the Firebase-provider frontend and deploys it to that stack's Hosting site,
 #   4. smokes the result with a real Identity Platform token.
 #
-# This is the NEW project. `deploy-gcp.yml` remains the Terraform path to the OLD project
-# (`sudoku-app-eo`), which still serves production until the Phase 8 cutover. Phase 9 deletes it.
-#
 # **Reusable only.** `ci-deploy.yml` is the single deploy entry point and decides which cloud a
 # push or dispatch goes to; this workflow has no trigger of its own, so there is no second way to
 # start a GCP deploy and no second place target selection can be decided. @spec CP-PUL-080
 #
-# Credentials follow the `_NEXT` convention: the un-suffixed secrets serve AWS Cognito and the old
-# GCP project and must never be overwritten. Phase 8 does the rename.
-#
-# Repo variables: GCP_PULUMI_PROJECT_ID, PULUMI_STATE_BUCKET, PULUMI_KMS_KEY
-# Repo secrets:   GCP_WIF_PROVIDER_NEXT, GCP_DEPLOY_SA_EMAIL_NEXT,
-#                 SMOKE_TEST_USER_EMAIL, SMOKE_TEST_USER_PASSWORD_NEXT
+# Repo variables: GCP_PROJECT_ID, PULUMI_STATE_BUCKET, PULUMI_KMS_KEY
+# Repo secrets:   GCP_WIF_PROVIDER, GCP_DEPLOY_SA_EMAIL,
+#                 SMOKE_TEST_USER_EMAIL, GCP_SMOKE_TEST_USER_PASSWORD
 
 on:
   workflow_call:
@@ -28,6 +22,19 @@ on:
         type: string
         required: false
         default: ""
+    outputs:
+      stack:
+        description: "Deployed Pulumi stack name"
+        value: ${{ jobs.pulumi.outputs.stack }}
+      backend_url:
+        description: "Cloud Run backend URL"
+        value: ${{ jobs.pulumi.outputs.backend_url }}
+      hosting_default_url:
+        description: "Firebase Hosting default (*.web.app) URL"
+        value: ${{ jobs.pulumi.outputs.hosting_default_url }}
+      custom_domain_url:
+        description: "Custom domain URL (prod only)"
+        value: ${{ jobs.pulumi.outputs.custom_domain_url }}
 
 env:
   GCP_REGION: us-central1
@@ -64,9 +71,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
       - uses: google-github-actions/setup-gcloud@v3
       - uses: ./.github/actions/setup-java
 
@@ -81,7 +88,7 @@ jobs:
       - id: push
         name: Build & push image
         env:
-          PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME//\//-}-${GITHUB_SHA::7}"
@@ -100,9 +107,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
       - uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for Artifact Registry
@@ -111,7 +118,7 @@ jobs:
       - id: push
         name: Build & push image
         env:
-          PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
         run: |
           set -euo pipefail
           # Shares the backend Artifact Registry repo under a distinct image name, rather than
@@ -135,6 +142,8 @@ jobs:
       backend_url: ${{ steps.out.outputs.backend_url }}
       image_recognition_url: ${{ steps.out.outputs.image_recognition_url }}
       hosting_site_id: ${{ steps.out.outputs.hosting_site_id }}
+      hosting_default_url: ${{ steps.out.outputs.hosting_default_url }}
+      custom_domain_url: ${{ steps.out.outputs.custom_domain_url }}
       firebase_api_key: ${{ steps.out.outputs.firebase_api_key }}
       firebase_auth_domain: ${{ steps.out.outputs.firebase_auth_domain }}
     env:
@@ -143,9 +152,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
       - uses: pulumi/actions@v6
       - uses: astral-sh/setup-uv@v7
         with:
@@ -226,8 +235,8 @@ jobs:
         working-directory: infra/gcp/app
         run: |
           set -euo pipefail
-          for o in backend_url image_recognition_url hosting_site_id firebase_api_key firebase_auth_domain; do
-            echo "${o}=$(pulumi stack output "${o}" --stack "${{ steps.stack.outputs.stack }}")" >> "$GITHUB_OUTPUT"
+          for o in backend_url image_recognition_url hosting_site_id hosting_default_url custom_domain_url firebase_api_key firebase_auth_domain; do
+            echo "${o}=$(pulumi stack output "${o}" --stack "${{ steps.stack.outputs.stack }}" 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
           done
 
   # @spec CP-GCP-041, CP-GCP-042, CP-GCP-043
@@ -240,9 +249,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: google-github-actions/auth@v3
         with:
-          project_id: ${{ vars.GCP_PULUMI_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER_NEXT }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL_NEXT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
       - uses: ./.github/actions/setup-node
 
       # Fail loud rather than ship a broken SPA. Without the backend URL the build bakes a hostless
@@ -273,7 +282,7 @@ jobs:
           VITE_IMAGE_RECOGNITION_URL: ${{ needs.pulumi.outputs.image_recognition_url }}
           VITE_FIREBASE_API_KEY: ${{ needs.pulumi.outputs.firebase_api_key }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ needs.pulumi.outputs.firebase_auth_domain }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.GCP_PULUMI_PROJECT_ID }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
           VITE_AI_COACH: "true"
           VITE_MOCK_API: "false"
           # @spec CP-GCP-043 — dev tools off in production, on everywhere else.
@@ -283,9 +292,6 @@ jobs:
       # Name the Hosting site explicitly. Without this, `firebase deploy` goes to the project's
       # default site and every ephemeral stack's frontend overwrites production's — the site
       # resource exists per stack, but nothing pointed the deploy at it.
-      #
-      # `site` rather than `target:apply`: a target would need a `hosting.target` key in the
-      # committed firebase.json, which would break the old project's still-live deploy job.
       - name: Point the deploy at this stack's Hosting site
         working-directory: ui
         env:
@@ -303,7 +309,7 @@ jobs:
         working-directory: ui
         run: |
           npx --yes firebase-tools@13 deploy --only hosting \
-            --project "${{ vars.GCP_PULUMI_PROJECT_ID }}" --non-interactive
+            --project "${{ vars.GCP_PROJECT_ID }}" --non-interactive
 
   # Prove the deployed environment actually serves before the run goes green. Mints a real
   # Identity Platform token with no browser. @spec CP-GCP-032
@@ -319,7 +325,7 @@ jobs:
           BACKEND_URL: ${{ needs.pulumi.outputs.backend_url }}
           VITE_FIREBASE_API_KEY: ${{ needs.pulumi.outputs.firebase_api_key }}
           SMOKE_TEST_USER_EMAIL: ${{ secrets.SMOKE_TEST_USER_EMAIL }}
-          SMOKE_TEST_USER_PASSWORD: ${{ secrets.SMOKE_TEST_USER_PASSWORD_NEXT }}
+          SMOKE_TEST_USER_PASSWORD: ${{ secrets.GCP_SMOKE_TEST_USER_PASSWORD }}
         run: |
           set -euo pipefail
           for v in BACKEND_URL VITE_FIREBASE_API_KEY SMOKE_TEST_USER_EMAIL SMOKE_TEST_USER_PASSWORD; do

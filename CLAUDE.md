@@ -57,8 +57,8 @@ A serverless Sudoku app with a Java/Quarkus backend deployed to AWS Lambda, Reac
 - `backend/` — Java 25 + Quarkus REST API (Lambda-optimized)
 - `ui/` — React 19 + Vite frontend with MUI (Material UI)
 - `infra/aws/` — Terraform IaC for AWS
-- `infra/gcp/` — IaC for GCP; being re-platformed from Terraform to Pulumi (Python + `uv`) — see `docs/planning/gcp-pulumi-replatform.md`
-- `image_recognition` - Python based AWS lambda
+- `infra/gcp/` — Pulumi IaC (Python + `uv`) for GCP (`sudoku-eo-2026`)
+- `image_recognition` - Python service (AWS Lambda / GCP Cloud Run)
 
 ## Backend (Java/Quarkus)
 
@@ -117,15 +117,27 @@ terraform plan
 terraform apply
 ```
 
-**GCP — Pulumi** (`infra/gcp/`, Python + `uv`, region `us-central1`). Two stacks: `bootstrap`
-(run locally with human credentials — project, IAM, WIF, KMS) and `app` (run by CI as the
-federated deploy service account). Currently mid-migration from Terraform; the outgoing `.tf`
-files remain live until cutover. See `docs/llds/cloud-platform-gcp.md`.
+**GCP — Pulumi** (`infra/gcp/`, Python + `uv`, project `sudoku-eo-2026`, region `us-central1`). Two
+stacks: `bootstrap` (run locally with human credentials — project, IAM, WIF, KMS, budget) and `app`
+(run by CI as the federated deploy service account — Firestore, Cloud Run, Identity Platform,
+Firebase Hosting, Cloud DNS). See `docs/llds/cloud-platform-gcp.md`.
 
 ```bash
 cd infra/gcp && uv sync
 uv run pytest tests          # component unit tests, no cloud contact
 cd app && pulumi preview
+```
+
+**Flipping Between AWS and GCP**:
+`ci-deploy.yml` is the single deploy entry point. Ephemeral `rc-*` branches deploy to AWS; `rcg-*`
+branches deploy to GCP; `main` deploys to the GitHub repository variable `DEPLOY_TARGET`
+(`aws` | `gcp` | `both`):
+
+```bash
+make cloud-target              # inspect active deploy target & local UI config
+make cloud-target TARGET=gcp   # flip main to deploy to GCP
+make cloud-target TARGET=aws   # flip main to deploy to AWS
+make cloud-target TARGET=both  # deploy main to both clouds independently
 ```
 
 ## Pre-Push Testing (MANDATORY)
@@ -143,7 +155,7 @@ bash scripts/local/local-alltests.sh --skip-backend --skip-integration --skip-im
 bash scripts/local/local-alltests.sh --skip-infra
 ```
 
-The script runs: image recognition (pytest), frontend lint, npm audit, E2E (Playwright), backend (Maven + DynamoDB Local), integration (Docker Compose + Playwright), and Terraform fmt/validate. All must pass (or be explicitly skipped with justification) before pushing.
+The script runs: image recognition (pytest), frontend lint, npm audit, E2E (Playwright), backend (Maven + DynamoDB Local), integration (Docker Compose + Playwright), Terraform fmt/validate (`infra/aws`), Pulumi lint + component unit tests (`infra/gcp`), and CI scripts lint + unit tests (`scripts/github`). All must pass (or be explicitly skipped with justification) before pushing.
 
 **Never rely on hiding a failure with `--skip-*` unless that suite is genuinely inapplicable to the change.**
 

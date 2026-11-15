@@ -9,10 +9,7 @@
 # pass the backend's real Identity Platform JWT validation — the local variant relies on
 # DevUserFilter, which isn't active on a %gcp/%prod deployment.
 #
-# Use this to compare coach_ai_provider values (bedrock cross-cloud vs vertex) on the same
-# deployed workspace: run once per provider, redeploying between runs with
-#   gh workflow run deploy-gcp.yml -f workspace=<ws> -f deploy_cloud_run=true \
-#     -f enable_coach=true -f coach_ai_provider=<bedrock|vertex> -f run_smoke=false
+# Use this to evaluate coach quality on a deployed GCP stack (`ci-deploy.yml` / `deploy-gcp-pulumi.yml`).
 #
 # Usage:
 #   COACH_QUALITY_API_URL=https://sudoku-rcg-xyz-abc.a.run.app/api/v1 \

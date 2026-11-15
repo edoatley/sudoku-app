@@ -68,21 +68,6 @@ check_cmd python3   && HAS_PYTHON=true    || HAS_PYTHON=false
 check_cmd terraform && HAS_TERRAFORM=true || HAS_TERRAFORM=false
 check_cmd aws       && HAS_AWS=true       || HAS_AWS=false
 
-# ── AWS credentials check (sandbox profile) ───────────────────────────────────
-echo -e "\n${BOLD}${CYAN}=== Checking AWS credentials (sandbox profile) ===${RESET}"
-if [[ "${HAS_AWS}" == "true" ]]; then
-  if AWS_PROFILE=sandbox aws sts get-caller-identity --output text &>/dev/null; then
-    echo -e "  ${GREEN}✓${RESET} AWS sandbox profile authenticated"
-    HAS_AWS_CREDS=true
-  else
-    echo -e "  ${RED}✗${RESET} AWS sandbox profile not authenticated — run: aws sso login --profile sandbox"
-    echo -e "  ${YELLOW}⚠${RESET}  Suites requiring live AWS credentials will be skipped (Infra fmt/validate still runs)"
-    HAS_AWS_CREDS=false
-  fi
-else
-  HAS_AWS_CREDS=false
-fi
-
 # ── Suite result tracking ─────────────────────────────────────────────────────
 declare -A RESULTS   # suite_name → PASS / FAIL / SKIP
 declare -A DURATIONS # suite_name → seconds

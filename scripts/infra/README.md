@@ -1,32 +1,29 @@
 # scripts/infra
 
-One-time / elevated infrastructure setup that is **not** owned by Terraform — because it is a
-prerequisite (project, state bucket, APIs), needs elevated access (IAM, WIF, public invoker), spans
-both clouds, or has no reliable API (Identity Platform enable). Terraform (`infra/aws`, `infra/gcp`)
-references what these scripts create by value.
+One-time / elevated infrastructure helpers and local operations scripts for AWS (`infra/aws`) and
+GCP (`infra/gcp`).
 
 ## Layout
 
-```
+```text
 scripts/infra/
-├── aws/        — AWS-only setup + local ops
-├── gcp/        — GCP-only setup (one small script per concern)
-├── shared/     — cross-cloud, used by both aws/ and gcp/
+├── aws/        — AWS setup + local ops (Terraform)
+├── gcp/        — GCP helpers not expressible in Pulumi (smoke user + live IAM drift inventory)
+├── shared/     — cross-cloud helpers (cloud target switcher, local secrets, Route53 NS delegation)
 └── ../.env.local  (git-ignored) — secrets, written by shared/setup-local-secrets.sh
 ```
 
-The two clouds are shaped differently on purpose: **AWS** leans on a single big `aws/bootstrap.sh`
-(plus a few local-ops helpers), while **GCP** is split into one small script per concern
-(`gcp/bootstrap.sh` does project/APIs/registry/SAs; the rest are separate elevated/manual steps that
-run at different points in the deploy). Cross-cloud scripts live in `shared/`.
+**AWS** uses `aws/bootstrap.sh` for one-time prerequisites before Terraform (`infra/aws`).
+**GCP** (`infra/gcp`) is 100% Pulumi-built via the two-stack model (`bootstrap` and `app`), so all
+former GCP bootstrap/IAM/WIF/DNS bash scripts have been retired; only the smoke-user script and the
+live inventory/IAM-drift check remain.
 
 ## Conventions (all scripts follow these)
 
 - `#!/usr/bin/env bash` + `set -euo pipefail`.
 - Header block: one-line purpose, `Usage:` example, and a `@spec` ref where one applies.
 - **Idempotent** — safe to re-run; existing resources are detected and skipped/updated.
-- Inputs come from the environment first, then `../.env.local`, then `gcloud`/`aws` config
-  (e.g. `PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project)}"`). Env always wins.
+- Inputs come from the environment first, then `../.env.local`, then `gcloud`/`aws` config.
 - Secrets are loaded from `scripts/.env.local` (never hard-coded); populate it once with
   `shared/setup-local-secrets.sh`.
 - Fail loud: missing prerequisites `exit 1` with a message pointing at the fix.
@@ -44,27 +41,20 @@ run at different points in the deploy). Cross-cloud scripts live in `shared/`.
 
 ## gcp/
 
-Run in the order documented in `docs/runbooks/gcp-manual-setup.md` (it is the learning surface).
-
 | Script | Purpose | When |
 |---|---|---|
-| `bootstrap.sh` | Project + billing, state bucket, APIs, Artifact Registry, runtime SAs + `datastore.user` | first, once |
-| `github-bootstrap.sh` | Deploy-SA roles + Workload Identity Federation + GitHub secrets | after bootstrap |
-| `identity-platform-bootstrap.sh` | Google + Email/Password sign-in, authorized domains (incl. custom domain) | before first apply (also invoked by `bootstrap.sh`) |
-| `bedrock-cross-cloud.sh` | AWS Bedrock key → GCP Secret Manager + runtime-SA access (cross-cloud) | before `enable_coach=true` |
-| `create-smoke-user.sh` | Provision the Identity Platform password smoke-test user (CP-GCP-032) | for CI/agent auth |
-| `grant-prod-invoker.sh` | `allUsers` `run.invoker` on the **prod** services (non-default is in Terraform) | after first prod apply |
-| `set-custom-domain-cname.sh` | UPSERT `CNAME <custom_domain> -> <project>.web.app` in the parent Route53 zone (Firebase subdomain method) | after prod apply with `enable_custom_domain=true` |
+| `create-smoke-user.sh` | Provision/reset the Identity Platform password smoke-test user (`CP-GCP-032`) | Once per project or to rotate `GCP_SMOKE_TEST_USER_PASSWORD` |
+| `inventory.sh` | Compare live GCP project resources & IAM bindings against `sudoku-gcp-bootstrap` state (`make gcp-inventory`) | Anytime to verify zero drift |
 
 ## shared/
 
 | Script | Purpose |
 |---|---|
+| `cloud-target.sh` | Inspect or flip `DEPLOY_TARGET` (`aws` \| `gcp` \| `both`) on GitHub Actions (`make cloud-target [TARGET=...]`) |
 | `setup-local-secrets.sh` | Collect deploy secrets → `scripts/.env.local` (both clouds source this) |
-| `delegate-dns.sh` | Generic Route53 NS-delegation tool (used for AWS Amplify subdomain zones) |
+| `delegate-dns.sh` | Generic Route53 NS-delegation tool (used for AWS Amplify subdomain zones and the one-time `gcp.edoatley.co.uk` delegation) |
 
 ## See also
 
-- `docs/runbooks/gcp-manual-setup.md` — the GCP setup walkthrough + ordering.
-- `docs/planning/old/gcp-dns-deployment-plan.md` — the prod / DNS-host bring-up plan.
-- `scripts/README.md` — the wider `scripts/` overview (local + github helpers).
+- `docs/runbooks/gcp-manual-setup.md` — the GCP Pulumi setup and operations runbook.
+- `docs/llds/cloud-platform-gcp.md` — GCP Pulumi architecture and two-stack privilege model.

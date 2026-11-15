@@ -142,61 +142,48 @@ gcloud iam service-accounts keys list \
 
 ## 3. GitHub secrets and variables
 
-Set from the stack outputs. The `_NEXT` suffix means the existing `deploy-gcp.yml` keeps
-running against the old project until the Phase 8 cutover renames them.
+Set from the bootstrap stack outputs:
 
 ```bash
 cd infra/gcp/bootstrap
-gh secret set GCP_PROJECT_ID_NEXT      --body "$(pulumi stack output project_id)"
-gh secret set GCP_WIF_PROVIDER_NEXT    --body "$(pulumi stack output wif_provider_name)"
-gh secret set GCP_DEPLOY_SA_EMAIL_NEXT --body "$(pulumi stack output deploy_service_account_email)"
-
-# Neither is sensitive — a bucket name and a KMS key path.
+gh variable set GCP_PROJECT_ID      --body "$(pulumi stack output project_id)"
 gh variable set PULUMI_STATE_BUCKET --body "$(pulumi stack output state_bucket_url)"
 gh variable set PULUMI_KMS_KEY      --body "$(pulumi stack output kms_key_uri)"
+
+gh secret set GCP_WIF_PROVIDER    --body "$(pulumi stack output wif_provider_name)"
+gh secret set GCP_DEPLOY_SA_EMAIL --body "$(pulumi stack output deploy_service_account_email)"
 ```
 
-### Verify the privilege split
-
-The point of the two-stack model is that CI **cannot** grant itself anything, and that is the
-security argument for revising the HLD's original manual-identity tenet. It is only worth making
-if it is tested.
-
-**This can only be checked from GitHub Actions.** Run the workflow:
+And provision/sync the Identity Platform smoke-test user (`GCP_SMOKE_TEST_USER_PASSWORD`, kept
+separate from AWS Cognito's `SMOKE_TEST_USER_PASSWORD`):
 
 ```bash
-gh workflow run "GCP — Federation & Privilege Check"
-gh run watch
+PROJECT_ID=sudoku-eo-2026 SYNC_GITHUB_SECRETS=y bash scripts/infra/gcp/create-smoke-user.sh
 ```
-
-It federates as `sudoku-deploy` and asserts, in both directions:
-
-| Must succeed | Must be refused |
-| --- | --- |
-| read the Pulumi state bucket | read billing budgets |
-| list Cloud Run services | grant itself `roles/owner` |
-| | create a Workload Identity pool |
-| | list Secret Manager secrets |
-
-The negative assertions are the load-bearing half — a *success* there is a failure of the
-boundary, so their sense is deliberately inverted.
-
-**Do not try to check this locally.** Nothing grants you `roles/iam.serviceAccountTokenCreator`
-on `sudoku-deploy`, so impersonation fails; and run as yourself, every one of those commands
-succeeds because you are project owner. That proves nothing about what CI can do. (An earlier
-version of this runbook suggested impersonating — it was wrong.)
 
 ---
 
-## 4. Later phases
+## 4. Flipping Between AWS and GCP (`DEPLOY_TARGET`)
 
-| Phase | Manual step |
-| --- | --- |
-| 3 | Take `pulumi stack output name_servers` from the app stack and add the NS delegation for `gcp.edoatley.co.uk` in the Route53 `edoatley.co.uk` zone (`Z055000739D7L0ZGFAMC1`, AWS `backups` profile). Verify with `dig +trace NS gcp.edoatley.co.uk`. |
-| 4 | Configure the OAuth consent screen (external, `edoatley.co.uk` authorized, email/profile scopes only) and create a Web OAuth client. Add `https://sudoku-eo-2026.firebaseapp.com/__/auth/handler` to its redirect URIs. Then `pulumi config set --secret sudoku:googleOauthClientSecret`. |
-| 4 | Run `scripts/infra/gcp/create-smoke-user.sh` against the new project. |
-| 4 | **Verify identity continuity**: sign in as a real Google user and confirm the token's `firebase.identities["google.com"][0]` matches the `userId` already in the old project's Firestore `players`. Cheap to check, catastrophic to assume. |
+Both clouds are deployed through `.github/workflows/ci-deploy.yml`:
+- Ephemeral branches: `rc-*` always deploys to AWS; `rcg-*` always deploys to GCP.
+- Production (`main`): governed by the `DEPLOY_TARGET` repository variable (`aws` | `gcp` | `both`).
 
-The new project needs its **own** OAuth client. The existing one lives in the old project and is
-shared with AWS Cognito's Google federation, so retiring that project requires a second client
-for Cognito first — tracked as a backlog row blocking the deletion.
+```bash
+# Check active target:
+make cloud-target
+
+# Flip main to deploy to GCP, AWS, or both:
+make cloud-target TARGET=gcp
+make cloud-target TARGET=aws
+make cloud-target TARGET=both
+
+# Or trigger a one-off deploy without changing DEPLOY_TARGET:
+gh workflow run ci-deploy.yml -f target=gcp
+```
+
+Note on first production GCP deploy (`prod` stack): `StaticSite` attaches the custom domain
+`sudoku.gcp.edoatley.co.uk` with `wait_dns_verification=False` by default so asynchronous
+Google-managed TLS certificate issuance does not block the CI run. Once the certificate is active,
+`pulumi config set sudoku:waitForDomain true --stack prod` can optionally be set in
+`infra/gcp/app/Pulumi.prod.yaml`.

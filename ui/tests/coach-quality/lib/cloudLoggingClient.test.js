@@ -73,8 +73,8 @@ describe('resolveProject', () => {
   });
 
   it('falls back to `gcloud config get-value project`', () => {
-    vi.mocked(execFileSync).mockReturnValue('sudoku-app-eo\n');
-    expect(resolveProject()).toBe('sudoku-app-eo');
+    vi.mocked(execFileSync).mockReturnValue('sudoku-eo-2026\n');
+    expect(resolveProject()).toBe('sudoku-eo-2026');
     expect(execFileSync).toHaveBeenCalledWith('gcloud', ['config', 'get-value', 'project'], expect.anything());
   });
 
@@ -87,7 +87,7 @@ describe('resolveProject', () => {
 describe('fetchLogLinesGcp', () => {
   beforeEach(() => {
     process.env.COACH_QUALITY_API_URL = REMOTE_URL;
-    process.env.COACH_QUALITY_GCP_PROJECT = 'sudoku-app-eo';
+    process.env.COACH_QUALITY_GCP_PROJECT = 'sudoku-eo-2026';
   });
 
   it('parses structured lines and drops non-JSON lines (request logs, blanks)', () => {
@@ -118,7 +118,7 @@ describe('fetchLogLinesGcp', () => {
     expect(filter).toContain('resource.labels.service_name="sudoku-rcg-vertex-validate"');
     expect(filter).toContain('timestamp>="2026-08-25T09:47:00Z"');
     expect(args).toContain('asc');
-    expect(args).toEqual(expect.arrayContaining(['--project', 'sudoku-app-eo']));
+    expect(args).toEqual(expect.arrayContaining(['--project', 'sudoku-eo-2026']));
   });
 
   it('omits the timestamp clause when no since is given', () => {

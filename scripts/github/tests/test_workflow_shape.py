@@ -174,6 +174,7 @@ class TestGcpHasNoEntryPointOfItsOwn:
         jobs = yaml.safe_load((WORKFLOWS / "ci-deploy.yml").read_text())["jobs"]
         assert jobs["deploy-gcp"].get("uses") == "./.github/workflows/deploy-gcp-pulumi.yml"
 
-    def test_the_terraform_gcp_workflow_keeps_no_push_trigger(self):
-        # It targets the incumbent project and is dispatch-only until Phase 9 deletes it.
-        assert "push" not in _triggers("deploy-gcp.yml")
+    def test_legacy_terraform_gcp_workflows_are_retired(self):
+        # Phase 9 removed the legacy Terraform GCP workflows so Pulumi is the sole GCP path.
+        for legacy in ("deploy-gcp.yml", "teardown-gcp.yml", "gcp-federation-check.yml"):
+            assert not (WORKFLOWS / legacy).exists(), legacy

@@ -394,49 +394,75 @@ jobs:
       - name: Deployment summary
         if: always()
         env:
-          DEPLOY_STATUS: ${{ needs.deploy.result }}
-          SMOKE_STATUS:  ${{ needs.smoke-test.result }}
-          API_URL:       ${{ needs.deploy.outputs.api_gateway_url }}
-          APP_URL:       ${{ needs.deploy.outputs.amplify_app_url }}
-          DEFAULT_URL:   ${{ needs.deploy.outputs.amplify_default_url }}
-          USER_POOL_ID:  ${{ needs.deploy.outputs.cognito_user_pool_id }}
-          CLIENT_ID:     ${{ needs.deploy.outputs.cognito_client_id }}
-          IS_MAIN:       ${{ needs.deploy.outputs.is_main }}
-          ENV_TYPE:      ${{ needs.deploy.outputs.is_main == 'true' && 'main' || 'rc' }}
+          AWS_SELECTED:     ${{ needs.select-target.outputs.aws }}
+          GCP_SELECTED:     ${{ needs.select-target.outputs.gcp }}
+          DEPLOY_STATUS:    ${{ needs.deploy.result }}
+          SMOKE_STATUS:     ${{ needs.smoke-test.result }}
+          API_URL:          ${{ needs.deploy.outputs.api_gateway_url }}
+          APP_URL:          ${{ needs.deploy.outputs.amplify_app_url }}
+          DEFAULT_URL:      ${{ needs.deploy.outputs.amplify_default_url }}
+          USER_POOL_ID:     ${{ needs.deploy.outputs.cognito_user_pool_id }}
+          CLIENT_ID:        ${{ needs.deploy.outputs.cognito_client_id }}
+          IS_MAIN:          ${{ needs.deploy.outputs.is_main }}
+          ENV_TYPE:         ${{ needs.deploy.outputs.is_main == 'true' && 'main' || 'rc' }}
+          GCP_STATUS:       ${{ needs.deploy-gcp.result }}
+          GCP_STACK:        ${{ needs.deploy-gcp.outputs.stack }}
+          GCP_BACKEND_URL:  ${{ needs.deploy-gcp.outputs.backend_url }}
+          GCP_HOSTING_URL:  ${{ needs.deploy-gcp.outputs.hosting_default_url }}
+          GCP_CUSTOM_URL:   ${{ needs.deploy-gcp.outputs.custom_domain_url }}
         run: |
-          if [ "${DEPLOY_STATUS}" = "success" ]; then
-            echo "### Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Resource | URL |" >> "$GITHUB_STEP_SUMMARY"
-            echo "|----------|-----|" >> "$GITHUB_STEP_SUMMARY"
-            echo "| API Gateway | ${API_URL} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Amplify App | ${APP_URL} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "#### Re-run smoke tests manually" >> "$GITHUB_STEP_SUMMARY"
-            echo "Use these values in the [Smoke Tests](../actions/workflows/smoke-tests.yml) \`workflow_dispatch\`:" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Input | Value |" >> "$GITHUB_STEP_SUMMARY"
-            echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
-            echo "| \`api_gateway_url\` | \`${API_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| \`amplify_app_url\` | \`${APP_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| \`amplify_default_url\` | \`${DEFAULT_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| \`cognito_user_pool_id\` | \`${USER_POOL_ID}\` |" >> "$GITHUB_STEP_SUMMARY"
-            if [ "${IS_MAIN}" = "true" ]; then
-              echo "| \`cognito_client_id\` | \`${CLIENT_ID}\` |" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${AWS_SELECTED}" = "true" ]; then
+            if [ "${DEPLOY_STATUS}" = "success" ]; then
+              echo "### AWS Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Resource | URL |" >> "$GITHUB_STEP_SUMMARY"
+              echo "|----------|-----|" >> "$GITHUB_STEP_SUMMARY"
+              echo "| API Gateway | ${API_URL} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Amplify App | ${APP_URL} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "#### Re-run AWS smoke tests manually" >> "$GITHUB_STEP_SUMMARY"
+              echo "Use these values in the [Smoke Tests](../actions/workflows/smoke-tests.yml) \`workflow_dispatch\`:" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Input | Value |" >> "$GITHUB_STEP_SUMMARY"
+              echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+              echo "| \`api_gateway_url\` | \`${API_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| \`amplify_app_url\` | \`${APP_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| \`amplify_default_url\` | \`${DEFAULT_URL}\` |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| \`cognito_user_pool_id\` | \`${USER_POOL_ID}\` |" >> "$GITHUB_STEP_SUMMARY"
+              if [ "${IS_MAIN}" = "true" ]; then
+                echo "| \`cognito_client_id\` | \`${CLIENT_ID}\` |" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "| \`cognito_client_id\` | *(leave blank — resolved automatically)* |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+              echo "| \`environment_type\` | \`${ENV_TYPE}\` |" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "| \`cognito_client_id\` | *(leave blank — resolved automatically)* |" >> "$GITHUB_STEP_SUMMARY"
+              echo "### AWS Deployment failed (status: ${DEPLOY_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+              echo "Check the deploy job logs for details." >> "$GITHUB_STEP_SUMMARY"
             fi
-            echo "| \`environment_type\` | \`${ENV_TYPE}\` |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "### Deployment failed (status: ${DEPLOY_STATUS})" >> "$GITHUB_STEP_SUMMARY"
-            echo "Check the deploy job logs for details." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${SMOKE_STATUS}" = "success" ]; then
+              echo "### AWS Smoke tests passed ✅" >> "$GITHUB_STEP_SUMMARY"
+            elif [ "${SMOKE_STATUS}" = "skipped" ]; then
+              echo "### AWS Smoke tests skipped ⏭️" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "### AWS Smoke tests failed ❌ (status: ${SMOKE_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+              echo "Check the smoke-test job logs for details." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${SMOKE_STATUS}" = "success" ]; then
-            echo "### Smoke tests passed ✅" >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${SMOKE_STATUS}" = "skipped" ]; then
-            echo "### Smoke tests skipped ⏭️" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "### Smoke tests failed ❌ (status: ${SMOKE_STATUS})" >> "$GITHUB_STEP_SUMMARY"
-            echo "Check the smoke-test job logs for details." >> "$GITHUB_STEP_SUMMARY"
+          if [ "${GCP_SELECTED}" = "true" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${GCP_STATUS}" = "success" ]; then
+              echo "### GCP Deployment & Smoke succeeded ✅ (stack: \`${GCP_STACK}\`)" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Resource | URL |" >> "$GITHUB_STEP_SUMMARY"
+              echo "|----------|-----|" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Cloud Run Backend | ${GCP_BACKEND_URL} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Firebase Hosting | ${GCP_HOSTING_URL} |" >> "$GITHUB_STEP_SUMMARY"
+              if [ -n "${GCP_CUSTOM_URL}" ]; then
+                echo "| Custom Domain | ${GCP_CUSTOM_URL} |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            else
+              echo "### GCP Deployment failed ❌ (status: ${GCP_STATUS})" >> "$GITHUB_STEP_SUMMARY"
+              echo "Check the deploy-gcp job logs for details." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi

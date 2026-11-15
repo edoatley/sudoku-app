@@ -1,4 +1,4 @@
-.PHONY: setup lint secure check-all
+.PHONY: setup lint secure gcp-inventory cloud-target check-all
 
 setup:
 	@echo "==> Installing Homebrew tools..."
@@ -14,21 +14,24 @@ lint:
 	@echo "==> Running Ruff for Python Lambdas..."
 	ruff check --fix image_recognition/
 	ruff format image_recognition/
-	@echo "==> Formatting Terraform..."
+	@echo "==> Formatting Terraform (AWS)..."
 	cd infra/aws && terraform fmt
-	cd infra/gcp && terraform fmt
+	@echo "==> Running Ruff for GCP Pulumi & CI scripts..."
 	cd infra/gcp && uv run ruff check . && uv run ruff format .
+	cd scripts/github && uv run ruff check . && uv run ruff format .
 
 secure:
 	@echo "==> Scanning codebase for vulnerabilities with Trivy..."
 	trivy fs . --skip-dirs .terraform
 	@echo "==> Analyzing cloud infrastructure configurations with Checkov..."
 	checkov -d infra/aws/ --framework terraform
-	checkov -d infra/gcp/ --framework terraform
 
 gcp-inventory:
 	@echo "==> GCP inventory + IAM drift..."
 	bash scripts/infra/gcp/inventory.sh
+
+cloud-target:
+	@bash scripts/infra/shared/cloud-target.sh $(TARGET)
 
 check-all: lint secure
 	@echo "==> Running backend validation tests..."

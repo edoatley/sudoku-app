@@ -31,13 +31,14 @@ class TestStackScope:
     "wired" at Phase 4.
     """
 
-    def test_no_custom_domain_is_attached_yet(self):
-        # Attaching it is Phase 8. Google-managed cert issuance is asynchronous and needs DNS
-        # already answering, so the zone (here) and the domain (Phase 8) are split on purpose.
+    def test_custom_domain_and_cname_are_wired_on_production(self):
+        # Phase 8 attaches the custom domain on StaticSite and the CNAME RecordSpec in the
+        # delegated Cloud DNS zone. custom_domain is None on ephemeral stacks.
         src = APP_MAIN.read_text()
-        assert "custom_domain=" not in src, (
-            "StaticSite must not receive custom_domain in Phase 3 — see the phase plan §1"
-        )
+        assert "custom_domain=custom_domain" in src
+        assert 'RecordSpec(\n                name=f"{custom_domain}."' in src
+        assert 'type="CNAME"' in src
+        assert 'pulumi.export("custom_domain_url", site.custom_domain_url)' in src
 
     def test_cloud_run_landed_in_phase_6(self):
         assert "ContainerService" in APP_MAIN.read_text()

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Collects the INFRASTRUCTURE / deploy secrets and writes them to scripts/.env.local.
-# Run once; deploy-local.sh, destroy-rc.sh and identity-platform-bootstrap.sh source it.
+# Run once; deploy-local.sh, destroy-rc.sh and gcp-smoke-token.sh source it.
 #
 # ┌─ Two different .env.local files — don't confuse them ──────────────────────────────────┐
 # │  scripts/.env.local  (THIS file)  — infra/deploy secrets read by the shell scripts:     │

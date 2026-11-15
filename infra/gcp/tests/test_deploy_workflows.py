@@ -66,21 +66,29 @@ class TestStackCreation:
 
 
 class TestCredentialConvention:
-    """The un-suffixed secrets serve AWS Cognito and the incumbent GCP project.
+    """Consolidated GCP credentials after retiring `sudoku-app-eo` and `_NEXT` suffixes.
 
-    Overwriting one breaks a live system that has nothing to do with this workflow, so the new
-    project reads only `_NEXT` values until the Phase 8 rename.
+    `GCP_PROJECT_ID` is a repository variable (not a secret), `GCP_WIF_PROVIDER` and
+    `GCP_DEPLOY_SA_EMAIL` are the un-suffixed WIF secrets, and `GCP_SMOKE_TEST_USER_PASSWORD` keeps
+    the Identity Platform smoke password isolated from AWS Cognito's `SMOKE_TEST_USER_PASSWORD`.
     """
 
-    @pytest.mark.parametrize("secret", ["GCP_WIF_PROVIDER_NEXT", "GCP_DEPLOY_SA_EMAIL_NEXT"])
-    def test_the_next_secrets_are_used(self, workflow, secret):
-        assert secret in workflow
+    @pytest.mark.parametrize("secret", ["GCP_WIF_PROVIDER", "GCP_DEPLOY_SA_EMAIL"])
+    def test_the_consolidated_wif_secrets_are_used(self, workflow, secret):
+        assert f"secrets.{secret} }}}}" in workflow
 
-    @pytest.mark.parametrize(
-        "secret", ["GCP_WIF_PROVIDER", "GCP_DEPLOY_SA_EMAIL", "GCP_PROJECT_ID"]
-    )
-    def test_the_incumbent_secrets_are_never_read(self, workflow, secret):
-        assert f"secrets.{secret} }}}}" not in workflow, secret
+    def test_the_project_id_is_a_variable_not_a_secret(self, workflow):
+        assert "vars.GCP_PROJECT_ID }}" in workflow
+        assert "secrets.GCP_PROJECT_ID" not in workflow
+
+    def test_smoke_uses_gcp_scoped_password_secret(self):
+        deploy_src = DEPLOY.read_text()
+        assert "secrets.GCP_SMOKE_TEST_USER_PASSWORD }}" in deploy_src
+        assert "secrets.SMOKE_TEST_USER_PASSWORD }}" not in deploy_src
+
+    def test_no_temporary_next_suffixes_remain(self, workflow):
+        assert "_NEXT" not in workflow
+        assert "GCP_PULUMI_PROJECT_ID" not in workflow
 
 
 class TestDestructiveFlags:

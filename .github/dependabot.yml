@@ -22,14 +22,36 @@ updates:
         patterns:
           - "*"
 
-  # Infrastructure (Terraform)
+  # Infrastructure — AWS (Terraform)
   - package-ecosystem: "terraform"
-    directory: "/infra"
+    directory: "/infra/aws"
     schedule:
       interval: "weekly"
       day: "monday"
     groups:
       infra-terraform-updates:
+        patterns:
+          - "*"
+
+  # Infrastructure — GCP (Pulumi / uv)
+  - package-ecosystem: "uv"
+    directory: "/infra/gcp"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      infra-gcp-uv-updates:
+        patterns:
+          - "*"
+
+  # CI scripts (uv)
+  - package-ecosystem: "uv"
+    directory: "/scripts/github"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      ci-scripts-uv-updates:
         patterns:
           - "*"
 

@@ -49,7 +49,6 @@ jobs:
               - 'backend/**'
             terraform:
               - 'infra/aws/**'
-              - 'infra/gcp/**'
               - '.github/**'
             pulumi:
               - 'infra/gcp/**'
@@ -140,22 +139,18 @@ jobs:
             backend/target/failsafe-reports/TEST-*.xml
           retention-days: 14
 
-  # @spec CP-GCP-081
   ci-infra:
     name: Infra — Terraform fmt & validate
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: detect-changes
     if: needs.detect-changes.outputs.is_dependabot == 'false' || needs.detect-changes.outputs.terraform_changed == 'true'
-    strategy:
-      matrix:
-        directory: [infra/aws, infra/gcp]
     steps:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
       - uses: ./.github/actions/terraform-validate
         with:
-          working-directory: ${{ matrix.directory }}
+          working-directory: infra/aws
 
   # Pulumi components for the GCP facet. Deliberately credential-free: these are mock-runtime
   # unit tests, so this job must never need cloud access. @spec CP-PUL-081
@@ -233,7 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always() && github.event_name == 'pull_request'
-    needs: [ci-npm, ci-maven, integration, ci-infra]
+    needs: [ci-npm, ci-maven, integration, ci-infra, ci-pulumi, ci-scripts]
     permissions:
       pull-requests: write
     steps:
@@ -361,6 +356,8 @@ jobs:
               'Backend — Unit Tests':                       '${{ needs.ci-maven.result }}',
               'Integration — Native Servers + Playwright':  '${{ needs.integration.result }}',
               'Infra — Terraform fmt & validate':           '${{ needs.ci-infra.result }}',
+              'Infra — Pulumi lint & component tests':      '${{ needs.ci-pulumi.result }}',
+              'CI scripts — lint & unit tests':             '${{ needs.ci-scripts.result }}',
             };
 
             const icon = (r) => r === 'success' ? '✅' : r === 'failure' ? '❌' : r === 'skipped' ? '⏭️' : '⚠️';

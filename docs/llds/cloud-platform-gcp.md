@@ -1,8 +1,7 @@
 # Cloud Platform — GCP Facet (Pulumi)
 
 **Created**: 2026-09-11
-**Status**: In Progress — design approved, implementation phased
-(`docs/planning/gcp-pulumi-replatform.md`)
+**Status**: Complete (`sudoku-eo-2026`)
 
 ## Context and Current State
 
@@ -10,11 +9,9 @@ The GCP facet provisions the same runtime platform as the AWS facet on GCP-nativ
 region `us-central1` (chosen for free-tier coverage, accepting a residency shift under the
 one-cloud-at-a-time premise).
 
-**This document describes the Pulumi design, which is the current intent.** The facet is being
-re-platformed from Terraform in a clean-room GCP project; the outgoing `infra/gcp/*.tf` and the
-six `scripts/infra/gcp/*.sh` bootstrap scripts remain live against the *old* project until the
-production cutover, and are deleted immediately after. Where this document says "is", it means
-"is, in the Pulumi target" — the migration phases and their ordering are in the plan.
+**This document describes the Pulumi design, which is the live implementation in `sudoku-eo-2026`.**
+The legacy `sudoku-app-eo` GCP project, `infra/gcp/*.tf`, the six `scripts/infra/gcp/*.sh`
+bootstrap scripts, and `.github/workflows/{deploy-gcp,teardown-gcp}.yml` have been retired.
 
 Two properties distinguish this facet from AWS and are load-bearing:
 
@@ -318,10 +315,9 @@ Two things stay manual and cannot be otherwise:
 - **The Identity Platform smoke-test *user*.** No IaC resource exists for it;
   `scripts/infra/gcp/create-smoke-user.sh` is retained. @spec CP-GCP-032
 
-The new project needs its **own** OAuth client — the existing one lives in the old project and is
-shared with AWS Cognito's Google federation, so deleting the old project would break AWS. A
-second client for Cognito, and repointing `infra/aws/cognito.tf` at it, is a prerequisite for
-that deletion.
+The new project (`sudoku-eo-2026`) has its **own** OAuth client (`633423842545-...`). AWS Cognito's
+Google OAuth client (`277691459136-...`) lives in `gen-lang-client-0835246655` (`EdO Sandbox`), not
+in `sudoku-app-eo`, so the two clouds' OAuth clients are completely independent.
 
 ### Frontend Hosting and DNS
 
@@ -423,18 +419,13 @@ and no second place the target could be decided. Target selection is specified i
 `scripts/github/select_deploy_target.py`, which is unit-tested because its failure mode is
 deploying the wrong cloud while the run stays green. @spec CP-PUL-080
 
-`deploy-gcp.yml`, the Terraform path to the incumbent project, is dispatch-only and is deleted at
-Phase 9 along with `infra/gcp/*.tf`. Its eight phased inputs (`deploy_cloud_run`, `enable_coach`,
-`coach_ai_provider`, …) go with it. They existed to bring production up in stages against an
-unbuilt project, and they are exactly the foot-gun that let a manual dispatch silently revert the
-Vertex cutover; the Pulumi deploy is all-or-nothing, like the AWS one.
-
-The GCP project id is a repository **variable**, `GCP_PULUMI_PROJECT_ID`, not a secret. It is not
+The GCP project id is a repository **variable**, `GCP_PROJECT_ID`, not a secret. It is not
 sensitive — it appears in every public Cloud Run URL and in the Firebase config the SPA ships —
-and making it a secret is what forced the Terraform workflow to pass only image *tags* between
-jobs, because GitHub scrubs secret-bearing outputs, and to reassemble full URIs in every job. That
-workaround is gone. It collapses to `GCP_PROJECT_ID` at Phase 9, once the incumbent secret of that
-name is deleted.
+and making it a secret is what forced the old Terraform workflow to pass only image *tags* between
+jobs, because GitHub scrubs secret-bearing outputs, and to reassemble full URIs in every job.
+The WIF secrets are `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA_EMAIL`, and the Identity Platform smoke
+password is held in `GCP_SMOKE_TEST_USER_PASSWORD` so it never collides with AWS Cognito's
+`SMOKE_TEST_USER_PASSWORD`.
 
 **Gates.** Deploying branches are gated by `ci-deploy.yml`, everything else is checked by
 `ci.yml`, and the two push filters partition the branch space so no branch runs both or neither.

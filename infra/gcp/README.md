@@ -1,13 +1,12 @@
-# Sudoku — GCP Infrastructure
+# Sudoku — GCP Infrastructure (Pulumi)
 
-> **Mid-migration.** This directory holds **both** the outgoing Terraform (`*.tf`, live against
-> the current project until cutover) and the incoming **Pulumi** program (Python + `uv`) that
-> replaces it. The two do not interact; Phase 9 deletes the Terraform. Design:
-> `docs/llds/cloud-platform-gcp.md`. Plan: `docs/planning/gcp-pulumi-replatform.md`.
+The GCP facet of the Cloud Platform (`sudoku-eo-2026`, region `us-central1`), at behavioural parity
+with `infra/aws/`, managed with **Pulumi** (Python + `uv`). Design:
+`docs/llds/cloud-platform-gcp.md`. Runbook: `docs/runbooks/gcp-manual-setup.md`.
 
-## Pulumi (incoming)
+## Layout
 
-```
+```text
 components/   reusable ComponentResources, shared by both programs
 bootstrap/    project, APIs, state bucket, KMS, Artifact Registry, SAs, IAM, WIF, budget
               -> run locally, with human credentials
@@ -27,108 +26,36 @@ uv run ruff check . && uv run ruff format --check .
 cd app && pulumi preview      # needs credentials + a stack
 ```
 
-`uv.lock` is committed, so provider versions are pinned in CI — unlike the Terraform lock files,
-which are gitignored.
-
-
-The GCP facet of the Cloud Platform, at behavioural parity with `infra/aws/`, on the GCP free tier
-(`us-central1`). See the design in `docs/llds/cloud-platform.md` (GCP Resources) and
-`docs/high-level-design.md` (Multi-Cloud Deployment).
-
-> **Scope: infrastructure scaffolding.** This provisions the GCP platform and keeps it
-> `validate`/`plan`-clean. It does **not** make the app run end-to-end on GCP — the backend
-> Firestore adapter, frontend Firebase Auth path, and cross-cloud Bedrock wiring are separate
-> future arrows. See the LLD *Scope of the GCP facet* note.
+`uv.lock` is committed, so provider versions are pinned in CI.
 
 ## Architecture
 
 ```text
-GitHub ──WIF──> Cloud Run (backend: Quarkus)  ──> Firestore (Native)
-                Cloud Run (image-recognition)  ──> (Bedrock cross-cloud, interim)
-Firebase Hosting (React SPA) ── custom domain sudoku-gcp.edoatley.co.uk + Google-managed TLS
-                               (CNAME in the parent Route53 zone; no Cloud DNS zone)
-Identity Platform (Google IdP) ── manual
+GitHub ──WIF──> Cloud Run (backend: Quarkus)        ──> Firestore (Native) + Vertex AI (Gemini)
+                Cloud Run (image-recognition)       ──> Vertex AI (Gemini Vision)
+Firebase Hosting (React SPA) ── custom domain sudoku.gcp.edoatley.co.uk + Google-managed TLS
+                                (CNAME in delegated Cloud DNS zone gcp.edoatley.co.uk)
+Identity Platform (Google IdP + CI smoke user) ── Pulumi-managed
 Cloud Billing budget ── Pub/Sub alerts
 ```
 
-| AWS                          | GCP                                               |
-| ---------------------------- | ------------------------------------------------- |
-| Lambda                       | Cloud Run                                         |
-| DynamoDB                     | Firestore (Native)                                |
-| API Gateway + JWT authorizer | Cloud Run direct + in-app JWT                     |
-| Cognito                      | Identity Platform (manual)                        |
-| Amplify                      | Firebase Hosting                                  |
-| Route53 + ACM                | Route53 CNAME + Google-managed TLS                |
-| AWS Budgets                  | Cloud Billing budget + Pub/Sub                    |
-| S3 backend / ECR             | GCS backend / Artifact Registry                   |
-| GitHub OIDC → IAM role       | Workload Identity Federation → deploy SA (manual) |
+| AWS                          | GCP                                                   |
+| ---------------------------- | ----------------------------------------------------- |
+| Lambda                       | Cloud Run (`ContainerService`)                        |
+| DynamoDB                     | Firestore Native (`FirestoreDatabase`)                |
+| API Gateway + JWT authorizer | Cloud Run direct + in-app JWT                         |
+| Cognito                      | Identity Platform (`IdentityPlatform`)                |
+| Bedrock (Claude Haiku 4.5)   | Vertex AI Gemini (`gemini-2.5-flash-lite` / `3.8`)    |
+| Amplify                      | Firebase Hosting (`StaticSite`)                       |
+| Route53 + ACM                | Cloud DNS zone (`DnsZone`) + Google-managed TLS       |
+| AWS Budgets                  | Cloud Billing budget + Pub/Sub (`CostGuardrails`)     |
+| S3 backend / ECR             | GCS backend (`gs://sudoku-pulumi-state-eo`) / AR      |
+| GitHub OIDC → IAM role       | Workload Identity Federation → `sudoku-deploy` SA     |
 
-## Files
+## Stacks
 
-| File                   | Contents                                                                  |
-| ---------------------- | ------------------------------------------------------------------------- |
-| `terraform.tf`         | `google` / `google-beta` providers, GCS backend, `default_labels`         |
-| `main.tf`              | Workspace locals (`is_default` / `is_rc` / `suffix`), project data source |
-| `variables.tf`         | All input variables                                                       |
-| `outputs.tf`           | Service URLs, Firestore db, Hosting site                                  |
-| `cloud_run.tf`         | Backend Cloud Run service                                                 |
-| `image_recognition.tf` | Image-recognition Cloud Run service                                       |
-| `firestore.tf`         | Firestore database (named per workspace) + TTL                            |
-| `firebase_hosting.tf`  | Firebase project, Hosting site, custom domain                             |
-| `coach.tf`             | Documentation only — explains the cross-cloud Bedrock design (no resources) |
-| `budgets.tf`           | Billing budget + Pub/Sub alert topic                                      |
-
-**No `iam.tf` and no `identity_platform.tf`** — service accounts, IAM bindings, Workload Identity
-Federation, and Identity Platform are provisioned by hand: **`docs/runbooks/gcp-manual-setup.md`**.
-
-## First-time setup
-
-```bash
-# 1. One-time prerequisites: project + billing, state bucket, APIs, Artifact Registry,
-#    service accounts + runtime Firestore IAM (idempotent; prompts for billing only if unlinked)
-PROJECT_ID=<your-project> bash scripts/infra/gcp/bootstrap.sh
-
-# 2. Remaining manual identity/network layer — the learning surface:
-#    deploy-SA roles, public run.invoker, WIF, Identity Platform + Google IdP.
-#    Follow docs/runbooks/gcp-manual-setup.md
-
-# 3. Provision
-cd infra/gcp
-terraform init
-terraform plan \
-  -var "project_id=<your-project>" \
-  -var "backend_image=us-central1-docker.pkg.dev/<project>/sudoku-backend/backend:latest" \
-  -var "image_recognition_image_uri=us-central1-docker.pkg.dev/<project>/sudoku-image-recognition/ir:latest" \
-  -var "run_service_account_email=sudoku-run@<project>.iam.gserviceaccount.com" \
-  -var "image_recognition_service_account_email=sudoku-image-recognition-run@<project>.iam.gserviceaccount.com"
-terraform apply
-```
-
-## Deploy via GitHub Actions (Workload Identity Federation)
-
-The intended deploy path is the **`Deploy GCP (infra)`** workflow (`.github/workflows/deploy-gcp.yml`),
-manually triggered (`workflow_dispatch`). It authenticates via WIF (no long-lived keys) and runs
-`terraform apply` on `infra/gcp`. Requires the secrets `GCP_PROJECT_ID`, `GCP_WIF_PROVIDER`,
-`GCP_DEPLOY_SA_EMAIL` (produced by runbook §3).
-
-**Phased rollout flags** (workflow inputs / `-var`s), both default off:
-
-- `deploy_cloud_run` — apply the Cloud Run services. Off until container images exist in Artifact
-  Registry (Strategy C builds them with the app adapters). With it off, an apply stands up
-  Firestore + Firebase Hosting + budget only.
-- `enable_custom_domain` — attach the Firebase Hosting custom domain. Off by default until the
-  CNAME exists in the parent Route53 zone (`scripts/infra/gcp/set-custom-domain-cname.sh`).
-
-## Workspaces
-
-Same model as AWS: `default` = production; non-default workspaces carry a `-<workspace>` suffix and
-an isolated named Firestore database. There is **no `rc-shared`** — Identity Platform is a single
-manual per-project config and Firestore isolates per workspace. GCP has no request-rate throttle;
-load is bounded by Cloud Run max-instances × concurrency (see the LLD's deliberate-deviation note).
-
-## Cost
-
-Everything targets the free tier: Cloud Run scale-to-zero, Firestore free daily quota (per-project
-— shared across named databases), Firebase Hosting free tier. There is no Cloud DNS zone, so
-there is no standing charge at all. The billing
-budget (default workspace, when a billing account is supplied) alerts at 80% actual / 100% forecast.
+- `prod` — Production (`main` branch when `DEPLOY_TARGET` is `gcp` or `both`). Uses `(default)`
+  Firestore database, `sudoku-eo-2026` Hosting site, and `sudoku.gcp.edoatley.co.uk` custom domain.
+- `rcg-*` — Ephemeral per-branch environments. Isolated named Firestore database (`sudoku-<stack>`),
+  unique Hosting site (`sudoku-dev-<stack>-<hex>`), and `*-<stack>` Cloud Run services. Destroyed
+  automatically on branch deletion via `.github/workflows/teardown-gcp-pulumi.yml`.

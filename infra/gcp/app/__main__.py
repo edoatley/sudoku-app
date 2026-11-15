@@ -3,10 +3,6 @@
 Firestore, the two Cloud Run services, Identity Platform, Firebase Hosting and Cloud DNS. Run by
 CI as the Workload-Identity-federated deploy service account, which holds no IAM-admin,
 WIF-admin or billing permission — see docs/llds/cloud-platform-gcp.md, The Two-Stack Model.
-
-The Hosting custom domain is attached in Phase 8 rather than here, deliberately: Google-managed
-certificate issuance is asynchronous and needs the NS delegation created by this stack to have
-already propagated.
 """
 
 from __future__ import annotations
@@ -17,7 +13,7 @@ import pulumi_random as random
 
 from components import naming
 from components.container_service import ContainerService
-from components.dns_zone import DnsZone
+from components.dns_zone import DnsZone, RecordSpec
 from components.firestore_database import FirestoreDatabase
 from components.identity_platform import IdentityPlatform
 from components.service_env import backend_env, image_recognition_env
@@ -69,8 +65,6 @@ firestore = FirestoreDatabase(
 )
 
 # ── Frontend hosting ──────────────────────────────────────────────────────────
-# No custom domain in this phase. Attaching it is Phase 8, after the NS delegation below has
-# propagated — Google-managed cert issuance is asynchronous and needs DNS already answering.
 # Firebase **tombstones a deleted site's name**, so a non-production id must never be reused: a
 # torn-down stack redeployed under the same id fails part-way through, at the Hosting site,
 # leaving the rest of the environment to clean up by hand. The suffix lives in Pulumi state, so
@@ -92,6 +86,8 @@ site = StaticSite(
     "sudoku",
     project=project,
     site_id=site_id,
+    custom_domain=custom_domain,
+    wait_dns_verification=config.get_bool("waitForDomain") or False,
     # Both are once-per-project concerns that production owns. An ephemeral stack creates its own
     # site and web app inside the enrolment production already made.
     enroll_firebase=is_prod,
@@ -205,6 +201,13 @@ if is_prod:
         project=project,
         zone_name="gcp-edoatley",
         dns_name=f"{dns_zone_domain}.",
+        records=[
+            RecordSpec(
+                name=f"{custom_domain}.",
+                type="CNAME",
+                rrdatas=(f"{project_id}.web.app.",),
+            ),
+        ],
     )
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
@@ -213,6 +216,7 @@ pulumi.export("region", region)
 pulumi.export("firestore_database", firestore.name)
 pulumi.export("hosting_site_id", site.site_id)
 pulumi.export("hosting_default_url", site.default_url)
+pulumi.export("custom_domain_url", site.custom_domain_url)
 # The VITE_FIREBASE_* values the frontend build consumes. @spec CP-GCP-042
 pulumi.export("firebase_web_app_id", site.web_app_id)
 pulumi.export("firebase_api_key", site.web_api_key)
