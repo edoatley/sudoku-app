@@ -290,8 +290,8 @@ Deployment is orchestrated by [`.github/workflows/ci-deploy.yml`](.github/workfl
 |-------|----------------|--------------|---------------|
 | **AWS** | `main` (`prod`) | Amplify default URL | `https://sudoku.edoatley.co.uk` |
 | **AWS** | `rc-*` (e.g. `rc-foo`) | Amplify branch URL | — |
-| **GCP** | `main` (`prod`) | `https://sudoku-prod-13b8.web.app` | `https://sudoku.gcp.edoatley.co.uk` *(requires NS delegation of `gcp.edoatley.co.uk` in parent zone)* |
-| **GCP** | `rcg-*` (e.g. `rcg-p7`) | `https://sudoku-dev-<stack>-13b8.web.app` (e.g. `https://sudoku-dev-rcg-p7-13b8.web.app`) | — |
+| **GCP** | `main` (`prod`) | `https://sudoku-eo-2026.web.app` | `https://sudoku.gcp.edoatley.co.uk` *(requires NS delegation of `gcp.edoatley.co.uk` in parent zone)* |
+| **GCP** | `rcg-*` (e.g. `rcg-p7`) | `https://sudoku-dev-<stack>-<hex>.web.app` | — |
 
 ### Branch & Target Routing
 
@@ -311,6 +311,28 @@ make cloud-target TARGET=gcp   # Flip main-branch deployments to GCP (sudoku-eo-
 make cloud-target TARGET=aws   # Flip main-branch deployments to AWS
 make cloud-target TARGET=both  # Deploy main to both AWS and GCP in parallel
 ```
+
+### First-Time Production Cutover to GCP (`sudoku.gcp.edoatley.co.uk`)
+
+When you are ready to switch production traffic on `main` to GCP:
+
+1. **Flip `DEPLOY_TARGET` to `gcp` (or `both`)**:
+   ```bash
+   make cloud-target TARGET=gcp   # or TARGET=both
+   ```
+2. **Deploy `main` to the GCP `prod` stack**:
+   ```bash
+   gh workflow run ci-deploy.yml --ref main
+   ```
+   This builds the images, applies the `prod` Pulumi stack (`sudoku-eo-2026`), deploys the frontend to `https://sudoku-eo-2026.web.app`, and runs the post-deploy smoke checks (`/q/health/ready`, `/players/me`, `/games`, `/ai/coach`).
+3. **One-time Route 53 NS delegation for `gcp.edoatley.co.uk`** *(only needed if you want the custom domain `https://sudoku.gcp.edoatley.co.uk` in addition to `https://sudoku-eo-2026.web.app`)*:
+   Read the 4 Cloud DNS nameservers from the `prod` stack output and delegate `gcp.edoatley.co.uk` in your parent `edoatley.co.uk` Route 53 zone:
+   ```bash
+   cd infra/gcp/app && PULUMI_BACKEND_URL=gs://sudoku-pulumi-state-eo pulumi stack output name_servers --stack prod
+   PARENT_ZONE_ID=<route53-edoatley-co-uk-zone-id> \
+     bash scripts/infra/shared/delegate-dns.sh --subdomain gcp <ns1> <ns2> <ns3> <ns4>
+   ```
+   Once the NS record propagates, Firebase Hosting automatically completes managed TLS certificate issuance for `https://sudoku.gcp.edoatley.co.uk` (and you can optionally set `sudoku:waitForDomain: "true"` in `infra/gcp/app/Pulumi.prod.yaml`).
 
 Manual **Teardown** workflows (`workflow_dispatch`) are available for both clouds:
 - AWS: `.github/workflows/teardown.yml` (`terraform destroy`)
