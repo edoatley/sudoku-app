@@ -12,6 +12,7 @@ import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.GenerateContentResponseUsageMetadata;
 import com.google.genai.types.Part;
 import com.google.genai.types.Schema;
+import com.google.genai.types.ThinkingConfig;
 import com.google.genai.types.Type;
 import com.sudoku.coach.CoachAiClient;
 import com.sudoku.coach.bedrock.CoachPromptBuilder;
@@ -109,6 +110,9 @@ public class VertexCoachClient implements CoachAiClient {
                     .responseMimeType("application/json")
                     .responseSchema(RESPONSE_SCHEMA)
                     .temperature(0.7f);
+            if (modelId != null && modelId.startsWith("gemini-2")) {
+                configBuilder.thinkingConfig(ThinkingConfig.builder().thinkingBudget(0).build());
+            }
             if (cache.name() != null) {
                 configBuilder.cachedContent(cache.name());
             } else {

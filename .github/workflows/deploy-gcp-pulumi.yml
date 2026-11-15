@@ -363,6 +363,10 @@ jobs:
           check "POST /games" 201 "${AUTH[@]}" -X POST \
             -H "Content-Type: application/json" -d '{"difficulty":"easy"}' \
             "${BACKEND_URL}/api/v1/games"
+          check "POST /ai/coach" 200 "${AUTH[@]}" -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"board":{"rows":[[5,3,0,0,7,0,0,0,0],[6,0,0,1,9,5,0,0,0],[0,9,8,0,0,0,0,6,0],[8,0,0,0,6,0,0,0,3],[4,0,0,8,0,3,0,0,1],[7,0,0,0,2,0,0,0,6],[0,6,0,0,0,0,2,8,0],[0,0,0,4,1,9,0,0,5],[0,0,0,0,8,0,0,7,9]]},"history":[],"userMessage":"Can you give me a hint?"}' \
+            "${BACKEND_URL}/api/v1/ai/coach"
 
           [ "${fail}" -eq 0 ] || { echo "::error::smoke failed — the deployed environment is not serving correctly."; exit 1; }
-          echo "✓ ${BACKEND_URL} serves: health, auth and games verified."
+          echo "✓ ${BACKEND_URL} serves: health, auth, games and coach verified."

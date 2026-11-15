@@ -2,6 +2,7 @@ package com.sudoku.coach.vertex;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.genai.Client;
+import com.google.genai.types.HttpOptions;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -33,12 +34,15 @@ public class GenAiClientProducer {
     // class, so ArC can't generate a normal-scope client proxy for it. @Dependent beans are
     // injected directly, no proxy required. VertexCoachClient (the sole injection point) is
     // itself @ApplicationScoped, so this is still only ever constructed once in practice.
+    static final int HTTP_TIMEOUT_MS = 15_000;
+
     @Produces
     public Client genAiClient() {
         try {
             Client.Builder builder = Client.builder()
                     .vertexAI(true)
                     .location(location)
+                    .httpOptions(HttpOptions.builder().timeout(HTTP_TIMEOUT_MS).build())
                     .credentials(GoogleCredentials.getApplicationDefault());
             projectId.ifPresent(builder::project);
             return builder.build();

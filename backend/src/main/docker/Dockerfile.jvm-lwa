@@ -49,7 +49,7 @@ EXPOSE 8080
 USER 1001
 
 # Exec the JVM directly (absolute path via Corretto's JAVA_HOME). `exec` makes java PID 1 so it
-# receives signals. The two -D options bind all interfaces and select the JBoss LogManager Quarkus
-# needs. Identical behaviour on Cloud Run and Lambda.
+# receives signals. `-Djava.net.preferIPv4Stack=true` avoids 117s IPv6 TCP SYN timeouts on Cloud
+# Run when Apache HttpClient connects to *.googleapis.com. Identical behaviour on Cloud Run and Lambda.
 ENTRYPOINT [ "/bin/sh", "-c", \
-  "exec \"$JAVA_HOME/bin/java\" -Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -jar /deployments/quarkus-run.jar" ]
+  "exec \"$JAVA_HOME/bin/java\" -Djava.net.preferIPv4Stack=true -Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -jar /deployments/quarkus-run.jar" ]
