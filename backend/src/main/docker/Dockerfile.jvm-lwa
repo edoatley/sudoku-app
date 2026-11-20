@@ -21,7 +21,7 @@
 # Run locally (HTTP only):
 #   docker run -i --rm -p 8080:8080 sudoku-backend
 ###
-FROM amazoncorretto:26
+FROM amazoncorretto:27
 
 ENV LANGUAGE='en_US:en'
 
